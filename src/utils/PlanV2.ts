@@ -532,37 +532,49 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
       if (off) parts.push(`${cls}:${off}`);
     }
     /*
-     * RAMPARTS AND WALLS, counted separately because nothing above counts them.
+     * EVERY OTHER STRUCTURE TYPE — because the loop above only counts the four
+     * in MIGRATE_CLASSES, and anything outside that set was invisible here.
      *
-     * The census loop iterates MIGRATE_CLASSES — extension, container, tower,
-     * road — which is the set GRADUAL migration handles. Ramparts are not in it
-     * and never were, so gradual migration cannot remove an off-plan rampart at
-     * all, and this status line did not even mention them. Live E36N57 reported
+     * That is not a cosmetic gap. Live E36N57 reported
      * "extension:17 container:2 road:9" while standing on 67 ramparts of which
-     * 28 were off-plan: a complete old square wall (x=13, y=36, x=30, x=28)
-     * left beside the new min-cut shell. The owner could see two rows of
-     * ramparts in the client and the bot was telling them the room was nearly
-     * aligned.
+     * 28 were off-plan — a complete old square wall (lines at x=13, y=36, x=30,
+     * x=28) left beside the new min-cut shell. The owner could see two rings of
+     * rampart in the client while the bot's own status said the room was nearly
+     * aligned. Labs, links, walls, the extractor, the observer and the nuker had
+     * the same hole.
      *
-     * Only the align/force path (migrateInsta) retires these, so they are
-     * flagged as such rather than folded into the same list — the reader needs
-     * to know the difference between "queued for gradual" and "needs align".
+     * The comparison here is deliberately the one `migrateInsta` itself makes —
+     * standing structure against the plan's FULL tile set, `shellCut` counting
+     * as rampart — so what the census reports and what the align pass will
+     * actually retire cannot drift apart. Types the gradual path does not
+     * handle are tagged `(align-only)`, because the reader needs to know the
+     * difference between "queued" and "needs migratePlan(room, true)".
      */
-    const planRampart = new Set<number>();
-    for (const p of plan.t.rampart || []) planRampart.add(p);
-    for (const p of plan.t.shellCut || []) planRampart.add(p);
-    let offShell = 0;
-    for (const s of room.find(FIND_MY_STRUCTURES, {
-      filter: (x: any) => x.structureType === STRUCTURE_RAMPART,
-    }) as any[]) {
-      if (!planRampart.has(s.pos.x + s.pos.y * 50)) offShell++;
+    const counted: { [type: string]: boolean } = {};
+    for (const cls of MIGRATE_CLASSES) counted[cls] = true;
+    const wantedTile: { [packed: number]: { [type: string]: boolean } } = {};
+    for (const t of Object.keys(plan.t)) {
+      if (t === "labInput") continue;
+      const asType = t === "shellCut" ? STRUCTURE_RAMPART : t;
+      for (const p of plan.t[t] || []) {
+        if (!wantedTile[p]) wantedTile[p] = {};
+        wantedTile[p][asType] = true;
+      }
     }
-    for (const s of room.find(FIND_STRUCTURES, {
-      filter: (x: any) => x.structureType === STRUCTURE_WALL,
-    }) as any[]) {
-      if (!planRampart.has(s.pos.x + s.pos.y * 50)) offShell++;
+    const offOther: { [type: string]: number } = {};
+    for (const s of room.find(FIND_STRUCTURES) as any[]) {
+      const type = s.structureType;
+      if (type === STRUCTURE_CONTROLLER) continue;
+      if (counted[type]) continue; // already reported above
+      // migrateInsta only touches ours, plus unowned roads/containers
+      if (!s.my && type !== STRUCTURE_ROAD && type !== STRUCTURE_CONTAINER) continue;
+      const packed = s.pos.x + s.pos.y * 50;
+      if (wantedTile[packed] && wantedTile[packed][type]) continue;
+      offOther[type] = (offOther[type] || 0) + 1;
     }
-    if (offShell) parts.push(`rampart/wall:${offShell}(align-only)`);
+    for (const type of Object.keys(offOther).sort()) {
+      parts.push(`${type}:${offOther[type]}(align-only)`);
+    }
 
     // types the plan does not manage at all (legacy factory/powerSpawn etc.)
     const unmanaged = room
@@ -2592,7 +2604,19 @@ export function placeFromPlanV2(room: Room): void {
   // room that cannot spawn has nothing to converge on. Every destroy() there
   // only spends the one borrowed builder's time on a rebuild that is not the
   // spawn.
-  if (!spawnless) runMigration(room, plan, lvl, structures, have);
+  //
+  // An explicit ALIGN arm is the exception, and it has to be, or the rule reads
+  // as "the bot refuses to do what it was told". Live E36N57 was spawnless and
+  // carrying TWO rings of rampart — its own old square wall plus the new
+  // min-cut shell — and reported ACTIVE while this gate silently skipped it
+  // entirely. The owner could see it in the client and the bot would not touch
+  // it. Critical structures are still protected inside migrateInsta, and the
+  // spawn SITE is a construction site rather than a structure, so the rebuild
+  // this gate was written to defend cannot be destroyed by that path.
+  const alignArm = (room.memory as any).planMigration;
+  if (!spawnless || (alignArm && alignArm.force)) {
+    runMigration(room, plan, lvl, structures, have);
+  }
 
   if (budget <= 0) return;
 

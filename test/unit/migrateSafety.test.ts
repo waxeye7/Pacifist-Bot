@@ -76,6 +76,30 @@ describe("PlanV2 migration safety", () => {
     });
   });
 
+  describe("migrateStatus census covers every structure type", () => {
+    it("does not limit the off-plan census to MIGRATE_CLASSES", () => {
+      // The four-class loop is what hid 28 off-plan ramparts, 3 labs and 2 links
+      // behind a line reading "extension:17 container:2 road:9".
+      assert.include(SRC, "offOther", "census must sweep types outside MIGRATE_CLASSES");
+      assert.match(SRC, /for \(const s of room\.find\(FIND_STRUCTURES\) as any\[\]\)/);
+    });
+
+    it("compares against the plan's full tile set, as migrateInsta does", () => {
+      // If the census and the demolisher disagree the status lies again, just
+      // about a different set of structures.
+      assert.match(SRC, /wantedTile\[packed\]\[type\]/);
+      assert.match(SRC, /t === "shellCut" \? STRUCTURE_RAMPART : t/);
+    });
+
+    it("marks types gradual migration cannot touch as align-only", () => {
+      assert.include(SRC, "(align-only)");
+    });
+
+    it("skips the controller and respects migrateInsta's ownership rule", () => {
+      assert.match(SRC, /if \(!s\.my && type !== STRUCTURE_ROAD && type !== STRUCTURE_CONTAINER\) continue/);
+    });
+  });
+
   describe("the gradual gate that made migration look broken", () => {
     it("still requires a real bank before unforced demolition", () => {
       // Not a bug — but it is why an unforced migratePlan on a room that never
