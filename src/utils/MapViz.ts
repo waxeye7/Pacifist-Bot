@@ -37,14 +37,13 @@
  * -------------------
  * The expansion candidates are written offline by
  * `tools/server/push-expansion-pack.mjs` into segment 86. AutoExpand reads that
- * same segment and its readSegment() asks for the UNION of the already-active
- * segments, so readers coexist. This module must never starve it:
+ * same segment, and both go through utils/Segments.requestSegments — one
+ * per-tick accumulator unioned with the already-active set — so the readers
+ * coexist whatever order main.ts runs them in. This module must never starve
+ * it, so it also stays cheap:
  *   · if segment 86 is already a string this tick, parse and cache it (free);
- *   · otherwise, only when the cache is stale AND Game.time % 10 === 0, request
- *     it with the same union idiom.
- * runMapViz() is called from main.ts BEFORE runAutoExpand(), so AutoExpand's own
- * setActiveSegments call always runs later and wins any conflict — which is what
- * we want, since expansion is real work and this is a picture of it.
+ *   · otherwise, only when the cache is stale AND Game.time % 10 === 0, ask
+ *     requestSegments for it.
  *
  * CONSOLE API (every call returns a printable status string)
  * ----------------------------------------------------------
@@ -54,6 +53,7 @@
  *      also: "expand" · "danger" · "remotes" · "ops"
  *   mapViz("all")            every layer on
  */
+import { requestSegments } from "utils/Segments";
 
 const SEG_INDEX = 86;
 /** how long a cached copy of segment 86 is considered fresh */
@@ -228,14 +228,12 @@ function refreshExpansionCache(st: MapVizState): void {
   const fresh = st.exp && typeof st.exp.t === "number" && Game.time - st.exp.t < SEG_TTL;
   if (fresh) return;
   if (Game.time % 10 !== 0) return;
-  // UNION idiom: keep whatever is already active, add 86. AutoExpand runs after
-  // us in the tick and does the same, so its needs always win.
-  const want: number[] = [SEG_INDEX];
-  for (const key in RawMemory.segments) {
-    const n = Number(key);
-    if (want.indexOf(n) < 0) want.push(n);
-  }
-  RawMemory.setActiveSegments(want.slice(0, 10));
+  // Shared per-tick accumulator (utils/Segments) — a private union idiom here
+  // used to lose the race against whichever module called setActiveSegments
+  // last in the tick, which is why this comment used to say AutoExpand always
+  // won. All segment users now go through requestSegments so order is
+  // irrelevant.
+  requestSegments([SEG_INDEX]);
 }
 
 type TargetStatus = "mine" | "taken" | "free" | "unknown";

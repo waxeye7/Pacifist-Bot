@@ -19,7 +19,15 @@ function ExecuteCommandsInNTicks() {
         }
         if(command.delay > 0) {
             command.delay --;
-            console.log(JSON.stringify(command))
+            // One line per tick per pending command buried the console: a CCK
+            // queued with delay 500 printed the same JSON 500 times, and the
+            // war layer queues follow-up CCKs with delays of 200-1000. Log the
+            // countdown when it starts, every 100 ticks after that, and on the
+            // last tick before it fires — enough to see a command is pending
+            // and roughly when, without drowning everything else.
+            if(command.delay % 100 === 0 || command.delay <= 1) {
+                console.log("pending in " + command.delay + ": " + JSON.stringify(command));
+            }
         }
 
         // delay <= 0 is due. A negative delay (callers compute it from a creep's

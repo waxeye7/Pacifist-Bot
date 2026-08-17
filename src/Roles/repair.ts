@@ -4,6 +4,7 @@
  **/
 import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
+import { stompForeignSite } from "utils/ForeignSites";
 
 const STEP_DX = [0, 0, 1, 1, 1, 0, -1, -1, -1];
 const STEP_DY = [0, -1, -1, 0, 1, 1, 1, 0, -1];
@@ -187,6 +188,7 @@ function findLocked(creep, storage) {
     if(creep.evacuate()) {
 		return;
 	}
+    if (!creep.store.getUsedCapacity() && stompForeignSite(creep)) return;
 
     if(creep.holdForFlee()) {
         return;

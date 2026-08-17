@@ -15,6 +15,8 @@ import { placeFromPlanV2 } from "utils/PlanV2";
 import { refreshUnreachable, pruneBadFill } from "utils/Reachability";
 import { forwardToControllerLink } from "../Roles/energyMiner";
 import { logAlways } from "utils/Logger";
+import { isSkeleton } from "War/mode";
+import { wipeForeignSites } from "utils/ForeignSites";
 
 /*
  * PER-ROOM FAULT ISOLATION.
@@ -155,7 +157,7 @@ function rooms() {
     }
 
     if (room && room.controller && room.controller.my) {
-      supportOtherRooms(room);
+      if (!isSkeleton(room.name)) supportOtherRooms(room);
 
       if (!room.memory.Structures) {
         room.memory.Structures = {};
@@ -328,6 +330,11 @@ function rooms() {
         applySpeedrunSpawnHints(room);
       }
       spawning(room);
+      if (room.controller && room.controller.my) wipeForeignSites(room);
+      // Orphan migrate flag after a stripped plan keeps siting the old bunker.
+      if ((room.memory as any).planMigration && !room.memory.planV2) {
+        delete (room.memory as any).planMigration;
+      }
 
       if (Game.time % 500 === 0 && room.memory.ram_coming) {
         delete room.memory.ram_coming;
@@ -338,12 +345,12 @@ function rooms() {
       roomDefence(room);
       // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-      if (room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 8000)) {
+      if (room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 8000) && !isSkeleton(room.name)) {
         observe(room);
       }
       data(room);
 
-      if (room.terminal && room.controller.level >= 6) {
+      if (room.terminal && room.controller.level >= 6 && !isSkeleton(room.name)) {
         // Staggered per room so every terminal room does not scan Game.market
         // on the same tick (same idiom as manageRemotes). Labs stays on the
         // plain %10: its internal refresh cadences (%120 / %500 / %21000 in
@@ -387,7 +394,7 @@ function rooms() {
       // PathFinder), so it does not need the 100/1000-tick construction
       // cadence — at RCL4+ that cadence meant ~4 structures per 1000 ticks.
       // construction() still calls it too; the function is idempotent.
-      if (room.memory.planV2 && Game.time % 15 === 0) {
+      if (room.memory.planV2 && Game.time % 15 === 0 && !isSkeleton(room.name)) {
         placeFromPlanV2(room);
       }
 
@@ -403,9 +410,10 @@ function rooms() {
       // High RCL keeps the old expensive cadence.
       const constructionInterval = room.controller.level < 4 ? 100 : 1000;
       if (
-        (Game.time % constructionInterval == 0 && bucket > 3500) ||
-        room.memory.data.DOB == 2 ||
-        room.memory.data.DOBug == 2
+        !isSkeleton(room.name) &&
+        ((Game.time % constructionInterval == 0 && bucket > 3500) ||
+          room.memory.data.DOB == 2 ||
+          room.memory.data.DOBug == 2)
       ) {
         const start = Game.cpu.getUsed();
         construction(room);
@@ -414,7 +422,7 @@ function rooms() {
 
       // Which neighbours this commune remotes. Cheap, self-throttling
       // (per-room stagger inside), owns room.memory.resources[*].active.
-      manageRemotes(room);
+      if (!isSkeleton(room.name)) manageRemotes(room);
 
       // Threat sweep runs far more often than manageRemotes' 25-tick cadence:
       // "leave fast" is only fast if we notice fast.

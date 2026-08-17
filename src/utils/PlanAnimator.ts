@@ -414,6 +414,12 @@ export function animPlan(roomName: string, speed: number = 1, loop: boolean = tr
     h.room = undefined;
     h.data = undefined;
   }
+  // Deliberate HARD REPLACE, not requestSegments(): arming the animator needs a
+  // clean slate, because playback then wants 89 plus up to 10 data segments and
+  // the engine cap is 10 active total. Unioning here would let unrelated
+  // long-lived readers (error 10, intel 30, expansion 86) crowd the animation
+  // out. Operator-triggered and one tick only; War/intel tolerates the eviction
+  // and recovers its slot on the next tick.
   RawMemory.setActiveSegments([INDEX_SEGMENT]);
   const msg = `animPlan ${roomName} armed (speed ${Memory.planAnim.speed}, loop ${
     Memory.planAnim.loop ? "on" : "off"

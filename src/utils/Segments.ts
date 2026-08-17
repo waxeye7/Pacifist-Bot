@@ -54,3 +54,49 @@ export function requestSegments(ids: number[]): number[] {
   RawMemory.setActiveSegments(set);
   return set;
 }
+
+/** Who owns which id — so segs() is readable and we do not double-book. */
+export const SEGMENT_OWNERS: { [id: number]: string } = {
+  10: "errors",
+  30: "war-intel",
+  86: "expand-pack",
+  88: "plan-v2",
+  89: "anim-index",
+};
+
+export function segmentOwner(id: number): string {
+  if (SEGMENT_OWNERS[id]) return SEGMENT_OWNERS[id];
+  if (id >= 90 && id <= 99) return "anim-data";
+  return "?";
+}
+
+/** Snapshot of the 10-slot mount table. Console: segs() */
+export function segmentStatus(): string {
+  const active: number[] = [];
+  for (const key in RawMemory.segments) {
+    const n = Number(key);
+    if (!isNaN(n)) active.push(n);
+  }
+  active.sort((a, b) => a - b);
+  const rows = [
+    `mounted this tick: ${active.length}/${MAX_ACTIVE}  (readable/writable now)`,
+    `requested this tick: ${wanted.length ? wanted.join(",") : "(none yet)"}`,
+  ];
+  for (let i = 0; i < active.length; i++) {
+    const id = active[i];
+    const raw = RawMemory.segments[id];
+    const len = typeof raw === "string" ? raw.length : 0;
+    rows.push(`  ${String(id).padStart(2)}  ${segmentOwner(id).padEnd(12)}  ${len} / 100000 bytes`);
+  }
+  rows.push("private: other players cannot read these (no setPublicSegments).");
+  return rows.join("\n");
+}
+
+export function installSegmentCommands(): void {
+  const g = global as any;
+  if (g.__segCommandsInstalled) return;
+  g.__segCommandsInstalled = true;
+  g.segs = function (): string {
+    return segmentStatus();
+  };
+}

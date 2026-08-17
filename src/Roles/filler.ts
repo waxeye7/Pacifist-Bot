@@ -20,10 +20,46 @@ import { planSitter } from "utils/PlanV2";
  *
  * This function ignores reservations entirely and is the delivery guarantee:
  * while anything in the room still wants energy, a carrying filler has
- * somewhere to go. Priority is the one the room actually needs - spawn and
- * extensions first (they are what blocks spawning), then any tower below half.
+ * somewhere to go. Priority is a NEARLY-dry tower, then spawn and extensions
+ * (they are what blocks spawning), then any tower below half.
  */
+
+/**
+ * Energy a tower is topped up to before the extension network gets anything.
+ *
+ * Towers used to be strictly last: they were only offered as a target once
+ * EVERY spawn and extension in the room was full. In a room that is spending
+ * everything it earns that never happens, so the towers simply stay at zero —
+ * live shard3 E37N59 sat at RCL6 with both towers on 4 and 0 of 1000 while 24
+ * of its 37 extensions were empty and a container 10 tiles away held 2000.
+ *
+ * A dry tower is not a slow room, it is an undefended one, and this bot has
+ * already been through that exact failure: see offerEmergencyFeed, written
+ * after a 50-part Invader parked on E37N59's spawn with the towers on empty.
+ *
+ * 200 is one tower shot at close range plus change — enough to make an
+ * opportunist reconsider and to buy the time the defence roles need. It is a
+ * floor, not a fill: above it towers go back to being last in line, so the
+ * spawn queue still gets essentially all of the room's throughput.
+ */
+export const TOWER_FLOOR = 200;
+
 function fillNeed(creep, excludeId?, spawnOnly?) {
+    // A tower under the floor outranks the extension network. Only when the
+    // caller has asked for spawn/extension targets specifically (spawnOnly)
+    // does this step aside, since that path exists to unblock spawning.
+    if(!spawnOnly) {
+        const dryTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+            s.structureType == STRUCTURE_TOWER
+            && s.id !== excludeId
+            && s.store[RESOURCE_ENERGY] < TOWER_FLOOR
+            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            && !isUndeliverable(creep.room, s.id)});
+        if(dryTowers.length) {
+            return creep.pos.findClosestByRange(dryTowers);
+        }
+    }
+
     // isUndeliverable(): an extension with no walkable approach is hungry
     // FOREVER, which makes it permanently the nearest hungry structure to a
     // filler standing in the hub. Without this filter the whole fill layer
@@ -432,14 +468,15 @@ const run = function (creep) {
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
+    // store[] is start-of-tick. Judge "still have a load" from that, not
+    // after a withdraw — the old check ran after collect and un-fulled us.
+    const startedEnergy = creep.store[RESOURCE_ENERGY] || 0;
     if(creep.memory.full) {
-        if(creep.room.controller && (creep.room.controller.level <= 6 && creep.store[RESOURCE_ENERGY] < 50 || creep.room.controller.level == 7 && creep.store[RESOURCE_ENERGY] < 100 || creep.room.controller.level == 8 && creep.store[RESOURCE_ENERGY] < 200)) {
+        if(creep.room.controller && (creep.room.controller.level <= 6 && startedEnergy < 50 || creep.room.controller.level == 7 && startedEnergy < 100 || creep.room.controller.level == 8 && startedEnergy < 200)) {
             creep.memory.full = false;
             creep.memory.t = false;
         }
     }
-
-
 
     if(!creep.memory.full) {
         // native getter is authoritative — the Structures cache can go stale
@@ -499,8 +536,38 @@ const run = function (creep) {
                 creep.memory.full = true;
             }
         }
-        else if(!creep.room.memory.danger) {
-            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        else {
+            // Storage empty: tap links. Live E37N59 sat 1.8k in three links
+            // while fillers walked to the east wall because acquireEnergy
+            // only knows containers/drops.
+            const links: any[] = creep.room.find(FIND_MY_STRUCTURES, {
+                filter: (s: any) =>
+                    s.structureType === STRUCTURE_LINK &&
+                    s.store[RESOURCE_ENERGY] >= 50,
+            });
+            let link: any = null;
+            if (links.length) {
+                if (storage) {
+                    const hub = links.filter((l) => l.pos.getRangeTo(storage) <= 2);
+                    if (hub.length) {
+                        hub.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+                        link = hub[0];
+                    }
+                }
+                if (!link) {
+                    links.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+                    link = creep.pos.findClosestByRange(links) || links[0];
+                }
+            }
+            if (link) {
+                if (creep.pos.isNearTo(link)) {
+                    if (creep.withdraw(link, RESOURCE_ENERGY) === 0) creep.memory.full = true;
+                } else {
+                    advanceTo(creep, link, true);
+                }
+            } else if (!creep.room.memory.danger) {
+                creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+            }
         }
     }
 

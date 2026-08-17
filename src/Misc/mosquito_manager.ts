@@ -1,42 +1,13 @@
+import { ownedRooms } from "War/reach";
+import { roomDistance } from "War/geo";
+
 function mosquito_manager() {
   if (Game.cpu.bucket < 1500) return;
-  if(!Memory.e) Memory.e = {mosquito: []};
+  if (!Memory.e) Memory.e = { mosquito: [] };
 
   for (let u of Memory.e.mosquito) {
     if (u.ts > 0) {
-      function findClosestRooms(roomName: string) {
-        const range = 5;
-        let myRoomNames = ["E45N59","E49N59","E49N58","E51N54","E41N58","E42N59"];
-        myRoomNames = _.shuffle(myRoomNames);
-
-        let myRooms: Array<Room> = [];
-        for (const myRoomName of myRoomNames) {
-          if (Game.map.getRoomLinearDistance(roomName, myRoomName) > range) {
-            continue;
-          }
-          let room = Game.rooms[myRoomName];
-          // guard before the dereference: a room we have no vision of is undefined
-          // here, and reading .storage off it threw before the null check below ran.
-          let storage = room && room.storage;
-          let terminal = room && room.terminal;
-          if (room && storage && terminal && room.controller && room.controller.my && room.controller.level === 8) {
-            if (
-              storage.store[RESOURCE_ENERGY] >= 10000
-            )
-              myRooms.push(room);
-          }
-        }
-
-
-        const closestRooms = myRooms.sort((a, b) => {
-          const distanceA = Game.map.getRoomLinearDistance(roomName, a.name);
-          const distanceB = Game.map.getRoomLinearDistance(roomName, b.name);
-          return distanceA - distanceB;
-        });
-        return closestRooms.slice(0, 3);
-      }
-
-      let closestRooms = findClosestRooms(u.n);
+      const closestRooms = findClosestRooms(u.n);
       for (let closestRoom of closestRooms) {
         if (u.ts > 0) {
           if (global.spawn_mosquito(closestRoom.name, u.n)) {
@@ -49,4 +20,31 @@ function mosquito_manager() {
   }
 }
 
-export default mosquito_manager
+/** Closest owned RCL8 rooms with storage/terminal and ≥10k energy, within 5. */
+function findClosestRooms(roomName: string): Room[] {
+  const range = 5;
+  const myRooms: Room[] = [];
+  const names = ownedRooms();
+  for (let i = 0; i < names.length; i++) {
+    const myRoomName = names[i];
+    if (roomDistance(roomName, myRoomName) > range) continue;
+    const room = Game.rooms[myRoomName];
+    const storage = room && room.storage;
+    const terminal = room && room.terminal;
+    if (
+      room &&
+      storage &&
+      terminal &&
+      room.controller &&
+      room.controller.my &&
+      room.controller.level === 8 &&
+      storage.store[RESOURCE_ENERGY] >= 10000
+    ) {
+      myRooms.push(room);
+    }
+  }
+  myRooms.sort((a, b) => roomDistance(roomName, a.name) - roomDistance(roomName, b.name));
+  return myRooms.slice(0, 3);
+}
+
+export default mosquito_manager;

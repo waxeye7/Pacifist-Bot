@@ -1,5 +1,6 @@
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
+import { plannedLinkTile } from "utils/PlanV2";
 import {
     cachedDerived,
     cachedDropped,
@@ -233,7 +234,18 @@ function _discoverControllerDepot(room:any):void {
         // a full 800 energy through 444+ ticks of zero controller progress.
         // Matches the RCL5+ rung in rooms.spawning.ts:1866-1869.
         let ctrlLink:any = null;
-        if(room.controller.level >= 5) {
+        const plannedCtrl = plannedLinkTile(room, 2);
+        if (plannedCtrl && room.controller.level >= 5) {
+            const here = room.lookForAt(LOOK_STRUCTURES, plannedCtrl.x, plannedCtrl.y);
+            for (const s of here) {
+                if (s.structureType === STRUCTURE_LINK && (s as StructureLink).my &&
+                    s.id !== room.memory.Structures.StorageLink) {
+                    ctrlLink = s;
+                    break;
+                }
+            }
+        }
+        if(room.controller.level >= 5 && !ctrlLink) {
             let ctrlLinks = cachedMyStructures(room).filter((building:any) =>
                 building.structureType == STRUCTURE_LINK &&
                 building.id !== room.memory.Structures.StorageLink &&
@@ -242,7 +254,7 @@ function _discoverControllerDepot(room:any):void {
                 ctrlLink = room.controller.pos.findClosestByRange(ctrlLinks);
             }
         }
-        if(ctrlLink) {
+        if(ctrlLink && ctrlLink.id !== room.memory.Structures.StorageLink) {
             room.memory.Structures.controllerLink = ctrlLink.id;
         }
         else if(room.controller.level < 7) {
@@ -270,7 +282,9 @@ function _discoverControllerDepot(room:any):void {
         }
         else {
             let links = cachedMyStructures(room).filter((building:any) =>
-                building.structureType == STRUCTURE_LINK && building.pos.getRangeTo(room.controller) <= 3);
+                building.structureType == STRUCTURE_LINK &&
+                building.id !== room.memory.Structures.StorageLink &&
+                building.pos.getRangeTo(room.controller) <= 3);
             if(links.length > 0) {
                 let controllerLink:any = room.controller.pos.findClosestByRange(links);
                 if(controllerLink.pos.getRangeTo(room.controller) <= 4)  {

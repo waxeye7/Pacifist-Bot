@@ -40,6 +40,8 @@
  */
 import { logAlways } from "utils/Logger";
 import { packPlanPayload, clearPlanSpawnTile } from "utils/PlanV2";
+import { requestSegments } from "utils/Segments";
+import { wipeForeignSites } from "utils/ForeignSites";
 
 const SEG_INDEX = 86;
 /** segments holding the pack's per-room plans (push-expansion-pack.mjs) */
@@ -116,33 +118,20 @@ function blockedReason(): string | null {
  * Request a segment; undefined until it is active (usually the next tick).
  *
  * setActiveSegments REPLACES the whole active set, and adoptPlan (88) plus the
- * plan animator (89-99) call it every tick too. AutoExpand runs last in the
- * tick, so it asks for the union of what is already active and what it needs —
- * otherwise whoever runs last starves everyone else. Live proof: with
+ * plan animator (89-99) call it every tick too, so this goes through the shared
+ * per-tick accumulator in utils/Segments — otherwise whoever runs last starves
+ * everyone else, no matter what order main.ts calls them in. Live proof: with
  * Memory.planAnim.active set, the first cut of this function sat in `picking`
  * for 400+ ticks because segment 86 was never activated.
  */
-let segTick = -1;
-let segWanted: number[] = [];
-
 function readSegment(seg: number): any | undefined {
-  // Two readers now live in this file (the ExpandState machine and
-  // runPackAdoption) and they want DIFFERENT segments in the same tick. The
-  // union must therefore include everything asked for THIS tick as well as
-  // what is already active — RawMemory.segments only reflects last tick's
-  // request, so the second caller would otherwise silently cancel the first's
-  // and the two would take turns starving each other.
-  if (segTick !== Game.time) {
-    segTick = Game.time;
-    segWanted = [];
-  }
-  if (segWanted.indexOf(seg) < 0) segWanted.push(seg);
-  const active: number[] = [];
-  for (const key in RawMemory.segments) {
-    const n = Number(key);
-    if (segWanted.indexOf(n) < 0) active.push(n);
-  }
-  RawMemory.setActiveSegments(segWanted.concat(active).slice(0, 10));
+  // Two readers live in this file (the ExpandState machine and
+  // runPackAdoption) and they want DIFFERENT segments in the same tick.
+  // requestSegments unions everything asked for THIS tick with what is already
+  // active — RawMemory.segments only reflects last tick's request, so without
+  // that the second caller would silently cancel the first's and the two would
+  // take turns starving each other.
+  requestSegments([seg]);
   const raw = RawMemory.segments[seg];
   if (raw === undefined) return undefined;
   try {
@@ -268,8 +257,39 @@ function pick(st: ExpandState): void {
   delete M().autoExpand;
 }
 
+function payloadSpawnPos(payload: any): { x: number; y: number } | null {
+  const s = payload && payload.structures && payload.structures.spawn;
+  if (s && s[0] && typeof s[0].x === "number") return { x: s[0].x, y: s[0].y };
+  const t = payload && payload.t && payload.t.spawn;
+  if (t && t.length) {
+    const p = t[0];
+    if (typeof p === "number") return { x: p % 50, y: Math.floor(p / 50) };
+    if (p && typeof p.x === "number") return { x: p.x, y: p.y };
+  }
+  return null;
+}
+
+/** Why this room must not receive this pack. null = ok. */
+function refuseAdopt(room: Room, payload: any): string | null {
+  if (room.find(FIND_SOURCES).length < 2) return "fewer than 2 sources";
+  const live = room.find(FIND_MY_SPAWNS);
+  if (!live.length) return null;
+  const planned = payloadSpawnPos(payload);
+  if (!planned) return null;
+  for (const s of live) {
+    if (Math.max(Math.abs(s.pos.x - planned.x), Math.abs(s.pos.y - planned.y)) <= 6) return null;
+  }
+  return `live spawn ${live[0].pos.x},${live[0].pos.y} != pack spawn ${planned.x},${planned.y}`;
+}
+
 /** Write a pack payload into room.memory.planV2 and say so. */
 function adoptPacked(room: Room, payload: any, from: string): void {
+  const why = refuseAdopt(room, payload);
+  if (why) {
+    (room.memory as any).planPackSkip = true;
+    logAlways(`autoExpand: ${room.name} refuse pack from ${from} — ${why}`);
+    return;
+  }
   room.memory.planV2 = packPlanPayload(payload);
   // fresh colonies auto-arm migration so bootstrap squatters get cleared;
   // established rooms (a pack adopted late) stay placement-only until the
@@ -383,6 +403,7 @@ export function runPackAdoption(): void {
   if (!cur) {
     if (Game.time % ADOPT_SCAN_EVERY !== 0) return;
     for (const room of ownedRooms()) {
+      if ((room.memory as any).planPackSkip) continue;
       if (room.memory.planV2) {
         // self-heal colonies that adopted BEFORE the arming model existed:
         // they hold a plan but no planMigration, so squatter-reclaim is dead
@@ -507,6 +528,10 @@ function advance(st: ExpandState): void {
       return;
 
     case "claiming":
+      if (Game.rooms[st.room] && tooFewSources(st.room)) {
+        finish(st, "ABORT — fewer than 2 sources");
+        return;
+      }
       if (hasVisibleForeignSpawn(st.room) && !hasSpawn) {
         finish(st, "ABORT — visible foreign spawn while claiming");
         return;
@@ -525,6 +550,11 @@ function advance(st: ExpandState): void {
         setPhase(st, "claiming");
         return;
       }
+      if (tooFewSources(st.room)) {
+        finish(st, "ABORT — fewer than 2 sources");
+        return;
+      }
+      wipeForeignSites(room as Room);
       if (hasSpawn) {
         setPhase(st, "spawned");
         return;

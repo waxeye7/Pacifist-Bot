@@ -3,11 +3,21 @@
  * @param {Creep} creep
  **/
 import { rescoutDelay } from "../Rooms/rooms.remotes";
+import { recordRoomIfStale } from "War/intel";
 
 const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
         // if(creep.memory.route = -2) creep.suicide()
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+    }
+
+    // War-layer lookout. Record HERE — suicide in the creeps phase used to
+    // drop vision before phase("war") ingest, so E38N56 stayed "unseen" forever
+    // and we spawned a 50-energy scout at it every other minute.
+    if (creep.memory.warScout) {
+        try { recordRoomIfStale(creep.room, 0); } catch (e) { /* never break the scout */ }
+        creep.suicide();
+        return;
     }
 
     const homeMem = Memory.rooms[creep.memory.homeRoom];

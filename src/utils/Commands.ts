@@ -158,6 +158,17 @@ export function runDropRooms(): void {
     delete (Memory as any).dropRoom;
 }
 
+/** Drop a pack that does not match the live spawn. Refuses nothing else. */
+g.stripBadPlan = function (name: string): string {
+    const room = Game.rooms[name];
+    if (!room) return "no vision " + name;
+    delete room.memory.planV2;
+    (room.memory as any).planPackSkip = true;
+    if (room.memory.construction) room.memory.construction.rampartLocations = [];
+    logAlways("stripBadPlan " + name);
+    return "stripped planV2 on " + name;
+};
+
 /** Console: dropRoom("E36N58") — add true to force past the contents guard. */
 g.dropRoom = function (name: string, force: boolean = false): string {
     (Memory as any).dropRoom = name;

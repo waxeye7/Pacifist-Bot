@@ -411,13 +411,11 @@ export function manageRemotes(room: any): void {
         return;
     }
 
-    // Below RCL4 remotes do not pay. Reservers are RCL5+ (1 CLAIM is net-zero),
-    // so an RCL3 remote is an unreserved 5 e/t after a 50–80 tile walk, and
-    // its miner/carrier steal spawn from the 135k climb. scout.ts still writes
-    // `active = true` with no RCL awareness — close them here so the flag and
-    // the behaviour cannot disagree. Measured shape: E19S7 at RCL2 returned
-    // 0.13 e/tick for 0.65 e/tick of spawn; RCL3 is the same body, longer walk.
-    if (room.controller.level < 4) {
+    // RCL2 remotes do not pay (E19S7: 0.13 e/t for 0.65 spawn). RCL3 after
+    // slam-5: one close unreserved remote if CPU allows. No reserver until
+    // 650e (RCL5 / leftover dump). Roads still wait for RCL4.
+    if (room.controller.level < 3 ||
+        (room.controller.level === 3 && room.energyCapacityAvailable < 550)) {
         const r = room.memory.resources;
         if (r) {
             for (const n in r) {
@@ -436,7 +434,9 @@ export function manageRemotes(room: any): void {
 
     const policy = getCpuPolicy();
     if (!policy.allowRemotes) return;
-    const hardCap = room.controller.level >= 6 ? HARD_CAP_MATURE : HARD_CAP;
+    const hardCap = room.controller.level >= 6 ? HARD_CAP_MATURE
+        : room.controller.level <= 3 ? 1
+        : HARD_CAP;
     const cap = Math.max(1, Math.min(hardCap, policy.maxRemotes));
 
     const res = room.memory.resources;
@@ -686,7 +686,9 @@ export function manageRemotes(room: any): void {
         // HARD_CAP already keeps only the best two, and the demand-sized carriers
         // handle the rest. Kept deliberately loose so it can never be the reason
         // a working remote is dropped.
-        const maxPath = room.controller.level >= 5 ? 120 : 90;
+        const maxPath = room.controller.level >= 5 ? 120
+            : room.controller.level <= 3 ? 60
+            : 90;
         if (best > maxPath) {
             if (e.active) {
                 e.active = false;

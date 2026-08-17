@@ -3,6 +3,7 @@ import { remoteIsHot, markRemoteHot } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
+import { logAlways } from "utils/Logger";
 
 /**
  * Boostable stock is storage + TERMINAL.
@@ -16,6 +17,182 @@ function boostStock(room, res): number {
     const s = room.storage;
     const t = room.terminal;
     return ((s && s.store[res]) || 0) + ((t && t.store[res]) || 0);
+}
+
+/**
+ * Home sources/spawn come first. Remotes wait until the bank and miners exist.
+ *
+ * "Miners exist" has to mean ONE PER LOCAL SOURCE, not a flat two. A room with
+ * a single source can never reach two home miners, so a flat `< 2` marked it
+ * starved forever — and `remotesAllowed` does not merely skip remotes when this
+ * is true, it walks room.memory.resources and sets every remote's `active` to
+ * false. VPS W2N1 and W1N2 are both one-source RCL7 rooms: every remote off,
+ * storage pinned at 0, therefore never reaching the 5000 that would have let
+ * them out. The room that most needs remote income was the one guaranteed
+ * never to get it.
+ */
+function homeEconomyStarved(room: any): boolean {
+    const storageE = room.storage && room.storage.my ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+    if (storageE >= 5000) return false;
+    let homeMiners = 0;
+    for (const cn in Game.creeps) {
+        const c = Game.creeps[cn];
+        if (!c.memory || c.memory.role !== "EnergyMiner") continue;
+        if (c.memory.homeRoom === room.name && (!c.memory.targetRoom || c.memory.targetRoom === room.name)) {
+            homeMiners++;
+        }
+    }
+    const localSources = room.find(FIND_SOURCES).length;
+    return homeMiners < Math.min(2, localSources) || room.energyAvailable < 300;
+}
+
+/**
+ * Neighbor haul when a room's towers/spawn are dry after an invader.
+ * Live E37N59: 50-part Invader sat on the spawn, towers at 0/4 energy,
+ * storage 0, no civilians — spawn could not even hatch a 100e filler.
+ */
+function offerEmergencyFeed(fromRoom: any): void {
+    if (!fromRoom.controller || !fromRoom.controller.my) return;
+    if (fromRoom.memory.danger) return;
+    if (!fromRoom.storage || (fromRoom.storage.store[RESOURCE_ENERGY] || 0) < 2000) return;
+    if (fromRoom.energyAvailable < 300) return;
+    if (queuedWithPrefix(fromRoom, "Feed-")) return;
+    const exits = Game.map.describeExits(fromRoom.name);
+    if (!exits) return;
+    for (const dir in exits) {
+        const n = exits[dir];
+        const dest = Game.rooms[n];
+        if (!dest || !dest.controller || !dest.controller.my) continue;
+        if (!dest.find(FIND_MY_SPAWNS).length) continue;
+        const noCivilians =
+            dest.find(FIND_MY_CREEPS, {
+                filter: (c: any) => c.memory.role === "filler" || c.memory.role === "carry",
+            }).length === 0;
+        const wrecked =
+            dest.memory.danger ||
+            (dest.memory as any).blown_fuse ||
+            dest.energyAvailable < 200 ||
+            noCivilians;
+        if (!wrecked) continue;
+        const towers: any[] = dest.find(FIND_MY_STRUCTURES, {
+            filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+        });
+        let towerE = 0;
+        for (const t of towers) towerE += t.store[RESOURCE_ENERGY] || 0;
+        if (towers.length && towerE >= 400 && dest.energyAvailable >= 300) continue;
+        let sending = 0;
+        for (const cn in Game.creeps) {
+            const c = Game.creeps[cn];
+            if (c.memory && c.memory.emergencyFeed === n) sending++;
+        }
+        if (sending >= 2) continue;
+        const name = "Feed-" + n + "-" + Game.time;
+        fromRoom.memory.spawn_list.unshift(
+            [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
+            name,
+            { memory: { role: "carry", homeRoom: n, targetRoom: n, emergencyFeed: n } },
+        );
+        logAlways(`emergency feed ${n} from ${fromRoom.name}`);
+        return;
+    }
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * A BROKE ROOM MAY ONLY BUY ITS OWN RECOVERY.
+ *
+ * The queue is FIFO with no priority — `unshift` to jump, `push` to append —
+ * so whatever reaches the head blocks everything behind it until it hatches or
+ * is shredded, which is SHRED_STALLED_HEAD_AFTER (60) ticks per entry at best.
+ *
+ * That is survivable while the entries are economy creeps, because hatching one
+ * is what ends the shortage. It is not survivable when they are not. Live
+ * shard3 E37N59 (RCL6, storage at 0, both towers dry, 24 of 37 extensions
+ * empty, refilling at ~7 energy/tick) held an 1800-energy Maintainer, two
+ * 1400-energy RemoteRepairers and a 7000-energy ranged quad AHEAD of the
+ * fillers and miners that were the only things able to refill it: 11,600
+ * energy of queue in front of a room earning seven.
+ *
+ * The interleave rung below spawns AROUND a stuck head, but only one creep per
+ * 40 ticks and only once the head has stalled 40 — far too slow to dig out from
+ * under seven military bodies. So when a room is demonstrably broke, offence
+ * and other non-recovery spend is dropped outright rather than timed out one
+ * entry at a time.
+ *
+ * Nothing is lost by dropping: every producer re-derives its demand from the
+ * live creep census on its next pass, so anything still wanted is re-queued as
+ * soon as the room can pay for it. A room under attack is exempt entirely —
+ * there, defenders ARE the essential spend.
+ * ---------------------------------------------------------------------------
+ */
+
+/**
+ * Roles a broke room stops buying. Deliberately a DENY list, not an allow list:
+ * an unrecognised role keeps its place in the queue, so adding a role elsewhere
+ * in the bot can never silently make it undroppable-but-starving here.
+ *
+ * Everything on it is offence, expansion or remote upkeep — all worth doing
+ * from a solvent room, none of it worth doing instead of eating.
+ */
+const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
+    SquadCreepA: true, SquadCreepB: true, SquadCreepY: true, SquadCreepZ: true,
+    DuoCreepA: true, DuoCreepB: true, CCKparty: true, FreedomFighter: true,
+    CCK: true, WallClearer: true, Guard: true, attacker: true,
+    RangedAttacker: true, healer: true, Dismantler: true, RemoteDismantler: true,
+    DismantleControllerWalls: true, ram: true, DrainTower: true, annoy: true,
+    CreepKiller: true, Solomon: true, Priest: true, goblin: true, mosquito: true,
+    Signifer: true, Sign: true, RoomLocker: true, Escort: true, claimer: true,
+    SneakyControllerUpgrader: true, Convoy: true, clearer: true, billtong: true,
+    SpecialRepair: true, SpecialCarry: true, RemoteRepair: true,
+    // Rampart crews are defence, but this whole pass is skipped while
+    // room.memory.danger is set, so reaching here means nothing is attacking.
+    RampartDefender: true, RRD: true, RampartErector: true, rampartUpgrader: true,
+};
+
+/**
+ * Broke = no bank to fall back on AND the extension network is running on
+ * fumes. Both halves matter: a room mid-spawn-cycle dips low on
+ * `energyAvailable` every time it buys something, and a room with a full bank
+ * is never broke however empty its extensions happen to read this tick.
+ */
+function roomIsBroke(room: any): boolean {
+    if (room.memory.danger) return false;
+    const storage = room.storage && room.storage.my ? room.storage : null;
+    if (storage && (storage.store[RESOURCE_ENERGY] || 0) >= 5000) return false;
+    const terminal = room.terminal && room.terminal.my ? room.terminal : null;
+    if (terminal && (terminal.store[RESOURCE_ENERGY] || 0) >= 5000) return false;
+    return room.energyAvailable < room.energyCapacityAvailable * 0.5;
+}
+
+function dropNonRecoverySpend(room: any): void {
+    const list = room.memory.spawn_list;
+    if (!list || list.length < 3) return;
+    if (!roomIsBroke(room)) return;
+
+    const dropped: string[] = [];
+    for (let i = 0; i + 2 < list.length; i += 3) {
+        const opts = list[i + 2];
+        const role = opts && opts.memory ? opts.memory.role : undefined;
+        if (!role || !NON_RECOVERY_ROLES[role]) continue;
+        refundBoostOwner(room, list[i + 1]);
+        dropped.push(role);
+        list.splice(i, 3);
+        i -= 3;
+    }
+    // One summary line, not one per entry: a room that stays broke has its
+    // producer re-queue the same roles every cadence window, and this would
+    // otherwise become its own console flood.
+    if (dropped.length) {
+        logAlways(`spawn triage ${room.name}: dropped ${dropped.length} non-recovery `
+            + `(${dropped.join(",")}) - broke at ${room.energyAvailable}/${room.energyCapacityAvailable}`);
+    }
+    // The head may have changed underneath the stall bookkeeping. spawnFirstInLine
+    // re-keys on the name anyway, but clearing here means the shrink/interleave
+    // rungs judge the NEW head from zero rather than inheriting the old count.
+    if (dropped.length) {
+        room.memory.spawnStall = 0;
+        delete room.memory.spawnStallName;
+    }
 }
 
 function spawning(room: any) {
@@ -43,6 +220,8 @@ function spawning(room: any) {
         room.memory.spawn_list = [];
     }
 
+    offerEmergencyFeed(room);
+
     // Same cold-start problem, different object: rooms.ts calls spawning(room)
     // BEFORE data(room), and data() is the only initialiser of room.memory.data
     // — so on the first tick of a freshly claimed room `room.memory.data.DOB`
@@ -55,7 +234,9 @@ function spawning(room: any) {
 
     // Remotes-off A/B: drop already-queued remote miners/carriers/reservists
     // so the flag stops spawn this tick, not after leftover queue hatches.
-    if(remotesDisabled() && room.memory.spawn_list.length) {
+    // Same strip when the home room is broke — otherwise the producer
+    // re-queues remotes every 15t and they hatch before the home crew.
+    if((remotesDisabled() || homeEconomyStarved(room)) && room.memory.spawn_list.length) {
         const q = room.memory.spawn_list;
         const next = [];
         forEachQueued(room, function(body, name, opts) {
@@ -162,6 +343,10 @@ function spawning(room: any) {
         emergencyFillerRescue(room, spawn);
         return;
     }
+
+    // Before the head gets its claim on the spawn: if the room cannot feed
+    // itself, take offence and remote upkeep out of the queue entirely.
+    dropNonRecoverySpend(room);
 
     let status = spawnFirstInLine(room, spawn);
     if(status == "spawning") {
@@ -307,6 +492,35 @@ function clampSpawnListToCapacity(room) {
                 budget = Math.min(budget, Math.max(payable, SPAWN_ENERGY_CAPACITY));
             }
         }
+
+        // The same argument, generalised past miners and carriers.
+        //
+        // The clause above rescues the specific case of an unworked source, but
+        // a broke room's problem is rarely one empty source — it is that EVERY
+        // routine body is priced off a capacity it cannot fill. Live E37N59
+        // (RCL6, capacity 2150, holding 872, storage 0, 2000 energy sitting in a
+        // FULL source container it had no hauler big enough to move) would queue
+        // a 1827-energy filler, answer ERR_NOT_ENOUGH_ENERGY for 40 ticks, then
+        // let the shrink rung walk it down one part per 40 ticks — roughly 360
+        // ticks to reach something buyable, with the room getting poorer
+        // throughout.
+        //
+        // While the room is broke, price routine bodies at what it can actually
+        // pay. A 600-energy filler moving that container NOW is worth more than
+        // the ideal filler six hundred ticks from now, and the moment
+        // roomIsBroke() clears — bank over 5k, or extensions past half — sizing
+        // goes straight back to the 85% budget. Non-routine bodies are excluded
+        // for the reason the clause above gives: half a war creep is a donation.
+        //
+        // Deliberately limited to rooms that HAVE a storage, i.e. established
+        // rooms that have collapsed. A pre-storage room reads "broke" as a
+        // matter of course — that is just what RCL1-3 looks like — and its body
+        // sizing is the thing docs/EARLY-GAME-SPEEDRUN-CAMPAIGN.md measures
+        // against a frozen control. This fix has no business moving that number.
+        if(isRoutineSpawn(name) && room.storage && room.storage.my && roomIsBroke(room)) {
+            budget = Math.min(budget, Math.max(payable, SPAWN_ENERGY_CAPACITY));
+        }
+
         let cost = bodyCost(body);
         if(cost <= budget) continue;
 
@@ -1382,13 +1596,14 @@ function add_creeps_to_spawn_list(room, spawn) {
     const roomResources = room.memory.resources || {};
     let roomsToRemote = Object.keys(roomResources);
     let activeRemotes = [];
-    // Home room always counts. Remotes open at RCL4 (storage + the 135k climb
-    // is done). Reservers are RCL5+; an RCL3 remote is unreserved 5 e/t.
-    // Memory.speedrun.disableRemotes is the explicit campaign off-switch.
+    // Home always counts. Remotes: RCL3 after slam-5 if CPU allows (one
+    // close unreserved source). Reservers stay RCL5+. disableRemotes off-switch.
     const remotesAllowed =
         room.controller &&
-        room.controller.level >= 4 &&
-        !remotesDisabled();
+        room.controller.level >= 3 &&
+        (room.controller.level >= 4 || room.energyCapacityAvailable >= 550) &&
+        !remotesDisabled() &&
+        !homeEconomyStarved(room);
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);

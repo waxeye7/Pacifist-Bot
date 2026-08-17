@@ -102,6 +102,35 @@ declare global {
        * remote. See Rooms/rooms.remotes.
        */
       remoteOwner?: { [remoteRoom: string]: { home: string; t: number } };
+      /**
+       * War machine control — see docs/AGGRESSION-DOCTRINE.md and src/War/.
+       * The intel TABLE itself lives in RawMemory segment 30, not here: a few
+       * hundred room records in Memory would be a per-tick serialise tax.
+       * Console: war() warTargets() warWhy(room) warTune(k,v) warAllies([...])
+       */
+      war?: {
+        /** Kill switch — warOff() / warOn(). */
+        off?: boolean;
+        /**
+         * Players we will not attack. Defaults to the three usernames
+         * hardcoded in Rooms/rooms.observe.ts. Set to [] to make the
+         * doctrine literal (everyone is an enemy).
+         */
+        allies?: string[];
+        /** Scoring overrides — see War/score.ts DEFAULT_TUNING. */
+        tune?: { [key: string]: number };
+        /** Distant rooms suggest SKELETON. Display-only until throttle. */
+        footing?: boolean;
+        /** When true, SKELETON rooms skip market/observe/build/remotes. */
+        throttle?: boolean;
+        /** Set false to freeze offence (intel still records). Default on. */
+        dispatch?: boolean;
+        /** Last assigned mode + tick, for hysteresis. */
+        mode?: { [roomName: string]: { m: string; t: number } };
+        /** Last 40 dispatches — overnight autopsy. */
+        diary?: { t: number; k: string; r: string; h: string; w: string }[];
+        stats?: { n?: number; started?: number; [kit: string]: number };
+      };
     }
 
     // console helpers (see utils/Commands.ts, Logger, CpuPolicy)
@@ -131,6 +160,8 @@ declare global {
     }
     interface DistressSignals {
         reinforce_me?:string;
+        /** Game.time we last sent a reinforcing Guard. */
+        sent?: number;
     }
 
     interface RoomMemory {
@@ -250,6 +281,11 @@ declare global {
         pickup?: { id: string; t: number; amt: number; q?: number };
         /** recent packed positions, newest last — oscillation damper */
         _ph?: number[];
+        /** War lookout — walk, paint intel, die. Must not score remotes. */
+        warScout?: boolean;
+        /** Neighbor haul into a wrecked room (empty towers / no civilians). */
+        emergencyFeed?: string;
+        seen?: number;
         /** room name the _ph history belongs to */
         _phr?: string;
         /** tick the damper last fired, so it does not fire every tick */

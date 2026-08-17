@@ -14,6 +14,10 @@ import { runPlanV2Adoption } from "utils/PlanV2";
 import { runAutoExpand } from "Managers/AutoExpand";
 import { runMapViz } from "utils/MapViz";
 import { sampleRemoteStats, installRemoteStatsCommand } from "utils/RemoteStats";
+import { runWar, installWarCommands } from "War/war";
+import { installSegmentCommands } from "utils/Segments";
+import { refreshModes } from "War/mode";
+import { runReinforce } from "War/reinforce";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -207,10 +211,85 @@ function phase(name: string, fn: () => void): void {
   }
 }
 
+/**
+ * ONE LINE, EVERY HEARTBEAT_EVERY TICKS, WHATEVER Memory.verbose SAYS.
+ *
+ * With the console gate actually working again (see utils/Logger — it had been
+ * silently bypassed since tick 2 of every global) a healthy bot prints nothing
+ * at all, which is indistinguishable from a dead one. This is the "still here,
+ * here is the state of the empire" line: cheap, periodic, and it names the
+ * rooms that are in trouble rather than making someone go and look.
+ *
+ * A room is called out when it is doing one of the things this bot has actually
+ * been caught doing: sitting on a stalled spawn queue, holding a dry tower, or
+ * running an empty bank at an RCL that should have one.
+ */
+const HEARTBEAT_EVERY = 100;
+/**
+ * Offset off 0. `Game.time % 100 === 0` is already the busiest tick in the
+ * schedule — it is the low-RCL construction cadence, the pruneBadFill sweep and
+ * several producer rungs — and a status line has no business adding to the one
+ * spike everything else is measured against.
+ */
+const HEARTBEAT_OFFSET = 37;
+
+function heartbeat(tickCpu: number): void {
+  if (Game.time % HEARTBEAT_EVERY !== HEARTBEAT_OFFSET) return;
+  try {
+    const parts: string[] = [];
+    const sick: string[] = [];
+    let creeps = 0;
+    for (const n in Game.creeps) creeps++;
+
+    const names: string[] = [];
+    for (const name in Game.rooms) {
+      const room = Game.rooms[name];
+      if (room.controller && room.controller.my) names.push(name);
+    }
+    names.sort();
+
+    for (const name of names) {
+      const room = Game.rooms[name];
+      const mem: any = room.memory || {};
+      const bank = (room.storage ? room.storage.store[RESOURCE_ENERGY] || 0 : 0)
+        + (room.terminal ? room.terminal.store[RESOURCE_ENERGY] || 0 : 0);
+      parts.push(`${name}:L${room.controller.level}`
+        + ` e${room.energyAvailable}/${room.energyCapacityAvailable}`
+        + (room.storage ? ` b${Math.round(bank / 1000)}k` : ""));
+
+      const why: string[] = [];
+      if ((mem.spawnStall || 0) > 40) why.push(`stall${mem.spawnStall}`);
+      const towers: any[] = room.find(FIND_MY_STRUCTURES, {
+        filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+      });
+      for (const t of towers) {
+        if ((t.store[RESOURCE_ENERGY] || 0) < 200) {
+          why.push("dry-tower");
+          break;
+        }
+      }
+      if (room.controller.level >= 4 && room.storage && bank < 2000) why.push("no-bank");
+      if (mem.danger) why.push("UNDER-ATTACK");
+      if (room.controller.ticksToDowngrade < 5000) why.push(`downgrade${room.controller.ticksToDowngrade}`);
+      if (why.length) sick.push(`${name}[${why.join(" ")}]`);
+    }
+
+    logAlways(`[hb] t${Game.time} cpu${tickCpu.toFixed(1)}/${Game.cpu.limit}`
+      + ` bucket${Game.cpu.bucket} gcl${Game.gcl.level} creeps${creeps}`
+      + ` | ${parts.join("  ")}`
+      + (sick.length ? `\n[hb] NEEDS ATTENTION: ${sick.join("  ")}` : ""));
+  } catch (e) {
+    // A status line may never be the thing that takes a tick down.
+    logAlways("[hb] failed:", e instanceof Error ? e.message : String(e));
+  }
+}
+
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
   installLogger();
   installRemoteStatsCommand();
+  installWarCommands();
+  installSegmentCommands();
 
   const startTotal = Game.cpu.getUsed();
   // ensureBench (via getOpts) boots A/B on version bump
@@ -227,7 +306,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const policy = getCpuPolicy();
   global._cpuPolicy = policy;
 
+  // Modes from last tick's danger flags (refresh again after rooms).
+  refreshModes();
   phase("rooms", () => rooms());
+  // Defence just raised/cleared distress this tick — send help if anyone shouted.
+  phase("reinforce", () => runReinforce());
+  refreshModes();
 
   // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
   if (!powerDisabled()) {
@@ -260,6 +344,28 @@ export const loop = ErrorMapper.wrapLoop(() => {
   phase("mapViz", () => runMapViz());
   phase("autoExpand", () => runAutoExpand());
 
+  /*
+   * WAR — intel ingest + target scoring. See docs/AGGRESSION-DOCTRINE.md.
+   *
+   * Currently OBSERVE-ONLY: it records, ranks and explains, but issues no
+   * orders and changes no existing behaviour.
+   *
+   * Placed after the other segment users. That used to be load-bearing —
+   * AutoExpand and MapViz each carried a private setActiveSegments that only
+   * unioned against LAST tick's active set, so whoever ran last silently
+   * cancelled the others' same-tick requests. Both now go through
+   * utils/Segments' shared per-tick accumulator, so order no longer decides
+   * who keeps their slot. Running late is still the right place: every other
+   * phase has finished establishing vision, so war records the settled state
+   * of the tick.
+   *
+   * Deliberately NOT gated on allowExpensive: a war machine that goes blind
+   * exactly when the bucket dips is worse than useless. Its internal work is
+   * self-limiting instead — 2 rooms/tick ingest, 50-tick scoring cache, and
+   * segment writes that are both interval- and bucket-gated.
+   */
+  phase("war", () => runWar());
+
   phase("tempBadRooms", () => decrementTempBadRooms());
 
   phase("remoteStats", () => sampleRemoteStats());
@@ -269,6 +375,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   let tickTotal = tickCpu.toFixed(2);
   console.log(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
+
+  heartbeat(tickCpu);
 
   phase("CPUmanager", () => CPUmanager(tickTotal));
   global.buildRemoteRoads = function (roomName) {

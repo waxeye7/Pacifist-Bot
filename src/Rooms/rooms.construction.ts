@@ -1,7 +1,8 @@
 import { getBasePlan, placeFromBasePlan, visualizeBasePlan, haulRoadTiles, haulRoadsIncomplete } from "utils/BasePlan";
 import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
-import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile } from "utils/PlanV2";
+import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile, planSpawnMismatch } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
+import { logAlways } from "utils/Logger";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
 function vizCircle(roomName: string, x: number, y: number, style: any) {
@@ -713,8 +714,25 @@ function construction(room) {
     // v2-planned rooms build ONLY from the adopted plan — legacy stamps,
     // basePlan and perimeter logic must never touch them
     if (room.memory.planV2) {
-        placeFromPlanV2(room);
-        return;
+        // Live E37N59: pack bunker at 34,33 adopted onto a working spawn at
+        // 21,24. placeFromPlanV2 then sited towers on the east wall (36,30)
+        // 15 tiles from the spawn. Established rooms drop a mismatched pack;
+        // young rooms just freeze placement.
+        if (planSpawnMismatch(room)) {
+            const established = room.controller && room.controller.level >= 4 && !!room.storage;
+            if (established) {
+                logAlways(`construction ${room.name}: stripping planV2 — live spawn is not the pack spawn`);
+                delete room.memory.planV2;
+                (room.memory as any).planPackSkip = true;
+                if (room.memory.construction) room.memory.construction.rampartLocations = [];
+            } else {
+                placeFromPlanV2(room); // logs + returns without placing
+                return;
+            }
+        } else {
+            placeFromPlanV2(room);
+            return;
+        }
     }
 
     // SPAWN FIRST — legacy rooms. See ensureSpawnFirst. Nothing below this
@@ -725,6 +743,13 @@ function construction(room) {
     if (room.controller && room.controller.my && room.find(FIND_MY_SPAWNS).length == 0) {
         ensureSpawnFirst(room);
         return;
+    }
+
+    relocateStrayTowers(room);
+
+    // Leftover sites from a stripped/mismatched bunker (E37N59 x=47 roads).
+    for (const s of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (s.pos.x <= 1 || s.pos.x >= 47 || s.pos.y <= 1 || s.pos.y >= 47) s.remove();
     }
 
     // ONE ROAD OWNER AT A TIME — see the note above pathBuilder. placeFromBasePlan
@@ -1756,81 +1781,27 @@ function construction(room) {
         }
         if(room.controller.level >= 3) {
             if(storage) {
-                let storageX = storage.pos.x;
-                let storageY = storage.pos.y;
-                let tower_raw_locations = [
-                    [storageX + -5,storageY + -7],
-                    [storageX + -3,storageY + -7],
-                    [storageX + -1,storageY + -7],
-                    [storageX + 1,storageY + -7],
-                    [storageX + 3,storageY + -7],
-                    [storageX + 5,storageY + -7],
-                    [storageX + -7,storageY + -5],
-                    [storageX + -7,storageY + -3],
-                    [storageX + -7,storageY + -1],
-                    [storageX + -7,storageY + 5],
-                    [storageX + -5,storageY + 7],
-                    [storageX + -3,storageY + 7],
-                    [storageX + -1,storageY + 7],
-                    [storageX + 1,storageY + 7],
-                    [storageX + 3,storageY + 7],
-                    [storageX + 5,storageY + 7],
-                    [storageX + 7,storageY + 5],
-                    [storageX + 7,storageY + 3],
-                    [storageX + 7,storageY + 1],
-                    [storageX + 7,storageY + -1],
-                    [storageX + 7,storageY + -3],
-                    [storageX + 7,storageY + -5],
-                    [storageX + 0,storageY + 7],
-                    [storageX + 7,storageY + 0],
-                    [storageX + 0,storageY + -7],
-                    [storageX + 4,storageY + 7],
-                    [storageX + -4,storageY + 7],
-                    [storageX + 7,storageY + 4],
-                    [storageX + 7,storageY + -4],
-                    [storageX + 4,storageY + -7],
-                    [storageX + -4,storageY + -7],
-                    [storageX + -7,storageY + 4],
-                    [storageX + -7,storageY + -4]
+                // Hub ring, not the old range-7 "on the mincut wall" ring.
+                // Live E36N57 sat a tower on a border rampart at 18,20 (8 from
+                // storage) because that list preferred tiles next to the shell.
+                const hub = storage.pos;
+                const towerOff = [
+                    [2, 0], [-2, 0], [0, 2], [0, -2],
+                    [2, 2], [-2, -2], [2, -2], [-2, 2],
+                    [1, 2], [-1, 2], [2, 1], [-2, 1],
                 ];
-                let tower_locations_to_filter = [];
-                for(let raw_location of tower_raw_locations) {
-                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
-                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
-                    }
+                const towerCandidates = [];
+                const sources = room.find(FIND_SOURCES);
+                for (const off of towerOff) {
+                    const x = hub.x + off[0];
+                    const y = hub.y + off[1];
+                    if (x < 2 || x > 47 || y < 2 || y > 47) continue;
+                    const pos = new RoomPosition(x, y, room.name);
+                    if (pos.lookFor(LOOK_TERRAIN)[0] === "wall") continue;
+                    if (sources.some((s) => pos.getRangeTo(s) <= 1)) continue;
+                    towerCandidates.push(pos);
                 }
-                let tower_locations_to_shuffle = [];
-                // Exact range==3 missed min-cut shells; the !storage else sat
-                // inside if(storage) and never ran. Relax to <=4 and fall back
-                // to the raw ring-7 list when nothing matches.
-                let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
-                if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
-                    for(let location of tower_locations_to_filter) {
-                        let closestRampart = location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve);
-                        if(!closestRampart) continue;
-                        let closestRampartToLocation = location.getRangeTo(closestRampart);
-                        if(closestRampartToLocation <= 4) {
-                            tower_locations_to_shuffle.push(location);
-                        }
-                    }
-                }
-
-                const shuffle = arr => {
-                    for (let i = arr.length - 1; i > 0; i--) {
-                      const j = Math.floor(Math.random() * (i + 1));
-                      const temp = arr[i];
-                      arr[i] = arr[j];
-                      arr[j] = temp;
-                    }
-                    return arr;
-                }
-                let towerCandidates = tower_locations_to_shuffle.length > 0
-                    ? shuffle(tower_locations_to_shuffle)
-                    : tower_locations_to_filter;
-                console.log(towerCandidates);
-
                 BuildIfICan(towerCandidates, STRUCTURE_TOWER);
-
             }
         }
     }
@@ -1859,6 +1830,28 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
     }
 }
 
+/** One off-hub tower per pass, only in peacetime, only if we can rebuild. */
+function relocateStrayTowers(room) {
+    if (!room.controller || !room.controller.my) return;
+    if (room.memory.danger || room.find(FIND_HOSTILE_CREEPS).length) return;
+    const hub: any = room.storage || room.find(FIND_MY_SPAWNS)[0];
+    if (!hub) return;
+    const towers = room.find(FIND_MY_STRUCTURES, {
+        filter: (s) => s.structureType === STRUCTURE_TOWER,
+    });
+    for (const t of towers) {
+        const range = t.pos.getRangeTo(hub);
+        if (range <= 6) continue;
+        const bank = room.storage && room.storage.my ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+        if (bank < 8000) continue;
+        logAlways(
+            `construction ${room.name}: destroying off-hub tower@${t.pos.x},${t.pos.y} (range ${range} from hub)`,
+        );
+        t.destroy();
+        return;
+    }
+}
+
 function BuildIfICan(LocationsList, StructureType:string) {
     let ramparts;
     if(LocationsList.length > 0) {
@@ -1873,7 +1866,9 @@ function BuildIfICan(LocationsList, StructureType:string) {
             continue;
         }
 
-        if(ramparts && ramparts.length > 0) {
+        // Towers live on the hub. The old "must be within 4 of a wall rampart"
+        // filter is what parked them on the mincut / room border.
+        if(StructureType !== STRUCTURE_TOWER && ramparts && ramparts.length > 0) {
             if(location.getRangeTo(location.findClosestByRange(ramparts)) > 4) {
                 continue;
             }

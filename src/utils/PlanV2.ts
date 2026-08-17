@@ -43,6 +43,39 @@ function isShellNaked(structures: Structure[]): boolean {
 
 /** RCL2: five slots so all five extensions site in one 15-tick pass.
  *  RCL4 after storage: dump the next extensions faster (800→1300). */
+/**
+ * Is the room short of the structures that MAKE energy work — spawns,
+ * extensions, towers — relative to what its RCL already allows?
+ *
+ * This is the difference between a room that is over-building and one that is
+ * under-built, and the broke-bank clamp below cannot tell them apart on its
+ * own. VPS W2N1 and W1N2 both sat at RCL7 holding 40 of 50 extensions, 2 of 3
+ * towers, 1 of 2 spawns, storage at 0 — so the clamp gave them a site budget of
+ * ZERO and they stayed that way indefinitely. The ten missing extensions are
+ * precisely what would have let them fill a spawn faster and climb out.
+ *
+ * Counts standing structures only. Sites already open are handled by the
+ * caller's `liveSites` subtraction, so a room that is mid-catch-up still
+ * reports incomplete and simply has no free slots.
+ */
+function coreBuildoutIncomplete(lvl: number, structures: Structure[]): boolean {
+  const caps: any = CONTROLLER_STRUCTURES;
+  const want: { [type: string]: number } = {};
+  want[STRUCTURE_SPAWN] = (caps[STRUCTURE_SPAWN] || {})[lvl] || 0;
+  want[STRUCTURE_EXTENSION] = (caps[STRUCTURE_EXTENSION] || {})[lvl] || 0;
+  want[STRUCTURE_TOWER] = (caps[STRUCTURE_TOWER] || {})[lvl] || 0;
+  const have: { [type: string]: number } = {};
+  for (const s of structures) {
+    if (!(s as any).my) continue;
+    if (want[s.structureType] === undefined) continue;
+    have[s.structureType] = (have[s.structureType] || 0) + 1;
+  }
+  for (const type in want) {
+    if ((have[type] || 0) < want[type]) return true;
+  }
+  return false;
+}
+
 function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number {
   // Established rooms: do not keep 8 sites open when the bank is thin.
   // RCL4-5 dump (800→1300) is allowed on an empty new storage. RCL6+
@@ -55,7 +88,12 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
     if (e < floor) {
       if (!room.find(FIND_MY_SPAWNS).length) return 1;
       const structs = structures || room.find(FIND_STRUCTURES);
-      return isShellNaked(structs) ? 2 : 0;
+      if (isShellNaked(structs)) return 2;
+      // Behind on spawns/extensions/towers: the clamp is aimed at a room
+      // bleeding itself on optional structures, not at one that never finished
+      // its own energy network. Two slots — a drip, not the RCL4-5 dump.
+      if (coreBuildoutIncomplete(lvl, structs)) return 2;
+      return 0;
     }
   }
   if (lvl === 2) return 5;
@@ -188,6 +226,28 @@ export function plannedSpawnTile(room: Room): { x: number; y: number } | null {
   const spawns = plan && plan.t ? plan.t.spawn : undefined;
   if (!spawns || !spawns.length) return null;
   return unpack(spawns[0]);
+}
+
+/** Packed link order is hub, first source, controller, … */
+export function plannedLinkTile(room: Room, index: number): { x: number; y: number } | null {
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  const links = plan && plan.t ? plan.t.link : undefined;
+  if (!links || index < 0 || index >= links.length) return null;
+  return unpack(links[index]);
+}
+
+/** Live MY spawn is more than `maxCheb` from plan spawn[0]. Spawnless = false. */
+export function planSpawnMismatch(room: Room, maxCheb = 6): boolean {
+  const planned = plannedSpawnTile(room);
+  if (!planned) return false;
+  const spawns = room.find(FIND_MY_SPAWNS);
+  if (!spawns.length) return false;
+  for (const s of spawns) {
+    if (Math.max(Math.abs(s.pos.x - planned.x), Math.abs(s.pos.y - planned.y)) <= maxCheb) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /**
@@ -2155,6 +2215,16 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
 export function placeFromPlanV2(room: Room): void {
   const plan = room.memory.planV2 as PackedPlan | undefined;
   if (!plan || !room.controller || !room.controller.my) return;
+  if (planSpawnMismatch(room)) {
+    if (Game.time % 200 === 0) {
+      const p = plannedSpawnTile(room);
+      const s = room.find(FIND_MY_SPAWNS)[0];
+      logAlways(
+        `planV2 ${room.name}: live spawn ${s.pos.x},${s.pos.y} != plan ${p ? p.x + "," + p.y : "?"} — placement frozen`,
+      );
+    }
+    return;
+  }
   const lvl = room.controller.level;
 
   // SPAWN FIRST (see spawnFirstLockdown). Runs before anything else in this
@@ -2207,6 +2277,19 @@ export function placeFromPlanV2(room: Room): void {
       liveSites++;
     }
   }
+  // Live E36N57: 31 rampart sites on an already-standing box. Off-budget
+  // is not a blank cheque — keep a handful so builders can walk the wall.
+  let rampartSites = 0;
+  for (const s of sites) if (s.structureType === STRUCTURE_RAMPART) rampartSites++;
+  if (rampartSites > 4) {
+    let extra = rampartSites - 4;
+    for (const s of sites) {
+      if (extra <= 0) break;
+      if (s.structureType !== STRUCTURE_RAMPART) continue;
+      s.remove();
+      extra--;
+    }
+  }
   const brokeFloor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
   const brokeBank =
     lvl >= 6 &&
@@ -2219,7 +2302,14 @@ export function placeFromPlanV2(room: Room): void {
   // Broke established room: drop every site except spawn. Labs/nuker/roads
   // kept draining VPS W1N1 after the road/rampart-only strip.
   // Naked shell: keep road/rampart sites so the 2-slot exception can rebuild.
-  if (brokeBank && (budget <= 0 || nakedShell)) {
+  //
+  // `budget < 0`, NOT `<= 0`: a budget of exactly zero means the room is
+  // holding precisely its allowance, which is the steady state of every
+  // exception above (spawnless=1, naked shell=2, incomplete core=2). On `<= 0`
+  // those rooms placed their allowance and then stripped it again on the next
+  // pass, forever. With no sites open, budget is 0 either way and the loop below
+  // has nothing to remove, so the over-budget case this guards is unchanged.
+  if (brokeBank && (budget < 0 || nakedShell)) {
     for (const s of sites) {
       if (s.structureType === STRUCTURE_SPAWN) continue;
       if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
