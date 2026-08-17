@@ -245,9 +245,34 @@ function sendWarScout(): boolean {
   return true;
 }
 
+/**
+ * How often a full dispatch pass runs.
+ *
+ * This used to run every tick, and measured 1.27 CPU of a 20 CPU shard3 budget
+ * — 6% of the whole tick — to re-derive a decision that changes on the
+ * timescale of a siege. Nothing it reads moves fast enough to justify that:
+ * `targets()` is itself cached for RESCORE_EVERY ticks, intel is ingested at 2
+ * rooms/tick, and `sendWarScout` walks the entire ~175-room reach set to find
+ * one 50-energy lookout.
+ *
+ * The cost of being 10 ticks late to an offensive is nil — every kit it can
+ * issue takes hundreds of ticks to spawn and cross the map. The cost of
+ * spending 6% of the budget on it is that the CPU governor closes the remotes,
+ * which is real money.
+ *
+ * Deliberately NOT a bucket gate: a war machine that goes blind exactly when
+ * the bucket dips is the failure mode War/war.ts's header warns about. This is
+ * a fixed cadence, so it degrades to "slightly less reactive" and never to
+ * "off". Defence does not come through here — that is rooms.defence and
+ * War/reinforce, both of which still run every tick.
+ */
+const DISPATCH_EVERY = 10;
+
 export function runDispatch(): void {
   const mem = (Memory as any).war;
   if (mem && mem.dispatch === false) return;
+  // Stagger off 0: tick 0 already carries the heaviest scheduled work in the bot.
+  if (Game.time % DISPATCH_EVERY !== 3) return;
 
   dropHotTowerCcks();
 

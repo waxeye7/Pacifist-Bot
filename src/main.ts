@@ -338,11 +338,37 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   phase("commands", () => ExecuteCommandsInNTicks());
 
+  /*
+   * BUCKET FLOOR — the load-shedding half of CpuPolicy, which until now did not
+   * exist.
+   *
+   * `policy.economyOnly` (bucket under 2000 on a low-CPU shard) has been
+   * computed on every tick since CpuPolicy was written and READ BY NOTHING —
+   * docs/AGGRESSION-HANDOFF.md §6 lists it as "a free field". So the only brake
+   * the bot had was the remote gate at 5000, and between there and an empty
+   * bucket nothing whatsoever was given up. A bucket that reaches zero is not a
+   * slow bot, it is a bot the server starts skipping ticks for, and it gets
+   * there while every optional subsystem is still running at full price.
+   *
+   * What is shed here is everything the empire can be blind to for a while:
+   * planning overlays, expansion, map visuals, remote statistics, and offence.
+   * What deliberately keeps running at any bucket level: rooms, creeps, spawn
+   * commands, tempBadRooms, and — most importantly — `reinforce`, which is how
+   * a room under attack gets help. A CPU crisis must never turn into a defence
+   * outage, which is exactly what gating the wrong phase would cause.
+   */
+  const starved = policy.economyOnly;
+  if (starved && Game.time % 100 === 0) {
+    logAlways(`[cpu] bucket ${policy.bucket} — economyOnly: planning/expansion/war shed until it recovers`);
+  }
+
   // Planner replay overlay — no-op unless Memory.planAnim.active
-  phase("planAnimator", () => runPlanAnimator());
-  phase("planV2Adoption", () => runPlanV2Adoption());
-  phase("mapViz", () => runMapViz());
-  phase("autoExpand", () => runAutoExpand());
+  if (!starved) {
+    phase("planAnimator", () => runPlanAnimator());
+    phase("planV2Adoption", () => runPlanV2Adoption());
+    phase("mapViz", () => runMapViz());
+    phase("autoExpand", () => runAutoExpand());
+  }
 
   /*
    * WAR — intel ingest + target scoring. See docs/AGGRESSION-DOCTRINE.md.
@@ -361,14 +387,25 @@ export const loop = ErrorMapper.wrapLoop(() => {
    *
    * Deliberately NOT gated on allowExpensive: a war machine that goes blind
    * exactly when the bucket dips is worse than useless. Its internal work is
-   * self-limiting instead — 2 rooms/tick ingest, 50-tick scoring cache, and
-   * segment writes that are both interval- and bucket-gated.
+   * self-limiting instead — 2 rooms/tick ingest, 50-tick scoring cache,
+   * segment writes that are both interval- and bucket-gated, and a dispatch
+   * pass that runs once every DISPATCH_EVERY ticks.
+   *
+   * It IS gated on the economyOnly floor, which is a different bar: that is not
+   * "the bucket dipped", it is "the bucket is about to hit zero and the server
+   * will start skipping our ticks". Intel going stale for a few hundred ticks
+   * is survivable; the whole bot stalling is not. Defence does not come through
+   * here (see reinforce, above) so nothing is left undefended by this.
    */
-  phase("war", () => runWar());
+  if (!starved) {
+    phase("war", () => runWar());
+  }
 
   phase("tempBadRooms", () => decrementTempBadRooms());
 
-  phase("remoteStats", () => sampleRemoteStats());
+  if (!starved) {
+    phase("remoteStats", () => sampleRemoteStats());
+  }
 
   const tickCpu = Game.cpu.getUsed() - startTotal;
   recordTick(tickCpu);
