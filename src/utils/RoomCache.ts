@@ -167,3 +167,80 @@ export function getCachedCostMatrix(roomName: string, key: string, build: () => 
   if (m) c.costMatrices[key] = m;
   return m;
 }
+
+/* ------------------------------------------------------------------ */
+/* Terrain base matrices — cached ACROSS ticks                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A CostMatrix pre-filled from terrain alone, cached on the heap FOREVER.
+ *
+ * Every cost-matrix builder in Functions/creepFunctions.ts opens with the same
+ * 50x50 loop — `terrain.get(x, y)` then `costs.set(x, y, weight)` — which is
+ * 5000 engine calls before a single structure has been considered. There are
+ * seven such builders, differing only in the (wall, swamp, plain) weights they
+ * use, and `getCachedCostMatrix` only memoises the finished product for the
+ * CURRENT TICK. So the loop runs again for every key, in every room, every
+ * tick a creep repaths.
+ *
+ * Room terrain is immutable for the life of a shard. Nothing about it needs to
+ * be recomputed, ever — not per tick, not per global. So build it once per
+ * (room, weights) pair, keep it on the heap, and hand out `clone()`s: a native
+ * typed-array copy instead of 5000 interpreted calls. Callers get a private
+ * matrix exactly as before and may overlay structures and creeps freely.
+ *
+ * This matters most for the creeps that are ALONE in a room — a scout, a lone
+ * remote hauler — because they cannot share the per-tick cache with anyone.
+ * Live shard3 measured scouts at 1.61 CPU/tick for two single-MOVE creeps
+ * (0.8 each), against 3.46 for twelve EnergyMiners.
+ *
+ * The cap exists only so a bot roaming thousands of rooms cannot grow this
+ * without bound. Terrain caches are never invalidated individually because
+ * they can never go stale; when the cap is hit the whole table is dropped and
+ * refills naturally.
+ */
+const terrainBases: { [key: string]: CostMatrix } = Object.create(null);
+let terrainBaseCount = 0;
+const TERRAIN_BASE_CAP = 400;
+
+/**
+ * `edge` selects which tiles get a weight:
+ *   "all"   — 0..49, the whole grid (the original `for y = 0; y <= 49` loops)
+ *   "inner" — 1..48 only, leaving the border ring at the matrix default of 0
+ *
+ * The distinction is load-bearing, not stylistic. A CostMatrix value of 0 means
+ * "fall back to the engine's own terrain cost", so a builder that skipped the
+ * border ring was deliberately leaving exit tiles at natural cost — several of
+ * these matrices assign swamp 25-50 to push creeps off swamp, and applying that
+ * to the border would make room transitions expensive and distort exit choice.
+ */
+export function terrainBaseMatrix(
+  roomName: string,
+  wall: number,
+  swamp: number,
+  plain: number,
+  edge: "all" | "inner" = "all",
+): CostMatrix {
+  const key = roomName + "|" + wall + "|" + swamp + "|" + plain + "|" + edge;
+  const hit = terrainBases[key];
+  if (hit) return hit.clone();
+
+  const costs = new PathFinder.CostMatrix();
+  const terrain = new Room.Terrain(roomName);
+  const lo = edge === "inner" ? 1 : 0;
+  const hi = edge === "inner" ? 48 : 49;
+  for (let y = lo; y <= hi; y++) {
+    for (let x = lo; x <= hi; x++) {
+      const tile = terrain.get(x, y);
+      costs.set(x, y, tile === TERRAIN_MASK_WALL ? wall : tile === TERRAIN_MASK_SWAMP ? swamp : plain);
+    }
+  }
+
+  if (terrainBaseCount >= TERRAIN_BASE_CAP) {
+    for (const k in terrainBases) delete terrainBases[k];
+    terrainBaseCount = 0;
+  }
+  terrainBases[key] = costs;
+  terrainBaseCount++;
+  return costs.clone();
+}

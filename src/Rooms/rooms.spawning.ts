@@ -43,7 +43,30 @@ function homeEconomyStarved(room: any): boolean {
         }
     }
     const localSources = room.find(FIND_SOURCES).length;
-    return homeMiners < Math.min(2, localSources) || room.energyAvailable < 300;
+    // Home sources unstaffed is the real "not ready for remotes" signal.
+    if (homeMiners < Math.min(2, localSources)) return true;
+
+    /*
+     * The `energyAvailable < 300` clause below is a BOOTSTRAP test — "this room
+     * cannot even buy a basic creep yet" — and it only means that in a room
+     * whose capacity is close to 300, i.e. one that has not built a storage.
+     *
+     * Applied to an established room it is actively harmful. energyAvailable is
+     * the instantaneous extension fill, so any room that is spending dips under
+     * 300 routinely; and this predicate does not merely skip remote work when
+     * it is true, it makes `remotesAllowed` false, which walks
+     * room.memory.resources and sets EVERY remote's `active` to false. Closing
+     * a remote recalls its whole crew (see rooms.remotes/remoteRecalled) and
+     * reopening it costs a re-scout — so one unlucky tick tears down the remote
+     * fleet of a room that was working perfectly.
+     *
+     * Live VPS W2N1: RCL7, capacity 4300, ONE local source, storage 0, caught
+     * at 56 energy mid-spawn. Every one of its seven candidate remotes was
+     * force-closed — and a single-source RCL7 has no route out of poverty that
+     * does not go through remotes.
+     */
+    if (room.storage && room.storage.my) return false;
+    return room.energyAvailable < 300;
 }
 
 /**

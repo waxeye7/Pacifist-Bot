@@ -13,6 +13,7 @@ import {
     cachedStructures,
     cachedTombstones,
     getCachedCostMatrix,
+    terrainBaseMatrix,
 } from "utils/RoomCache";
 
 // declare global required now that this file imports (module scope): a bare
@@ -3347,26 +3348,9 @@ roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean | Cost
         return costs;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y <= 48; y++) {
-        for(let x = 1; x <= 48; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5, "inner");
 
     _.forEach(cachedStructures(room), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -3499,26 +3483,9 @@ const buildSafeToSource = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 15;
-            }
-            else if(tile == 0){
-                weight = 3;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 15, 3, "inner");
 
     const hostiles = cachedHostileCreeps(room);
 
@@ -3711,26 +3678,9 @@ const buildRoadPrioUpgraderInPosition = (roomName: string): boolean | CostMatrix
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 50;
-            }
-            else if(tile == 0){
-                weight = 10;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 50, 10, "inner");
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
@@ -3874,26 +3824,9 @@ const buildSwampPrio = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 2;
-            }
-            else if(tile == 0){
-                weight = 1;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 2, 1, "inner");
 
 
 
@@ -4009,26 +3942,9 @@ const buildIgnoreRoads = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 10, 2, "inner");
 
 
 
@@ -4106,26 +4022,9 @@ const buildRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5, "inner");
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
@@ -4326,26 +4225,8 @@ const buildAvoidEnemyCreepsMuchRam = (roomName: string): boolean | CostMatrix =>
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 254
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 254, 10, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4444,26 +4325,8 @@ const buildAvoidEnemyCreepsMuch = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 10, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4566,26 +4429,8 @@ const buildAvoidEnemyCreepsMuchForCarrierFull = (roomName: string): boolean | Co
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 30;
-            }
-            else if(tile == 0){
-                weight = 10;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 30, 10);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4694,26 +4539,8 @@ const buildAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: string): boolean | C
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 2;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 2, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4873,26 +4700,8 @@ const buildAvoidInvaders = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
     let myCreeps = room.find(FIND_MY_CREEPS);
     for(let creep of myCreeps) {
         if(creep.memory.role === "SpecialCarry") {
@@ -4988,26 +4797,8 @@ const buildRangedRampartDefender = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
 
 
 
@@ -5139,26 +4930,8 @@ const buildRampartDefender = (roomName: string): boolean | CostMatrix => {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
 
 
 

@@ -31,22 +31,45 @@ function warMemory(): any {
 /**
  * The war phase. Cheap, defensive, and currently observation-only.
  */
+/**
+ * Sub-step CPU, same EMA shape as main.ts's notePhaseCpu.
+ *
+ * The phase counter said "war" cost 4.7 of a 20 CPU budget on live shard3 while
+ * dispatch was FROZEN — i.e. runDispatch returns on its first line — so the
+ * cost is somewhere in intel/modes and the phase number cannot say where.
+ * Flushed to Memory.CPU.war every 20 ticks.
+ */
+const warEma = new Map<string, number>();
+const WAR_EMA_ALPHA = 0.05;
+
+function step(name: string, fn: () => void): void {
+  const before = Game.cpu.getUsed();
+  fn();
+  const used = Game.cpu.getUsed() - before;
+  const prev = warEma.get(name);
+  warEma.set(name, prev === undefined ? used : prev + WAR_EMA_ALPHA * (used - prev));
+  if (Game.time % 20 === 0 && Memory.CPU) {
+    if (!(Memory.CPU as any).war) (Memory.CPU as any).war = {};
+    (Memory.CPU as any).war[name] = Math.round((warEma.get(name) || 0) * 100) / 100;
+  }
+}
+
 export function runWar(): void {
   const mem = warMemory();
   if (mem.off) return;
 
   // Segment may not be readable this tick — ensureIntel handles that by
   // running on an empty table rather than failing.
-  ensureIntel();
+  step("ensure", () => ensureIntel());
 
   // FREE ingest: record rooms we already have vision of, rate-limited.
-  runIntelIngest();
+  step("ingest", () => runIntelIngest());
 
   // Persist on an interval; the call self-gates on dirty/bucket/interval.
-  saveIntel();
+  step("save", () => saveIntel());
 
-  refreshModes();
-  runDispatch();
+  step("modes", () => refreshModes());
+  step("dispatch", () => runDispatch());
 }
 
 /* ------------------------------------------------------------------ */

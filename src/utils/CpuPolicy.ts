@@ -38,10 +38,28 @@ export function getCpuPolicy(): CpuPolicyState {
   // so nothing reopened them, CPU dropped, they reopened, CPU rose... a
   // 500-tick oscillation that recalled the whole remote fleet each turn.
   const bucketPinned = bucket >= 9000;
+  /*
+   * How much headroom the 100-tick average must show BEFORE remotes may open.
+   *
+   * A flat `avg < limit - 4` double-counts the safety margin: the bucket floor
+   * below (5000) already proves there is reserve, and the bucket exists
+   * precisely so a bot can run over its limit for a while. On a bot that
+   * naturally settles at 16-18 of a 20 limit, the flat rule latches remotes OFF
+   * permanently — and closing remotes lowers INCOME, not CPU, so nothing ever
+   * brings the average back down. Live shard3 sat at avg 16.7 with the bucket
+   * climbing steadily (7063 -> 7391) and every remote in the empire disabled.
+   *
+   * Scaling the margin with the bucket makes the rule monotone — more reserve
+   * is never more restrictive — so it cannot produce the on/off/on oscillation
+   * a cliff does. A rising bucket earns permission; a falling one loses it well
+   * before economyOnly trips.
+   */
+  const marginFull = lowCpu ? 4 : 8;
+  const headroomMargin = bucket >= 8000 ? 0 : bucket >= 6000 ? Math.floor(marginFull / 2) : marginFull;
   const allowRemotes =
     !economyOnly &&
     bucket >= (lowCpu ? 5000 : 4000) &&
-    (bucketPinned || avg === 0 || avg < limit - (lowCpu ? 4 : 8));
+    (bucketPinned || avg === 0 || avg < limit - headroomMargin);
 
   let maxRemotes = 0;
   if (allowRemotes) {
