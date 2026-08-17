@@ -6040,6 +6040,12 @@ function spawn_reserver(resourceData, room, activeRemotes) {
         }
     });
 }
+function roomHasPlanSpawn(name: string): boolean {
+    const mem: any = Memory.rooms && Memory.rooms[name];
+    const t = mem && mem.planV2 && mem.planV2.t && mem.planV2.t.spawn;
+    return !!(t && t.length);
+}
+
 function roomLooksSpawnlessOwned(name: string): boolean {
     const r = Game.rooms[name];
     if (r) {
@@ -6061,6 +6067,9 @@ function roomLooksSpawnlessOwned(name: string): boolean {
             else if (mem0.foreignSpawn) delete mem0.foreignSpawn;
         }
         if (foreign) return false;
+        // FORCE-migrate can delete the only spawn before the plan site exists
+        // (same tick). Still send CBs — they (and placeFromPlanV2) site it.
+        if (roomHasPlanSpawn(name)) return true;
         return r.find(FIND_MY_CONSTRUCTION_SITES, {filter: (s: ConstructionSite) =>
             s.structureType === STRUCTURE_SPAWN}).length > 0;
     }
@@ -6076,7 +6085,8 @@ function roomLooksSpawnlessOwned(name: string): boolean {
     // clears this (above), so it cannot become a permanent trap.
     if (mem.foreignSpawn) return false;
     const spawnPlan = (mem.basePlan && mem.basePlan.spawn && mem.basePlan.spawn[0])
-        || (mem.basePlan && mem.basePlan.structures && mem.basePlan.structures.spawn && mem.basePlan.structures.spawn[0]);
+        || (mem.basePlan && mem.basePlan.structures && mem.basePlan.structures.spawn && mem.basePlan.structures.spawn[0])
+        || (mem.planV2 && mem.planV2.t && mem.planV2.t.spawn && mem.planV2.t.spawn[0]);
     const mine = !!(mem.speedrun || mem.planV2 || mem.planPackMiss || mem.basePlan);
     return !!(mine && spawnPlan);
 }
@@ -6129,10 +6139,67 @@ function finishableSpawnSiteRooms(from: string): string[] {
     return hits;
 }
 
+function pickSpawnRescue(): string | null {
+    const pinned = (Memory as any).spawnRescue;
+    if (typeof pinned === "string" && roomLooksSpawnlessOwned(pinned)) return pinned;
+    let best: string | null = null;
+    let bestP = -1;
+    const hits = finishableSpawnSiteRooms("E37N58");
+    for (let i = 0; i < hits.length; i++) {
+        const p = spawnSiteProgress(hits[i]);
+        const score = p >= 15000 ? 0 : p;
+        if (score > bestP) {
+            bestP = score;
+            best = hits[i];
+        }
+    }
+    if (best) {
+        (Memory as any).spawnRescue = best;
+        (Memory as any)._spawnEmergency = true;
+    }
+    return best;
+}
+
+function empireMySpawnCount(): number {
+    let n = 0;
+    for (const rn in Game.rooms) {
+        const rr = Game.rooms[rn];
+        if (rr.controller && rr.controller.my) n += rr.find(FIND_MY_SPAWNS).length;
+    }
+    return n;
+}
+
+function revertSpawnEmergency(): void {
+    if (finishableSpawnSiteRooms("E37N58").length) return;
+    if (!(Memory as any).spawnRescue && !(Memory as any)._spawnEmergency) return;
+    delete (Memory as any).spawnRescue;
+    delete (Memory as any)._spawnEmergency;
+    const tc: any = (Memory as any).target_colonise;
+    if (tc && tc.room && !roomLooksSpawnlessOwned(tc.room)) (Memory as any).target_colonise = {};
+    for (const name in Game.creeps) {
+        const c = Game.creeps[name];
+        if (!c.memory || c.memory.role !== "buildcontainer") continue;
+        const tgt = c.memory.targetRoom && Game.rooms[c.memory.targetRoom];
+        if (tgt && tgt.find(FIND_MY_SPAWNS).length) {
+            c.memory.role = "builder";
+            delete (c.memory as any).fill;
+        }
+    }
+    for (const rn in Game.rooms) {
+        const r = Game.rooms[rn];
+        if (!r.controller || !r.controller.my) continue;
+        if ((r.memory as any).planMigratePaused) delete (r.memory as any).planMigratePaused;
+        if ((r.memory as any).planMigration) (r.memory as any).planMigration.force = false;
+    }
+    logAlways("spawn rescue complete — all rooms have a spawn, emergency off");
+}
+
 function finishableSpawnSiteRoom(from: string): string | null {
+    // One spawnless room at a time. Never split the last builders.
+    const rescue = pickSpawnRescue();
+    if (rescue) return rescue;
     const hits = finishableSpawnSiteRooms(from);
     if (!hits.length) return null;
-    // Cover every spawnless room with 1 CB before doubling the nearest.
     for (let i = 0; i < hits.length; i++) {
         if (colonyBuildersOn(hits[i]) === 0) return hits[i];
     }
@@ -6170,14 +6237,62 @@ function purgeDeadColonyBuilders(room: any): void {
     for (let i = drop.length - 1; i >= 0; i--) q.splice(drop[i], 3);
 }
 
+function retaskBuildersToSpawnless(need: string): void {
+    let empireSpawns = 0;
+    for (const rn in Game.rooms) {
+        const rr = Game.rooms[rn];
+        if (rr.controller && rr.controller.my) empireSpawns += rr.find(FIND_MY_SPAWNS).length;
+    }
+    const cap = empireSpawns === 0 ? 99 : 2;
+    let onIt = colonyBuildersOn(need);
+    if (onIt >= cap) return;
+    for (const name in Game.creeps) {
+        if (onIt >= cap) return;
+        const c = Game.creeps[name];
+        if (!c.memory) continue;
+        if (c.memory.role === "buildcontainer" && c.memory.targetRoom === need) continue;
+        const role = c.memory.role;
+        if (role !== "builder" && role !== "repair" && role !== "maintainer" && role !== "RampartErector") continue;
+        if (empireSpawns > 0) {
+            const homeName = c.memory.homeRoom || c.room.name;
+            if (homeName === need) continue;
+            const home = Game.rooms[homeName];
+            if (!home || !home.find(FIND_MY_SPAWNS).length) continue;
+        }
+        c.memory.role = "buildcontainer";
+        c.memory.targetRoom = need;
+        (c.memory as any).fill = c.store.getFreeCapacity() > 0;
+        onIt++;
+        console.log("[colony] retask " + c.name + " -> " + need);
+    }
+}
+
 function maybeSpawnColonyBuilder(room: Room): void {
+    const pinned = (Memory as any).spawnRescue;
+    if (typeof pinned === "string") {
+        const pr = Game.rooms[pinned];
+        if (pr && pr.find(FIND_MY_SPAWNS).length) {
+            delete (Memory as any).spawnRescue;
+            logAlways("spawn rescue " + pinned + " complete — picking next");
+        }
+    }
+    revertSpawnEmergency();
     if (!room.controller || !room.controller.my || room.controller.level < 3) return;
     purgeDeadColonyBuilders(room);
     if (room.memory.danger) return;
     const storage: any = Game.getObjectById(room.memory.Structures && room.memory.Structures.storage);
-    if (!storage || (storage.store[RESOURCE_ENERGY] || 0) <= 10000) return;
-    if (Game.cpu.bucket <= 7750) return;
+    const bank = storage && storage.store ? (storage.store[RESOURCE_ENERGY] || 0) : 0;
     const need = finishableSpawnSiteRoom(room.name);
+    if (need) retaskBuildersToSpawnless(need);
+    // Spawn-rebuild is an emergency (FORCE-migrate just deleted the only
+    // spawn). The 10k / bucket-7750 gates are for optional new colonies.
+    const rescue = !!(need && Game.rooms[need] && Game.rooms[need].find(FIND_MY_SPAWNS).length === 0);
+    if (!rescue) {
+        if (!storage || bank <= 10000) return;
+        if (Game.cpu.bucket <= 7750) return;
+    } else if (bank < 2000 && room.energyAvailable < 550) {
+        return;
+    }
     if (!need) return;
     const dist = Game.map.getRoomLinearDistance(room.name, need);
     if (dist > 7) return;
@@ -6222,14 +6337,16 @@ function maybeSpawnColonyBuilder(room: Room): void {
      * jumps away. Require the room to be able to pay for it more or less now
      * (one filler load of slack); the producer re-runs on its own cadence.
      */
-    const cbBody = getBody([WORK, CARRY, MOVE], room, 24);
+    const parts = rescue ? 12 : 24;
+    const cbBody = getBody([WORK, CARRY, MOVE], room, parts);
     if (!cbBody.length) return;
     const cbCost = _.sum(cbBody, (p: any) => BODYPART_COST[p]);
-    if (room.energyAvailable + 300 < cbCost) return;
+    if (room.energyAvailable + (rescue ? 0 : 300) < cbCost) return;
     const newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-    room.memory.spawn_list.push(cbBody, newName,
-        {memory: {role: 'buildcontainer', targetRoom: need, homeRoom: room.name, fill: true}});
-    console.log('Adding ContainerBuilder to Spawn List: ' + newName);
+    const opts = {memory: {role: 'buildcontainer', targetRoom: need, homeRoom: room.name, fill: true}};
+    if (rescue) room.memory.spawn_list.unshift(cbBody, newName, opts);
+    else room.memory.spawn_list.push(cbBody, newName, opts);
+    console.log('Adding ContainerBuilder to Spawn List: ' + newName + (rescue ? ' (SPAWN RESCUE)' : ''));
 }
 
 export {getBody};

@@ -398,8 +398,10 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   return `dropped planV2 + migration state for ${roomName} (legacy construction resumes)`;
 };
 
-/** Console: migratePlan("W1N1") — the explicit go for demolishing toward the plan. */
-(global as any).migratePlan = function (roomName: string) {
+/** Console: migratePlan("W1N1") — demolish toward the plan.
+ *  migratePlan("W1N1", true) — force: low energy gate, may retire the only
+ *  off-plan spawn / storage so the plan tile can site. */
+(global as any).migratePlan = function (roomName: string, force: boolean = false) {
   const room = Game.rooms[roomName];
   if (!room) return `no visibility on ${roomName}`;
   if (!room.memory.planV2) return `${roomName} has no adopted planV2 — adoptPlan first`;
@@ -410,7 +412,7 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   const lvl = room.controller ? room.controller.level : 0;
   const young = lvl < 4 && room.find(FIND_MY_STRUCTURES).length < 15;
   const mode = young ? "auto" : "gradual";
-  (room.memory as any).planMigration = { mode: mode, since: Game.time, by: "operator" };
+  (room.memory as any).planMigration = { mode: mode, since: Game.time, by: "operator", force: !!force };
   delete (room.memory as any).planMigratePaused;
   // stall bookkeeping from an earlier arm cycle would instantly re-trigger the
   // frozen state AND suppress its note — a fresh arm starts with fresh timers
@@ -419,7 +421,7 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   for (const k of Object.keys(timers)) if (k.indexOf("sites:") === 0) delete timers[k];
   for (const k of Object.keys(noteLog)) if (k.indexOf("sites-stalled:") === 0) delete noteLog[k];
   const hold = mode === "gradual" && lvl < 4 ? ` (holds until RCL4 — economy safety)` : "";
-  return `${mode} migration ARMED for ${roomName}${hold} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
+  return `${mode} migration ARMED for ${roomName}${force ? " FORCE" : ""}${hold} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
 };
 
 /** Console: migrateAbort("W1N1") — disarm; nothing further is demolished, placement continues. */
@@ -1784,7 +1786,8 @@ function migrateClass(
   const ranked = rankOffPlan(room, type, planTile, plan, structures);
   if (!ranked.off.length) return;
 
-  const rich = migrationEnergy(room) > MIGRATE_ENERGY;
+  const force = !!(room.memory as any).planMigration && (room.memory as any).planMigration.force;
+  const rich = force || migrationEnergy(room) > MIGRATE_ENERGY;
   let candidates = ranked.off;
   let reason = "";
   let floorHeadroom = Infinity;
@@ -1927,8 +1930,15 @@ function migrateSpawns(
   if (spawns.length <= 1) {
     // Fresh claim with a leftover/colonise spawn off the plan: keeping it
     // until RCL7 means the plan spawn can never site (cap 1). E39N58.
+    // force: operator said delete the old bunker — same cap-1 hole.
     const young = lvl <= 3 && !room.storage;
-    if (young && off.length && !onPlan.length) {
+    const force = !!(room.memory as any).planMigration && (room.memory as any).planMigration.force;
+    let empireSpawns = 0;
+    for (const rn in Game.rooms) {
+      const rr = Game.rooms[rn];
+      if (rr.controller && rr.controller.my) empireSpawns += rr.find(FIND_MY_SPAWNS).length;
+    }
+    if ((young || force) && off.length && !onPlan.length && empireSpawns > 1) {
       const only = off[0];
       if (only.my && !only.spawning) {
         const res = only.destroy();
@@ -1936,6 +1946,15 @@ function migrateSpawns(
           `planV2 ${room.name}: retired off-plan only spawn@${only.pos.x},${only.pos.y} ` +
             `destroy() ${res} — RCL${lvl} cap is 1, plan spawn cannot site beside it`,
         );
+        const tile = plannedSpawnTile(room);
+        if (tile) {
+          const m: any = Memory;
+          m.target_colonise = {
+            room: room.name,
+            spawn_pos: { x: tile.x, y: tile.y, roomName: room.name },
+            lastSpawnRanger: Game.time,
+          };
+        }
         return;
       }
     }
@@ -2055,7 +2074,8 @@ function migrateHub(
     const legacy = off[0];
     const used = legacy.store ? legacy.store.getUsedCapacity() || 0 : 0;
 
-    if (lvl < HUB_MIGRATE_RCL) {
+    const forceHub = !!(room.memory as any).planMigration && (room.memory as any).planMigration.force;
+    if (lvl < HUB_MIGRATE_RCL && !forceHub) {
       noteOnce(
         room,
         `hub:${cls}:rcl`,
@@ -2066,6 +2086,15 @@ function migrateHub(
     }
 
     if (cap < 2) {
+      const force = !!(room.memory as any).planMigration && (room.memory as any).planMigration.force;
+      if (force && used < 20000) {
+        const res = legacy.destroy();
+        logAlways(
+          `planV2 ${room.name}: FORCE retire off-plan ${cls}@${legacy.pos.x},${legacy.pos.y} ` +
+            `destroy() ${res} (spilled ${used})`,
+        );
+        continue;
+      }
       noteOnce(
         room,
         `hub:${cls}`,
@@ -2099,6 +2128,45 @@ function migrateHub(
   }
 }
 
+/** Operator FORCE: wipe every off-plan structure this tick (capped for CPU).
+ *  Roads and unowned containers included. Last empire spawn is never touched. */
+function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[]): void {
+  const wanted: { [packed: number]: { [type: string]: boolean } } = {};
+  const mark = (type: string, packed: number) => {
+    if (!wanted[packed]) wanted[packed] = {};
+    wanted[packed][type] = true;
+  };
+  for (const type of Object.keys(plan.t)) {
+    if (type === "labInput") continue;
+    const asType = type === "shellCut" ? STRUCTURE_RAMPART : type;
+    for (const p of plan.t[type] || []) mark(asType, p);
+  }
+  let empireSpawns = 0;
+  for (const rn in Game.rooms) {
+    const rr = Game.rooms[rn];
+    if (rr.controller && rr.controller.my) empireSpawns += rr.find(FIND_MY_SPAWNS).length;
+  }
+  const MAX = 20;
+  let n = 0;
+  for (const s of structures) {
+    if (n >= MAX) break;
+    if (s.structureType === STRUCTURE_CONTROLLER) continue;
+    const mine = !!(s as any).my;
+    if (!mine && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER) continue;
+    const packed = s.pos.x + s.pos.y * 50;
+    if (wanted[packed] && wanted[packed][s.structureType]) continue;
+    if (s.structureType === STRUCTURE_SPAWN) {
+      if (empireSpawns <= 1) continue;
+      if ((s as StructureSpawn).spawning) continue;
+    }
+    if (s.destroy() === OK) {
+      n++;
+      if (s.structureType === STRUCTURE_SPAWN) empireSpawns--;
+    }
+  }
+  if (n) logAlways(`planV2 ${room.name}: INSTA removed ${n} off-plan`);
+}
+
 /** One migration pass over every class. See the protocol comment above. */
 function runMigration(
   room: Room,
@@ -2107,6 +2175,13 @@ function runMigration(
   structures: Structure[],
   have: { [type: string]: { [packed: number]: boolean } },
 ): void {
+  const arm = (room.memory as any).planMigration;
+  if (arm && arm.force) {
+    migrateInsta(room, plan, structures);
+    migrateSpawns(room, plan, lvl, structures);
+    migrateHub(room, plan, lvl, structures);
+    return;
+  }
   // every reason NOT to demolish — arming, danger, hostiles, bucket,
   // downgrade risk, pause — lives in migrationAllowed, shared with the
   // placement loop's reclaimTile so no destruction path can bypass it
@@ -2215,7 +2290,9 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
 export function placeFromPlanV2(room: Room): void {
   const plan = room.memory.planV2 as PackedPlan | undefined;
   if (!plan || !room.controller || !room.controller.my) return;
-  if (planSpawnMismatch(room)) {
+  const arm = (room.memory as any).planMigration;
+  const migrating = arm && (arm.mode === "gradual" || arm.mode === "auto" || arm.force);
+  if (planSpawnMismatch(room) && !migrating) {
     if (Game.time % 200 === 0) {
       const p = plannedSpawnTile(room);
       const s = room.find(FIND_MY_SPAWNS)[0];

@@ -116,6 +116,65 @@ export function roomFeedsController(room:any):boolean {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * BANK A MINIMUM RESERVE BEFORE FEEDING THE CONTROLLER.
+ *
+ * The link routing below tries the CONTROLLER link first and only offers what
+ * is left to the hub/storage link. With surplus that is right — upgrading is
+ * what a healthy room should spend on. With no surplus it is a trap, because
+ * there is never anything left: a single-source room earns ~10 energy/tick, the
+ * source link reaches the 400 the controller rung wants every ~40 ticks, sends
+ * it, and the storage rung (which needs 400 STILL in the source link after the
+ * controller has been served) never fires at all.
+ *
+ * VPS W2N1 and W1N2 are both one-source RCL7 rooms and both sat at storage 0
+ * indefinitely while their controller links visibly cycled 0 -> 450 -> 0. A
+ * room in that state has no reserve to repair its ramparts, refill a tower
+ * under attack, or finish the ten extensions it is still missing — and no route
+ * to acquiring one, because every unit of income is spoken for before it gets
+ * to the bank.
+ *
+ * So: while the bank is under RESERVE, the controller rung stands down and the
+ * energy goes to storage instead. This does not stop the room upgrading — the
+ * upgrader draws from storage perfectly well, it just walks instead of standing
+ * at the controller link — it only stops the room upgrading INSTEAD OF eating.
+ * Once the reserve exists, priority returns to the controller exactly as before.
+ *
+ * Rooms with no storage are unaffected (there is no bank to protect), and a
+ * controller genuinely close to downgrading always wins, because losing an RCL
+ * costs far more than the reserve is worth.
+ * ---------------------------------------------------------------------------
+ */
+const CONTROLLER_FEED_RESERVE = 2000;
+/** Downgrade timer under which the controller outranks the reserve. */
+const DOWNGRADE_URGENT = 15000;
+
+export function bankBelowReserve(room:any):boolean {
+    if(room._pacBankLow !== undefined) return room._pacBankLow;
+    const store = room.storage && room.storage.my ? room.storage : null;
+    // No storage means nothing to protect and no hub link worth routing to.
+    let low: boolean;
+    if(!store) {
+        low = false;
+    } else {
+        const ctrl = room.controller;
+        if(ctrl && ctrl.my && (ctrl.ticksToDowngrade || Infinity) < DOWNGRADE_URGENT) {
+            low = false;
+        } else {
+            const bank = (store.store[RESOURCE_ENERGY] || 0)
+                + (room.terminal && room.terminal.my ? (room.terminal.store[RESOURCE_ENERGY] || 0) : 0);
+            low = bank < CONTROLLER_FEED_RESERVE;
+        }
+    }
+    // Cached on the Room object (the engine rebuilds it every tick) and shared
+    // with creepFunctions' `_bankBelowReserve` by slot name, for the same reason
+    // roomFeedsController shares `_pacFeedsCtrl`: the two must agree, and a
+    // shared slot makes that true by construction rather than by discipline.
+    room._pacBankLow = low;
+    return low;
+}
+
+/**
  * Push a loaded link into the controller link.
  *
  * This exists as a separate pass because link forwarding is a STRUCTURE action,
@@ -190,6 +249,15 @@ export function forwardToControllerLink(room:any):void {
         if(drain > 0) ctrlLink.transferEnergy(hub, drain);
         return;
     }
+
+    // Same reserve rule the miner's own routing uses (see bankBelowReserve).
+    // This MUST agree with it: both passes draw from the same source links, so
+    // gating only one would have this pass refill the controller link while the
+    // miner's rung stood down trying to bank — the two pushing energy past each
+    // other, which is precisely what roomFeedsController's header forbids.
+    // Not a drain-back, only a stand-down: the upgrader empties what is already
+    // there and then draws from storage, which by then has something in it.
+    if(bankBelowReserve(room)) return;
 
     // Same bar as the original rung: top it up while it is at or below half.
     if(ctrlLink.store[RESOURCE_ENERGY] > 400) return;
@@ -750,7 +818,7 @@ const run = function (creep) {
             // nothing). Controller/extra used to sit in front of the hub send
             // in an if/else, so a failed controller send never drained to storage.
             let forwarded = false;
-            if(roomFeedsController(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
+            if(roomFeedsController(creep.room) && !bankBelowReserve(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 const send = Math.min(closestLink.store[RESOURCE_ENERGY], closestLinkToController.store.getFreeCapacity(RESOURCE_ENERGY));
                 if(send > 0 && closestLink.transferEnergy(closestLinkToController, send) == 0) {
                     forwarded = true;

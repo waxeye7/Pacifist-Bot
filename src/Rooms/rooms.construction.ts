@@ -719,14 +719,16 @@ function construction(room) {
         // 15 tiles from the spawn. Established rooms drop a mismatched pack;
         // young rooms just freeze placement.
         if (planSpawnMismatch(room)) {
+            const arm = (room.memory as any).planMigration;
+            const migrating = arm && (arm.mode === "gradual" || arm.mode === "auto" || arm.force);
             const established = room.controller && room.controller.level >= 4 && !!room.storage;
-            if (established) {
+            if (established && !migrating) {
                 logAlways(`construction ${room.name}: stripping planV2 — live spawn is not the pack spawn`);
                 delete room.memory.planV2;
                 (room.memory as any).planPackSkip = true;
                 if (room.memory.construction) room.memory.construction.rampartLocations = [];
             } else {
-                placeFromPlanV2(room); // logs + returns without placing
+                placeFromPlanV2(room);
                 return;
             }
         } else {

@@ -506,7 +506,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
                 // since forwardToControllerLink now hands an unconsumed controller
                 // link back to the hub, the two would trade the same energy back
                 // and forth at a 3% link tax per hop. Same test both sides.
-                else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400 && _roomFeedsController(this.room)) {
+                // ...and only while the room can afford the generosity. This rung
+                // spends the BANK on the controller link, so below the reserve it
+                // is undoing the miner-side routing change one carry at a time.
+                else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400 && _roomFeedsController(this.room) && !_bankBelowReserve(this.room)) {
                     if(reserve) {
                         takeReserveFill(this, controllerLink.id);
                     }
@@ -982,6 +985,40 @@ function _roomFeedsController(room: any): boolean {
     }).length > 0;
     room._pacFeedsCtrl = has;
     return has;
+}
+
+/**
+ * Is the room's bank under the reserve it must hold before it may spend on the
+ * controller? Mirror of `Roles/energyMiner`'s `bankBelowReserve` — duplicated
+ * for the same reason `_roomFeedsController` is (importing a role from here
+ * would be circular), and sharing its `room._pacBankLow` cache slot so the two
+ * answers cannot drift apart.
+ *
+ * The rung this guards moves energy OUT OF STORAGE into the controller link,
+ * so leaving it ungated would drain the very reserve the miner-side change
+ * exists to build.
+ */
+const _CONTROLLER_FEED_RESERVE = 2000;
+const _DOWNGRADE_URGENT = 15000;
+
+function _bankBelowReserve(room: any): boolean {
+    if (room._pacBankLow !== undefined) return room._pacBankLow;
+    const store = room.storage && room.storage.my ? room.storage : null;
+    let low: boolean;
+    if (!store) {
+        low = false;
+    } else {
+        const ctrl = room.controller;
+        if (ctrl && ctrl.my && (ctrl.ticksToDowngrade || Infinity) < _DOWNGRADE_URGENT) {
+            low = false;
+        } else {
+            const bank = (store.store[RESOURCE_ENERGY] || 0)
+                + (room.terminal && room.terminal.my ? (room.terminal.store[RESOURCE_ENERGY] || 0) : 0);
+            low = bank < _CONTROLLER_FEED_RESERVE;
+        }
+    }
+    room._pacBankLow = low;
+    return low;
 }
 
 /** Does the room have anything to build? Cached on the Room object. */
