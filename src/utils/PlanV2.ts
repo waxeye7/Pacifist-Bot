@@ -536,13 +536,40 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
           s.structureType === STRUCTURE_FACTORY || s.structureType === STRUCTURE_POWER_SPAWN,
       })
       .map((s: any) => s.structureType);
-    const gate = migrationAllowed(room);
     const arm = (room.memory as any).planMigration;
-    const armInfo = arm ? `arm:${arm.mode}@${arm.since}` : "arm:none";
+    /*
+     * The verdict has to name EVERY reason nothing is happening, not just the
+     * ones migrationAllowed() knows about.
+     *
+     * It used to print "ACTIVE" whenever migrationAllowed() returned null —
+     * but that function does not test MIGRATE_ENERGY, which is the gate that
+     * actually stops most rooms: an unforced pass only retires a FREE_REPLACE
+     * structure while storage holds more than 20k. So a room that was armed,
+     * correct, and deliberately doing nothing reported itself as ACTIVE with a
+     * list of off-plan structures next to it, for as long as it stayed poor.
+     * That reads as a broken bot, and it is why the owner reached for the force
+     * flag that then retired their spawns.
+     */
+    let verdict: string;
+    const gate = migrationAllowed(room);
+    const forced = !!(arm && arm.force);
+    if (gate !== null) {
+      verdict = "BLOCKED: " + gate;
+    } else if (forced && spawnEmergencyActive()) {
+      verdict = "HELD: spawn rescue in progress — alignment resumes when every room has a spawn";
+    } else if (!forced && migrationEnergy(room) <= MIGRATE_ENERGY) {
+      verdict =
+        `IDLE: storage ${migrationEnergy(room)} <= ${MIGRATE_ENERGY} — gradual migration will not ` +
+        `demolish what the room cannot pay to rebuild. migratePlan("${roomName}", true) to align anyway ` +
+        `(keeps spawn/storage/terminal).`;
+    } else {
+      verdict = forced ? (arm.hub ? "ACTIVE (align + hub)" : "ACTIVE (align)") : "ACTIVE (gradual)";
+    }
+    const armInfo = arm ? `arm:${arm.mode}${arm.force ? (arm.hub ? "+force+hub" : "+force") : ""}@${arm.since}` : "arm:none";
     lines.push(
       `${roomName} plan ${plan.h} rcl ${lvl} ${armInfo} off-plan[engine-view]: ${parts.join(" ") || "none"}` +
         (unmanaged.length ? ` unmanaged: ${unmanaged.join(",")}` : "") +
-        ` — ${gate === null ? "ACTIVE" : "BLOCKED: " + gate}`,
+        ` — ${verdict}`,
     );
   }
   return lines.length ? lines.join("\n") : "no planV2 rooms visible";
