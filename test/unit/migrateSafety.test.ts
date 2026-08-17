@@ -110,3 +110,32 @@ describe("PlanV2 migration safety", () => {
     });
   });
 });
+
+/**
+ * A floor expressed in absolute energy is unsatisfiable by any room whose
+ * CAPACITY sits below it — energyAvailable can never exceed
+ * energyCapacityAvailable, so such a test does not mean "wait until richer", it
+ * means "never". That is not hypothetical: a forced migration destroyed every
+ * storage (bank 0 empire-wide) and alignment then retired the off-plan
+ * extensions, dropping E37N58 to 500 capacity and E39N58 to 350 against a flat
+ * 800 gate. Both sat with a full spawn, an empty queue and an idle spawner while
+ * three rooms waited on a rebuild only they could supply.
+ */
+describe("spawn rescue: no unsatisfiable energy floors", () => {
+    const SPAWNING = fs.readFileSync(
+        path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
+
+    it("gates the rescue mother on a share of capacity, not a flat number", () => {
+        assert.notInclude(
+            SPAWNING, "room.energyAvailable < 800",
+            "a flat 800 floor is unreachable for a room whose capacity is below it");
+        assert.include(SPAWNING, "rescueMotherFloor(room)");
+    });
+
+    it("keeps that floor at or below what the room can physically hold", () => {
+        assert.match(
+            SPAWNING,
+            /Math\.min\(800, Math\.floor\(room\.energyCapacityAvailable \* 0\.8\)\)/,
+            "the floor must be clamped to the room's own capacity");
+    });
+});

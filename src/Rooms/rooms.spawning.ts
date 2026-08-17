@@ -6443,6 +6443,28 @@ function runSpawnRescueOnce(): void {
     }
 }
 
+/**
+ * How full a bankless room must be before it may spend on a rescue builder.
+ *
+ * This was a flat 800, and a flat floor is unsatisfiable by any room whose
+ * CAPACITY is below it — `energyAvailable` can never exceed
+ * `energyCapacityAvailable`, so the test is not "wait until you are richer", it
+ * is "never". Live shard3 hit that from two directions at once: a forced plan
+ * migration destroyed every storage (bank 0 everywhere) and then alignment
+ * retired the off-plan extensions, dropping E37N58 from 1300 capacity to 500
+ * and E39N58 to 350. Both rooms then sat with a full spawn, an empty queue and
+ * an idle spawner while three rooms waited on a rebuild they were the only
+ * possible source of — the owner's "some rooms not spawning, they just pass
+ * energy around".
+ *
+ * Expressed against the room's own capacity it means what it was meant to mean:
+ * "be near full before you spend the lot", which any room can eventually reach.
+ * The absolute cap keeps the original bar for rooms big enough to clear it.
+ */
+function rescueMotherFloor(room: Room): number {
+    return Math.min(800, Math.floor(room.energyCapacityAvailable * 0.8));
+}
+
 function maybeSpawnColonyBuilder(room: Room): void {
     runSpawnRescueOnce();
     if (!room.controller || !room.controller.my || room.controller.level < 3) return;
@@ -6458,7 +6480,7 @@ function maybeSpawnColonyBuilder(room: Room): void {
     if (!rescue) {
         if (!storage || bank <= 10000) return;
         if (Game.cpu.bucket <= 7750) return;
-    } else if (bank < 2000 && room.energyAvailable < 800) {
+    } else if (bank < 2000 && room.energyAvailable < rescueMotherFloor(room)) {
         // Don't empty the last spawn to hatch another CB.
         return;
     }
