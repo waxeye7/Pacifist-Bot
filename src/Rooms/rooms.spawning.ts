@@ -178,6 +178,9 @@ const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
  * `energyAvailable` every time it buys something, and a room with a full bank
  * is never broke however empty its extensions happen to read this tick.
  */
+/** Ticks between spawn-triage log lines for one room. */
+const TRIAGE_LOG_EVERY = 100;
+
 function roomIsBroke(room: any): boolean {
     if (room.memory.danger) return false;
     const storage = room.storage && room.storage.my ? room.storage : null;
@@ -202,12 +205,20 @@ function dropNonRecoverySpend(room: any): void {
         list.splice(i, 3);
         i -= 3;
     }
-    // One summary line, not one per entry: a room that stays broke has its
-    // producer re-queue the same roles every cadence window, and this would
-    // otherwise become its own console flood.
+    // One summary line, not one per entry — and at most one per TRIAGE_LOG_EVERY
+    // ticks per room. A room that stays broke has its producer re-queue the same
+    // roles every cadence window and this pass drops them again each time, so an
+    // unthrottled logAlways here becomes its own console flood on exactly the
+    // room someone is trying to read the console about. The heartbeat in main.ts
+    // reports persistently broke rooms anyway; this line only needs to say that
+    // triage is happening and what it is throwing away.
     if (dropped.length) {
-        logAlways(`spawn triage ${room.name}: dropped ${dropped.length} non-recovery `
-            + `(${dropped.join(",")}) - broke at ${room.energyAvailable}/${room.energyCapacityAvailable}`);
+        const last = (room.memory as any)._triageLog || 0;
+        if (Game.time - last >= TRIAGE_LOG_EVERY) {
+            (room.memory as any)._triageLog = Game.time;
+            logAlways(`spawn triage ${room.name}: dropped ${dropped.length} non-recovery `
+                + `(${dropped.join(",")}) - broke at ${room.energyAvailable}/${room.energyCapacityAvailable}`);
+        }
     }
     // The head may have changed underneath the stall bookkeeping. spawnFirstInLine
     // re-keys on the name anyway, but clearing here means the shrink/interleave
