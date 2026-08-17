@@ -59,6 +59,8 @@ const PHASE_TIMEOUT = 20000;
 const CLAIMED_SPAWNLESS = 8000;
 const MIN_BUCKET = 5000;
 const MIN_RCL = 3;
+/** CPU/tick one more room plausibly costs — the headroom expansion requires. */
+const CPU_HEADROOM = 3;
 
 type Phase = "picking" | "claiming" | "claimed" | "spawned";
 
@@ -100,12 +102,32 @@ function blockedReason(): string | null {
   if (Game.cpu.bucket <= MIN_BUCKET) return `bucket ${Game.cpu.bucket} <= ${MIN_BUCKET}`;
   if (!owned.some((r) => (r.controller as StructureController).level >= MIN_RCL))
     return `no owned room at RCL${MIN_RCL}+`;
-  // Owner rule: RCL7 then RCL8 before another claim. Memory.features.expandMinRcl
-  // (default 7, see utils/Features); 0 disables. Only bites once we hold 3+ rooms.
-  const minRcl = M().features && M().features.expandMinRcl !== undefined ? M().features.expandMinRcl : 7;
+  /*
+   * CPU HEADROOM is the real constraint on how many rooms this bot can hold,
+   * and it is now the one that is actually enforced.
+   *
+   * The old gate was `expandMinRcl` — "reach RCL7 before claiming another" —
+   * which is a proxy for readiness, not a measure of it, and on shard3 it
+   * blocked expansion indefinitely: GCL 12 with 8 free claims available and
+   * every room stuck below RCL7. The owner's rule is simpler and more honest:
+   * expand whenever there is CPU to run another room.
+   *
+   * `expandMinRcl` still works if someone sets it (0 = off, and 0 is now the
+   * default); it just is not the thing standing in the way any more.
+   *
+   * The bar: a room costs real CPU per tick, so we require BOTH a healthy
+   * bucket (above) and a 100-tick average with room to spare. `CPU_HEADROOM`
+   * is what one more room plausibly costs — measured on this bot at ~2-4 CPU
+   * for a small room, so 3 with the bucket test as the safety net.
+   */
+  const minRcl = M().features && M().features.expandMinRcl !== undefined ? M().features.expandMinRcl : 0;
   if (minRcl > 0 && owned.length >= 3 &&
       !owned.some((r) => (r.controller as StructureController).level >= minRcl))
     return `expandMinRcl ${minRcl}: ${owned.length} owned rooms and none at RCL${minRcl}+`;
+  const avg = Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+  const limit = Game.cpu.limit || 20;
+  if (avg > 0 && avg + CPU_HEADROOM > limit)
+    return `CPU ${avg.toFixed(1)}/${limit} — no headroom for another room (need ${CPU_HEADROOM} spare)`;
   // hold the queue: finish() without this just pick()s the next leftover
   if (spawnlessOwned())
     return "spawnless owned room — bootstrap before next claim";

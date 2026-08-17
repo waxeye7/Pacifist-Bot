@@ -49,7 +49,10 @@ const DEFAULTS: FeatureFlags = {
   squareWalls: false,
   pickupLock: true,
   sourceMaps: false,
-  expandMinRcl: 7,
+  // 0 = no RCL gate on expansion. The binding constraint is CPU headroom, which
+  // AutoExpand.blockedReason now measures directly; an RCL proxy for readiness
+  // just blocked a GCL-12 bot with 8 free claims behind rooms stuck at RCL6.
+  expandMinRcl: 0,
 };
 
 export function getFeatures(): FeatureFlags {
@@ -63,7 +66,7 @@ export function getFeatures(): FeatureFlags {
   if (f.squareWalls === undefined) f.squareWalls = false;
   if (f.pickupLock === undefined) f.pickupLock = true;
   if (f.sourceMaps === undefined) f.sourceMaps = false;
-  if (f.expandMinRcl === undefined) f.expandMinRcl = 7;
+  if (f.expandMinRcl === undefined) f.expandMinRcl = 0;
   return f;
 }
 

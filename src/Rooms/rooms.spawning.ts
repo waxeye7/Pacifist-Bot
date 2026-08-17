@@ -655,6 +655,12 @@ function isRoutineSpawn(name:string):boolean {
  * a sane part order (WORK first so it survives damage longest, MOVE last) no
  * matter what order the producer emitted.
  */
+/**
+ * Part types that may be shed to ZERO. TOUGH is pure armour — a body without it
+ * is the same creep, just softer. Every other type defines what the creep IS.
+ */
+const SHRINK_MAY_ZERO: { [part: string]: boolean } = { [TOUGH]: true };
+
 function shrinkQueuedBody(body:string[], name:string, opts?:any):boolean {
     if(!body || body.length <= 2) return false;
 
@@ -662,6 +668,10 @@ function shrinkQueuedBody(body:string[], name:string, opts?:any):boolean {
     for(let part of body) {
         counts[part] = (counts[part] || 0) + 1;
     }
+    // What the body IS, before we start cutting. See the guard at the bottom:
+    // shrinking may make a creep smaller, never make it a different creep.
+    const hadType: { [part: string]: boolean } = {};
+    for(const part in counts) hadType[part] = true;
     let moves = counts[MOVE] || 0;
     let others = body.length - moves;
 
@@ -741,6 +751,32 @@ function shrinkQueuedBody(body:string[], name:string, opts?:any):boolean {
         || !_.some(rebuilt, (part:any) => part == MOVE)
         || !_.some(rebuilt, (part:any) => part != MOVE)) {
         return false;
+    }
+
+    /*
+     * SHRINKING MAKES A CREEP SMALLER. IT MUST NEVER MAKE IT A DIFFERENT CREEP.
+     *
+     * Losing the last part of a type is not a size change, it is a role change.
+     * The generic fallback above sheds from [TOUGH, RANGED_ATTACK, ATTACK, HEAL,
+     * CARRY, WORK] on `> 0`, so it would take a ContainerBuilder's final WORK —
+     * and the guard above happily passes [CARRY, MOVE] because it has a MOVE and
+     * something that is not a MOVE. What comes out is a creep that walks to a
+     * spawn site and stands there: it cannot build, but it still costs a spawn
+     * slot, the energy, and its share of the creep loop.
+     *
+     * Live shard3 during the spawn rescue: 4 of 20 ContainerBuilders hatched
+     * with ZERO work parts, against three rooms that needed 15k of building
+     * each and one surviving spawn to produce it all.
+     *
+     * The miner branch already states this rule for its last CARRY and the
+     * reserver branch for its last two CLAIM; this generalises it. A body that
+     * cannot shrink without changing type simply is not shrunk — the entry waits
+     * for energy instead, which the reserver comment rightly calls "strictly
+     * better than spawning a creep that provably cannot do its job".
+     */
+    for(const part in hadType) {
+        if(SHRINK_MAY_ZERO[part]) continue;
+        if(!(counts[part] > 0)) return false;
     }
 
     body.length = 0;
@@ -6267,7 +6303,14 @@ function revertSpawnEmergency(): void {
         const r = Game.rooms[rn];
         if (!r.controller || !r.controller.my) continue;
         if ((r.memory as any).planMigratePaused) delete (r.memory as any).planMigratePaused;
-        if ((r.memory as any).planMigration) (r.memory as any).planMigration.force = false;
+        const arm = (r.memory as any).planMigration;
+        // Clearing `force` here exists to stand down a force that the emergency
+        // itself provoked. It must NOT quietly cancel an operator's deliberate
+        // align arm: PlanV2 holds forced migration for the duration of a spawn
+        // rescue, so an owner who arms "align every room" during one would have
+        // their arm wiped at the exact moment it was finally allowed to run —
+        // and the rooms would sit off-plan forever while reporting armed.
+        if (arm && arm.by !== "operator") arm.force = false;
     }
     logAlways("spawn rescue complete — all rooms have a spawn, emergency off");
 }
