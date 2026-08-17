@@ -398,10 +398,34 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   return `dropped planV2 + migration state for ${roomName} (legacy construction resumes)`;
 };
 
-/** Console: migratePlan("W1N1") — demolish toward the plan.
- *  migratePlan("W1N1", true) — force: low energy gate, may retire the only
- *  off-plan spawn / storage so the plan tile can site. */
-(global as any).migratePlan = function (roomName: string, force: boolean = false) {
+/**
+ * Console: migratePlan(room [, force])  — demolish toward the adopted plan.
+ *
+ *   migratePlan("W1N1")          gradual. Retires a few structures per class
+ *                                per 60 ticks, and ONLY while the room holds
+ *                                more than MIGRATE_ENERGY (20k) in storage, so
+ *                                it can pay to rebuild what it removes. On a
+ *                                room that never reaches 20k this does nothing
+ *                                at all, which is exactly what live shard3 saw
+ *                                and why the owner reached for force.
+ *
+ *   migratePlan("W1N1", true)    ALIGN. Ignores the energy gate and the pacing
+ *                                and clears every off-plan extension,
+ *                                container, road, tower and wall it can reach.
+ *                                Spawns, storage and terminals are LEFT ALONE.
+ *                                This is what "delete everything that is not in
+ *                                the plan" means in practice.
+ *
+ *   migratePlan("W1N1", "hub")   ALIGN + retire the off-plan spawn / storage /
+ *                                terminal too. This takes the room offline while
+ *                                it rebuilds a 15k spawn, and destroy() spills a
+ *                                storage's contents on the floor. It is the
+ *                                right call when relocating a hub deliberately
+ *                                and the wrong one almost every other time —
+ *                                hence a word rather than a boolean, so it
+ *                                cannot be reached by typing `true`.
+ */
+(global as any).migratePlan = function (roomName: string, force: boolean | string = false) {
   const room = Game.rooms[roomName];
   if (!room) return `no visibility on ${roomName}`;
   if (!room.memory.planV2) return `${roomName} has no adopted planV2 — adoptPlan first`;
@@ -412,7 +436,12 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   const lvl = room.controller ? room.controller.level : 0;
   const young = lvl < 4 && room.find(FIND_MY_STRUCTURES).length < 15;
   const mode = young ? "auto" : "gradual";
-  (room.memory as any).planMigration = { mode: mode, since: Game.time, by: "operator", force: !!force };
+  // "hub" (any string) opts into retiring spawn/storage/terminal. `true` does
+  // NOT — see the header. Anything truthy still bypasses the energy gate.
+  const wantHub = typeof force === "string" && force.toLowerCase() === "hub";
+  (room.memory as any).planMigration = {
+    mode: mode, since: Game.time, by: "operator", force: !!force, hub: wantHub,
+  };
   delete (room.memory as any).planMigratePaused;
   // stall bookkeeping from an earlier arm cycle would instantly re-trigger the
   // frozen state AND suppress its note — a fresh arm starts with fresh timers
@@ -421,7 +450,11 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   for (const k of Object.keys(timers)) if (k.indexOf("sites:") === 0) delete timers[k];
   for (const k of Object.keys(noteLog)) if (k.indexOf("sites-stalled:") === 0) delete noteLog[k];
   const hold = mode === "gradual" && lvl < 4 ? ` (holds until RCL4 — economy safety)` : "";
-  return `${mode} migration ARMED for ${roomName}${force ? " FORCE" : ""}${hold} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
+  const level = wantHub ? " ALIGN+HUB (will retire spawn/storage/terminal)" : force ? " ALIGN (spawn/storage/terminal kept)" : "";
+  const held = spawnEmergencyActive()
+    ? ` — HELD: the empire is rebuilding a spawn, alignment starts once every room has one`
+    : "";
+  return `${mode} migration ARMED for ${roomName}${level}${hold}${held} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
 };
 
 /** Console: migrateAbort("W1N1") — disarm; nothing further is demolished, placement continues. */
@@ -1563,6 +1596,23 @@ function migrationEnergy(room: Room): number {
 }
 
 /**
+ * Is the empire mid spawn-rescue? Read from Memory rather than imported from
+ * rooms.spawning, which would be a cycle. The keys are that module's own
+ * (`spawnRescue` = the pinned room, `_spawnEmergency` = pile every builder on).
+ */
+function spawnEmergencyActive(): boolean {
+  const M = Memory as any;
+  if (M.spawnRescue || M._spawnEmergency) return true;
+  // Belt and braces: a room of ours standing with no spawn is the condition
+  // those flags describe, whether or not they happen to be set this tick.
+  for (const rn in Game.rooms) {
+    const r = Game.rooms[rn];
+    if (r.controller && r.controller.my && r.find(FIND_MY_SPAWNS).length === 0) return true;
+  }
+  return false;
+}
+
+/**
  * THE single gate every DESTRUCTIVE migration action must pass — both
  * runMigration's classes and the placement loop's reclaimTile. Returns null
  * when clear, otherwise the human-readable block reason (surfaced by
@@ -2128,9 +2178,30 @@ function migrateHub(
   }
 }
 
+/**
+ * Structures an ALIGN pass must never retire, however off-plan they are.
+ *
+ * A spawn, a storage and a terminal are not "a structure in the wrong place" —
+ * they are the room's ability to function, they cost 15k/30k/100k to replace,
+ * and destroy() spills whatever is inside them onto the floor. Everything else
+ * in a base is cheap and re-sitable, which is what makes wiping it safe.
+ *
+ * `migrateInsta`'s only protection used to be "never the LAST spawn in the
+ * empire", which is not a safety rule — it let a four-spawn empire go to one,
+ * one room at a time, because each room's pass saw more than one still standing.
+ * Live shard3 lost three spawns and three storages to exactly that.
+ */
+const ALIGN_NEVER_RETIRE: { [type: string]: boolean } = {
+  [STRUCTURE_SPAWN]: true,
+  [STRUCTURE_STORAGE]: true,
+  [STRUCTURE_TERMINAL]: true,
+};
+
 /** Operator FORCE: wipe every off-plan structure this tick (capped for CPU).
- *  Roads and unowned containers included. Last empire spawn is never touched. */
-function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[]): void {
+ *  Roads and unowned containers included. With `keepCritical` (the default for
+ *  an align-mode arm) spawns, storage and terminals are left standing —
+ *  retiring those is the hub protocol's job, and only when explicitly asked. */
+function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], keepCritical?: boolean): void {
   const wanted: { [packed: number]: { [type: string]: boolean } } = {};
   const mark = (type: string, packed: number) => {
     if (!wanted[packed]) wanted[packed] = {};
@@ -2155,9 +2226,13 @@ function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[]): vo
     if (!mine && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER) continue;
     const packed = s.pos.x + s.pos.y * 50;
     if (wanted[packed] && wanted[packed][s.structureType]) continue;
+    if (keepCritical && ALIGN_NEVER_RETIRE[s.structureType]) continue;
     if (s.structureType === STRUCTURE_SPAWN) {
       if (empireSpawns <= 1) continue;
       if ((s as StructureSpawn).spawning) continue;
+      // A room's OWN last spawn is its ability to exist. The empire-wide test
+      // above does not protect it — that is what let 4 spawns become 1.
+      if (room.find(FIND_MY_SPAWNS).length <= 1) continue;
     }
     if (s.destroy() === OK) {
       n++;
@@ -2177,9 +2252,37 @@ function runMigration(
 ): void {
   const arm = (room.memory as any).planMigration;
   if (arm && arm.force) {
-    migrateInsta(room, plan, structures);
-    migrateSpawns(room, plan, lvl, structures);
-    migrateHub(room, plan, lvl, structures);
+    /*
+     * ALIGN vs HUB — one flag used to mean both, and that is what wrecked live
+     * shard3. `force` bypassed the 20k-storage gate AND retired spawns, storage
+     * and terminals, with no way to ask for the first without the second. An
+     * owner who wants "delete everything that is not in the plan" means the
+     * cheap, re-sitable furniture; they do not mean "retire the spawn", which
+     * costs 15k to rebuild and takes the room offline while it does.
+     *
+     * So arm.hub is now a SEPARATE opt-in. Without it this is an align pass:
+     * aggressive about extensions, containers, roads and towers, and it will
+     * not touch the three structures a room cannot function without.
+     */
+    const wantHub = !!arm.hub;
+    // Never demolish anything while the empire is rebuilding a spawn. Every
+    // structure retired here is one the surviving spawn has to pay to replace,
+    // out of the same budget the rescue is spending — and the rescue is what
+    // decides whether rooms come back at all.
+    if (spawnEmergencyActive()) {
+      noteOnce(
+        room,
+        "align:spawn-emergency",
+        `planV2 ${room.name}: migration held — the empire is rebuilding a spawn ` +
+          `(Memory.spawnRescue). Alignment resumes once every room has one.`,
+      );
+      return;
+    }
+    migrateInsta(room, plan, structures, !wantHub);
+    if (wantHub) {
+      migrateSpawns(room, plan, lvl, structures);
+      migrateHub(room, plan, lvl, structures);
+    }
     return;
   }
   // every reason NOT to demolish — arming, danger, hostiles, bucket,

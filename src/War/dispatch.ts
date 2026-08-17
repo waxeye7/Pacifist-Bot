@@ -55,7 +55,26 @@ function dropHotTowerCcks(): void {
   Memory.commandsToExecute = next;
 }
 
+const COOLDOWN: { [kind: string]: number } = {
+  "guard-prey": 80,
+  "guard-raid": 80,
+  duo: 120,
+  "ranged-quad": 200,
+  "ranged-quad-boost": 200,
+  "melee-quad-boost": 200,
+  cck: 150,
+  mosquito: 200,
+};
+const issuedAt: { [key: string]: number } = {};
+
+function onCooldown(k: Kit): boolean {
+  const wait = COOLDOWN[k.kind] || 50;
+  const key = k.kind + ":" + k.target;
+  return !!(issuedAt[key] && Game.time - issuedAt[key] < wait);
+}
+
 function issue(k: Kit): boolean {
+  if (onCooldown(k)) return false;
   const g = global as any;
   let ok = false;
 
@@ -128,6 +147,7 @@ function issue(k: Kit): boolean {
   }
 
   if (ok) {
+    issuedAt[k.kind + ":" + k.target] = Game.time;
     patchIntel(k.target, { atk: Game.time });
     noteDiary(k);
     logAlways("[war] dispatch", k.kind, k.target, "from", k.home, "-", k.why);

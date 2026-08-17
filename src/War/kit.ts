@@ -137,6 +137,9 @@ function canFund(room: Room, cost: number): boolean {
   // are ever asked for is a single guard, and the tower/stall tests above have
   // already ruled out the ones that are struggling.
   if (!room.storage || !room.storage.my) {
+    // spawn triage drops Guard from a broke pre-storage room the next tick.
+    // energyCapacity >= cost is not enough — the queue never hatches.
+    if (room.energyAvailable < room.energyCapacityAvailable * 0.5) return false;
     return cost <= CHEAP_KIT && room.energyCapacityAvailable >= cost;
   }
   return bankEnergy(room) >= cost * WAR_BANK_MULTIPLE + WAR_BANK_FLOOR;
