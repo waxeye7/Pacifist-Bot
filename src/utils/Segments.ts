@@ -57,6 +57,7 @@ export function requestSegments(ids: number[]): number[] {
 
 /** Who owns which id — so segs() is readable and we do not double-book. */
 export const SEGMENT_OWNERS: { [id: number]: string } = {
+  7: "ally-need",
   10: "errors",
   30: "war-intel",
   86: "expand-pack",
@@ -88,7 +89,7 @@ export function segmentStatus(): string {
     const len = typeof raw === "string" ? raw.length : 0;
     rows.push(`  ${String(id).padStart(2)}  ${segmentOwner(id).padEnd(12)}  ${len} / 100000 bytes`);
   }
-  rows.push("private: other players cannot read these (no setPublicSegments).");
+  rows.push("7 is public (ally-need). other mounted ids stay private.");
   return rows.join("\n");
 }
 

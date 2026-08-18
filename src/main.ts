@@ -16,6 +16,7 @@ import { runMapViz } from "utils/MapViz";
 import { sampleRemoteStats, installRemoteStatsCommand } from "utils/RemoteStats";
 import { runWar, installWarCommands } from "War/war";
 import { installSegmentCommands } from "utils/Segments";
+import { publishAllyNeed } from "utils/AllyNeedSegment";
 import { refreshModes } from "War/mode";
 import { runReinforce } from "War/reinforce";
 
@@ -299,6 +300,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   runDropRooms();
 
   MemoryManager();
+  publishAllyNeed();
   if (opts.roomCache) {
     RoomCache.tick();
   }

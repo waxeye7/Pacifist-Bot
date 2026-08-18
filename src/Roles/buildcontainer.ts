@@ -16,10 +16,48 @@ import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2
  * used to abort the whole tick at the top of the rampart clause, so the build
  * and harvest paths below it never ran.
  */
-/** Pull energy from extensions/containers/links. Skip rooms that still have
- *  a spawn — that energy is the last hatchery. */
+/**
+ * Pull energy from the room a rescue builder happens to be standing in.
+ *
+ * LOOSE energy first, and from ANY room. Dropped piles, tombstones and ruins
+ * are not anybody's reserve — they decay to nothing whether we take them or
+ * not, so the "leave the last hatchery alone" rule has no claim on them.
+ *
+ * That distinction was missing and it deadlocked the live rescue. E37N58 was
+ * the only room with a spawn, so this function refused to look at it at all —
+ * while 9,560 energy sat DROPPED on its floor, spilled when its storage was
+ * destroyed. E37N59's spawn site needed 3,300 more, its own room was at zero,
+ * and the builders were commuting to empty remote rooms hunting for energy that
+ * was lying one room away the whole time. The site advanced at 0.5/tick.
+ *
+ * STORED energy keeps the original rule: a room with a spawn needs its
+ * extensions to hatch the next creep, and draining them to build somewhere else
+ * is how a rescue eats the thing performing it.
+ */
 function tapRoomEnergy(creep: Creep): boolean {
     if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) return false;
+
+    const loose: any[] = (creep.room.find(FIND_DROPPED_RESOURCES, {
+        filter: (d: Resource) => d.resourceType === RESOURCE_ENERGY && d.amount >= 25,
+    }) as any[])
+        .concat(creep.room.find(FIND_TOMBSTONES, {
+            filter: (t: Tombstone) => (t.store[RESOURCE_ENERGY] || 0) >= 25,
+        }) as any[])
+        .concat(creep.room.find(FIND_RUINS, {
+            filter: (r: Ruin) => (r.store[RESOURCE_ENERGY] || 0) >= 25,
+        }) as any[]);
+    if (loose.length) {
+        const near = creep.pos.findClosestByRange(loose);
+        if (near) {
+            const got = near.amount !== undefined
+                ? creep.pickup(near)
+                : creep.withdraw(near, RESOURCE_ENERGY);
+            if (got === ERR_NOT_IN_RANGE) creep.MoveCostMatrixRoadPrio(near, 1);
+            return true;
+        }
+    }
+
+    // Stored energy: only where it is not the last hatchery's.
     if (creep.room.find(FIND_MY_SPAWNS).length) return false;
     const piles = creep.room.find(FIND_STRUCTURES, {filter: (s: AnyStructure) => {
         const st = s.structureType;
