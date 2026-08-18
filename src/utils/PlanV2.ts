@@ -2269,11 +2269,31 @@ const ALIGN_NEVER_RETIRE: { [type: string]: boolean } = {
   [STRUCTURE_TERMINAL]: true,
 };
 
+/**
+ * How often a force/align arm re-sweeps once a pass found nothing to remove.
+ *
+ * migrateInsta is a bulk wipe: it builds a map of every planned tile and walks
+ * every structure in the room. That is fine as a one-off, and ruinous as a
+ * per-tick habit — which is what it became, because an align arm stays armed
+ * after the room is aligned and nothing told it to stop looking. Four armed
+ * rooms re-scanning ~200 structures each, every tick, pushed live shard3 from
+ * ~14 CPU to 26.5 against a limit of 20 and drained the bucket 7645 -> 6198
+ * with every room already reporting zero off-plan.
+ *
+ * So: sweep every tick while it is still finding work, and back off to this
+ * interval once it is not. A newly off-plan structure is noticed within the
+ * interval, which is far faster than anything that could create one.
+ */
+const INSTA_IDLE_EVERY = 25;
+
 /** Operator FORCE: wipe every off-plan structure this tick (capped for CPU).
  *  Roads and unowned containers included. With `keepCritical` (the default for
  *  an align-mode arm) spawns, storage and terminals are left standing —
  *  retiring those is the hub protocol's job, and only when explicitly asked. */
 function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], keepCritical?: boolean): void {
+  // Back off once a pass finds nothing. See INSTA_IDLE_EVERY.
+  const mem = room.memory as any;
+  if (mem._instaIdleSince && Game.time - mem._instaIdleSince < INSTA_IDLE_EVERY) return;
   const wanted: { [packed: number]: { [type: string]: boolean } } = {};
   const mark = (type: string, packed: number) => {
     if (!wanted[packed]) wanted[packed] = {};
@@ -2311,7 +2331,12 @@ function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], kee
       if (s.structureType === STRUCTURE_SPAWN) empireSpawns--;
     }
   }
-  if (n) logAlways(`planV2 ${room.name}: INSTA removed ${n} off-plan`);
+  if (n) {
+    delete mem._instaIdleSince;
+    logAlways(`planV2 ${room.name}: INSTA removed ${n} off-plan`);
+  } else {
+    mem._instaIdleSince = Game.time;
+  }
 }
 
 /** One migration pass over every class. See the protocol comment above. */

@@ -6460,12 +6460,20 @@ function stripNonRescueQueue(room: any): void {
          * had nowhere to go, so the room looked busy and achieved nothing —
          * which is exactly what it looked like from the outside.
          *
+         * `upgrader` is here for the same reason, learned the same way: a
+         * spawn emergency runs for HOURS, and a room that cannot upgrade does
+         * not merely stagnate, it DOWNGRADES. Live E39N58 was at RCL3 with
+         * fifteen creeps and a downgrade timer falling through 7,404 while
+         * every upgrader it queued was stripped. Losing an RCL costs far more
+         * than the marginal rescue speed the strip was buying.
+         *
          * A builder is not a luxury: it is the only thing that converts a
          * room's energy into structures. Blocking it does not save the energy
          * for the rescue, it just leaves it sitting in a full spawn.
          */
         if (role === "buildcontainer" || role === "EnergyMiner" ||
-            role === "filler" || role === "carry" || role === "builder") next.push(body, name, opts);
+            role === "filler" || role === "carry" || role === "builder" ||
+            role === "upgrader") next.push(body, name, opts);
         return true;
     });
     if (next.length !== q.length) room.memory.spawn_list = next;
