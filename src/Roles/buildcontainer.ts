@@ -211,11 +211,34 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
         creep.memory.building = true;
     }
-    // Spawn rescue: do not wait for a full tank. Live E39N58 sat at 730/15k
-    // with three CBs in-room holding 36–98 because building only flipped at
-    // getFreeCapacity()==0.
+    /*
+     * Spawn rescue: do not wait for a full tank — but ONLY when topping up is
+     * not an option.
+     *
+     * The unconditional version fixed one deadlock and created a worse one. It
+     * was written for E39N58, which sat at 730/15k with three builders holding
+     * 36–98 energy each and nothing to fill from, because `building` only
+     * flipped at getFreeCapacity()==0. Correct there. But in a room that DOES
+     * have energy it makes a builder flip to building after a single harvest
+     * tick: it takes 4 energy, walks to the site, delivers 4, empties, walks
+     * back. The creep spends its whole life commuting with an empty tank.
+     *
+     * Live E36N57, nine builders on a 15k spawn site: its two sources sat at
+     * 2952/3000 and 3000/3000 — barely touched — every builder in the room held
+     * between 0 and 50 energy, and the site gained about 1,000 progress in
+     * ninety minutes. At that rate the rebuild needed eleven hours, with a full
+     * crew standing next to two untouched sources.
+     *
+     * So flip early only when there is genuinely nothing to fill from. With an
+     * active source or a worthwhile dropped pile in the room the builder fills
+     * first, and one full delivery replaces dozens of round trips.
+     */
     if(!creep.memory.building && creep.store[RESOURCE_ENERGY] > 0 && buildTheSpawnFirst) {
-        creep.memory.building = true;
+        const canTopUp = creep.room.find(FIND_SOURCES_ACTIVE).length > 0
+            || creep.room.find(FIND_DROPPED_RESOURCES, {
+                filter: (d: Resource) => d.resourceType === RESOURCE_ENERGY && d.amount >= 50,
+            }).length > 0;
+        if(!canTopUp) creep.memory.building = true;
     }
     if(buildTheSpawnFirst && closestTarget && dumpAtSpawnSite(creep, closestTarget)) {
         return;

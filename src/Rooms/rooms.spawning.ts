@@ -6358,6 +6358,37 @@ function purgeDeadColonyBuilders(room: any): void {
     for (let i = drop.length - 1; i >= 0; i--) q.splice(drop[i], 3);
 }
 
+/**
+ * Re-aim LIVE ContainerBuilders whose target room no longer needs one.
+ *
+ * retaskBuildersToSpawnless is supposed to cover this, but it is a big function
+ * with several early exits and it demonstrably missed: live shard3 finished
+ * E39N58's spawn and left FOUR builders still carrying targetRoom=E39N58 —
+ * walking to a room that already had a spawn and doing nothing there — while
+ * E36N57's 15k site limped along on the remaining five. Nearly half the rescue
+ * crew, idle, for hours.
+ *
+ * This is the same job stated as a single unconditional rule: a builder whose
+ * target is no longer spawnless belongs on the room that is. No caps, no
+ * distance test, no funding test — the creep already exists and is already
+ * paid for, so the only question is which site it should be standing on.
+ *
+ * `fill` is cleared so the creep re-decides where to load rather than walking
+ * the old room's errand; route/exit caches self-heal on a target change.
+ */
+function reaimStrandedBuilders(need: string): void {
+    for (const name in Game.creeps) {
+        const c = Game.creeps[name];
+        if (!c.memory || c.memory.role !== "buildcontainer") continue;
+        const t = c.memory.targetRoom;
+        if (!t || t === need) continue;
+        if (roomLooksSpawnlessOwned(t)) continue; // still wanted where it is
+        c.memory.targetRoom = need;
+        delete (c.memory as any).fill;
+        logAlways("[colony] re-aim " + name + ": " + t + " has a spawn now -> " + need);
+    }
+}
+
 function retaskBuildersToSpawnless(need: string): void {
     let empireSpawns = 0;
     for (const rn in Game.rooms) {
@@ -6433,6 +6464,7 @@ function runSpawnRescueOnce(): void {
     const need = pickSpawnRescue();
     if (need) {
         pinSpawnRescue(need);
+        reaimStrandedBuilders(need);
         retaskBuildersToSpawnless(need);
     }
     for (const rn in Game.rooms) {
