@@ -258,6 +258,7 @@ function spawning(room: any) {
     // spawnFirstInLine "spawning" return used to skip add_creeps entirely,
     // so after E37N58 stood back up the fleet never left for E39N58.
     runSpawnRescueOnce();
+    cullSurplusBuildersOnce();
 
     offerEmergencyFeed(room);
 
@@ -2528,10 +2529,13 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(room.controller.level >= 5 && !storage && builders < 5) {
+    // Bankless RCL5+ used to queue 5 full-size builders (50 parts) on
+    // top of queueBuilder. Live E37N59 after a hub move sat at 0 storage
+    // and hatched a second builder army in front of its own miners.
+    if(room.controller.level >= 5 && !storage && builders < 2 && sites.length > 0) {
         let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), name, {memory: {role: 'builder'}});
-        console.log('Adding Builder to Spawn List: ' + name);
+        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 12), name, {memory: {role: 'builder'}});
+        console.log('Adding Builder to Spawn List: ' + name + ' (bankless floor)');
     }
 
 
@@ -3685,7 +3689,39 @@ function spawnFirstInLine(room, spawn) {
                 // the spawn busy while still letting the head accumulate.
                 const interleaveAfter = room.controller.level <= 3
                     ? INTERLEAVE_EVERY_RCL1_3 : INTERLEAVE_EVERY;
+                /*
+                 * NEVER interleave around a miner in a room that has none.
+                 *
+                 * Interleaving spends the very energy the head is waiting for.
+                 * That is an acceptable trade for most heads — a stuck Repair
+                 * should not hold up a Sweeper — but not when the head is the
+                 * room's ONLY route to income. A room with zero miners earns
+                 * nothing but the spawn's own 1/tick regeneration, and the
+                 * interleave rung consumes ~250 every 40 ticks, which is very
+                 * slightly faster than the room can refill. The head can then
+                 * never reach its own cost, however long it waits.
+                 *
+                 * Live E36N57 after its spawn was rebuilt: 250-energy miner at
+                 * the head, spawn oscillating between 78 and 146 of 400, stall
+                 * past 345 ticks and climbing, TWENTY-SEVEN builders hatched
+                 * around it by this very rung, and both sources sitting
+                 * untouched at 3000/3000. The room was spending everything it
+                 * had on creeps that could not fix the problem, forever.
+                 *
+                 * Everything else in the queue is worth less than nothing until
+                 * a miner exists, so let the head starve the room for a moment
+                 * and buy the thing that ends the starvation.
+                 */
+                let headIsLifeline = false;
+                if(headName && headName.startsWith("EnergyMiner")) {
+                    const homeMiners = _.filter(Game.creeps, (c:any) =>
+                        c.memory && c.memory.role === "EnergyMiner"
+                        && (c.memory.homeRoom === room.name || c.room.name === room.name)
+                        && (!c.memory.targetRoom || c.memory.targetRoom === room.name)).length;
+                    headIsLifeline = homeMiners === 0;
+                }
                 if(room.memory.spawnStall > interleaveAfter
+                && !headIsLifeline
                 && room.memory.spawn_list.length >= 6
                 && room.memory.spawn_list[1] === headName
                 && Game.time - (room.memory.lastInterleave || 0) > interleaveAfter) {
@@ -6168,6 +6204,57 @@ function spawnEmergencyOn(): boolean {
  * nothing and costs CPU, and CPU is the resource the whole empire shares.
  */
 const RESCUE_BUILDER_CAP = 10;
+
+/**
+ * Hard cap on live builders standing in one room. Rescue retask +
+ * revertSpawnEmergency converted ContainerBuilders into regular builders
+ * and left them piled on one site — live shard3 hit 35, then 41, against
+ * a 20 CPU limit. Four WORK creeps already saturate a storage site;
+ * extras cost CPU and strip the rooms they came from.
+ */
+const LIVE_BUILDER_CAP = 4;
+let lastBuilderCullTick = 0;
+
+function cullSurplusBuildersOnce(): void {
+    if (lastBuilderCullTick === Game.time) return;
+    lastBuilderCullTick = Game.time;
+    const byRoom: { [rn: string]: Creep[] } = {};
+    for (const name in Game.creeps) {
+        const c = Game.creeps[name];
+        if (!c.memory) continue;
+        const role = c.memory.role;
+        if (role !== "builder" && role !== "buildcontainer") continue;
+        (byRoom[c.room.name] = byRoom[c.room.name] || []).push(c);
+    }
+    for (const rn in byRoom) {
+        const room = Game.rooms[rn];
+        const mine = !!(room && room.controller && room.controller.my);
+        const sites = mine ? room.find(FIND_MY_CONSTRUCTION_SITES).length : 0;
+        const cap = sites > 0 ? Math.min(LIVE_BUILDER_CAP, Math.max(1, sites)) : 0;
+        const list = byRoom[rn];
+        list.sort((a, b) => b.getActiveBodyparts(WORK) - a.getActiveBodyparts(WORK));
+        let converted = 0;
+        for (let i = 0; i < list.length; i++) {
+            const c = list[i];
+            if (i < cap) {
+                if (c.memory.role !== "builder") c.memory.role = "builder";
+                if (!c.memory.homeRoom) c.memory.homeRoom = rn;
+                continue;
+            }
+            if (c.getActiveBodyparts(CARRY) > 0 && converted < LIVE_BUILDER_CAP) {
+                c.memory.role = "carry";
+                c.memory.homeRoom = rn;
+                delete (c.memory as any).fill;
+                delete (c.memory as any).building;
+                delete (c.memory as any).locked;
+                delete (c.memory as any).targetRoom;
+                converted++;
+            } else {
+                c.suicide();
+            }
+        }
+    }
+}
 
 function colonyBuilderCap(need: string): number {
     // Spawn-new cap. Retask of existing WORK creeps is uncapped separately.

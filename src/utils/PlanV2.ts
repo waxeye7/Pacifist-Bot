@@ -2319,6 +2319,12 @@ function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], kee
     const packed = s.pos.x + s.pos.y * 50;
     if (wanted[packed] && wanted[packed][s.structureType]) continue;
     if (keepCritical && ALIGN_NEVER_RETIRE[s.structureType]) continue;
+    // Source boxes are the only income a bankless room has. Align used
+    // to delete them as "off-plan furniture" and the room never recovered.
+    if (s.structureType === STRUCTURE_CONTAINER && !room.storage) {
+      const nearSource = s.pos.findInRange(FIND_SOURCES, 1).length > 0;
+      if (nearSource) continue;
+    }
     if (s.structureType === STRUCTURE_SPAWN) {
       if (empireSpawns <= 1) continue;
       if ((s as StructureSpawn).spawning) continue;
@@ -2362,6 +2368,16 @@ function runMigration(
      * not touch the three structures a room cannot function without.
      */
     const wantHub = !!arm.hub;
+    // Align already ran and the bank is gone. Further insta passes only
+    // delete source containers / leftover income, which is how a forced
+    // migrate kept a four-room empire broke after the hubs were already
+    // down. Hub-mode still means "I know, keep going."
+    if (!wantHub && !room.storage && room.find(FIND_MY_SPAWNS).length > 0) {
+      (room.memory as any).planMigration = {
+        mode: "disarmed", since: Game.time, by: "broke-align",
+      };
+      return;
+    }
     /*
      * An ALIGN arm runs immediately, including during a spawn rescue.
      *
