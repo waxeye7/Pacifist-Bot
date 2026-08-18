@@ -6383,6 +6383,13 @@ function reaimStrandedBuilders(need: string): void {
         const t = c.memory.targetRoom;
         if (!t || t === need) continue;
         if (roomLooksSpawnlessOwned(t)) continue; // still wanted where it is
+        // A room building its OWN containers is not stranded. Those carry
+        // targetRoom === homeRoom, and stealing them starves the room that
+        // paid for them: live E39N58 kept spawning container builders for its
+        // three 0/5000 container sites and kept having them taken, so it burned
+        // the energy over and over and the sites never moved. Only re-aim a
+        // creep that was sent AWAY to help somewhere else.
+        if (t === c.memory.homeRoom) continue;
         c.memory.targetRoom = need;
         delete (c.memory as any).fill;
         logAlways("[colony] re-aim " + name + ": " + t + " has a spawn now -> " + need);
@@ -6440,9 +6447,25 @@ function stripNonRescueQueue(room: any): void {
     const next: any[] = [];
     forEachQueued(room, function(body, name, opts) {
         const role = opts && opts.memory && opts.memory.role;
-        // Last spawn dies if we strip its miners/fillers/haulers.
+        /*
+         * Keep anything the room needs to KEEP FUNCTIONING, not merely to stay
+         * alive. Miners, haulers and fillers were the original list — the last
+         * spawn dies without them — but `builder` belongs here too, and leaving
+         * it out froze whole rooms for as long as the emergency lasted.
+         *
+         * A spawn rescue runs for hours. Live E39N58 spent all of it with four
+         * miners, SEVEN carriers and zero builders, ferrying energy to a spawn
+         * and a single extension that were both already full, while its tower
+         * and three container sites sat at 0/5000 and never moved. The energy
+         * had nowhere to go, so the room looked busy and achieved nothing —
+         * which is exactly what it looked like from the outside.
+         *
+         * A builder is not a luxury: it is the only thing that converts a
+         * room's energy into structures. Blocking it does not save the energy
+         * for the rescue, it just leaves it sitting in a full spawn.
+         */
         if (role === "buildcontainer" || role === "EnergyMiner" ||
-            role === "filler" || role === "carry") next.push(body, name, opts);
+            role === "filler" || role === "carry" || role === "builder") next.push(body, name, opts);
         return true;
     });
     if (next.length !== q.length) room.memory.spawn_list = next;
