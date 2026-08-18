@@ -6147,6 +6147,28 @@ function spawnEmergencyOn(): boolean {
     return !!(Memory as any)._spawnEmergency || !!(Memory as any).spawnRescue;
 }
 
+/**
+ * How many creeps one spawn rescue may hold as ContainerBuilders at once.
+ *
+ * Spawning new ones is capped at 8 (see colonyBuilderCap) because hatching them
+ * empties the last live spawn. RETASKING existing creeps was deliberately left
+ * uncapped at 99 on the reasoning that those creeps already exist and are
+ * already paid for — which is true of their ENERGY and false of everything
+ * else.
+ *
+ * Live shard3 reached THIRTY-FIVE ContainerBuilders against one 15,000 site.
+ * At ~0.33 CPU each that is 11.9 of a 20 CPU budget — 60% of the entire tick —
+ * and the bucket fell from 10,000 to 4,590 while the site progressed no faster
+ * than a third of them would have managed. It also strips the rooms those
+ * creeps came from: every carrier converted is a carrier its own room stops
+ * having.
+ *
+ * Build power saturates. Ten builders at 4 WORK is 200 progress/tick, well past
+ * what any of these rooms can feed it; beyond that each extra creep buys
+ * nothing and costs CPU, and CPU is the resource the whole empire shares.
+ */
+const RESCUE_BUILDER_CAP = 10;
+
 function colonyBuilderCap(need: string): number {
     // Spawn-new cap. Retask of existing WORK creeps is uncapped separately.
     // Cap-99 hatching is what emptied the last live spawn (E37N58 59/1150).
@@ -6406,7 +6428,7 @@ function retaskBuildersToSpawnless(need: string): void {
     // the one rescue target. Cap-2 after the first spawn came back is
     // what left E39N58/E36N57/E37N59 sitting at 0–730/15k.
     const stillRescue = !!pickSpawnRescue();
-    const cap = stillRescue || empireSpawns === 0 ? 99 : 2;
+    const cap = stillRescue || empireSpawns === 0 ? RESCUE_BUILDER_CAP : 2;
     let onIt = colonyBuildersOn(need);
     if (onIt >= cap) return;
     for (const name in Game.creeps) {
