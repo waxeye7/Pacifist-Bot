@@ -488,10 +488,19 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
 }
 
 /**
- * Owner policy: every adopted room builds AND migrates toward the pack,
- * including spawn/storage/terminal. Align-only was the cautious default and
- * left established rooms on the legacy bunker forever. `migrateAbort` still
- * stands one room down; this just means "adopt" is no longer placement-only.
+ * Owner policy: every adopted room builds AND migrates toward the pack — but
+ * `hub` is YOUNG-ONLY. A young colony (RCL<4, <15 structures) has no hub to
+ * lose, so it may swap anything. An ESTABLISHED room arms ALIGN (force, no
+ * hub): everything off-plan goes, spawn/storage/terminal stay protected by
+ * the never-retire guard, and the hub still walks to the plan through the STAGED
+ * gradual protocol (migrateSpawns/migrateHub with its guards).
+ *
+ * `hub: true` on an established room is what `keepCritical = !wantHub` turns
+ * into "delete the storage": VPS W3N3 lost its storage + 27 extensions within
+ * ~10 minutes of its plan being pushed (2026-08-19 ~11:07), and the 2026-08-17
+ * live incident (3 spawns + 3 storages, ~38k spilled) was the same bypass
+ * through the old force flag. Hub demolition on a built room is an OPERATOR
+ * decision: migratePlan(room, "hub"), nothing else.
  */
 export function armNewPlanMigration(room: Room, by = "auto-new-plan"): void {
   const lvl = room.controller ? room.controller.level : 0;
@@ -501,7 +510,7 @@ export function armNewPlanMigration(room: Room, by = "auto-new-plan"): void {
     since: Game.time,
     by,
     force: true,
-    hub: true,
+    hub: young,
   };
   delete (room.memory as any).planMigratePaused;
 }

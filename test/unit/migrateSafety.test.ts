@@ -367,9 +367,18 @@ describe("PlanV2 migration safety", () => {
       assert.include(SRC, "pack wins");
     });
 
-    it("adopt always arms ALIGN+HUB", () => {
+    it("adopt arms ALIGN always, HUB only on a young colony", () => {
+      // hub:true on an ESTABLISHED room bypasses ALIGN_NEVER_RETIRE
+      // (keepCritical = !wantHub) — that is how VPS W3N3 lost its storage +
+      // 27 extensions minutes after its plan was pushed (2026-08-19), and the
+      // shape of the 2026-08-17 live incident. Hub demolition on a built room
+      // is operator-only: migratePlan(room, "hub").
       assert.include(SRC, "export function armNewPlanMigration");
-      assert.match(SRC, /hub:\s*true/);
+      assert.match(SRC, /hub:\s*young/);
+      assert.notMatch(
+        SRC,
+        /armNewPlanMigration[\s\S]{0,400}?hub:\s*true/,
+        "the adopt auto-arm must never hard-code hub: true");
       assert.include(SRC, 'armNewPlanMigration(room, "adopt")');
     });
   });
