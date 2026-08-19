@@ -708,12 +708,19 @@ function roomDefence(room) {
             for (const r of shell) {
                 if (r.hits < weakest.hits) weakest = r;
             }
-            // don't chase a wall that is already at the level cap for this RCL,
-            // and never past the per-RCL shell target — a tower shot is 10
-            // energy for 800 hits, so an unbounded goal is an unbounded drain
-            // out of the same store the fillers pull from. RCL6 drops 150k->100k
-            // (rampartHitsTarget); RCL7/8 are unchanged, maxRepairTower binds.
-            const target = Math.min(weakest.hitsMax, maxRepairTower, rampartHitsTarget(room));
+            // DECAY FLOOR, not a growth engine. This used to chase
+            // rampartHitsTarget (100k-150k), which meant the towers ground the
+            // whole shell upward at 20-80 hits per energy, forever — storage ->
+            // filler -> tower -> wall, every third tick, out of banks that were
+            // sitting at 1-14k ("tower repairs are running the bot dry").
+            // Raising the shell is CREEP work (RampartErector / rampartUpgrader
+            // / surplus builders at 100 hits per energy); the towers' only
+            // peacetime job is keeping a tile from decaying to death: repair
+            // only when the weakest sanctioned tile is under the floor, and
+            // only back up to it. A freshly-built 1-hit rampart still gets
+            // caught instantly, which is the case this path exists for.
+            const TOWER_SHELL_FLOOR = 10000;
+            const target = Math.min(weakest.hitsMax, maxRepairTower, rampartHitsTarget(room), TOWER_SHELL_FLOOR);
             if (weakest.hits < target) {
                 for (const towerID of room.memory.Structures.towers) {
                     const tower: any = Game.getObjectById(towerID);

@@ -180,6 +180,23 @@ function tapStillGood(creep): any {
 		}
 	}
 
+	// THE PAVER SHARE. Extension/container sites almost always exist in a
+	// growing room, so the closest-site fallback at the bottom — the only
+	// path that ever picked a road — never ran: the road drip's two sites
+	// sat at 0/300 for days ("roads aren't being built. anywhere."). One
+	// builder in three works ROADS first; the other two keep the eco order.
+	// A road is 300 energy that immediately halves loaded-hauler tick cost,
+	// so the paver pays for itself faster than the extension it deferred.
+	if(buildingsToBuild.length > 0 && (creep.name.charCodeAt(creep.name.length - 1) % 3) === 0) {
+		const roadSites = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_ROAD;});
+		if(roadSites.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🛤️", true);
+			const closest = creep.pos.findClosestByRange(roadSites);
+			return (closest || roadSites[0]).id;
+		}
+	}
+
 	if(buildingsToBuild.length > 0) {
 		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_EXTENSION;});
 		if(buildings.length > 0) {

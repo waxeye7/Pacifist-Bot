@@ -1584,14 +1584,15 @@ const PLACE_ORDER = [
 
 /**
  * Roads always trickle: up to this many road SITES may stand regardless of
- * the shared class budget. Containers + extensions eat the whole budget for
+ * the shared class budget (raised 2->3 once the paver share started consuming
+ * sites). Containers + extensions eat the whole budget for
  * thousands of ticks in a rebuilding room (E36N57: 8/8 slots, zero road
  * sites; E37N59 at RCL6 with a 1k bank: budget 2, "roads aren't being built
  * anywhere"), and a road is 300 energy that immediately halves loaded hauler
  * tick-cost on that tile. Two sites is a drip, not a flood — the broke-bank
  * strip keeps exactly this many too, so the two never fight.
  */
-const ROAD_DRIP = 2;
+const ROAD_DRIP = 3;
 
 /**
  * ---------------------------------------------------------------------------

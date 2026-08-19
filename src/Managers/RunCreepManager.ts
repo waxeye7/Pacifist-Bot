@@ -600,25 +600,17 @@ function RunCreepManager(name) {
         }
 
         if(creep.memory.role == undefined) {
-            // VPS: spawnCreep writes Memory this tick, but Game.creeps can
-            // miss the hatchling long enough that the sweep deletes it, then
-            // `creep.memory.role` creates {}. ~100 ticks later this guard
-            // suicided every such creep. Recover role from the name prefix
-            // (EnergyMiner-*, Filler-*, Carrier-*) before giving up.
+            // VPS spawnCreep can leave Memory.creeps[name] as {}. The old
+            // ttl-grace-then-suicide loop wiped the empire. Restore from the
+            // name prefix; if we cannot, skip the tick — never suicide.
             const inferred = inferRoleFromName(name);
             if (inferred && global.ROLES[inferred]) {
                 creep.memory.role = inferred;
-                logAlways("[death?] restored role " + inferred + " from name " + name + " @" + creep.room.name);
+                logAlways("[memory] restored role " + inferred + " from name " + name + " @" + creep.room.name);
             } else {
-                const ttl = creep.ticksToLive || 1500;
-                if (creep.spawning || ttl > 1200) {
-                    if (ttl % 100 === 0) {
-                        logAlways("[death?] role-undefined creep " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name + " — in grace, no suicide");
-                    }
-                    return;
+                if ((creep.ticksToLive || 1500) % 100 === 0) {
+                    logAlways("[memory] role-undefined skip " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name);
                 }
-                logAlways("[death] role-undefined suicide " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name);
-                creep.suicide();
                 return;
             }
         }

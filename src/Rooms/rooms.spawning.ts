@@ -5565,6 +5565,36 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                     const have = liveCarriersForSource(room, sourceId);
                     if(have >= want || queuedForSource(room, 'Carrier', sourceId)) return;
                     if(Game.time - (values.lastSpawnCarrier || 0) < 60) return;
+                    // NEVER RACE THE MINER. The first carrier used to hatch the
+                    // moment a remote went active — right behind the miner in
+                    // the queue — so it walked the whole route to stand next to
+                    // an empty source while the miner was still walking too:
+                    // a full body and a round trip spent hauling nothing.
+                    // A carrier is only worth spawning once the source has a
+                    // first load BANKED (vision: container+ground >= 300 near
+                    // the source) or has plausibly banked one blind: miner
+                    // alive AND lastSpawn old enough to cover its walk
+                    // (pathLength) plus ~30 ticks of mining (300 energy at
+                    // 10/t). The carrier's own walk overlaps the next load —
+                    // the pipeline stays full, it just stops leading it.
+                    const minerAliveRemote = _.some(creepsForSource(sourceId), (c:any) => c.memory.role === 'EnergyMiner');
+                    if(!minerAliveRemote) return;
+                    let firstLoadReady = false;
+                    const visRemote = Game.rooms[targetRoomName];
+                    if(visRemote) {
+                        const srcObj:any = Game.getObjectById(sourceId);
+                        if(srcObj && srcObj.pos) {
+                            let ready = 0;
+                            for(const d of srcObj.pos.findInRange(FIND_DROPPED_RESOURCES, 2)) {
+                                if((d as any).resourceType === RESOURCE_ENERGY) ready += (d as any).amount;
+                            }
+                            for(const s of srcObj.pos.findInRange(FIND_STRUCTURES, 2, {filter: (x:any) => x.structureType === STRUCTURE_CONTAINER})) {
+                                ready += (s as any).store[RESOURCE_ENERGY] || 0;
+                            }
+                            firstLoadReady = ready >= 300;
+                        }
+                    }
+                    if(!firstLoadReady && Game.time - (values.lastSpawn || 0) < (values.pathLength || 25) + 30) return;
                     const body = getRemoteCarrierBody(room, targetRoomName, values, sourceId);
                     if(!body || body.length === 0) return;
                     const nm = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
