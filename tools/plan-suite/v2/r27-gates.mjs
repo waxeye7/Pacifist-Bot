@@ -128,12 +128,14 @@ export const META_LEAF_NAMES = new Set(idents.all);
  */
 export const META_DARK = {
   arrayPartner: { klass: "derived" },
+  base: { klass: "presence", why: "ecoBill.base — the eco bill of layer-2's bare radius pick, before the eco trades; ecoLedger carries every bid priced against it" },
   baseCut: { klass: "presence", why: "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness" },
   baseLap: { klass: "derived" },
   baseOverGated: { klass: "derived" },
   battlementFloor: { klass: "derived" },
   battlementGap: { klass: "derived" },
   battlementGapTiles: { klass: "derived" },
+  bill: { klass: "presence", why: "ecoLedger candidate price — wall plus the personal ramparts that wall leaves owing; cut sizes are max-flows over the named sets" },
   boundHeld: { klass: "derived" },
   boundLap: { klass: "derived" },
   boundRederived: { klass: "presence", why: "the bound re-read after relocation; a layer-6 witness" },
@@ -145,12 +147,16 @@ export const META_DARK = {
   corridorPlaced: { klass: "derived" },
   counterfactualBasis: { klass: "rendered" },
   coveredDetourDeclared: { klass: "derived" },
+  credit: { klass: "presence", why: "ecoLedger — the deep credit a starved room granted a bid (one rampart per DEEP_CREDIT_TILES_PER_RAMPART deep tiles within the shortfall)" },
   cutAdopted: { klass: "derived" },
   deepBudget: { klass: "presence", why: "layer-6 deep-tile budget witness" },
   deepExhausted: { klass: "presence", why: "layer-6 search exhaustion flag" },
   deepReach: { klass: "derived" },
   digRoads: { klass: "presence", why: "layer-5 road-on-wall tunnel count; the road+rampart taxonomy is gated" },
+  ecoBill: { klass: "presence", why: "layer-2's rampart bill at three moments (base/traded/shipped) beside the literal rampart count and the two lists it prices but does not emit" },
+  ecoLedger: { klass: "presence", why: "every eco enclosure bid layer 2 made — site, what it owed, every protect set tried with its cut/bill/verdict, what it owes after" },
   enclosureBasis: { klass: "rendered" },
+  extractorBubble: { klass: "presence", why: "layer-5 rampart on the extractor tile when the engine accepts one there (never on wall terrain); mineralBubble stays the seat's 0/1" },
   extractorOffNetwork: { klass: "derived" },
   extractorSeatNetTiles: { klass: "derived" },
   faceAndSatHeld: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
@@ -174,6 +180,7 @@ export const META_DARK = {
   mineralApproachAtReservation: { klass: "derived" },
   mineralBubble: { klass: "derived" },
   mineralContainer: { klass: "derived" },
+  mineralDue: { klass: "presence", why: "ecoBill — mineral works the shell leaves exposed that layer 5 will bubble; layer-5's mineralBubble/extractorBubble are the shipped counts" },
   mineralOffNetworkWhy: { klass: "rendered" },
   mineralSeatAtReservation: { klass: "derived" },
   mineralSeatNetTiles: { klass: "derived" },
@@ -194,6 +201,7 @@ export const META_DARK = {
   prunedBasis: { klass: "rendered" },
   radii: { klass: "derived" },
   rcl5Pair: { klass: "derived" },
+  reach: { klass: "presence", why: "ecoLedger reach-veto witness — chebyshev reach of the refused cut from the sitter" },
   refillBasis: { klass: "rendered" },
   refillDistsUnblocked: { klass: "derived" },
   remeasured: { klass: "rendered" },
@@ -209,10 +217,12 @@ export const META_DARK = {
   shallowNow: { klass: "presence", why: "reflow's own remaining-shallow count; the board's shallow set is gated" },
   shallowRamparts: { klass: "presence", why: "personal-rampart count at a layer; the board's ramparts are gated" },
   shallowRefused: { klass: "derived" },
+  shipped: { klass: "presence", why: "ecoBill.shipped — the bill of the cut this layer ships (after the useless-cut prune)" },
   shippedAvgShellDmg: { klass: "derived" },
   shippedShellDmg: { klass: "derived" },
   shippedWeakTiles: { klass: "derived" },
   shippedWeakest: { klass: "derived" },
+  site: { klass: "presence", why: "ecoLedger row key — controller / source@x,y / mineral@x,y / pair:… / all:…" },
   spurred: { klass: "derived" },
   stitchTiles: { klass: "derived" },
   stitched: { klass: "derived" },
@@ -226,11 +236,14 @@ export const META_DARK = {
   towerOnly: { klass: "derived" },
   towerSwapOffer: { klass: "presence", why: "the offer record; its basis is rendered" },
   tradeCost: { klass: "presence", why: "a priced-refusal witness" },
+  traded: { klass: "presence", why: "ecoBill.traded — the bill after the eco trades, before the useless-cut prune" },
+  uncoverable: { klass: "presence", why: "ecoBill — exposed works no rampart can cover (wall-terrain extractor, border band), priced as the rampart they cannot have" },
   unreachableExts: { klass: "derived" },
   unreachedClusters: { klass: "derived" },
   unsealed: { klass: "presence", why: "a pocket-unseal witness" },
   uselessCut: { klass: "presence", why: "tiles layer-2 kept that the single-removal test does not need; redundantCut is gated" },
   wasLap: { klass: "derived" },
+  works: { klass: "presence", why: "ecoLedger — how many work tiles (seat/link/container) the site brought to the bid" },
   worstCase: { klass: "presence", why: "layer-6 worst-case bound" },
   worstCaseUngated: { klass: "presence", why: "layer-6 worst-case ungated bound" },
 };
@@ -2441,6 +2454,9 @@ export function checkR27(plan, ctx = {}) {
     // Replay is planHub + planShell on the shipped seed — cutAtFreeze is
     // snapshotted at layer 2, so composePlan (500ms+) is not the walk.
     // Fleet: 165/165 discarded rungs match; 55 rooms, ~134ms mean, not 119ms×172.
+    // [r22-waived: the 165/165 is the round-45 reading of the replay on the
+    // build it was taken on — the discarded-rung count moves with the fleet,
+    // and the gate below is the live re-derivation.]
     if (ctx.terrain && plan.sitter) {
       const jobs = [];
       const pushJob = (row, cuts, where) => {

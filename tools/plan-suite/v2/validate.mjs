@@ -1946,6 +1946,15 @@ function negotiatedDetailFaults(neg) {
   reWalk(/with interior walls ignored,? (?:the same walk|it) is (\d+) against the attacker's (\d+)/, cw.noWalls, "noWalls");
   reWalk(/with the interior's natural walls lifted out as well it walks (\d+) against the attacker's (\d+)/, cw.noWalls, "noWalls");
   reWalk(/with structures removed(?: alone)?,? (?:the same walk|it) is (\d+) against the attacker's (\d+)/, cw.noStructures, "noStructures");
+  // ...and the two re-walks as the SHAPE cause prints them ("with structures
+  // removed the walk is N against the attacker's M and with interior walls
+  // removed as well it is N against the attacker's M"). The shape clause is
+  // layer 2's own template (renderNegotiated above renders it), but until the
+  // eco bill put two shape-cause rooms on the board no declared room had ever
+  // taken that branch, and the residue parser below then reported the four
+  // numerals the clause prints as numbers no clause accounts for.
+  reWalk(/with structures removed the walk is (\d+) against the attacker's (\d+)/, cw.noStructures, "noStructures");
+  reWalk(/with interior walls removed as well it is (\d+) against the attacker's (\d+)/, cw.noWalls, "noWalls");
   // ...and the verdict tails. Both re-walks render the same two shapes, so each
   // occurrence is matched globally and checked against WHICHEVER re-walk owns
   // its numbers — the detour and the ratio have to belong to one of the two.

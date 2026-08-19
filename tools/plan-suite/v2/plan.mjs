@@ -2840,6 +2840,46 @@ ${thumbLegendHtml()}
       `sources ${withShell.reduce((s, p) => s + p.shell.enclosedSources, 0)}/${withShell.reduce((s, p) => s + p.sources.length, 0)} strict` +
       ` (works-only ${withShell.reduce((s, p) => s + (p.shell.enclosedSourceWorks ?? 0), 0)})`,
   );
+  // THE ECO BILL, FLEET-WIDE. Layer 2 prices every enclosure in ramparts —
+  // wall plus the personal ramparts the wall leaves owing (seat, link,
+  // mineral seat, controller ring) plus exposed works no rampart can cover —
+  // and publishes each bid in meta.shell.ecoLedger. This line is that ledger
+  // summed: what the bare radius picks would have billed, what the trades
+  // brought it to, and how the bids went. Every figure is read off the plans
+  // just written; nothing here is typed.
+  {
+    const led = withShell.filter((p) => p.shell.ecoBill && p.shell.ecoLedger);
+    const sum = (f) => led.reduce((s, p) => s + f(p), 0);
+    const base = sum((p) => p.shell.ecoBill.base);
+    const traded = sum((p) => p.shell.ecoBill.traded);
+    const shipped = sum((p) => p.shell.ecoBill.shipped);
+    const uncover = sum((p) => p.shell.ecoBill.uncoverable.length);
+    const due = sum((p) => p.shell.ecoBill.mineralDue.length);
+    const acc = {};
+    const ref = {};
+    let bids = 0;
+    for (const p of led) {
+      for (const rec of p.shell.ecoLedger) {
+        if (rec.accepted === "covered") continue;
+        bids++;
+        if (rec.accepted) acc[rec.kind] = (acc[rec.kind] || 0) + 1;
+        for (const c of rec.candidates || []) if (c.reason) ref[c.reason] = (ref[c.reason] || 0) + 1;
+      }
+    }
+    const fmt = (o) =>
+      Object.keys(o).length
+        ? Object.entries(o)
+            .sort((a, b) => b[1] - a[1])
+            .map(([k, v]) => `${k} ${v}`)
+            .join(", ")
+        : "none";
+    console.log(
+      `eco bill (layer 2, ramparts incl. the bubbles a cut leaves owing): bare radius picks ${base} -> after the eco ` +
+        `trades ${traded} -> as shipped by layer 2 ${shipped} · ${bids} site bids, accepted by kind {${fmt(acc)}}, ` +
+        `refusals by reason {${fmt(ref)}} · ${due} mineral seat bubble(s) priced for layer 5 · ${uncover} exposed ` +
+        `work(s) no rampart can cover (wall-terrain extractor / border band), priced as the rampart they cannot have`,
+    );
+  }
   // ------------------------------------------------------------------
   // THE FLEET LINE HAS TO QUOTE THE READING THE GATE APPLIES TO.
   //

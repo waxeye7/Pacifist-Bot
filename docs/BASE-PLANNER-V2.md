@@ -12,7 +12,7 @@
 | 3 | Labs | 10-lab strip (keep live manager shape) | road face each lab |
 | 4 | Towers | 6 towers | shell cover later; for now near hub / spread |
 | 5 | Extensions | 60 dense + thin service roads | looks packed on purpose |
-| 6 | Shell | min-cut walls + ramps + hub→ramp roads | RA3-safe |
+| 6 | Shell | min-cut walls + ramps + hub→ramp roads; enclosure priced in **total ramparts** (see below) | RA3-safe |
 | 7 | RCL8 odds | factory, nuker, observer | tucked, not hub spam |
 
 ## Hard rules
@@ -23,6 +23,56 @@
 - **No powerSpawn.**
 - **Judge by eye** first; metrics second.
 - Lower RCL = same plan, fewer buildings built yet.
+
+## The shell prices enclosure in ramparts — all of them
+
+The min-cut alone minimises **wall** tiles. Layer 2 minimises the **rampart
+bill**: the wall *plus* every personal rampart that wall leaves the room owing —
+an exposed source's miner seat and link, the mineral seat (and the extractor,
+when its tile could hold one), the controller link/container and, when the
+controller sits outside, the stand-denial ring around it. "Exposed" means
+outside the wall **or inside but shallower than depth 4** (a ranged attacker on
+the far side of the wall still reaches it).
+
+```
+bill(cut) = |cut ∪ bubbles(cut)|
+          + mineral works layer 5 will bubble under this cut
+          + exposed works no rampart can cover (wall-terrain extractor, border band)
+```
+
+So the radius pick sorts by bill, and after it every eco site is **bid for**:
+its works dilated by 2 (so they come out deep and owe nothing), then the legacy
+area/ring set; a bid is taken when the bill does not rise — a strictly cheaper
+bill at any stretch, a tie only while the wall grows by at most
+`ECO_TIE_MAX_STRETCH` tiles (a tie that drags the shell out is a tower-face and
+lap problem the bill cannot see) — subject to the old guards (no leak, no second
+castle, no loss of deep interior, reach veto, mobility guard). A room whose bare
+shell is short of `needDeep` gets a **deep credit**: one rampart per
+`DEEP_CREDIT_TILES_PER_RAMPART` deep tiles a bid brings, counted only up to the
+shortfall (an eco lobe is sometimes the cheapest interior a starved room can
+buy, and a shortfall is paid back in shallow extensions renting personal
+ramparts). Mobility keeps the owner's price: the radius pick and every eco bid
+may spend the ladder's premium (`mobilityAllowance` — 3 ramparts per 1.0 of
+gated lap reclaimed, cap 12, only past a lap of 2) on a shorter lap, and no bid
+may drag a room that is at or under that floor past it — the bill cannot see the
+twelve ramparts the ladder would then spend buying the lap back. No eco bid
+may stretch the shell past `ECO_REACH_KNEE` (chebyshev from the sitter — the
+tower battery's reach proxy) nor stretch a shell already past it. Sites still
+owing are bid for in pairs and all together. Every bid —
+accepted or refused, with its cut size, bill, credit and reason — is published in
+`meta.shell.ecoLedger`; `meta.shell.ecoBill` carries the bill at the bare pick,
+after the trades and as shipped. The fleet summary prints the ledger summed
+(`eco bill (layer 2, …)`).
+
+The extractor sits on the mineral, and minerals sit on wall terrain, where the
+engine refuses a rampart (`checkConstructionSite` exempts only the extractor
+from the terrain-wall test) — so an exposed extractor is priced as the rampart
+it cannot have and the only remedy is taking the mineral inside. Layer 5 still
+buys the seat's bubble (and the extractor's, on the floor-terrain mineral that
+does not exist in this fleet).
+
+Offline without docker: `ROOMS_FILE=tools/plan-suite/v2/_r28-mech/rooms.json`
+points both fetchers at a tracked 172-room dump.
 
 ## Run
 

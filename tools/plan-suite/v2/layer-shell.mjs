@@ -33,6 +33,7 @@ import {
   borderLegal,
   buildable,
   chebyshev,
+  engineBuildable,
   exteriorFlood,
   isSwamp,
   isWall,
@@ -109,15 +110,71 @@ const REACH_SWAP_BUDGET = 1;
 const RADII = [6, 7, 8, 9, 10, 11, 12];
 export const RADII_WIDE = [6, 7, 8, 9, 10, 11, 12, 13, 14];
 
-// "enclose the eco when it is cheap" — how many extra cut tiles we will pay
-// to pull the controller's upgrader area / a source's mining ring inside.
-const ENCLOSE_CTRL_BUDGET = 4;
-const ENCLOSE_SRC_BUDGET = 3;
+// "enclose the eco when it is cheap" — PRICED IN RAMPARTS, ALL OF THEM.
+//
+// A source, the controller or the mineral that the wall leaves outside — or
+// inside but within a ranged attacker's reach — owes personal ramparts: the
+// miner's seat, the link, the mineral seat, the stand-denial ring around the
+// controller. The old rule spent a FIXED number of extra cut tiles to take a
+// site in (4 for the controller, 3 for a source) and never looked at the
+// bubbles a refusal left behind — so a source that cost 3 wall tiles to take
+// in was refused while its 2 bubbles were bought anyway, and a controller that
+// cost 5 was refused while its 8-tile ring was bought. Owner's ruling: "if a
+// source is exposed, or still within range 3 of an attacker, the seat and the
+// link ARE ramparts we have to build — count them, and the mineral seat and
+// extractor, and the ring around the controller. That is how we minimise the
+// number of ramparts."
+//
+// So the enclosure is a trade on one currency: a site is taken in whenever the
+// wall it adds is no more than the personal ramparts it retires (see the ECO
+// BILL block in planShell for the exact bill). Ties go to the enclosure — same
+// rampart count, and the works end up behind the wall instead of in front of
+// it, which is what the owner asked for in the first place.
+const ECO_TIE_TO_ENCLOSURE = true;
+// ...BUT A TIE MAY NOT RESHAPE THE BASE. Same rampart count is not the same
+// wall: a tie that trades eight bubbles for eight more cut tiles drags the
+// shell out to wherever the eco site sits, and the bill cannot see what that
+// costs — the tower faces that have to reach the new wall, the lap the
+// garrison walks, the roads that follow it. Measured on the fleet when the
+// bill was introduced, the ties were the one class of bid that moved the
+// weakest tower face the wrong way. So a tie is taken only while the wall
+// grows by at most this many tiles — the stretch the old fixed budgets spent
+// without asking (3 for a source, 4 for the controller). A STRICTLY cheaper
+// bill is taken at any stretch: fewer ramparts is the first objective and the
+// ledger records every one.
+const ECO_TIE_MAX_STRETCH = 4;
+// ...WITH ONE CREDIT, IN A ROOM THAT IS SHORT OF INTERIOR. The bill cannot see
+// deep tiles, and an eco lobe is sometimes the cheapest interior a starved room
+// can buy: E5S6's west source ring cost three wall tiles, retired no bubble,
+// and brought fifteen deep tiles into a shell that was short of the program by
+// twenty-four — refused on price, the extension layer shipped six shallow
+// extensions renting six personal ramparts instead, twice the wall it would
+// have cost. So while the bare shell is BELOW needDeep, a bid is credited one
+// rampart per this many deep tiles it brings, counted only up to the shortfall
+// (interior past the floor is worth nothing here; the pipeline's needDeep
+// ladder is the place that buys more than the floor). Two tiles per rampart is
+// the conservative side of what a starved room pays back — a shortfall of S
+// deep tiles has shipped well under S shallow extensions — and it is a credit
+// against the price, not a licence: the real bill is what the ledger records
+// and what the next bid is priced against.
+const DEEP_CREDIT_TILES_PER_RAMPART = 2;
 const MAX_PARKS = 8;
 // ...but a FAR controller may only be pulled inside when doing so does not pull
-// the wall out of tower reach with it — see the note at the tryExpand call site.
+// the wall out of tower reach with it — see the note at the reach veto.
 const CTRL_ENCLOSE_MAX_WALK = 15;
 const CTRL_ENCLOSE_MAX_REACH = 25;
+// ...and no eco bid of any kind may take the shell past the tower knee, nor
+// stretch a shell that is already past it — see reachVeto in planShell. A
+// tower's damage bottoms out past chebyshev 20, and the battery is refilled
+// from the hub, so reach from the sitter is the shell's proxy for the weakest
+// face the battery can put on it. 22 rather than 20 because that is where the
+// proxy crossed the battery's hard floor when it was measured: the one room
+// whose eco bid took a shell from 22 to 24 lost its weakest face from a legal
+// reading to one under the floor, while the same shell held at 22 — and the
+// legacy ring enclosure that room had always bought was the 22. A constant
+// read off the fleet and not derived from it; the tower layer declares the
+// faces it cannot cover, which is the live reading.
+const ECO_REACH_KNEE = 22;
 
 // ------------------------------------------------------------------
 // DEFENDER MOBILITY — the owner's rule, in numbers.
@@ -241,8 +298,28 @@ const MOBILITY_ARRIVE_BIAS = 0;
 // the raw reading and the fleet keeps its 81.
 const MOBILITY_DETOUR_FLOOR = 4;
 // Ramparts stay the primary currency. Mobility breaks ties and justifies at
-// most this many extra wall tiles — never more.
+// most this many extra wall tiles — never more...
 const MOBILITY_TIEBREAK_BUDGET = 2;
+// ...EXCEPT WHERE THE OWNER HAS ALREADY PRICED A BAD LAP. The pipeline's
+// escalation ladder pays MOBILITY_ENCLOSURE_PER_RATIO ramparts per 1.0 of
+// gated lap a rung reclaims, capped at MOBILITY_ENCLOSURE_CAP, and only while
+// the incumbent laps worse than MOBILITY_BUY_FLOOR — see the long note above
+// the ladder's comparator in pipeline.mjs for the argument (0.36 e/tick to
+// erase the worst defensive geometry in the fleet). The constants live HERE so
+// the radius pick below can honour the same price: once the pick is priced in
+// ramparts rather than cut tiles, a radius that laps 6 can beat one that laps
+// 1 by three ramparts, and a flat +2 band would never look at the alternative
+// — while the ladder, one layer up, would have bought it for up to twelve. One
+// price, two places that spend it; pipeline.mjs imports these.
+export const MOBILITY_ENCLOSURE_PER_RATIO = 3;
+export const MOBILITY_ENCLOSURE_CAP = 12;
+/** a lap has to be at least this bad before wall may be spent shortening it */
+export const MOBILITY_BUY_FLOOR = 2;
+/** what a candidate may cost over the incumbent, given the gated lap it reclaims */
+export const mobilityAllowance = (reclaimed) =>
+  reclaimed <= 0
+    ? 0
+    : Math.min(MOBILITY_ENCLOSURE_CAP, Math.floor(MOBILITY_ENCLOSURE_PER_RATIO * reclaimed));
 // The eco-enclosure mobility guard (below) only fires for a room that has deep
 // space to spare — needDeep is a FLOOR, and a room sitting on it needs every
 // tile the eco lobe brings with it more than it needs a short lap. Swept over
@@ -1590,6 +1667,160 @@ export function planShell(terrain, plan, opts = {}) {
   // `uncuttable` in computeCut.
   const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
 
+  // ------------------------------------------------------------------
+  // THE ECO BILL — every rampart a cut leaves us owing, named once.
+  //
+  // Layer 2 used to price its wall in CUT tiles and buy the bubbles afterwards
+  // as if they were free. They are not: a rampart is a rampart, and the owner's
+  // rule is that an exposed seat, link, mineral seat or controller ring is part
+  // of the count. So every enclosure decision in this function — the radius
+  // pick, the reachability swap, the mobility tiebreak and the eco trades — is
+  // priced with `ecoBillOf`:
+  //
+  //   bill(cut) = |cut ∪ bubbles(cut)|          the ramparts this layer emits
+  //             + |mineral works layer 5 will have to bubble under this cut|
+  //             + exposed works that CANNOT carry a rampart at all
+  //
+  // `coverOf` is the bubble rule, and it is the SAME function the bubble pass
+  // at the bottom calls — the price quoted during the negotiation is the price
+  // the room ships. A tile owes a bubble when it is outside the wall or inside
+  // but shallower than DEPTH_SAFE (a ranged attacker on the far side of the
+  // wall reaches it); the controller's ring owes stand-denial ramparts when
+  // the controller is not enclosed (link and every walkable ring tile inside).
+  //
+  // The third term: the extractor is built ON the mineral, and every mineral
+  // in this fleet sits on wall terrain, where the engine refuses a rampart
+  // (utils.js checkConstructionSite: only the extractor is exempt from the
+  // terrain-wall test). A work on the border band with a non-wall edge triple
+  // is the same case (borderLegal). Both are exposed and neither can be
+  // covered, so they are priced as the rampart they cannot have — the one
+  // remedy left is the wall, and a wall that takes them in for the same price
+  // should win. `ramparts` beside `bill` is the literal rampart count, kept so
+  // the two can never be confused.
+  //
+  // The sites:
+  //   controller  ring (stand denial when outside), link, its container
+  //   each source its seat container(s) and its link
+  //   mineral     the extractor tile and the miner's seat reservation (layer 5
+  //               places the container and buys the bubble; layer 2 only
+  //               PRICES them here, so the shell can choose to take the mineral
+  //               in instead)
+  //   hub         storage / terminal / spawns / hub link / sitter when shallow
+  // ------------------------------------------------------------------
+  const links = plan.structures.link || [];
+  const containers = plan.structures.container || [];
+  const ctrl = plan.controller;
+  const ctrlLink = links.length > 1 ? links[links.length - 1] : null;
+  const srcLinks = links.slice(1, Math.max(1, links.length - 1));
+  const walkRing = (o) => {
+    const ring = [];
+    if (!o) return ring;
+    for (const [dx, dy] of D8) {
+      const x = o.x + dx,
+        y = o.y + dy;
+      if (walkable(terrain, x, y)) ring.push({ x, y });
+    }
+    return ring;
+  };
+  const ctrlRing = walkRing(ctrl);
+  const ctrlContainers = containers.filter((c) => chebyshev(c, ctrl) <= 3);
+  const ctrlWorks = [ctrlLink, ...ctrlContainers].filter(Boolean);
+  const srcSites = plan.sources.map((s) => ({
+    at: s,
+    ring: walkRing(s),
+    works: [
+      ...containers.filter((c) => chebyshev(c, s) <= 1),
+      ...srcLinks.filter((l) => chebyshev(l, s) <= 2),
+    ],
+  }));
+  const mineral = plan.mineral || null;
+  const mineralSeat = plan.mineralSeat || null;
+  const mineralWorks = mineral ? [mineral, ...(mineralSeat ? [mineralSeat] : [])] : [];
+  const hubWorks = [];
+  for (const t of ["storage", "terminal", "spawn"]) for (const p of plan.structures[t] || []) hubWorks.push(p);
+  if (links[0]) hubWorks.push(links[0]);
+  hubWorks.push(plan.sitter);
+  // a rampart the engine would accept on this tile (terrain + border rule)
+  const canRampart = (p) => engineBuildable(terrain, p.x, p.y, "rampart");
+
+  const coverOf = (ext, depth) => {
+    const outside = (p) => !!ext[idx(p.x, p.y)];
+    const exposed = (p) => outside(p) || depth[idx(p.x, p.y)] < DEPTH_SAFE;
+    const bubble = [];
+    const rejected = [];
+    const seen = new Set();
+    // the emission order is the build order the live bot inherits — kept
+    // exactly as it was: containers, source links, controller link, hub trio,
+    // hub link, sitter, then the controller's ring when it is outside
+    const add = (p) => {
+      if (!p) return;
+      const k = key(p.x, p.y);
+      if (seen.has(k) || !exposed(p)) return;
+      seen.add(k);
+      // ENGINE BORDER RULE (utils.js:120-143): a rampart at x/y 1 or 48 needs
+      // all three adjacent room-EDGE tiles to be natural wall, or the site is
+      // ERR_INVALID_TARGET forever. Shipping one is worse than shipping none:
+      // it never builds, and the tile LOOKS covered on every render and in the
+      // upkeep quote. Record it as a shortfall instead.
+      if (!borderLegal(terrain, p.x, p.y, "rampart")) rejected.push({ x: p.x, y: p.y });
+      else bubble.push({ x: p.x, y: p.y });
+    };
+    for (const c of containers) add(c);
+    for (const l of srcLinks) add(l);
+    add(ctrlLink);
+    // m8: the hub itself is inside the wall by construction, but "inside" is
+    // not "safe" — a shell that hugs the pocket can leave a spawn at depth 3,
+    // i.e. inside a ranged attacker's reach from the wall. Same rule as the
+    // eco works: too shallow ⇒ personal rampart.
+    for (const p of hubWorks) add(p);
+    // CONTROLLER OUTSIDE THE WALL (owner: "only rampart the edges so no one
+    // can attack the controller, and the link"). Every tile a creep can stand
+    // on to reach the controller is D8-adjacent to it — rampart that ring and
+    // an enemy claim/attack creep has nowhere to stand, without paying for the
+    // wide range-3 park bubble the old version rented. The ring is DECLARED, by
+    // tile (standDenial), because layer 7's inert prune judges a rampart by the
+    // structure it covers and a ring tile covers none — see the note there.
+    const enclosedController = (!ctrlLink || !outside(ctrlLink)) && ctrlRing.every((p) => !outside(p));
+    const standDenial = [];
+    if (!enclosedController) {
+      for (const p of ctrlRing) {
+        add(p);
+        standDenial.push({ x: p.x, y: p.y });
+      }
+      add(ctrlLink);
+      for (const c of ctrlContainers) add(c);
+    }
+    // the mineral works — PRICED here, emitted by layer 5 (m11). `due` is what
+    // layer 5 will bubble under this cut; `uncoverable` is exposed and can hold
+    // no rampart (wall-terrain mineral under the extractor, border band).
+    const mineralDue = [];
+    const uncoverable = [];
+    for (const p of mineralWorks) {
+      if (!exposed(p) || seen.has(key(p.x, p.y))) continue;
+      if (canRampart(p)) mineralDue.push({ x: p.x, y: p.y });
+      else uncoverable.push({ x: p.x, y: p.y });
+    }
+    for (const p of rejected) uncoverable.push(p);
+    // the keys a site's owes() reads: every tile this cut leaves us paying for
+    const owed = new Set();
+    for (const p of [...bubble, ...mineralDue, ...uncoverable]) owed.add(key(p.x, p.y));
+    return { bubble, rejected, standDenial, enclosedController, mineralDue, uncoverable, owed };
+  };
+  /** the literal ramparts (cut ∪ bubbles ∪ mineral bubbles) and the bill */
+  const billOf = (cutTiles, ext, depth) => {
+    const cover = coverOf(ext, depth);
+    const seen = new Set(cutTiles.map((c) => key(c.x, c.y)));
+    let ramparts = seen.size;
+    for (const p of [...cover.bubble, ...cover.mineralDue]) {
+      const k = key(p.x, p.y);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      ramparts++;
+    }
+    return { ramparts, bill: ramparts + cover.uncoverable.length, cover };
+  };
+  const ecoBillOf = (cutTiles, ext, depth) => billOf(cutTiles, ext, depth).bill;
+
   // --- negotiation: smallest cut that still holds the RCL8 program ---
   //
   // A CANDIDATE IS A FUNCTION OF (seed, radius, link rule) AND NOTHING ELSE.
@@ -1621,7 +1852,9 @@ export function planShell(terrain, plan, opts = {}) {
     // every candidate is judged on whether the base can WALK its own wall
     const walk = interiorWalk(terrain, cutSet, ext, occupied, plan.sitter);
     const unreach = unreachableCut(res.cut, walk);
-    return { r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach, walk, mob: null };
+    // the bill this enclosure would ship: wall plus the bubbles it leaves owing
+    const bill = ecoBillOf(res.cut, ext, depth);
+    return { r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach, walk, bill, mob: null };
   };
   const negotiate = (cutOpts, tag) => {
     const out = [];
@@ -1651,6 +1884,9 @@ export function planShell(terrain, plan, opts = {}) {
     linkCutForced = attempts.length > 0;
   }
   if (!attempts.length) return { error: "no viable cut at any radius" };
+  // a read-only hook for the probes in this directory: every radius candidate
+  // with its cut, bill and deep count, before anything is picked
+  if (typeof opts.onAttempts === "function") opts.onAttempts(attempts);
 
   // Candidates carry their own defender-mobility number, computed on demand:
   // the negotiation below only asks for it when it is about to matter, so a
@@ -1660,17 +1896,20 @@ export function planShell(terrain, plan, opts = {}) {
     return a.mob;
   };
 
-  // pick: cheapest wall that still fits the program; the maxCut cap is a
-  // quality flag, not a hard gate — open rooms are legitimately pricier
+  // pick: cheapest BILL that still fits the program — wall plus the personal
+  // ramparts that wall leaves owing (see THE ECO BILL). Two enclosures with the
+  // same bill are split on cut size (a wall is one contiguous thing to defend,
+  // bubbles are not), then on deep interior. The maxCut cap is a quality flag,
+  // not a hard gate — open rooms are legitimately pricier
   const fits = attempts.filter((a) => a.deep >= needDeep);
   let pick;
   let poolForSwap;
   if (fits.length) {
-    fits.sort((a, b) => a.cut.length - b.cut.length || b.deep - a.deep);
+    fits.sort((a, b) => a.bill - b.bill || a.cut.length - b.cut.length || b.deep - a.deep);
     pick = fits[0];
     poolForSwap = fits;
   } else {
-    attempts.sort((a, b) => b.deep - a.deep || a.cut.length - b.cut.length);
+    attempts.sort((a, b) => b.deep - a.deep || a.bill - b.bill || a.cut.length - b.cut.length);
     pick = attempts[0];
     poolForSwap = attempts;
   }
@@ -1684,7 +1923,11 @@ export function planShell(terrain, plan, opts = {}) {
   // The alternative is remembered either way — when we cannot afford the swap
   // it is the MEASURED substitute cost that goes into the shortfall detail.
   const cheapestOf = (list) =>
-    list.length ? list.reduce((best, a) => (a.cut.length < best.cut.length ? a : best)) : null;
+    list.length
+      ? list.reduce((best, a) =>
+          a.bill < best.bill || (a.bill === best.bill && a.cut.length < best.cut.length) ? a : best,
+        )
+      : null;
   // the swap may only consider candidates that still hold the program — and
   // when NO candidate holds it, `pick` is the roomiest enclosure this room
   // offers and reachability does not get to spend that. The same guard the
@@ -1703,7 +1946,8 @@ export function planShell(terrain, plan, opts = {}) {
   const reachAlt = reachableAll.length
     ? reachableAll.reduce((best, a) => (a.deep > best.deep || (a.deep === best.deep && a.cut.length < best.cut.length) ? a : best))
     : null;
-  if (pick.unreach.length && swapAlt && swapAlt.cut.length <= pick.cut.length + REACH_SWAP_BUDGET) {
+  // the budget is in RAMPARTS — the same currency as the pick, bubbles included
+  if (pick.unreach.length && swapAlt && swapAlt.bill <= pick.bill + REACH_SWAP_BUDGET) {
     pick = swapAlt;
   }
 
@@ -1733,9 +1977,16 @@ export function planShell(terrain, plan, opts = {}) {
   let mobilityBandBest = null;
   let mobilityBandSize = 0;
   if (mobilityOf(pick).maxGated > MOBILITY_TARGET) {
+    // the flat band, plus — when the incumbent laps worse than the buy floor —
+    // the owner's priced premium for the lap a candidate reclaims (see
+    // mobilityAllowance). The premium needs the candidate's own lap, so it is
+    // measured only in rooms whose pick is already past the floor.
+    const pickLap = mobilityOf(pick).maxGated;
+    const withinPremium = (a) =>
+      pickLap > MOBILITY_BUY_FLOOR && a.bill <= pick.bill + mobilityAllowance(pickLap - mobilityOf(a).maxGated);
     const band = poolForSwap.filter(
       (a) =>
-        a.cut.length <= pick.cut.length + MOBILITY_TIEBREAK_BUDGET &&
+        (a.bill <= pick.bill + MOBILITY_TIEBREAK_BUDGET || withinPremium(a)) &&
         a.unreach.length <= pick.unreach.length &&
         // when NO candidate holds the program, deep space is the scarce thing
         // in this room and mobility does not get to spend it
@@ -1743,17 +1994,38 @@ export function planShell(terrain, plan, opts = {}) {
     );
     mobilityBandSize = band.length;
     let best = pick;
+    // `band` is in bill order (the pools were sorted on it), so the walk below
+    // meets the cheaper candidate first — which is what makes the premium
+    // clause the ladder's own rule: buy the cheapest lap that is worth it and
+    // stop spending the moment the incumbent is no worse than the floor.
     for (const a of band) {
       if (a === pick) continue;
       const m = mobilityOf(a);
       const bm = mobilityOf(best);
+      if (a.bill > pick.bill + MOBILITY_TIEBREAK_BUDGET) {
+        // beyond the flat band: the priced premium, measured against the pick
+        // exactly as the ladder measures a rung against its base rung
+        if (
+          bm.maxGated > MOBILITY_BUY_FLOOR &&
+          m.maxGated < bm.maxGated - 0.001 &&
+          a.bill - pick.bill <= mobilityAllowance(pickLap - m.maxGated)
+        ) {
+          best = a;
+        }
+        continue;
+      }
       const earned =
         m.maxGated <= bm.maxGated - 0.001 && (m.maxGated <= MOBILITY_TARGET || a.deep >= pick.deep);
       if (
         earned ||
-        (m.maxGated === bm.maxGated && a.cut.length < best.cut.length) ||
-        (m.maxGated === bm.maxGated && a.cut.length === best.cut.length && a.deep > best.deep) ||
+        (m.maxGated === bm.maxGated && a.bill < best.bill) ||
+        (m.maxGated === bm.maxGated && a.bill === best.bill && a.cut.length < best.cut.length) ||
         (m.maxGated === bm.maxGated &&
+          a.bill === best.bill &&
+          a.cut.length === best.cut.length &&
+          a.deep > best.deep) ||
+        (m.maxGated === bm.maxGated &&
+          a.bill === best.bill &&
           a.cut.length === best.cut.length &&
           a.deep === best.deep &&
           a.r < best.r)
@@ -1767,12 +2039,44 @@ export function planShell(terrain, plan, opts = {}) {
   const priceyWall = pick.cut.length > maxCut; // open room, expensive to enclose
 
   // ------------------------------------------------------------------
-  // ENCLOSE THE ECO WHEN IT IS CHEAP
-  // Owner: "if I can get a source inside the rampart area then good" and
-  // "the controller belongs in the main base". So after the base cut is
-  // chosen we try up to three protect-expansions and keep each one only
-  // if the wall barely grows. A source/controller inside the shell needs
-  // no bubble, no harassment cover and no defender excursion.
+  // ENCLOSE THE ECO WHEN IT IS CHEAP — "CHEAP" MEASURED IN RAMPARTS, ALL OF THEM
+  //
+  // Owner: "if I can get a source inside the rampart area then good", "the
+  // controller belongs in the main base", and — the rule this block runs on —
+  // "if a source is exposed, or still within range 3 of an attacker, the seat
+  // and the link are ramparts we have to build; count them, and the mineral
+  // seat + extractor, and the ring around the controller. That is how we
+  // minimise the amount of ramparts."
+  //
+  // So after the base cut is chosen every eco site is BID FOR on the eco bill
+  // (see THE ECO BILL above): a site is taken in when the bill does not rise —
+  // the wall it adds is paid for by the personal ramparts it retires. The bill
+  // is computed by the same `coverOf` the bubble pass below emits from, so the
+  // price a refusal quotes is the price the room ships.
+  //
+  // Each site offers up to three protect sets, deepest first, and the lowest
+  // bill wins (ties to the deeper set — same count, works behind the wall):
+  //   deep  the works dilated by 2: every walkable tile within chebyshev 2 of
+  //         the seat / link (plus the ring). With those tiles uncuttable the
+  //         wall sits at chebyshev 3 and the exterior at 4, so the works come
+  //         out at DEPTH_SAFE and owe nothing. A natural wall at range 2 with an
+  //         exterior lane behind it can still leave a work at depth 3 — then the
+  //         site is re-bid at dilation 3 before it is given up on.
+  //   area  the legacy set — for the controller its range-2 upgrader area, link
+  //         and parks; for a source or the mineral its walkable ring plus
+  //         works. Inside, not necessarily deep: whatever is still shallow keeps
+  //         its bubble, and the bill says so.
+  //   ring  ring + works only (a source's "area" IS its ring, so sources and
+  //         the mineral offer deep and ring).
+  // Then the sites still owing are bid for in PAIRS and all together, because
+  // two neighbouring sites can share the wall that takes them both in when
+  // neither could afford it alone.
+  //
+  // Every candidate still has to pass the guards the old expansion had — no
+  // leak, no second castle, no loss of deep interior the program needs, the
+  // reach veto (below), the mobility guard when it is free — and every verdict,
+  // accepted or refused, is written to `ecoLedger` with the numbers it was
+  // decided on. Nothing is bought or refused silently.
   // ------------------------------------------------------------------
   let protect = pick.protect;
   let cut = pick.cut;
@@ -1782,111 +2086,15 @@ export function planShell(terrain, plan, opts = {}) {
   let unreachF = pick.unreach;
   let walkF = pick.walk;
   let mobF = mobilityOf(pick);
+  let deepF = pick.deep;
+  let billF = pick.bill;
+  let coverF = coverOf(extF, depthF);
   const baseCut = pick.cut.length;
+  const baseBill = pick.bill;
   // whether the eco-enclosure mobility guard below is allowed to veto at all —
   // see the note on it. Fixed here because `pick` is settled from this point on.
   const guardIsFree = pick.deep >= needDeep + MOBILITY_GUARD_DEEP_MARGIN;
 
-  const tryExpand = (tiles, budget, veto) => {
-    const cand = new Set(protect);
-    let added = 0;
-    for (const t of tiles) {
-      if (!t) continue;
-      const i = idx(t.x, t.y);
-      // clipped by unprotectable: tiles in the exit band can never be walled
-      if (!walkable(terrain, t.x, t.y) || unprotectable[i]) continue;
-      const k = key(t.x, t.y);
-      if (!cand.has(k)) {
-        cand.add(k);
-        added++;
-      }
-    }
-    if (!added) return true; // already inside
-    const res = computeCut(terrain, cand, cutOpts);
-    if (res.error) return false;
-    if (res.cut.length > cut.length + budget) return false;
-    if (veto && veto(res.cut)) return false;
-    const cs = new Set(res.cut.map((c) => key(c.x, c.y)));
-    const e = exteriorFlood(terrain, cs);
-    for (const k of cand) {
-      const [x, y] = k.split(",").map(Number);
-      if (e[idx(x, y)]) return false; // leaked — reject
-    }
-    // NOT-LEAKED IS NOT THE SAME AS ENCLOSED. A controller box and a source
-    // ring are geometric sets; when the lobe they sit in is walk-separated from
-    // the basin, the min-cut answers by building a SECOND castle around it. The
-    // leak test above passes that happily — the tiles are on the source side —
-    // but the base can only reach that ring by walking out through its own wall,
-    // no defender can hold it and no battlement can cover it. An enclosure the
-    // garrison cannot walk to is not an enclosure; refuse to buy it and let the
-    // eco works take personal bubbles instead.
-    const w = interiorWalk(terrain, cs, e, occupied, plan.sitter);
-    const u = unreachableCut(res.cut, w);
-    if (u.length > unreachF.length) return false;
-    // ...AND AN ENCLOSURE THE GARRISON CANNOT LAP IS NOT AN ENCLOSURE EITHER.
-    // An eco lobe that doubles the defender's walk is rent, not value: the
-    // source inside saves a few hauler steps forever and costs the wall its
-    // one real advantage — interior lines. So an expansion that pushes the
-    // room out of the mobility target when it was inside it is refused, and
-    // the eco works take personal bubbles instead (which is what they would
-    // have had anyway).
-    //
-    // The bar is "no worse than the shell we already negotiated, and not over
-    // the target": an eco lobe may not push a compliant room over the line NOR
-    // lengthen the lap of a room that is already struggling. The second half
-    // matters more than it looks — the negotiation measures candidates BEFORE
-    // the eco lobes are bid for, so without it a room could be handed the most
-    // mobile enclosure available and then have that enclosure dragged out of
-    // shape by a source ring three tiles later (E17S9 went 1.25 -> 2.0 exactly
-    // that way).
-    //
-    // The veto is only allowed where it is FREE: the base enclosure must
-    // already hold the program with MOBILITY_GUARD_DEEP_MARGIN tiles to spare.
-    // In a room living on the floor, the lobe is not decoration — it is the
-    // interior the extension layer is about to need, and refusing it buys a
-    // short lap with shallow structures, personal ramparts and longer roads.
-    let m = null;
-    if (guardIsFree) {
-      m = mobilityStats(res.cut, e, maskFromKeys(w));
-      if (m.maxGated > MOBILITY_TARGET && m.maxGated > mobF.maxGated + 0.001) return false;
-    }
-    protect = cand;
-    cut = res.cut;
-    cutSet = cs;
-    extF = e;
-    depthF = depthFromExterior(e);
-    unreachF = u;
-    walkF = w;
-    // the incumbent ratio moves with the enclosure, so the next expansion is
-    // judged against what this one actually left behind. Only measured when the
-    // guard was armed; in a space-starved room nothing reads it.
-    if (m) mobF = m;
-    return true;
-  };
-
-  const ctrlLink = plan.structures.link[plan.structures.link.length - 1];
-  const ctrl = plan.controller;
-  const parkTiles = [];
-  for (const [dx, dy] of D8) {
-    const x = ctrlLink.x + dx,
-      y = ctrlLink.y + dy;
-    if (!walkable(terrain, x, y)) continue;
-    if (chebyshev({ x, y }, ctrl) > 3) continue;
-    if (parkTiles.length >= MAX_PARKS) break;
-    parkTiles.push({ x, y });
-  }
-
-  // (a) controller upgrader area: walkable tiles within range 2 of the
-  //     controller, plus the controller link and its park tiles.
-  const ctrlArea = [];
-  for (let dx = -2; dx <= 2; dx++) {
-    for (let dy = -2; dy <= 2; dy++) {
-      const x = ctrl.x + dx,
-        y = ctrl.y + dy;
-      if (walkable(terrain, x, y)) ctrlArea.push({ x, y });
-    }
-  }
-  ctrlArea.push(ctrlLink, ...parkTiles);
   // A DISTANT CONTROLLER DOES NOT GET THE WALL DRAGGED OUT TO IT.
   //
   // ENCLOSE_CTRL_BUDGET caps how many extra CUT TILES the expansion may cost,
@@ -1934,24 +2142,403 @@ export function planShell(terrain, plan, opts = {}) {
   //          here. (Round 20; criticism 80.)
   const ctrlWalk = plan.meta?.pathController ?? 0;
   const reachOf = (tiles) => tiles.reduce((m, c) => Math.max(m, chebyshev(c, plan.sitter)), 0);
-  const ctrlVeto =
-    ctrlWalk > CTRL_ENCLOSE_MAX_WALK ? (trialCut) => reachOf(trialCut) > CTRL_ENCLOSE_MAX_REACH : null;
-  const ctrlEnclosed = tryExpand(ctrlArea, ENCLOSE_CTRL_BUDGET, ctrlVeto);
-  const ctrlEncloseRefused = !!ctrlVeto && !ctrlEnclosed;
+  const ctrlVetoArmed = ctrlWalk > CTRL_ENCLOSE_MAX_WALK;
+  // THE REACH VETO, FOR EVERY SITE. The far-controller rule above stands
+  // exactly as written: armed past CTRL_ENCLOSE_MAX_WALK, refuses any cut that
+  // reaches past CTRL_ENCLOSE_MAX_REACH. Every other bid — a near controller,
+  // a source, the mineral, a pair — gets its own clause: it may not stretch the
+  // shell past ECO_REACH_KNEE, and a shell that already reaches past the knee
+  // may not be stretched at all. The old code had no such clause because its
+  // fixed budgets bounded the stretch at 3-4 tiles; the bill can pay up to the
+  // whole stand-denial ring for a controller, and tower falloff does not care
+  // why. The knee is the tower's: a tower does its minimum damage past
+  // chebyshev 20, and the battery is placed (layer 3) to be refillable from the
+  // hub, so every tile of reach past the knee is a face the whole battery hits
+  // at its floor. E15S5's source lobe was a fair trade in ramparts (two fewer)
+  // and took a shell already at reach 22 out to 24 — under the old 25 — and
+  // the battery's weakest face fell through the owner's 1200 hard floor
+  // behind it. Radius candidates are not subject to this clause: they are the
+  // room's own shapes, and the ones that reach past the knee were the cheapest
+  // bill the room offered (the tower layer declares what it cannot cover).
+  const reachVeto = (trialCut, isCtrl) => {
+    const reach = reachOf(trialCut);
+    if (isCtrl && ctrlVetoArmed) return reach > CTRL_ENCLOSE_MAX_REACH;
+    const now = reachOf(cut);
+    return reach > now && reach > ECO_REACH_KNEE;
+  };
 
-  // (b) each source's walkable ring + its container/link
-  const srcLinks = plan.structures.link.slice(1, plan.structures.link.length - 1);
-  for (const s of plan.sources) {
-    const ring = [];
-    for (const [dx, dy] of D8) {
-      const x = s.x + dx,
-        y = s.y + dy;
-      if (walkable(terrain, x, y)) ring.push({ x, y });
+  // one max-flow per distinct protect set, per link rule — the rungs of the
+  // pipeline's ladder re-enter this function with the same pick and re-bid the
+  // same sites, and the shellCache is per room and per seed, so the memo lives
+  // there when it exists
+  const cutMemo = (() => {
+    // the memo key names everything computeCut reads besides the set itself
+    const tag = `${cutOpts.uncuttable ? "link-safe" : "link-through"}|k${cutOpts.distWeight ?? 1}|s${
+      cutOpts.swampBias ?? 2
+    }`;
+    let memo = cache && cache.get("__cutMemo");
+    if (!memo) {
+      memo = new Map();
+      if (cache) cache.set("__cutMemo", memo);
     }
-    for (const c of plan.structures.container) if (chebyshev(c, s) <= 1) ring.push(c);
-    for (const l of srcLinks) if (chebyshev(l, s) <= 2) ring.push(l);
-    tryExpand(ring, ENCLOSE_SRC_BUDGET);
+    return (set) => {
+      const sig = `${tag}|${[...set].sort().join(";")}`;
+      if (memo.has(sig)) return memo.get(sig);
+      const res = computeCut(terrain, set, cutOpts);
+      memo.set(sig, res);
+      return res;
+    };
+  })();
+
+  const dilate = (tiles, r) => {
+    const out = [];
+    const seen = new Set();
+    for (const t of tiles) {
+      if (!t) continue;
+      for (let dx = -r; dx <= r; dx++) {
+        for (let dy = -r; dy <= r; dy++) {
+          const x = t.x + dx,
+            y = t.y + dy;
+          if (!walkable(terrain, x, y)) continue;
+          const k = key(x, y);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push({ x, y });
+        }
+      }
+    }
+    return out;
+  };
+
+  /**
+   * One bid: grow the protect set by `tiles`, re-solve, and judge the result on
+   * every guard. Returns the measured trial either way — an accepted trial
+   * carries the new state, a refused one carries the reason and the numbers.
+   */
+  const trial = (tiles, isCtrl) => {
+    const cand = new Set(protect);
+    let added = 0;
+    for (const t of tiles) {
+      if (!t) continue;
+      const i = idx(t.x, t.y);
+      // clipped by unprotectable: tiles in the exit band can never be walled
+      if (!walkable(terrain, t.x, t.y) || unprotectable[i]) continue;
+      const k = key(t.x, t.y);
+      if (!cand.has(k)) {
+        cand.add(k);
+        added++;
+      }
+    }
+    if (!added) return { verdict: "already", cut: cut.length, bill: billF };
+    const res = cutMemo(cand);
+    if (res.error) return { verdict: "refused", why: "no-cut", cut: null, bill: null };
+    const cs = new Set(res.cut.map((c) => key(c.x, c.y)));
+    const e = exteriorFlood(terrain, cs);
+    for (const k of cand) {
+      const [x, y] = k.split(",").map(Number);
+      if (e[idx(x, y)]) return { verdict: "refused", why: "leak", cut: res.cut.length, bill: null };
+    }
+    // NOT-LEAKED IS NOT THE SAME AS ENCLOSED. A controller box and a source
+    // ring are geometric sets; when the lobe they sit in is walk-separated from
+    // the basin, the min-cut answers by building a SECOND castle around it. The
+    // leak test above passes that happily — the tiles are on the source side —
+    // but the base can only reach that ring by walking out through its own wall,
+    // no defender can hold it and no battlement can cover it. An enclosure the
+    // garrison cannot walk to is not an enclosure; refuse to buy it and let the
+    // eco works take personal bubbles instead.
+    const w = interiorWalk(terrain, cs, e, occupied, plan.sitter);
+    const u = unreachableCut(res.cut, w);
+    if (u.length > unreachF.length) {
+      return { verdict: "refused", why: "second-castle", cut: res.cut.length, bill: null };
+    }
+    const d = depthFromExterior(e);
+    const { ramparts, bill, cover } = billOf(res.cut, e, d);
+    // the deep-space floor: a bid may not hand the extension layer LESS interior
+    // than the program needs when the bare shell held it, nor less than the
+    // bare shell had when it did not. The bill cannot see deep tiles, and a
+    // room living on the floor pays a cheaper wall back in shallow extensions
+    // renting personal ramparts forever.
+    const deep = countDeep(terrain, e, d, cs, occupied, roadSet);
+    if (deep < Math.min(deepF, needDeep)) {
+      return { verdict: "refused", why: "deep", cut: res.cut.length, bill, deep };
+    }
+    // THE PRICE. Cheaper, or the same and ECO_TIE_TO_ENCLOSURE: in — after the
+    // deep credit a starved room is allowed (DEEP_CREDIT_TILES_PER_RAMPART).
+    const short = Math.max(0, needDeep - deepF);
+    const credit =
+      short > 0 ? Math.floor(Math.max(0, Math.min(deep - deepF, short)) / DEEP_CREDIT_TILES_PER_RAMPART) : 0;
+    const tie = bill - credit === billF;
+    const stretch = res.cut.length - cut.length;
+    let m = null;
+    let premium = 0;
+    if (bill - credit > billF || (tie && (!ECO_TIE_TO_ENCLOSURE || stretch > ECO_TIE_MAX_STRETCH))) {
+      // A PRICED REFUSAL — UNLESS THE OWNER'S MOBILITY PREMIUM PAYS FOR IT.
+      // The same price the ladder and the radius pick spend (see
+      // mobilityAllowance): a room whose lap is past MOBILITY_BUY_FLOOR may
+      // pay MOBILITY_ENCLOSURE_PER_RATIO ramparts per 1.0 of gated lap a bid
+      // reclaims, up to the cap. An eco lobe is sometimes the one shape that
+      // shortens the lap — E6S3's controller area turned a lap of 4 into 0 for
+      // four wall tiles, and the ladder, which only knows radii, had no rung
+      // that offered it. The lap is measured only here and only for a room
+      // already past the floor, so the fleet does not pay the measurement.
+      const over = bill - credit - billF;
+      if (mobF.maxGated > MOBILITY_BUY_FLOOR && over <= MOBILITY_ENCLOSURE_CAP) {
+        m = mobilityStats(res.cut, e, maskFromKeys(w));
+        const reclaimed = mobF.maxGated - m.maxGated;
+        if (m.maxGated < mobF.maxGated - 0.001 && over <= mobilityAllowance(reclaimed)) premium = Math.max(1, over);
+      }
+      if (!premium) return { verdict: "refused", why: "price", cut: res.cut.length, bill, deep, credit };
+    }
+    if (reachVeto(res.cut, isCtrl)) {
+      return { verdict: "refused", why: "reach", cut: res.cut.length, bill, reach: reachOf(res.cut) };
+    }
+    // ...AND AN ENCLOSURE THE GARRISON CANNOT LAP IS NOT AN ENCLOSURE EITHER.
+    // An eco lobe that doubles the defender's walk is rent, not value: the
+    // source inside saves a few hauler steps forever and costs the wall its
+    // one real advantage — interior lines. So an expansion that pushes the
+    // room out of the mobility target when it was inside it is refused, and
+    // the eco works take personal bubbles instead (which is what they would
+    // have had anyway).
+    //
+    // The bar is "no worse than the shell we already negotiated, and not over
+    // the target": an eco lobe may not push a compliant room over the line NOR
+    // lengthen the lap of a room that is already struggling. The second half
+    // matters more than it looks — the negotiation measures candidates BEFORE
+    // the eco lobes are bid for, so without it a room could be handed the most
+    // mobile enclosure available and then have that enclosure dragged out of
+    // shape by a source ring three tiles later (E17S9 went 1.25 -> 2.0 exactly
+    // that way).
+    //
+    // The veto is only allowed where it is FREE: the base enclosure must
+    // already hold the program with MOBILITY_GUARD_DEEP_MARGIN tiles to spare.
+    // In a room living on the floor, the lobe is not decoration — it is the
+    // interior the extension layer is about to need, and refusing it buys a
+    // short lap with shallow structures, personal ramparts and longer roads.
+    if (guardIsFree) {
+      if (!m) m = mobilityStats(res.cut, e, maskFromKeys(w));
+      if (m.maxGated > MOBILITY_TARGET && m.maxGated > mobF.maxGated + 0.001) {
+        return { verdict: "refused", why: "mobility", cut: res.cut.length, bill, mobility: m.maxGated };
+      }
+    } else if (mobF.maxGated <= MOBILITY_BUY_FLOOR) {
+      // ...AND WHETHER OR NOT THE GUARD IS FREE, A TRADE MAY NOT CREATE THE LAP
+      // THE LADDER PAYS TWELVE RAMPARTS TO ERASE. The owner priced a gated lap
+      // past MOBILITY_BUY_FLOOR at MOBILITY_ENCLOSURE_PER_RATIO ramparts per
+      // 1.0 reclaimed, up to MOBILITY_ENCLOSURE_CAP (pipeline.mjs, the ladder's
+      // comparator — and the radius pick above spends the same price). A bid
+      // that saves one rampart by dragging a room from a lap of 2 to one of 4
+      // therefore hands the ladder an incumbent it is entitled to spend eleven
+      // on; E7S9 did exactly that on the build this guard was added on. So a
+      // room at or under the floor stays there: the lap is measured for every
+      // bid that has cleared every other guard, and the bid is refused if it
+      // crosses the floor. (A room already past the floor keeps the margin
+      // rule above — its lap is the ladder's to buy back, and a lobe that
+      // brings interior is still interior.)
+      if (!m) m = mobilityStats(res.cut, e, maskFromKeys(w));
+      if (m.maxGated > MOBILITY_BUY_FLOOR) {
+        return { verdict: "refused", why: "mobility", cut: res.cut.length, bill, mobility: m.maxGated };
+      }
+    }
+    return {
+      verdict: "accepted",
+      cut: res.cut.length,
+      bill,
+      ramparts,
+      deep,
+      credit,
+      premium,
+      mobility: m ? m.maxGated : undefined,
+      state: { cand, cut: res.cut, cs, e, d, w, u, deep, bill, cover, m },
+    };
+  };
+  const commit = (st) => {
+    protect = st.cand;
+    cut = st.cut;
+    cutSet = st.cs;
+    extF = st.e;
+    depthF = st.d;
+    unreachF = st.u;
+    walkF = st.w;
+    deepF = st.deep;
+    billF = st.bill;
+    coverF = st.cover;
+    // the incumbent ratio moves with the enclosure, so the next expansion is
+    // judged against what this one actually left behind. Only measured when the
+    // guard was armed; in a space-starved room nothing reads it.
+    if (st.m) mobF = st.m;
+  };
+
+  // --- the sites and their protect sets ---
+  const parkTiles = [];
+  if (ctrlLink) {
+    for (const [dx, dy] of D8) {
+      const x = ctrlLink.x + dx,
+        y = ctrlLink.y + dy;
+      if (!walkable(terrain, x, y)) continue;
+      if (chebyshev({ x, y }, ctrl) > 3) continue;
+      if (parkTiles.length >= MAX_PARKS) break;
+      parkTiles.push({ x, y });
+    }
   }
+  // (a) controller upgrader area: walkable tiles within range 2 of the
+  //     controller, plus the controller link and its park tiles.
+  const ctrlArea = [];
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dy = -2; dy <= 2; dy++) {
+      const x = ctrl.x + dx,
+        y = ctrl.y + dy;
+      if (walkable(terrain, x, y)) ctrlArea.push({ x, y });
+    }
+  }
+  ctrlArea.push(...ctrlWorks, ...parkTiles);
+
+  const sites = [];
+  sites.push({
+    site: "controller",
+    kind: "controller",
+    at: { x: ctrl.x, y: ctrl.y },
+    ctrl: true,
+    works: ctrlWorks,
+    // what this site can owe: its stand-denial ring, its link, its container
+    tiles: [...ctrlRing, ...ctrlWorks],
+    candidates: [
+      { label: "deep", tiles: [...ctrlArea, ...dilate(ctrlWorks, 2)] },
+      { label: "area", tiles: ctrlArea },
+      { label: "ring", tiles: [...ctrlRing, ...ctrlWorks] },
+    ],
+  });
+  for (const sSite of srcSites) {
+    sites.push({
+      site: `source@${sSite.at.x},${sSite.at.y}`,
+      kind: "source",
+      at: { x: sSite.at.x, y: sSite.at.y },
+      ctrl: false,
+      works: sSite.works,
+      tiles: sSite.works,
+      candidates: [
+        ...(sSite.works.length ? [{ label: "deep", tiles: [...sSite.ring, ...dilate(sSite.works, 2)] }] : []),
+        { label: "ring", tiles: [...sSite.ring, ...sSite.works] },
+      ],
+    });
+  }
+  if (mineral) {
+    const mRing = walkRing(mineral);
+    sites.push({
+      site: `mineral@${mineral.x},${mineral.y}`,
+      kind: "mineral",
+      at: { x: mineral.x, y: mineral.y },
+      ctrl: false,
+      works: mineralWorks,
+      tiles: mineralWorks,
+      candidates: [
+        { label: "deep", tiles: [...mRing, ...dilate(mineralWorks, 2)] },
+        { label: "ring", tiles: [...mRing, ...mineralWorks] },
+      ],
+    });
+  }
+  const owes = (site, cover) => site.tiles.filter((p) => p && cover.owed.has(key(p.x, p.y))).length;
+
+  // --- the bids ---
+  const ecoLedger = [];
+  let ctrlReachRefused = false;
+  const bid = (site, candidates, isCtrl) => {
+    const rec = {
+      site: site.site,
+      kind: site.kind,
+      at: site.at,
+      works: site.works.length,
+      // the wall and the bill the bid was priced against, so every candidate
+      // row below can be re-read as "cut N for bill M against cut/bill here"
+      cut: cut.length,
+      bill: billF,
+      deep: deepF,
+      before: owes(site, coverF),
+      after: null,
+      accepted: null,
+      candidates: [],
+    };
+    ecoLedger.push(rec);
+    if (rec.before === 0) {
+      // already inside and deep (or nothing of ours to cover): nothing to buy
+      rec.after = 0;
+      rec.accepted = "covered";
+      return false;
+    }
+    let best = null;
+    const queue = [...candidates];
+    while (queue.length) {
+      const c = queue.shift();
+      const t = trial(c.tiles, isCtrl);
+      // `reason`, not `why`: a leaf named *Why is prose the r27 inventory must
+      // register, and this is an enum, not a sentence
+      const row = { label: c.label, verdict: t.verdict, cut: t.cut, bill: t.bill };
+      if (t.why) row.reason = t.why;
+      if (t.verdict === "accepted") row.after = owes(site, t.state.cover);
+      if (t.why === "reach") row.reach = t.reach;
+      if (typeof t.mobility === "number") row.mobility = t.mobility;
+      if (typeof t.deep === "number") row.deep = t.deep;
+      if (t.credit) row.credit = t.credit;
+      if (t.premium) row.premium = t.premium;
+      rec.candidates.push(row);
+      if (t.why === "reach" && isCtrl) ctrlReachRefused = true;
+      if (t.verdict !== "accepted") continue;
+      // the natural-wall case: "deep" taken, works still shallow — re-bid wider
+      if (c.label === "deep" && row.after > 0) {
+        queue.unshift({ label: "deep3", tiles: [...c.tiles, ...dilate(site.works, 3)] });
+      }
+      if (!best || t.bill < best.t.bill || (t.bill === best.t.bill && row.after < best.row.after)) {
+        best = { t, row };
+      }
+    }
+    if (!best) {
+      rec.after = rec.before;
+      return false;
+    }
+    commit(best.t.state);
+    rec.accepted = best.row.label;
+    rec.after = best.row.after;
+    return true;
+  };
+  for (const site of sites) bid(site, site.candidates, site.ctrl);
+  // pairs, then all together — only among the sites still owing
+  const owing = () => sites.filter((site) => owes(site, coverF) > 0);
+  const deepSet = (site) => site.candidates[0].tiles;
+  {
+    const rem = owing();
+    for (let i = 0; i < rem.length; i++) {
+      for (let j = i + 1; j < rem.length; j++) {
+        const a = rem[i],
+          b = rem[j];
+        if (owes(a, coverF) === 0 || owes(b, coverF) === 0) continue;
+        bid(
+          {
+            site: `pair:${a.site}+${b.site}`,
+            kind: "pair",
+            at: a.at,
+            works: [...a.works, ...b.works],
+            tiles: [...a.tiles, ...b.tiles],
+          },
+          [{ label: "deep", tiles: [...deepSet(a), ...deepSet(b)] }],
+          a.ctrl || b.ctrl,
+        );
+      }
+    }
+    const rest = owing();
+    if (rest.length >= 3) {
+      bid(
+        {
+          site: `all:${rest.map((r) => r.site).join("+")}`,
+          kind: "all",
+          at: rest[0].at,
+          works: rest.flatMap((r) => r.works),
+          tiles: rest.flatMap((r) => r.tiles),
+        },
+        [{ label: "deep", tiles: rest.flatMap((r) => deepSet(r)) }],
+        rest.some((r) => r.ctrl),
+      );
+    }
+  }
+  const ctrlEncloseRefused = !coverF.enclosedController && ctrlReachRefused;
+  const tradedBill = billF;
 
   // ------------------------------------------------------------------
   // WALL THAT PROTECTS NOTHING — an exact removal test, not a heuristic.
@@ -1986,6 +2573,14 @@ export function planShell(terrain, plan, opts = {}) {
     for (const t of ["link", "container"]) {
       for (const p of plan.structures[t] || []) mustHold.add(key(p.x, p.y));
     }
+    // ...and the mineral works the eco bill priced: a tile whose deletion moves
+    // the extractor or the mineral seat out of depth is wall that protects
+    // something, whatever the walk region says
+    for (const p of mineralWorks) mustHold.add(key(p.x, p.y));
+    // ...and the controller's ring: a tile whose deletion hands an attacker a
+    // stand next to the controller costs a stand-denial rampart, so it is not
+    // wall that protects nothing either
+    for (const p of ctrlRing) mustHold.add(key(p.x, p.y));
     // fast reject: a reachable cut tile that faces the exterior turns INTO
     // exterior the moment it is deleted, so it can never pass the test
     const facesExterior = (c) => {
@@ -2035,15 +2630,12 @@ export function planShell(terrain, plan, opts = {}) {
   const deepTiles = countDeep(terrain, extF, depthF, cutSet, occupied, roadSet);
   const budgetPass = deepTiles >= needDeep; // space for the RCL8 program
 
-  // enclosure verdicts read off the FINAL exterior, never off the attempts
+  // enclosure verdicts read off the FINAL exterior, never off the attempts —
+  // and the bubbles, the stand-denial ring and the controller verdict all come
+  // from the one cover function the negotiation priced with
   const outside = (p) => !!extF[idx(p.x, p.y)];
-  const ctrlRing = [];
-  for (const [dx, dy] of D8) {
-    const x = ctrl.x + dx,
-      y = ctrl.y + dy;
-    if (walkable(terrain, x, y)) ctrlRing.push({ x, y });
-  }
-  const enclosedController = !outside(ctrlLink) && ctrlRing.every((p) => !outside(p));
+  const finalCover = coverOf(extF, depthF);
+  const enclosedController = finalCover.enclosedController;
   // ------------------------------------------------------------------
   // "ENCLOSED" MEANT TWO DIFFERENT THINGS AND THE HEADLINE TOOK THE FLATTERING
   // ONE.
@@ -2083,38 +2675,12 @@ export function planShell(terrain, plan, opts = {}) {
   // --- bubbles: eco works the shell does NOT cover get personal ramparts ---
   // A tile needs one when it sits outside the wall, or inside but within a
   // ranged attacker's reach (depth < 4). Anything enclosed AND deep is
-  // already covered by the shell — a bubble there is pure upkeep.
-  const bubble = [];
-  const bubbleRejected = [];
-  const addBubble = (p) => {
-    if (!p) return;
-    const i = idx(p.x, p.y);
-    if (!extF[i] && depthF[i] >= DEPTH_SAFE) return; // redundant
-    // ENGINE BORDER RULE (utils.js:120-143): a rampart at x/y 1 or 48 needs all
-    // three adjacent room-EDGE tiles to be natural wall, or the site is
-    // ERR_INVALID_TARGET forever. Shipping one is worse than shipping none: it
-    // never builds, and the tile LOOKS covered on every render and in the
-    // upkeep quote. Record it as a shortfall instead.
-    if (!borderLegal(terrain, p.x, p.y, "rampart")) {
-      if (!bubbleRejected.some((b) => b.x === p.x && b.y === p.y)) {
-        bubbleRejected.push({ x: p.x, y: p.y });
-      }
-      return;
-    }
-    if (!bubble.some((b) => b.x === p.x && b.y === p.y)) bubble.push({ x: p.x, y: p.y });
-  };
-  for (const c of plan.structures.container) addBubble(c);
-  for (const l of srcLinks) addBubble(l);
-  addBubble(ctrlLink);
-  // m8: the hub itself is inside the wall by construction, but "inside" is
-  // not "safe" — a shell that hugs the pocket can leave a spawn at depth 3,
-  // i.e. inside a ranged attacker's reach from the wall. Same rule as the
-  // eco works: too shallow ⇒ personal rampart.
-  for (const t of ["storage", "terminal", "spawn"]) {
-    for (const p of plan.structures[t] || []) addBubble(p);
-  }
-  addBubble(plan.structures.link[0]); // hub link
-  addBubble(plan.sitter); // the trio's parking tile
+  // already covered by the shell — a bubble there is pure upkeep. The rule is
+  // `coverOf` (THE ECO BILL, above): one function, priced during the eco trades
+  // and emitted here, so the bubbles the room ships are the bubbles every
+  // refusal in `ecoLedger` was priced against.
+  const bubble = finalCover.bubble;
+  const bubbleRejected = finalCover.rejected;
   // CONTROLLER OUTSIDE THE WALL (owner: "only rampart the edges so no one
   // can attack the controller, and the link"). Every tile a creep can stand
   // on to reach the controller is D8-adjacent to it — rampart that ring and
@@ -2137,15 +2703,7 @@ export function planShell(terrain, plan, opts = {}) {
   // number is history and re-deriving it would mean re-running the old code.]
   // ring the goal document mandates. So the ring is DECLARED, by tile, and
   // layer 7 reads the declaration instead of re-deriving intent from geometry.
-  const standDenial = [];
-  if (!enclosedController) {
-    for (const p of ctrlRing) {
-      addBubble(p);
-      standDenial.push({ x: p.x, y: p.y });
-    }
-    addBubble(ctrlLink);
-    for (const c of plan.structures.container) if (chebyshev(c, ctrl) <= 3) addBubble(c);
-  }
+  const standDenial = finalCover.standDenial;
 
   // --- battlements: where the defenders stand --- (see pickBattlements)
   const walkFinal = walkF;
@@ -2478,6 +3036,9 @@ export function planShell(terrain, plan, opts = {}) {
     rampart.push({ x: p.x, y: p.y });
   }
   const upkeep = Math.round(rampart.length * 3) / 100; // e/tick
+  // the bill as shipped — the cut after the useless-cut prune, priced by the
+  // same function the trades were
+  const shippedBill = billOf(cut, extF, depthF);
 
   return {
     layer: "shell",
@@ -2518,6 +3079,35 @@ export function planShell(terrain, plan, opts = {}) {
       // the controller enclosure was refused on walk distance, not on price
       ctrlEncloseRefused,
       ctrlWalk,
+      // THE ECO BILL AND ITS LEDGER. `ecoBill` is the bill (wall + bubbles +
+      // mineral bubbles layer 5 will owe + exposed works no rampart can cover)
+      // at three moments — the bare radius pick, after the eco trades, and as
+      // this layer ships it (after the useless-cut prune) — beside the literal
+      // rampart count this layer emits and the two lists the bill prices that
+      // this layer does NOT emit. `ecoLedger` is every bid: the site, what it
+      // owed before, every protect set tried with its cut size, its bill and
+      // the verdict, and what it owes after. A reader holding the artifact can
+      // re-derive each row: the cut sizes are max-flows over the named sets.
+      ecoBill: {
+        base: baseBill,
+        traded: tradedBill,
+        shipped: shippedBill.bill,
+        ramparts: rampart.length,
+        mineralDue: shippedBill.cover.mineralDue,
+        uncoverable: shippedBill.cover.uncoverable,
+        // the two ways `traded` is allowed to exceed `base`, totalled over the
+        // accepted bids: the deep credit of a starved room and the owner's
+        // mobility premium. Zero in every room where the trades only saved.
+        credit: ecoLedger.reduce((n, r) => {
+          const c = (r.candidates || []).find((x) => x.label === r.accepted && x.verdict === "accepted");
+          return n + (c && c.credit ? c.credit : 0);
+        }, 0),
+        premium: ecoLedger.reduce((n, r) => {
+          const c = (r.candidates || []).find((x) => x.label === r.accepted && x.verdict === "accepted");
+          return n + (c && c.premium ? c.premium : 0);
+        }, 0),
+      },
+      ecoLedger,
       deepTiles,
       needDeep,
       budgetPass,

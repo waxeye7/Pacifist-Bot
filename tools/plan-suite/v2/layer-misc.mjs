@@ -31,6 +31,7 @@ import {
   borderLegal,
   buildable,
   checkEnclosureContract,
+  engineBuildable,
   key,
   mineralGuard,
   reservedTiles,
@@ -638,8 +639,24 @@ export function planMisc(terrain, plan) {
     });
   }
   const mineral = plan.mineral;
+  // the extractor's own cover, when the tile can carry it. Layer 2's eco bill
+  // prices the extractor as an exposed work (outside the wall or shallower
+  // than DEPTH_SAFE): a rampart when the engine accepts one on the tile, a
+  // stated "uncoverable" when it does not — and it does not on wall terrain,
+  // which is where every mineral in this fleet sits (utils.js
+  // checkConstructionSite exempts only the extractor from the terrain-wall
+  // test). So this branch is the general case and fires only where a mineral
+  // sits on floor; it is kept so the bill and the board agree on every room.
+  let extractorBubble = 0;
   if (mineral) {
     extractor.push({ x: mineral.x, y: mineral.y });
+    {
+      const i = idx(mineral.x, mineral.y);
+      if ((ext[i] || depth[i] < DEPTH_SAFE) && engineBuildable(terrain, mineral.x, mineral.y, "rampart")) {
+        bubbles.push({ x: mineral.x, y: mineral.y });
+        extractorBubble = 1;
+      }
+    }
     let seat = null;
     for (const [dx, dy] of D8) {
       const x = mineral.x + dx,
@@ -765,7 +782,10 @@ export function planMisc(terrain, plan) {
       },
       extractor: extractor.length,
       mineralContainer: mineralContainer.length,
-      mineralBubble: bubbles.length,
+      // the SEAT's bubble, 0/1 (r27: re-derived off the seat tile) — the
+      // extractor's own, when the tile can take one, is counted beside it
+      mineralBubble: bubbles.length - extractorBubble,
+      extractorBubble,
       // ------------------------------------------------------------------
       // THE MINER'S SEAT IS OFF THE ROAD NET ON PURPOSE — WHEN IT IS.
       //

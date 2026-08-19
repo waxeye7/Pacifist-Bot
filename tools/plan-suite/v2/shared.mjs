@@ -10,7 +10,10 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const V2_ROOT = __dirname;
-export const OUT_V2 = path.join(__dirname, "..", "out-v2");
+// OUT_V2=<dir> redirects every artifact of a run (gallery, films, plans-hub.json)
+// so two candidate builds can be planned side by side without clobbering each
+// other; unset, the gallery lives where it always has.
+export const OUT_V2 = process.env.OUT_V2 || path.join(__dirname, "..", "out-v2");
 
 /**
  * TERRAIN CODES ARE BITMASKS, NOT AN ENUM.
@@ -688,7 +691,37 @@ export function pathLen(terrain, from, to, blocked = null) {
   return null;
 }
 
+/**
+ * OFFLINE ROOM DUMP — `ROOMS_FILE=<path>` (or `--rooms-file <path>` on any
+ * v2 CLI) points both fetchers at a JSON array of `{room, terrain, objects}`
+ * records in exactly the shape the mongo dump prints, so the suite runs with
+ * the local server's docker stack DOWN. `tools/plan-suite/v2/_r28-mech/rooms.json`
+ * is a tracked dump of the claimable fleet taken from that stack.
+ * Nothing else changes: the same records reach planRoom either way.
+ */
+function roomsFileArg() {
+  if (process.env.ROOMS_FILE) return process.env.ROOMS_FILE;
+  const i = process.argv.indexOf("--rooms-file");
+  if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1];
+  return null;
+}
+function readRoomsFile() {
+  const f = roomsFileArg();
+  if (!f) return null;
+  const raw = JSON.parse(fs.readFileSync(f, "utf8"));
+  if (!Array.isArray(raw)) throw new Error(`ROOMS_FILE ${f}: expected a JSON array of {room,terrain,objects}`);
+  return raw;
+}
+
 export function fetchRoomsFromMongo(rooms) {
+  const dump = readRoomsFile();
+  if (dump) {
+    const want = new Set(rooms);
+    const out = dump.filter((r) => want.has(r.room));
+    if (out.length < rooms.length)
+      console.error(`fetchRoomsFromMongo: ROOMS_FILE is short (${out.length}/${rooms.length})`);
+    return out;
+  }
   const list = rooms.map((r) => JSON.stringify(r)).join(",");
   const script = `db = db.getSiblingDB("screeps");
 var rooms = [${list}];
@@ -730,6 +763,17 @@ print(JSON.stringify(out));
 }
 
 export function fetchAllClaimableRooms() {
+  const dump = readRoomsFile();
+  if (dump) {
+    // same rule the mongo aggregate applies: >= 2 sources and a controller
+    return dump
+      .filter((r) => {
+        const objs = r.objects || [];
+        return objs.filter((o) => o.type === "source").length >= 2 && objs.some((o) => o.type === "controller");
+      })
+      .map((r) => r.room)
+      .sort();
+  }
   const script = `db = db.getSiblingDB("screeps");
 var src = db["rooms.objects"].aggregate([
   {$match:{type:"source"}},

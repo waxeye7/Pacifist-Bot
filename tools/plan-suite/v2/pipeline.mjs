@@ -18,7 +18,16 @@
  */
 import { D4, D8, PARK_PROTECT, invalidateExterior, isWall, key, walkable } from "./shared.mjs";
 import { planHub, distField } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
+import {
+  BUILT_OBSTACLES,
+  interiorWalk,
+  MOBILITY_BUY_FLOOR,
+  MOBILITY_ENCLOSURE_CAP,
+  MOBILITY_ENCLOSURE_PER_RATIO,
+  mobilityAllowance,
+  planShell,
+  RADII_WIDE,
+} from "./layer-shell.mjs";
 import { CLUMP_NOTE, MAX_REFILL, MIN_SAT, REFILL_NOTE, planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
 import { mineralSeatCensus, planMisc, renderMineralOffNetworkWhy } from "./layer-misc.mjs";
@@ -1613,15 +1622,11 @@ function cheaperUpkeep(a, b) {
  * 40 extra personal ramparts on the fleet to tighten worst cases that never
  * materialised. Two purchases, two prices, both published here and there.
  */
-const MOBILITY_ENCLOSURE_PER_RATIO = 3;
-const MOBILITY_ENCLOSURE_CAP = 12;
-/** a lap has to be at least this bad before wall may be spent shortening it */
-const MOBILITY_BUY_FLOOR = 2;
-/** what this rung may spend, given what it reclaims against the base rung */
-const mobilityAllowance = (reclaimed) =>
-  reclaimed <= 0
-    ? 0
-    : Math.min(MOBILITY_ENCLOSURE_CAP, Math.floor(MOBILITY_ENCLOSURE_PER_RATIO * reclaimed));
+// The three prices and the allowance they make are DEFINED IN layer-shell.mjs
+// and imported here: layer 2's radius pick spends the same premium inside its
+// own candidate band (see the note at MOBILITY_TIEBREAK_BUDGET there), and one
+// price in two files is a price that drifts. The argument for the numbers is
+// the note above; the numbers themselves are the import below.
 /**
  * How much shorter a rung's lap has to be before the declaration calls it an
  * alternative. Below this the two enclosures are the same wall with a rounding
