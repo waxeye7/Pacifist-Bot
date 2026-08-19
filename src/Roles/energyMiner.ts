@@ -1,5 +1,6 @@
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { isSanctionedRampart } from "utils/PlanV2";
+import { findLiveSeat, unpackXY } from "utils/minerSeat";
 import { cachedDerived, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
 
 /**
@@ -284,6 +285,48 @@ export function forwardToControllerLink(room:any):void {
  * structureType first; the iteration order is the same find order, so the
  * "first match wins" tie-break is unchanged.
  */
+/**
+ * Seat discipline for a link-fed home miner: ONE tile, adjacent to the source
+ * AND the source link, chosen once (utils/minerSeat — container tile first,
+ * road last) and held for life. Kills the W3N1 shuffle: harvestEnergy used to
+ * park the creep on the road, the fullish branch then walked it to the link
+ * and the next harvest walked it back, two intents per cycle forever.
+ *
+ * Returns "seated" (stand still, everything is in range), "moving" (this tick
+ * is a step toward the seat — no other mover may fire), or "none" (no link,
+ * no reachable dual-adjacent tile, or the seat belongs to a sibling miner:
+ * legacy behaviour applies).
+ */
+function ensureMinerSeat(creep: any): "seated" | "moving" | "none" {
+    if (creep.memory.homeRoom !== creep.memory.targetRoom) return "none";
+    const linkId = creep.memory.sourceLink;
+    if (!linkId || linkId === true) return "none";
+    const link: any = Game.getObjectById(linkId);
+    const source: any = Game.getObjectById(creep.memory.sourceId);
+    if (!link || !source || link.structureType !== STRUCTURE_LINK) return "none";
+    if (creep.memory.seatFor !== linkId) {
+        const p = findLiveSeat(creep.room, source.pos, link.pos);
+        creep.memory.seatFor = linkId;
+        creep.memory.seatP = p === null ? false : p;
+    }
+    if (creep.memory.seatP === false || creep.memory.seatP === undefined) return "none";
+    const seat = unpackXY(creep.memory.seatP);
+    if (creep.pos.x === seat.x && creep.pos.y === seat.y) return "seated";
+    const occupants = creep.room.lookForAt(LOOK_CREEPS, seat.x, seat.y);
+    if (occupants.length && occupants[0].name !== creep.name) {
+        const o: any = occupants[0];
+        if (o.my && o.memory && o.memory.role === "EnergyMiner") {
+            // a sibling holds the seat — this creep lives with legacy behaviour
+            creep.memory.seatP = false;
+            return "none";
+        }
+        // transient blocker (hauler loading the container): step in anyway,
+        // the traffic swap shifts it
+    }
+    creep.MoveCostMatrixRoadPrio(new RoomPosition(seat.x, seat.y, creep.room.name), 0);
+    return "moving";
+}
+
 function adjacentEnergySink(creep: any): any {
     const pos = creep.pos;
     for(const s of cachedMyStructures(creep.room) as any[]) {
@@ -529,12 +572,16 @@ const run = function (creep) {
         // would still never have run in the room that needed it.
 
 
+        // Seat first: every mover below defers to it. "moving" = this tick
+        // walks to the seat and nothing else may steer.
+        const seatState = ensureMinerSeat(creep);
+
         if(creep.ticksToLive <= 2) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             if(creep.pos.isNearTo(closestLink)) {
                 creep.transfer(closestLink, RESOURCE_ENERGY);
             }
-            else {
+            else if(seatState === "none") {
                 creep.MoveCostMatrixRoadPrio(closestLink, 1);
             }
         }
@@ -690,9 +737,12 @@ const run = function (creep) {
                 if(creep.pos.isNearTo(closestLink)) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);
                 }
-                else {
+                else if(seatState === "none") {
+                    // no seat exists for this source-link pair: legacy walk
                     creep.MoveCostMatrixRoadPrio(closestLink, 1);
                 }
+                // seat exists: the transfer happens the tick we are seated;
+                // walking link-ward off the seat is the shuffle this fixes
             }
             else {
                 // Room-wide haul can be true because a sibling source is
@@ -722,13 +772,16 @@ const run = function (creep) {
                     let rampart = creep.pos.findClosestByRange(rampartsInRange3);
                     if(rampart) {
                         creep.memory.checkAmIOnRampart = true;
-                        creep.MoveCostMatrixRoadPrio(rampart, 0);
+                        // the SEAT outranks a generic nearby rampart
+                        if(seatState === "none") creep.MoveCostMatrixRoadPrio(rampart, 0);
                     }
                 }
             }
         }
 
-        if(creep.store.getFreeCapacity() >= creep.memory.potential) {
+        if(creep.store.getFreeCapacity() >= creep.memory.potential && seatState !== "moving") {
+            // harvestEnergy paths to ANY range-1 tile; while walking to the
+            // seat its move intent would fight ensureMinerSeat's
             let result = creep.harvestEnergy();
         }
 

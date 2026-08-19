@@ -25,6 +25,7 @@ import { isUnreachableTile } from "utils/Reachability";
 import { isExteriorTile, interiorReady } from "utils/Interior";
 import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 import { requestSegments } from "utils/Segments";
+import { incomeRampartAdds } from "utils/minerSeat";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -2646,6 +2647,30 @@ function runMigration(
 function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[]): void {
   if (plan.s && Game.time - plan.s < SYNC_EVERY) return;
   plan.s = Game.time;
+
+  // INCOME RAMPARTS. The parked r44 planner bubbles shallow labs/extensions
+  // and the mineral seat, but not the SOURCE LINK or the miner seat in front
+  // of it — both usually stand outside the shell, naked. Derive the two tiles
+  // per source here and append them to the plan's own rampart set: from that
+  // moment placement sites them (RCL4+), alignment treats them as PLAN tiles,
+  // isSanctionedRampart() approves them (the miner's build-a-rampart-under-
+  // the-link check was being VETOED by sanctioning on planV2 rooms), and the
+  // RCL7 miners keep them repaired. incomeRampartAdds returns only MISSING
+  // tiles, so this is idempotent across the endless resync.
+  try {
+    const terrain = room.getTerrain();
+    const adds = incomeRampartAdds(
+      plan.t as any,
+      room.find(FIND_SOURCES).map((s: any) => ({ x: s.pos.x, y: s.pos.y })),
+      (x: number, y: number) => terrain.get(x, y) === TERRAIN_MASK_WALL,
+    );
+    if (adds.length) {
+      plan.t.rampart = (plan.t.rampart || []).concat(adds);
+      logAlways(`planV2 ${room.name}: +${adds.length} income rampart(s) (source link + miner seat)`);
+    }
+  } catch (e) {
+    logAlways(`planV2 ${room.name}: income-rampart derive threw:`, (e && (e as any).stack) || e);
+  }
 
   const shell = plan.t.shellCut || [];
   const perimeter = shell.map(unpack);

@@ -44,9 +44,6 @@ function weakestSanctionedRampart(room): any {
 	return pick;
 }
 
-/** rooms whose towers have already been aimed this tick — see run(). */
-let _aimTick = -1;
-let _aimed: {[roomName: string]: boolean} = {};
 
 /**
  * Re-validate the cached extension/spawn tap against the EXACT predicate the
@@ -346,26 +343,21 @@ function tapStillGood(creep): any {
 	// 	creep.memory.suicide = true;
 	// }
 	if(creep.memory.suicide == true) {
-		// Idle builders aim towers at a sanctioned weak rampart — peacetime
-		// only. During danger this stole every tower and never recycled;
-		// combat repair belongs to rooms.defence.
-		if(!creep.room.memory.danger) {
+		// A surplus builder REPAIRS the weak rampart itself — it is a WORK
+		// creep standing right there. Creep repair is 100 hits per energy;
+		// a tower shot is 10 energy for 800 hits at range <=5 falling to 200
+		// at range 20, i.e. 20-80 hits per energy, and every shot is another
+		// 10 energy the fillers ferry back into the tower. Aiming the whole
+		// battery from here (the old roomTowersRepairTarget call) is why
+		// "towers repair everywhere": M towers x 10 energy per tick against
+		// scattered personal ramparts, out of the same store that pays for
+		// creeps. Towers keep exactly one repair duty now — the bounded
+		// weakest-shell-tile top-up in rooms.defence (decay floor).
+		if(!creep.room.memory.danger && creep.store[RESOURCE_ENERGY] > 0) {
 			const weakest = weakestSanctionedRampart(creep.room);
 			if(weakest) {
-				// Aim the battery once. roomTowersRepairTarget() issues a
-				// repair intent for EVERY tower in the room, and every idle
-				// builder used to call it with the same rampart in the same
-				// tick — N builders x M towers of duplicate intents for one
-				// decision. The target is now a per-room-per-tick constant,
-				// so the second and later callers had nothing to add.
-				if(_aimTick !== Game.time) {
-					_aimTick = Game.time;
-					_aimed = {};
-				}
-				if(!_aimed[creep.room.name]) {
-					_aimed[creep.room.name] = true;
-					creep.room.roomTowersRepairTarget(weakest);
-				}
+				if(creep.pos.inRangeTo(weakest, 3)) creep.repair(weakest);
+				else creep.MoveCostMatrixRoadPrio(weakest, 3);
 				return;
 			}
 		}
