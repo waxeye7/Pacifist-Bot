@@ -27,8 +27,26 @@ function RunAllCreepsManager() {
     const creepNames = Object.keys(Memory.creeps);
     for(let name of creepNames) {
       if(!Game.creeps[name]) {
+        // TWO-PASS deletion, not one. spawnCreep writes Memory.creeps[name]
+        // synchronously on the spawn tick, but on older engines (the VPS
+        // docker) the creep only joins Game.creeps NEXT tick — so this sweep,
+        // running after the rooms phase, deleted every newborn's memory on
+        // its birth tick. The creep then lived role-undefined and the
+        // memoryless-creep sweep below suicided it: the 2026-08-19 VPS
+        // empire collapse (every hatchling dead at age 0, forever). An entry
+        // must now be creep-less on two consecutive passes before it goes;
+        // for the actually-dead that is one tick of extra memory, for the
+        // newborn it is survival.
+        const m: any = Memory.creeps[name];
+        if (m && m._sweep === undefined) {
+          m._sweep = Game.time;
+          continue;
+        }
         delete Memory.creeps[name];
         continue;
+      }
+      if ((Memory.creeps[name] as any)._sweep !== undefined) {
+        delete (Memory.creeps[name] as any)._sweep;
       }
       if(skipHighRclCreep(Game.creeps[name])) continue;
       if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ") || name.startsWith("DuoCreepA") || name.startsWith("DuoCreepB")) {
