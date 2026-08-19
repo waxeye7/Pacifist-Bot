@@ -26,7 +26,11 @@ export default {
     clear({ targets: ["dist"] }),
     resolve({ rootDir: "src" }),
     commonjs(),
-    typescript({tsconfig: "./tsconfig.json"}),
+    // include as REGEX, not globs: the hoisted @rollup/pluginutils (3.x, per
+    // the ancient lockfile) fails to glob-match absolute Windows paths, which
+    // makes rpt2 silently skip every .ts file and rollup then chokes on raw
+    // TypeScript ("new Map<string, number>"). Regexes bypass its glob matcher.
+    typescript({tsconfig: "./tsconfig.json", include: [/\.tsx?$/]}),
     screeps({config: cfg, dryRun: cfg == null})
   ]
 }
