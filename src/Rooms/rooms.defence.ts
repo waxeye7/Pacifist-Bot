@@ -702,6 +702,28 @@ function roomDefence(room) {
         Game.time % 3 == 0 &&
         room.memory.Structures.towers && room.memory.Structures.towers.length) {
 
+        // HOLE PREVENTION comes first, and it is NOT sanction-filtered: while
+        // a room migrates, the legacy ramparts are still the actual defensive
+        // line, and "abandoned tiles may decay" turned into literal holes in
+        // the perimeter (owner report, 2026-08-19). ANY rampart of ours about
+        // to decay to death gets one save — 10 energy per 2000-hit reprieve
+        // is nothing against a breach. Everything else keeps the plan-only
+        // decay floor below.
+        const dying = room.find(FIND_MY_STRUCTURES, {
+            filter: (s: any) => s.structureType === STRUCTURE_RAMPART && s.hits < 2000,
+        }) as any[];
+        if (dying.length) {
+            let lowest = dying[0];
+            for (const r of dying) if (r.hits < lowest.hits) lowest = r;
+            for (const towerID of room.memory.Structures.towers) {
+                const tower: any = Game.getObjectById(towerID);
+                if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
+                    tower.repair(lowest);
+                    break;
+                }
+            }
+        }
+        else {
         const shell = planShellRamparts(room);
         if (shell.length) {
             let weakest = shell[0];
@@ -731,6 +753,7 @@ function roomDefence(room) {
                     }
                 }
             }
+        }
         }
     }
 

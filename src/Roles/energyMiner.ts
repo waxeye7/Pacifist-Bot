@@ -488,8 +488,26 @@ const run = function (creep) {
         // ERR_FULL stops the source. Dump before harvesting when full so the
         // first-100-ticks [W,C,M] (and any later carry miner on this path)
         // keeps the source working.
+        //
+        // BUT: if the SOURCE BOX is still a construction site within reach,
+        // the store goes into the BOX first. A drop-miner room's builders can
+        // take days to reach the container (they were on extensions), while
+        // the miner sits on 50 energy right next to the site every 5 ticks —
+        // it is the cheapest container-builder the room will ever have.
         if(creep.getActiveBodyparts(CARRY) > 0 && creep.store.getFreeCapacity() == 0) {
-            dumpMinerEnergy(creep);
+            if(!creep.memory._boxSiteChecked || Game.time - creep.memory._boxSiteChecked > 50) {
+                creep.memory._boxSiteChecked = Game.time;
+                const boxSite = creep.pos.findInRange(cachedSites(creep.room), 1)
+                    .filter((s: any) => s.structureType === STRUCTURE_CONTAINER)[0];
+                creep.memory._boxSite = boxSite ? boxSite.id : false;
+            }
+            const site: any = creep.memory._boxSite && Game.getObjectById(creep.memory._boxSite);
+            if(site) {
+                creep.build(site);
+            }
+            else {
+                dumpMinerEnergy(creep);
+            }
         }
         else {
             let result = creep.harvestEnergy();

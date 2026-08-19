@@ -206,6 +206,27 @@ function tapStillGood(creep): any {
 		}
 	}
 
+	// SOURCE CONTAINERS ARE INCOME, NOT FURNITURE. They ranked below
+	// extensions, so in any room with extension sites (i.e. every growing
+	// room) the three source boxes sat at 0/5000 for DAYS while drop-miners
+	// spilled onto the ground next to them. Build them right after the
+	// absolute rungs: the box catches every mined unit from the tick it
+	// stands, and the builder can fuel itself from the very drops at the
+	// site it is building.
+	if(buildingsToBuild.length > 0) {
+		const srcs = creep.room.find(FIND_SOURCES);
+		const srcBoxes = buildingsToBuild.filter(function(building) {
+			return building.structureType == STRUCTURE_CONTAINER &&
+				building.pos.findInRange(srcs, 1).length > 0;
+		});
+		if(srcBoxes.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("📦", true);
+			srcBoxes.sort((a,b) => b.progress - a.progress);
+			return srcBoxes[0].id;
+		}
+	}
+
 	// THE PAVER. Extension/container sites almost always exist in a growing
 	// room, so the closest-site fallback at the bottom — the only path that
 	// ever picked a road — never ran: the road drip's sites sat at 0/300 for
