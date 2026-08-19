@@ -1216,7 +1216,11 @@ function add_creeps_to_spawn_list(room, spawn) {
 
                 // cycle-4 KEEP: RCL4 29181 vs 30851 (−1670, 8/8). Stay 4
                 // during slam so the five ext still finish.
-                amount: room.energyCapacityAvailable >= 550 ? 6 : 4,
+                // CPU crisis (live MMO only — benches idle at a full bucket):
+                // the shuttle roster is the first thing to shed. See
+                // CPU_CRISIS_BUCKET.
+                amount: Game.cpu.bucket < CPU_CRISIS_BUCKET ? 2
+                    : room.energyCapacityAvailable >= 550 ? 6 : 4,
                 // No controller depot until RCL3. [4W,C,M] is 3 ticks/tile
                 // (5 non-MOVE / 1 MOVE) and a 50-energy tank — ~0.5 e/t
                 // delivered on a 15-tile shuttle, not 4. [2W,2C,2M] walks
@@ -1259,7 +1263,8 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 4,
+                // CPU crisis shed — see CPU_CRISIS_BUCKET / RCL2's note.
+                amount: Game.cpu.bucket < CPU_CRISIS_BUCKET ? 2 : 4,
                 // Parked 4W only pays once the controller container exists.
                 // Until then this is the same shuttle as RCL2 — builders
                 // finish that depot before leftover extensions.
@@ -3863,6 +3868,16 @@ function surplusUpgraderTier(room) {
  * upgraders.
  * ------------------------------------------------------------------------- */
 /** one upgrader from here up — a room with this much banked is not poor */
+/**
+ * Below this bucket the empire is spending CPU it does not have (a full-tick
+ * kill loses the whole tick's intents AND the memory save). Creep headcount is
+ * where the CPU actually goes — ~0.2+/creep/tick in intents alone — so the
+ * shed points all live in SPAWN POLICY: upgrader rosters drop to the downgrade
+ * floor, drain-pressure extras stop, and shuttle fleets clamp. Existing creeps
+ * age out within a lifetime; the bucket climbs again out of the spawn ledger.
+ * Private servers idle at a full bucket, so races/benches never feel this.
+ */
+const CPU_CRISIS_BUCKET = 1500;
 const UPGRADE_FLOOR = 10000;
 /** full roster + surplus from here up */
 const UPGRADE_SURGE_ON = 60000;
@@ -4222,10 +4237,19 @@ function upgraderTarget(room, base:number, surplus:number, burn:number, miners:n
         room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 ? 1 : 0;
     // the hard floor every rung below is Math.max'd against
     const floor = Math.max(emergency, keepOneUpgrader(room, miners));
+    // CPU CRISIS SHED. An upgrade intent is 0.2 CPU and upgraders are the one
+    // roster that is pure luxury under load — the controller keeps its level
+    // for tens of thousands of ticks on the downgrade floor alone. Live
+    // 2026-08-20: bucket 19, avg 20.2/20, with 15 upgraders spending 3.0 CPU.
+    // Nothing else in the bot sheds creep COUNT on a dead bucket; this does.
+    if(Game.cpu.bucket < CPU_CRISIS_BUCKET) return floor;
     const latched = upgradeLatch(room);
     // No real storage: there is no bank to protect and the income has nowhere
-    // else to go, so run the roster and let the energy supply throttle it.
-    if(!room.storage || !room.storage.my) return Math.max(base + burn, floor);
+    // else to go, so run the roster and let the energy supply throttle it —
+    // but clamped: an RCL4+ room without a storage is a room that should be
+    // BUILDING its storage, and the full base-5 roster (live E39N58) drinks
+    // the exact energy the storage site is waiting on.
+    if(!room.storage || !room.storage.my) return Math.max(Math.min(base, 3) + burn, floor);
     const bank = bankEnergy(room);
     // Full roster while the surge is latched AND there is still a real bank to
     // spend. Below the middle band the latch only guarantees that the roster
@@ -4330,9 +4354,11 @@ function drainPressure(room): any {
          * The bodies are cheap against the loss: 550 energy amortised over a
          * 1,500-tick life is 0.37/tick each.
          */
-        burn: (onFloor < FLOOR_PILE_SMALL || fillLoopBroken) ? 0 : Math.min(4, Math.max(1, Math.floor(onFloor / FLOOR_PILE_PER_UPGRADER))),
+        // Both pressures buy EXTRA creeps to eat floor decay. In a CPU crisis
+        // the decay is the cheaper loss: every extra body is ~0.2+ CPU/tick.
+        burn: (onFloor < FLOOR_PILE_SMALL || fillLoopBroken || Game.cpu.bucket < CPU_CRISIS_BUCKET) ? 0 : Math.min(4, Math.max(1, Math.floor(onFloor / FLOOR_PILE_PER_UPGRADER))),
         /** one more hauler per source, but never while the haulers sit full */
-        haul: onFloor >= FLOOR_PILE_SMALL && !sinkLimited ? 1 : 0,
+        haul: onFloor >= FLOOR_PILE_SMALL && !sinkLimited && Game.cpu.bucket >= CPU_CRISIS_BUCKET ? 1 : 0,
     };
     _pressureCache[room.name] = out;
     return out;
@@ -4656,6 +4682,14 @@ function homeCarriersWanted(room, values, body, sourceId): number {
     if(want > MAX_HOME_CARRIERS_PER_SOURCE) want = MAX_HOME_CARRIERS_PER_SOURCE;
     const pressure = drainPressure(room);
     if(pressure.haul > 0) want = Math.min(MAX_HOME_CARRIERS_PER_SOURCE + 1, want + pressure.haul);
+    // SINK CAP. Without a storage the room's entire delivery surface is the
+    // spawn + a few extensions (+ maybe a tower/depot) — live E35N58 ran 7
+    // shuttles against a 550-capacity base that read FULL in every snapshot,
+    // and the surplus bodies traded one pile between two tiles forever. Two
+    // per source covers the depot run; the storage unlocks the full formula.
+    if((!room.storage || !room.storage.my) && want > 2) want = 2;
+    // CPU crisis: shuttles are the biggest per-creep CPU line (0.34 measured).
+    if(Game.cpu.bucket < CPU_CRISIS_BUCKET && want > 2) want = 2;
     return want;
 }
 

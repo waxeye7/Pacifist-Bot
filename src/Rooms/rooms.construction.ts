@@ -704,11 +704,8 @@ function siteLegacyControllerDepot(room, spawn) {
 }
 
 function construction(room) {
-    console.log(`Construction function called for room ${room.name}`);
-
     if(!room.memory.construction) {
         room.memory.construction = {};
-        console.log(`Initialized construction memory for room ${room.name}`);
     }
 
     // v2-planned rooms build ONLY from the adopted plan — legacy stamps,

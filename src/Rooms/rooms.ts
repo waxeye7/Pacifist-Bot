@@ -417,7 +417,7 @@ function rooms() {
       ) {
         const start = Game.cpu.getUsed();
         construction(room);
-        console.log("BASE Construction Ran in", Game.cpu.getUsed() - start, "ms");
+        if (Memory.verbose) console.log("BASE Construction Ran in", Game.cpu.getUsed() - start, "ms");
       }
 
       // Which neighbours this commune remotes. Cheap, self-throttling

@@ -106,11 +106,55 @@ function deliverIfNear(creep): boolean {
             return creep.transfer(t, RESOURCE_ENERGY) === OK;
         }
     }
-    const spawn: any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
-    if (spawn && creep.pos.isNearTo(spawn)) {
-        return creep.drop(RESOURCE_ENERGY) === OK;
-    }
+    // No drop fallback here. Dropping at the spawn's feet feeds the same
+    // fleet's own collect pass — see parkFull below for the measured loop.
     return false;
+}
+
+/**
+ * Nothing in the room can take this load: no storage, no bin, no lock, no
+ * depot. The old fallback DROPPED it at the spawn, where the fleet's collect
+ * pass picked it straight back up — live E35N58 (2026-08-20) had three
+ * carriers trading one pile between two adjacent tiles forever while the
+ * spawn read 300/300 in every snapshot: drop 0.2 + pickup 0.2 + move 0.2 CPU
+ * per creep per cycle, plus pile decay, for zero delivered energy.
+ *
+ * A full carrier IS storage — it loses nothing by waiting. Park it: step off
+ * the road once so traffic flows, then ZERO intents and zero finds until a
+ * sink opens (baseIsFed flips / a lock revives / the depot wants a top-up —
+ * all checked upstream every tick at memoised cost).
+ */
+function parkFull(creep: any): void {
+    const packed = creep.pos.x + creep.pos.y * 50;
+    if (creep.memory._pk === packed) return; // settled
+    let onRoad = false;
+    for (const s of creep.pos.lookFor(LOOK_STRUCTURES) as any[]) {
+        if (s.structureType === STRUCTURE_ROAD) { onRoad = true; break; }
+    }
+    if (!onRoad) { creep.memory._pk = packed; return; }
+    const terrain = creep.room.getTerrain();
+    const dirs = [TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT];
+    const dx = [0, 1, 1, 1, 0, -1, -1, -1];
+    const dy = [-1, -1, 0, 1, 1, 1, 0, -1];
+    for (let i = 0; i < 8; i++) {
+        const x = creep.pos.x + dx[i];
+        const y = creep.pos.y + dy[i];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        if (terrain.get(x, y) & TERRAIN_MASK_WALL) continue;
+        if (creep.room.lookForAt(LOOK_CREEPS, x, y).length) continue;
+        if (creep.room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y).length) continue;
+        let free = true;
+        for (const s of creep.room.lookForAt(LOOK_STRUCTURES, x, y) as any[]) {
+            if (s.structureType === STRUCTURE_RAMPART && s.my) continue;
+            free = false;
+            break;
+        }
+        if (!free) continue;
+        creep.move(dirs[i]);
+        return;
+    }
+    // boxed in — hold the road tile; still strictly better than the drop loop
+    creep.memory._pk = packed;
 }
 
 
@@ -413,22 +457,18 @@ function depotSink(creep: any): any {
                 }
             }
             else {
+                // No storage and no bin — young room. Deliver to whatever
+                // findLocked opens; when NOTHING can take the load, PARK
+                // (see parkFull — the old fallback dropped at the spawn and
+                // the fleet re-collected its own drop forever).
                 if(!lockStillOpen(creep)) {
-                    let target = findLocked(creep);
+                    // When the base reads fed there is nothing for findLocked's
+                    // three room.finds to find — skip the scan and hold.
+                    let target = baseIsFed(creep.room) ? null : findLocked(creep);
 
                     if(!target) {
-                        if(spawn) {
-                            if(creep.pos.isNearTo(spawn) && creep.room.controller.level > 1) {
-                                if (creep.drop(RESOURCE_ENERGY) === OK) {
-                                    creep.memory.full = false;
-                                    walkToSource(creep);
-                                }
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(spawn, 1)
-                            }
-                            return;
-                        }
+                        parkFull(creep);
+                        return;
                     }
                 }
 
@@ -436,20 +476,11 @@ function depotSink(creep: any): any {
                     let target = Game.getObjectById(creep.memory.locked);
 
                     if(!target) {
-                        if(spawn) {
-                            if(creep.pos.isNearTo(spawn)) {
-                                if (creep.drop(RESOURCE_ENERGY) === OK) {
-                                    creep.memory.full = false;
-                                    walkToSource(creep);
-                                }
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(spawn, 1)
-                            }
-                            return;
-                        }
+                        parkFull(creep);
+                        return;
                     }
 
+                    delete creep.memory._pk;
                     if(creep.pos.isNearTo(target)) {
                         if (creep.transfer(target, RESOURCE_ENERGY) === OK) {
                             creep.memory.full = false;
@@ -459,6 +490,9 @@ function depotSink(creep: any): any {
                     else {
                         creep.MoveCostMatrixRoadPrio(target, 1)
                     }
+                }
+                else {
+                    parkFull(creep);
                 }
             }
         }

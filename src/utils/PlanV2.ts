@@ -1458,7 +1458,22 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Roo
   // RCL2: first source container only (plan-order prefix of the early set).
   // Second source + controller stay on the same order at RCL3; mineral at RCL6.
   // Nested prefixes: 1 ⊂ early ⊂ all. Never reorder — migrate is FREE_REPLACE.
-  const beforeExtractor = lvl < 3 ? Math.min(1, staged.early) : staged.early;
+  //
+  // SPRAWL EXCEPTION. The one-box rule is tuned for compact bench rooms where
+  // the controller sits next to the hub and RCL3 is minutes away. Live E35N58
+  // is the other shape: hub→controller 20+, sources in opposite corners — it
+  // sat 11,700+ ticks at RCL2 with seven upgraders shuttling 24 tiles to sip
+  // a decaying pile, because the controller box (the thing that lets them
+  // park) was staged behind an RCL it could not reach without it. When the
+  // controller is far from the hub, stage the WHOLE early set at RCL2: two
+  // boxes (~10k energy) beat five thousand ticks of commute. The prefix stays
+  // nested (early ⊂ all), so migration order is untouched.
+  let rcl2Early = Math.min(1, staged.early);
+  if (lvl === 2 && room && room.controller) {
+    const sp = room.find(FIND_MY_SPAWNS)[0];
+    if (sp && sp.pos.getRangeTo(room.controller) > 10) rcl2Early = staged.early;
+  }
+  const beforeExtractor = lvl < 3 ? rcl2Early : staged.early;
   const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? staged.order.length : beforeExtractor);
   // the whole order — return the plan's own array, unallocated and unchanged
   if (take >= planned.length) return planned;
