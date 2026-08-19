@@ -13,6 +13,7 @@ import {
     chooseSeat,
     seatTiles,
     incomeRampartAdds,
+    shellExposure,
     findLiveSeat,
     SeatCand,
 } from "../../src/utils/minerSeat";
@@ -95,6 +96,54 @@ describe("minerSeat: incomeRampartAdds", () => {
         assert.deepEqual(incomeRampartAdds({} as any, S, noWalls), []);
         assert.deepEqual(incomeRampartAdds({ link: [] }, S, noWalls), []);
         assert.deepEqual(incomeRampartAdds({ link: [packXY(10, 12)] }, [], noWalls), []);
+    });
+
+    it("honours the exposure gate: only exposed tiles are ramparted", () => {
+        const fresh = () => ({ link: [packXY(10, 12)], rampart: [] as number[], container: [], road: [] });
+        const LINK = packXY(10, 12);
+        const SEAT = packXY(9, 11); // lowest packed of the three plain seat tiles
+
+        const onlyLink = incomeRampartAdds(fresh(), S, noWalls, (p: number) => p === LINK);
+        assert.deepEqual(onlyLink, [LINK], "the exposed link is bubbled, the deep seat is not");
+
+        assert.deepEqual(incomeRampartAdds(fresh(), S, noWalls, () => false), [],
+            "a source deep inside the shell owes nothing — the planner left it bare on purpose");
+
+        const both = incomeRampartAdds(fresh(), S, noWalls, null);
+        assert.sameMembers(both, [LINK, SEAT], "null gate = fail open = the old unconditional behaviour");
+    });
+});
+
+describe("minerSeat: shellExposure", () => {
+    /** The ring x,y in 10..30 — a closed square shell around the hub. */
+    function squareShell(): number[] {
+        const out: number[] = [];
+        for (let i = 10; i <= 30; i++) {
+            out.push(packXY(i, 10), packXY(i, 30), packXY(10, i), packXY(30, i));
+        }
+        return out;
+    }
+
+    it("returns null (fail open) for a missing or implausibly short shell", () => {
+        assert.isNull(shellExposure(undefined as any, noWalls));
+        assert.isNull(shellExposure([], noWalls));
+        assert.isNull(shellExposure([1, 2, 3, 4, 5, 6, 7], noWalls), "< 8 tiles cannot be a real min-cut");
+    });
+
+    it("a closed shell hides the deep interior and exposes the shallow rim and the outside", () => {
+        const exposed = shellExposure(squareShell(), noWalls);
+        assert.isFunction(exposed);
+        const ex = exposed as (p: number) => boolean;
+
+        assert.isFalse(ex(packXY(20, 20)), "the centre is depth 11 behind the shell — no income rampart");
+        assert.isTrue(ex(packXY(12, 12)), "two tiles inside the ring is still within chebyshev 4 of the exterior");
+        assert.isTrue(ex(packXY(40, 40)), "outside the shell entirely");
+    });
+
+    it("an open shell leaks the flood inward — everything reads exposed (the old behaviour)", () => {
+        const leaky = squareShell().filter(p => p !== packXY(20, 10)); // one tile missing from the ring
+        const ex = shellExposure(leaky, noWalls) as (p: number) => boolean;
+        assert.isTrue(ex(packXY(20, 20)), "a shell that does not close cannot enclose anything");
     });
 });
 

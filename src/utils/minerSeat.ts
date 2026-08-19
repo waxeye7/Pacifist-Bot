@@ -18,13 +18,18 @@
  * the road.
  *
  * The same geometry drives the INCOME RAMPARTS: a source link and the seat in
- * front of it usually stand OUTSIDE the min-cut shell, and the offline planner
- * (parked at r44) does not bubble them. incomeRampartAdds() derives the two
- * tiles per source from an adopted plan so syncPlanV2Memory can append them to
+ * front of it usually stand OUTSIDE the min-cut shell, and older planner
+ * builds did not bubble them. incomeRampartAdds() derives the two tiles per
+ * source from an adopted plan so syncPlanV2Memory can append them to
  * `planV2.t.rampart` — from there the normal machinery takes over: placement
  * sites them (RCL4+), alignment counts them as PLAN tiles (never retires
  * them), isSanctionedRampart() approves them, and the miner's own
  * build-a-rampart-under-the-link check stops being vetoed.
+ *
+ * The current planner prices and bubbles those works itself, and only when
+ * they are EXPOSED. shellExposure() replays that same rule over the plan's
+ * min-cut ring so the in-game derivation cannot rampart a deep-enclosed source
+ * the planner deliberately left bare.
  *
  * Everything here is pure over packed tiles so it can be unit-tested and
  * shared by the role (live structures) and the plan sync (plan tiles).
@@ -90,17 +95,136 @@ export function seatTiles(
     return out;
 }
 
+/** Chebyshev depth at which a tile inside the shell stops being "exposed". */
+const EXPOSED_DEPTH = 4;
+
+/**
+ * The offline planner's EXPOSURE rule, replayed in-game over a plan's min-cut
+ * ring so the derived income ramparts agree with the ones the planner already
+ * priced and bubbled itself.
+ *
+ * A tile is EXPOSED when it is either
+ *   - OUTSIDE the shell (reachable by a walkable D8 flood from the room edges
+ *     with the shell tiles and terrain walls as blockers), or
+ *   - inside, but within chebyshev 4 of the nearest exterior tile. The depth
+ *     BFS runs over ALL 2500 tiles, terrain walls included: an attacker's
+ *     ranged damage does not care that the tile between is a cliff.
+ * Anything deeper is enclosed — the planner deliberately leaves it unbubbled,
+ * because the owner's objective is the MINIMUM number of ramparts.
+ *
+ * Returns `null` when `shell` is missing or implausibly short (< 8 tiles): the
+ * caller cannot trust the answer, so it should fail OPEN and rampart both
+ * tiles as before. Note the same fail-open holds implicitly for a shell that
+ * does NOT close around the hub: the edge flood then leaks all the way in,
+ * every tile comes back exterior, and the predicate says "exposed" for
+ * everything — exactly the old unconditional behaviour.
+ */
+export function shellExposure(
+    shell: number[],
+    isWall: (x: number, y: number) => boolean,
+): ((p: number) => boolean) | null {
+    if (!shell || shell.length < 8) return null;
+
+    const blocked = new Uint8Array(2500); // shell ring tiles — the flood stops here
+    for (const p of shell) {
+        if (p >= 0 && p < 2500) blocked[p] = 1;
+    }
+
+    const wall = new Uint8Array(2500);
+    for (let y = 0; y < 50; y++) {
+        for (let x = 0; x < 50; x++) {
+            if (isWall(x, y)) wall[x + y * 50] = 1;
+        }
+    }
+
+    // 1. exterior flood: D8 over walkable, non-shell tiles seeded from the edges
+    const ext = new Uint8Array(2500);
+    const queue = new Int16Array(2500);
+    let head = 0;
+    let tail = 0;
+    const seed = (x: number, y: number) => {
+        const p = x + y * 50;
+        if (ext[p] || wall[p] || blocked[p]) return;
+        ext[p] = 1;
+        queue[tail++] = p;
+    };
+    for (let i = 0; i < 50; i++) {
+        seed(i, 0);
+        seed(i, 49);
+        seed(0, i);
+        seed(49, i);
+    }
+    while (head < tail) {
+        const p = queue[head++];
+        const x = p % 50;
+        const y = (p - x) / 50;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+                const np = nx + ny * 50;
+                if (ext[np] || wall[np] || blocked[np]) continue;
+                ext[np] = 1;
+                queue[tail++] = np;
+            }
+        }
+    }
+
+    // 2. chebyshev depth from the exterior, THROUGH walls (multi-source BFS)
+    const depth = new Int16Array(2500);
+    const dq = new Int16Array(2500);
+    let dHead = 0;
+    let dTail = 0;
+    for (let p = 0; p < 2500; p++) {
+        if (ext[p]) {
+            depth[p] = 0;
+            dq[dTail++] = p;
+        } else {
+            depth[p] = 32000;
+        }
+    }
+    while (dHead < dTail) {
+        const p = dq[dHead++];
+        const d = depth[p] + 1;
+        if (d > EXPOSED_DEPTH) continue; // nothing past the cutoff changes the answer
+        const x = p % 50;
+        const y = (p - x) / 50;
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                if (!dx && !dy) continue;
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+                const np = nx + ny * 50;
+                if (depth[np] <= d) continue;
+                depth[np] = d;
+                dq[dTail++] = np;
+            }
+        }
+    }
+
+    return (p: number) => p >= 0 && p < 2500 && (ext[p] === 1 || depth[p] < EXPOSED_DEPTH);
+}
+
 /**
  * PLAN-side: the packed rampart tiles to append to `t.rampart` — for every
  * source whose plan link stands within 2, the LINK tile and the SEAT tile,
  * skipping anything already ramparted. Returns only the missing ones, so a
  * second call after the append is a no-op (sync runs forever, the list must
  * not grow).
+ *
+ * `exposed` is the optional gate from shellExposure(): with it, a tile is only
+ * ramparted when it is outside the shell or shallow behind it, matching what
+ * the planner itself now bubbles. Pass null/undefined to add both tiles
+ * unconditionally (the pre-exposure behaviour).
  */
 export function incomeRampartAdds(
     t: { link?: number[]; rampart?: number[]; container?: number[]; road?: number[] },
     sources: { x: number; y: number }[],
     isWall: (x: number, y: number) => boolean,
+    exposed?: ((p: number) => boolean) | null,
 ): number[] {
     if (!t || !t.link || !t.link.length || !sources.length) return [];
     const ramparted = new Set(t.rampart || []);
@@ -108,6 +232,7 @@ export function incomeRampartAdds(
     const roads = new Set(t.road || []);
     const adds: number[] = [];
     const push = (p: number) => {
+        if (exposed && !exposed(p)) return; // deep inside the shell — the planner leaves it bare
         if (!ramparted.has(p)) {
             ramparted.add(p);
             adds.push(p);

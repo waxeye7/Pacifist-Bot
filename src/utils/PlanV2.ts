@@ -25,7 +25,7 @@ import { isUnreachableTile } from "utils/Reachability";
 import { isExteriorTile, interiorReady } from "utils/Interior";
 import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 import { requestSegments } from "utils/Segments";
-import { incomeRampartAdds } from "utils/minerSeat";
+import { incomeRampartAdds, shellExposure } from "utils/minerSeat";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -2699,21 +2699,30 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
   if (plan.s && Game.time - plan.s < SYNC_EVERY) return;
   plan.s = Game.time;
 
-  // INCOME RAMPARTS. The parked r44 planner bubbles shallow labs/extensions
-  // and the mineral seat, but not the SOURCE LINK or the miner seat in front
-  // of it — both usually stand outside the shell, naked. Derive the two tiles
-  // per source here and append them to the plan's own rampart set: from that
-  // moment placement sites them (RCL4+), alignment treats them as PLAN tiles,
-  // isSanctionedRampart() approves them (the miner's build-a-rampart-under-
-  // the-link check was being VETOED by sanctioning on planV2 rooms), and the
-  // RCL7 miners keep them repaired. incomeRampartAdds returns only MISSING
+  // INCOME RAMPARTS. The SOURCE LINK and the miner seat in front of it usually
+  // stand outside the shell, naked, and older planner builds never bubbled
+  // them. The CURRENT offline planner prices and bubbles those works itself,
+  // so this derivation is now (a) the FALLBACK for plans baked by an older
+  // planner and (b) gated on the planner's own exposure rule — a seat/link
+  // owes a rampart only when it is outside the min-cut shell or within
+  // chebyshev 4 of the exterior — so a deep-enclosed source is not ramparted
+  // twice, and one the planner deliberately left bare (minimum ramparts is the
+  // objective) does not get bubbled behind its back.
+  //
+  // Whatever survives the gate is appended to the plan's own rampart set: from
+  // that moment placement sites them (RCL4+), alignment treats them as PLAN
+  // tiles, isSanctionedRampart() approves them (the miner's build-a-rampart-
+  // under-the-link check was being VETOED by sanctioning on planV2 rooms), and
+  // the RCL7 miners keep them repaired. incomeRampartAdds returns only MISSING
   // tiles, so this is idempotent across the endless resync.
   try {
     const terrain = room.getTerrain();
+    const isWall = (x: number, y: number) => terrain.get(x, y) === TERRAIN_MASK_WALL;
     const adds = incomeRampartAdds(
       plan.t as any,
       room.find(FIND_SOURCES).map((s: any) => ({ x: s.pos.x, y: s.pos.y })),
-      (x: number, y: number) => terrain.get(x, y) === TERRAIN_MASK_WALL,
+      isWall,
+      shellExposure(plan.t.shellCut || [], isWall),
     );
     if (adds.length) {
       plan.t.rampart = (plan.t.rampart || []).concat(adds);
