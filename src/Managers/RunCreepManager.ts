@@ -581,6 +581,16 @@ function noteRoleCpu(role: string, used: number): void {
     roleTickN[role] = (roleTickN[role] || 0) + 1;
 }
 
+function inferRoleFromName(name: string): string | undefined {
+    const prefix = String(name || "").split("-")[0];
+    if (!prefix) return undefined;
+    if (global.ROLES[prefix]) return prefix;
+    const lower = prefix.charAt(0).toLowerCase() + prefix.slice(1);
+    if (global.ROLES[lower]) return lower;
+    if (prefix === "Carrier") return "carry";
+    return undefined;
+}
+
 function RunCreepManager(name) {
     try {
         let creep = Game.creeps[name];
@@ -590,18 +600,27 @@ function RunCreepManager(name) {
         }
 
         if(creep.memory.role == undefined) {
-            // A NEWBORN with no memory yet is not a zombie: opts.memory lands at
-            // intent resolution, and on the VPS engine the first run can beat
-            // it. Suiciding here turned every such race into a dead creep and
-            // 300 wasted energy. Give the young a grace life; only a creep
-            // that has been memoryless for a while is truly orphaned.
-            if (creep.spawning || (creep.ticksToLive || 0) > 1400) {
-                logAlways("[death?] role-undefined newborn " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name + " — grace, no suicide");
+            // VPS: spawnCreep writes Memory this tick, but Game.creeps can
+            // miss the hatchling long enough that the sweep deletes it, then
+            // `creep.memory.role` creates {}. ~100 ticks later this guard
+            // suicided every such creep. Recover role from the name prefix
+            // (EnergyMiner-*, Filler-*, Carrier-*) before giving up.
+            const inferred = inferRoleFromName(name);
+            if (inferred && global.ROLES[inferred]) {
+                creep.memory.role = inferred;
+                logAlways("[death?] restored role " + inferred + " from name " + name + " @" + creep.room.name);
+            } else {
+                const ttl = creep.ticksToLive || 1500;
+                if (creep.spawning || ttl > 1200) {
+                    if (ttl % 100 === 0) {
+                        logAlways("[death?] role-undefined creep " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name + " — in grace, no suicide");
+                    }
+                    return;
+                }
+                logAlways("[death] role-undefined suicide " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name);
+                creep.suicide();
                 return;
             }
-            logAlways("[death] role-undefined suicide " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name);
-            creep.suicide();
-            return;
         }
 
         if (!global.ROLES[creep.memory.role]) {
