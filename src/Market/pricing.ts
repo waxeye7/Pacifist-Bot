@@ -26,7 +26,12 @@
  */
 export function weightedHistoryAvg(resource:any):{avg:number, stddev:number} | null {
     let resourceData:any = Game.market.getHistory(resource);
-    if(!resourceData || resourceData.length == 0) {
+    // Private servers hand back {} (no market history endpoint), not an array.
+    // {} is truthy and {}.length is undefined, so the old guard passed it and
+    // .slice() threw — which, wrapped in guarded(room), silently killed the
+    // REST of every RCL7+ room pass on the VPS every market tick: the whole
+    // 2026-08-19 evening empire collapse started as this one line.
+    if(!resourceData || !Array.isArray(resourceData) || resourceData.length == 0) {
         return null;
     }
     // Weight newest day heaviest regardless of the order the API hands the
