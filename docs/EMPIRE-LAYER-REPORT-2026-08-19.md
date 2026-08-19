@@ -1,7 +1,7 @@
 # Overnight report — critical spawn ladder + empire layer (2026-08-19)
 
 Branch: `feat/spawn-ladder` (isolated worktree; the shared checkout was never touched).
-Design: `docs/EMPIRE-LAYER.md`. Nothing here has been merged, pushed to origin, or deployed to **live**.
+Design: `docs/EMPIRE-LAYER.md`. 2026-08-19 afternoon: everything below IS merged to `main` and deployed to VPS + live (see the merge/deploy section of the session notes); nothing is pushed to any git remote.
 The build was deployed to the **VPS test server** for a soak (details below).
 
 ## What was built

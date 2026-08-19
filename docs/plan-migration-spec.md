@@ -9,7 +9,13 @@ One engine: PlanV2's per-class migration (migrateClass + migrateSpawns +
 migrateHub) plus the placement loop's reclaimTile. EVERY destructive action —
 both paths — must pass the single gate `migrationAllowed(room)`.
 
-## Arming (opt-in; adoption alone never demolishes an established room)
+## Arming (2026-08-19: adoption AUTO-ARMS — force-ALIGN on every room, hub only young)
+
+Since `armNewPlanMigration`, adopting a plan arms migration by itself: an
+established room gets `{mode:"gradual", force:true, hub:false}` (aggressive
+ALIGN, spawn/storage/terminal protected), a young colony (RCL<4, <15
+structures) gets `hub:true` as well. Hub demolition on a BUILT room is
+operator-only: `migratePlan(room, "hub")`.
 
 - `room.memory.planMigration = {mode, since}`:
   - `"auto"`   — set at adoption when the room is young (RCL < 4 or fewer than
@@ -38,8 +44,9 @@ window where danger is cleared) · bucket < 3000 · controller downgrade risk
 - road: 3/pass, interior only (exterior = remote lines, never touched).
 - spawn: ABSOLUTE — the room's only spawn is never destroyed; relocation only
   at RCL7+ with the planned replacement built and verified live for 60 ticks.
-- storage/terminal: never (caps make build-then-drain impossible); deferred
-  with a one-shot note. Their move is a manual, future step.
+- storage/terminal: protected on every automatic path (ALIGN_NEVER_RETIRE +
+  the broke-align hold). Retiring them is reachable ONLY through an operator's
+  migratePlan(room, "hub") — the staged hub swap, which spills at most 20k.
 - reclaimTile (squatter on a planned tile): same gate as everything else,
   one per pass, container/extension/road only, never spawns.
 
@@ -63,5 +70,6 @@ planMigrateLog so one-shot owner-action notes fire again for the new layout.
   violations in polled snapshots, (b) off-plan census monotonically shrinking,
   (c) spawn capability continuously available, (d) migrateAbort mid-run leaves
   a functioning room, (e) engine converges or reports deferred immovables.
-- Only after (a)-(e): push-main; E37N59 adoption is placement-only until the
-  operator (or an explicitly authorized session) runs migratePlan("E37N59").
+- Only after (a)-(e): push-main. 2026-08-19: E37N59 is armed operator-ALIGN
+  (hub protected); its hub relocation (20,24 -> 37,31) stays deferred until the
+  room is solvent and an operator runs migratePlan("E37N59", "hub").

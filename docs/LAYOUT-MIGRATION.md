@@ -27,7 +27,7 @@ risk. A re-adopted plan whose hash changed demotes a heuristic `auto` arm on an
 established room back to placement-only.
 
 Adopt / drop / arm from the console:
-`adoptPlan(room)`, `dropPlan(room)`, `migratePlan(room)`, `planStatus()`.
+`adoptPlan(room)`, `dropPlan(room)`, `migratePlan(room[, true | "hub"])`, `migrateStatus()`.
 
 `Memory.features` still carries `minCutWalls` (default `true`) and `squareWalls`
 (default `false`) for the *planner's* wall generator — those two are read by
@@ -79,7 +79,7 @@ We **will** leave medium items and fix when they bite — but perimeter + hub + 
 
 New rooms (race / auto-expand): adopt the plan and the room auto-arms migration
 while it is young.  
-Existing rooms: `adoptPlan` gives placement only; run `migratePlan` when you
+Existing rooms: `adoptPlan` also ARMS force-ALIGN automatically (2026-08-19); run `migratePlan` when you
 want the legacy layout retired.
 
 ## Test suite (next)

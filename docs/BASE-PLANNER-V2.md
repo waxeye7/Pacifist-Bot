@@ -49,7 +49,8 @@ a hand-adopted room and an auto-claimed one end up with byte-identical
 `room.memory.planV2`. The payload carries a schema version `v` (absent = 1) and
 a `planHash` over the whole plan payload — structures, shell cut, road staging,
 sitter and lab inputs. A changed hash logs `layout changed`, clears the one-shot
-migration notes, and demotes a heuristic `auto` arm on an established room.
+migration notes, and re-arms via `armNewPlanMigration` (force-ALIGN; hub only
+on a young colony).
 
 **`setActiveSegments` REPLACES the active set.** Every request must therefore be
 the *union* of what is already active, what anyone else asked for this tick, and
