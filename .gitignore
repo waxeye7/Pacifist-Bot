@@ -99,3 +99,6 @@ $RECYCLE.BIN/
 *.lnk
 tools/plan-suite/package/
 tools/plan-suite/*.tgz
+
+# Syncthing marker
+.stfolder/

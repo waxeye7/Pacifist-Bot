@@ -146,9 +146,24 @@ export function remotesDisabled(): boolean {
   return !!(Memory.speedrun && Memory.speedrun.disableRemotes);
 }
 
+/**
+ * RCL2 remotes do not pay. RCL3 only after slam-5 (550e). Shared with
+ * manageRemotes — applySpeedrunSpawnHints used to close every RCL<=3 remote
+ * every tick (features.speedrun defaults ON), so slam-5 opens were gone
+ * before spawn and manageRemotes logged OPEN / wiped closedAt every 25t.
+ */
+export function remotesRclLocked(room: Room): boolean {
+  const lvl = room.controller && room.controller.level;
+  return !lvl || lvl < 3 || (lvl === 3 && room.energyCapacityAvailable < 550);
+}
+
 /** RCL6+ rooms (and their creeps) are no-ops. Local hyperspeed only. */
 export function skipHighRclEnabled(): boolean {
-  return !!(Memory.speedrun && Memory.speedrun.skipHighRcl);
+  if (!(Memory.speedrun && Memory.speedrun.skipHighRcl)) return false;
+  // A 20-CPU MMO bot cannot no-op every RCL6+ room. The flag is a local
+  // tick-speed cheat; on shard3 it is a silent total blackout.
+  if ((Game.cpu.limit || 20) <= 30) return false;
+  return true;
 }
 
 export function skipHighRclRoom(room?: Room): boolean {
@@ -166,6 +181,11 @@ export function skipHighRclCreep(creep: Creep): boolean {
 }
 
 export function enableSkipHighRcl(): string {
+  if ((Game.cpu.limit || 20) <= 30) {
+    const msg = "skipHighRcl refused — cpu.limit<=30 (live MMO). Local private server only.";
+    logAlways(msg);
+    return msg;
+  }
   const s = ensure();
   s.skipHighRcl = true;
   const msg = "skipHighRcl ON — RCL6+ rooms and their creeps do not run (local tick speed)";
@@ -303,10 +323,11 @@ export function applySpeedrunSpawnHints(room: Room): void {
   if (!room.controller || !room.controller.my) return;
   const rcl = room.controller.level;
 
-  // Close remotes before spawn (hints run first). RCL1–3 always; any RCL
-  // when Memory.speedrun.disableRemotes is set. manageRemotes also closes
-  // every tick on that flag so already-open remotes cannot stay active.
-  if ((rcl <= 3 || remotesDisabled()) && room.memory.resources) {
+  // Close remotes before spawn (hints run first). Same RCL/slam-5 gate as
+  // manageRemotes; any RCL when Memory.speedrun.disableRemotes is set.
+  // manageRemotes also closes every tick on that flag so already-open
+  // remotes cannot stay active.
+  if ((remotesRclLocked(room) || remotesDisabled()) && room.memory.resources) {
     for (const rn of Object.keys(room.memory.resources)) {
       if (rn !== room.name && room.memory.resources[rn]) {
         room.memory.resources[rn].active = false;

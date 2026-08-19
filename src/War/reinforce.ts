@@ -13,10 +13,10 @@
 import { ownedRooms } from "./reach";
 import { roomDistance } from "./geo";
 import { logAlways } from "utils/Logger";
+import { canFund, KIT_COST } from "./kit";
 
 const HELP_RANGE = 5;
 const HELP_COOLDOWN = 200;
-const GUARD_COST = 650;
 /** Same 5A/5M body rooms.observe uses for leftover-creep cleanup. */
 const GUARD_BODY: BodyPartConstant[] = [
   MOVE, MOVE, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, MOVE, MOVE, MOVE,
@@ -56,7 +56,7 @@ function pickHelper(target: string): Room | null {
     const room = Game.rooms[owned[i]];
     if (!room || !room.controller || !room.controller.my) continue;
     if (room.memory && room.memory.danger) continue;
-    if (room.energyAvailable < GUARD_COST) continue;
+    if (!canFund(room, KIT_COST.guardPrey)) continue;
     if (!room.find(FIND_MY_SPAWNS).length) continue;
     const d = roomDistance(owned[i], target);
     if (d > HELP_RANGE || d >= bestD) continue;

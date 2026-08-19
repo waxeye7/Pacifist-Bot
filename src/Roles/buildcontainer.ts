@@ -355,9 +355,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
 
         if(mySpawns.length == 1) {
-            // argless getFreeCapacity() is null on a spawn (always !== 0),
-            // and the fill move was overwritten by the build walk below
-            if(mySpawns[0].store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            // Only feed a lonely spawn in a NEWBORN colony (RCL<=2 or a spawn
+            // site still open) or when the hatchery is actually dry. RCL4+
+            // with a working spawn used to eat every CB intent forever.
+            const newborn = (creep.room.controller && creep.room.controller.level <= 2)
+                || creep.room.find(FIND_MY_CONSTRUCTION_SITES, {
+                    filter: (s: ConstructionSite) => s.structureType === STRUCTURE_SPAWN,
+                }).length > 0;
+            const spawnDry = (mySpawns[0].store[RESOURCE_ENERGY] || 0) < 50
+                && creep.room.energyAvailable < 100;
+            if((newborn || spawnDry) && mySpawns[0].store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                 if(creep.pos.isNearTo(mySpawns[0])) {
                     creep.transfer(mySpawns[0], RESOURCE_ENERGY);
                 }

@@ -39,7 +39,13 @@ import { getBody } from "Rooms/rooms.spawning";
     if(controller && controller.level == 0 && !reservedByOther) {
 
         if(creep.claimController(controller) == 0) {
-            creep.suicide();
+            // Stay. Suicide dropped vision the same tick, so AutoExpand never
+            // placed the spawn site and blockedReason never saw a spawnless
+            // owned room — VPS claimed 30+ empty rooms this way.
+            const tc = (Memory as any).target_colonise;
+            if (tc && tc.room === creep.room.name && tc.spawn_pos) {
+                creep.room.createConstructionSite(tc.spawn_pos.x, tc.spawn_pos.y, STRUCTURE_SPAWN);
+            }
             return;
         }
         if(creep.claimController(controller) == ERR_NOT_IN_RANGE) {

@@ -47,12 +47,29 @@ function planShellRamparts(room: any): any[] {
  * through here: the repair-creep rungs in rooms.spawning, and the peacetime
  * tower shell top-up below.
  * ------------------------------------------------------------------------- */
-export function rampartHitsTarget(room: any): number {
-    const rcl = (room && room.controller && room.controller.level) || 0;
+export function rampartHitsTargetForRcl(rcl: number): number {
     if (rcl < 4) return 5000;
     if (rcl <= 6) return 100000;
     if (rcl === 7) return 300000;
     return 15255000;
+}
+
+export function rampartHitsTarget(room: any): number {
+    const rcl = (room && room.controller && room.controller.level) || 0;
+    return rampartHitsTargetForRcl(rcl);
+}
+
+/**
+ * Safe-mode breach bar: 75% of what the shell was BUILT to, not the new
+ * RCL's repair target. After RCL6→7 a complete 100k shell is an undamaged
+ * camp against a 225k (new) bar; RCL7→8 is 300k vs 750k.
+ */
+export function safeModeBreachHits(rcl: number, builtHits: number): number {
+    const current = rampartHitsTargetForRcl(rcl);
+    const previous = rampartHitsTargetForRcl(Math.max(0, rcl - 1));
+    const builtTo = builtHits > 0 ? Math.min(current, builtHits) : previous;
+    const absolute = rcl < 4 ? 5000 : rcl <= 5 ? 150000 : 750000;
+    return Math.min(absolute, Math.floor(builtTo * 0.75));
 }
 
 function isShellDefender(c: any): boolean {
@@ -639,15 +656,20 @@ function roomDefence(room) {
         // never damaged anything.
         //
         // "Breached" has to be measured against what the shell is BUILT to, not
-        // against an absolute number. The 750k floor assumed an RCL6+ shell was
-        // being chased to 3,050,000 hits; now that the repair rungs aim at
-        // rampartHitsTarget() (100k below RCL7), a fixed 750k would report every
-        // RCL6 room as breached on every raid and burn its one safe mode — the
-        // exact failure this function's own comment is about. Three quarters of
-        // the build target is the same relationship the old numbers had.
+        // the new RCL's repair target. Peak hits persist so a hole-punch still
+        // compares to the pre-raid height; first look uses the strongest tile.
         const rcl = room.controller && room.controller.level || 0;
-        const absolute = rcl < 4 ? 5000 : rcl <= 5 ? 150000 : 750000;
-        const minimumHits = Math.min(absolute, Math.floor(rampartHitsTarget(room) * 0.75));
+        const ramps = findPerimeterRamparts(room);
+        let strongest = 0;
+        for (const r of ramps) {
+            if (r.hits > strongest) strongest = r.hits;
+        }
+        const mem: any = room.memory;
+        if (mem) {
+            if (strongest > (mem.shellPeakHits || 0)) mem.shellPeakHits = strongest;
+        }
+        const built = (mem && mem.shellPeakHits) || strongest;
+        const minimumHits = safeModeBreachHits(rcl, built);
         return findDamagedPerimeterRamparts(room, minimumHits).length > 0;
       }
 
@@ -765,7 +787,7 @@ function roomDefence(room) {
                 // Per-tower reserve. Requiring EVERY live tower >400 left a
                 // solo tower at 400 dark and a newborn/empty id silenced the
                 // whole battery.
-                if(firing && tower.store[RESOURCE_ENERGY] > 200 && Game.cpu.bucket > 250) {
+                if(firing && tower.store[RESOURCE_ENERGY] > 200) {
                     // Volley sync: with a shell manned and more than one hostile,
                     // hold until the defenders are seated so towers and RDs land
                     // together. Count RRD too - a ranged-only shell used to read as

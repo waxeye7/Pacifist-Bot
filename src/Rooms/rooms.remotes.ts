@@ -1,5 +1,5 @@
 import { getCpuPolicy } from "utils/CpuPolicy";
-import { remotesDisabled } from "utils/Speedrun";
+import { remotesDisabled, remotesRclLocked } from "utils/Speedrun";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 
 function remotes(room) {
@@ -305,9 +305,10 @@ export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
             }
             // Cores outlive the creep wave; ignoring them reopened a cored
             // remote every HOT_COOLDOWN and we fed miners into the core.
-            if (rr.find(FIND_HOSTILE_STRUCTURES, {
-                filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
-            }).length > 0) {
+            if (remoteHasInvaderCore(rr)) {
+                return true;
+            }
+            if (remoteHasHostileTower(rr)) {
                 return true;
             }
             delete e.hot;
@@ -364,14 +365,31 @@ export function scanRemoteThreats(room: any): void {
         if (hostiles.length) {
             markRemoteHot(room.name, remote, hostiles.length + " hostile(s)");
         }
-        // Invader cores are a longer-lived problem than a passing creep.
-        const cores = rr.find(FIND_HOSTILE_STRUCTURES, {
-            filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
-        });
-        if (cores.length) {
+        if (remoteHasInvaderCore(rr)) {
             markRemoteHot(room.name, remote, "invader core");
         }
+        if (remoteHasHostileTower(rr)) {
+            markRemoteHot(room.name, remote, "hostile tower");
+        }
     }
+}
+
+/** Leftover player towers — AvoidRooms used to miss controller.level 0 outposts. */
+export function remoteHasHostileTower(vis: any): boolean {
+    if (!vis || !vis.find) return false;
+    const towers = vis.find(FIND_HOSTILE_STRUCTURES, {
+        filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+    });
+    return !!(towers && towers.length);
+}
+
+/** Visible invader core — same find scanRemoteThreats / remoteIsHot already use. */
+export function remoteHasInvaderCore(vis: any): boolean {
+    if (!vis || !vis.find) return false;
+    const cores = vis.find(FIND_HOSTILE_STRUCTURES, {
+        filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
+    });
+    return !!(cores && cores.length);
 }
 
 /** stagger the per-room pass so 10 communes don't all path on one tick */
@@ -390,6 +408,51 @@ const HARD_CAP = 2;
  * rather than on spawn time. CpuPolicy.maxRemotes is still the outer bound.
  */
 const HARD_CAP_MATURE = 3;
+
+/** Score for an already-active remote that has no surveyed pathLength yet. */
+export const UNSCORED_ACTIVE_SCORE = 0;
+/** Inactive slam-5 remotes (energy tiles, no pathLength) rank below actives. */
+export const UNSCORED_INACTIVE_SCORE = UNSCORED_ACTIVE_SCORE - 1;
+
+/** Closest surveyed pathLength, or null if none of the sources have one. */
+export function bestRemotePathLength(energy: any): number | null {
+    if (!energy) return null;
+    let best = Infinity;
+    for (const id of Object.keys(energy)) {
+        const pl = energy[id] && energy[id].pathLength;
+        if (typeof pl === "number" && pl < best) best = pl;
+    }
+    return isFinite(best) ? best : null;
+}
+
+/**
+ * Active remotes with no pathLength used to be omitted from scored/keep, so
+ * they did not consume HARD_CAP and the keep loop never closed them. At RCL3
+ * Build_Remote_Roads never writes pathLength (RCL<4 + no storage), so every
+ * newly scouted neighbour stayed active and slotsLeft stayed full.
+ *
+ * Hold those actives on `scored` (score 0) so they occupy a slot.
+ * Inactive remotes that already have energy tiles (RCL3 slam-5 never writes
+ * pathLength) must also sit on scored — a transient starve used to persist-
+ * close them, and skip here meant they never reopened.
+ */
+export function scoreOrHoldUnsurveyed(
+    name: string,
+    e: any,
+    scored: Array<{ name: string; score: number }>,
+): "score" | "held" | "skip" {
+    const best = bestRemotePathLength(e && e.energy);
+    if (best != null) return "score";
+    const nSources = e && e.energy ? Object.keys(e.energy).length : 0;
+    if (nSources > 0) {
+        scored.push({
+            name,
+            score: e && e.active ? UNSCORED_ACTIVE_SCORE : UNSCORED_INACTIVE_SCORE,
+        });
+        return "held";
+    }
+    return "skip";
+}
 
 export function manageRemotes(room: any): void {
     if (!room.controller || !room.controller.my) return;
@@ -414,8 +477,9 @@ export function manageRemotes(room: any): void {
     // RCL2 remotes do not pay (E19S7: 0.13 e/t for 0.65 spawn). RCL3 after
     // slam-5: one close unreserved remote if CPU allows. No reserver until
     // 650e (RCL5 / leftover dump). Roads still wait for RCL4.
-    if (room.controller.level < 3 ||
-        (room.controller.level === 3 && room.energyCapacityAvailable < 550)) {
+    // Same predicate as applySpeedrunSpawnHints — do not open here if
+    // hints would force-close before spawn on the next tick.
+    if (remotesRclLocked(room)) {
         const r = room.memory.resources;
         if (r) {
             for (const n in r) {
@@ -457,6 +521,43 @@ export function manageRemotes(room: any): void {
             e.active = false;
             continue;
         }
+        const look = Game.rooms[name];
+        const cored = remoteHasInvaderCore(look);
+        const towered = remoteHasHostileTower(look);
+        if (cored) {
+            // Towers abort the candidate here. Cores used to exist only on
+            // the hot / scanRemoteThreats path, which needs an already-active
+            // remote (and for first open, a prior hot stamp). A just-scouted
+            // cored room has neither, so it was OPEN'd and spawn_energy_miner
+            // sent a full crew. Stamp hot so a later no-vision pass probeFirsts
+            // instead of feeding another full crew.
+            if (e.active) {
+                e.active = false;
+                e.closedAt = Game.time;
+                console.log(`[remotes] ${room.name} close ${name} (invader core)`);
+            } else {
+                e.active = false;
+            }
+            markRemoteHot(room.name, name, "invader core");
+            if (e.energy) {
+                e.retryAt = Game.time + rescoutDelay(room.name, name);
+            }
+            continue;
+        }
+        if (towered) {
+            // Towers used to be consulted ONLY after AvoidRooms already had
+            // the name. creepFunctions only pushed level>2 rooms, so a
+            // level-0 abandoned outpost with leftover towers was scored OPEN
+            // and miners walked into the tower.
+            e.active = false;
+            if (!Memory.AvoidRooms) Memory.AvoidRooms = [];
+            if (Memory.AvoidRooms.indexOf(name) < 0) Memory.AvoidRooms.push(name);
+            if ((Memory as any).AvoidRoomsAt) (Memory as any).AvoidRoomsAt[name] = Game.time;
+            if (e.energy) {
+                e.retryAt = Game.time + rescoutDelay(room.name, name);
+            }
+            continue;
+        }
         if (Memory.AvoidRooms && Memory.AvoidRooms.indexOf(name) >= 0) {
             // AvoidRooms is written by any creep that walks into a non-owned
             // room holding a hostile tower (creepFunctions), and below RCL8 —
@@ -468,11 +569,7 @@ export function manageRemotes(room: any): void {
             // Clear it only on positive evidence. If we are standing in the
             // room right now and there is no hostile tower in it, the reason
             // the name was written down is gone.
-            const look = Game.rooms[name];
-            const stillTowered = !look || look.find(FIND_HOSTILE_STRUCTURES, {
-                filter: (s: any) => s.structureType === STRUCTURE_TOWER,
-            }).length > 0;
-            if (stillTowered) {
+            if (!look) {
                 e.active = false;
                 continue;
             }
@@ -559,8 +656,9 @@ export function manageRemotes(room: any): void {
                 delete e.hot;
                 clearRemoteVisionFlags(e);
                 console.log(`[remotes] ${room.name} re-opening ${name} for another look`);
-                unscouted.push(name);
-                continue;
+                // Fall through to remoteHeldByOther. Pushing unscouted and
+                // continue here armed a 50e scout on a remote another commune
+                // is already mining.
             }
         }
 
@@ -604,21 +702,14 @@ export function manageRemotes(room: any): void {
         // Build_Remote_Roads stores pathLength per source; use the closest.
         // Init at Infinity (not 90): a missing pathLength used to score as 90
         // and OPEN, and best<90 skipped the roaded/reserved cache entirely.
-        let best = Infinity;
-        for (const id of sourceIds) {
-            const pl = e.energy[id] && e.energy[id].pathLength;
-            if (typeof pl === "number" && pl < best) best = pl;
-        }
-        if (!isFinite(best)) {
-            // No pathLength yet (fresh scout, Build_Remote_Roads not run) so it
-            // cannot be scored — but if it is already active it is already
-            // being mined, and the keep loop below (which stakes the claim) is
-            // never reached for it. Claim here so no other commune opens it in
-            // the window before its path lands. Live E37N59|E38N59: miner and
-            // carrier out, entry active, registry empty.
-            if (e.active) claimRemote(name, room.name);
+        const hold = scoreOrHoldUnsurveyed(name, e, scored);
+        if (hold !== "score") {
+            // Held actives occupy a HARD_CAP slot (see scoreOrHoldUnsurveyed).
+            // Still claim so no other commune opens it before its path lands.
+            if (hold === "held") claimRemote(name, room.name);
             continue;
         }
+        let best = bestRemotePathLength(e.energy) as number;
 
         // Refresh the cached road verdict while we have vision. Cached (rather
         // than re-derived per source in the spawner) so this find() happens once

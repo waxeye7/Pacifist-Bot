@@ -499,7 +499,6 @@ function rooms() {
 
   if (Game.time % 500 == 1) {
     const policy = getCpuPolicy();
-    const avg = Number(Memory.CPU && Memory.CPU.fiveHundredTickAvg && Memory.CPU.fiveHundredTickAvg.avg) || 0;
 
     // NOTE: opening remotes now lives in manageRemotes() (rooms.remotes.ts),
     // which runs per-room every 25 ticks instead of flipping one flag on one
@@ -509,8 +508,11 @@ function rooms() {
     // (see CpuPolicy.allowRemotes) - the valve is for a DRAINING bucket, and
     // closing every remote in the empire while it sits at 10000 is what
     // oscillated E37N59's fleet on and off every 500 ticks.
-    const bucketPinned = Game.cpu.bucket >= 9000;
-    if (!bucketPinned && (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3))) {
+    // Trust CpuPolicy.allowRemotes only. The old `fiveHundredTickAvg > limit-2`
+    // closed remotes at avg 18.5 / limit 20 / bucket 7400 — the same
+    // double-counted margin that latched remotes off in CpuPolicy before
+    // the monotone fix. Closing remotes drops income, not CPU.
+    if (!policy.allowRemotes) {
       for (let roomName of myRooms) {
         let room = Game.rooms[roomName];
         guarded(room || roomName, function () {

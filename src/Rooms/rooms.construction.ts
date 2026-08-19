@@ -1,6 +1,6 @@
 import { getBasePlan, placeFromBasePlan, visualizeBasePlan, haulRoadTiles, haulRoadsIncomplete } from "utils/BasePlan";
 import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
-import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile, planSpawnMismatch } from "utils/PlanV2";
+import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
 import { logAlways } from "utils/Logger";
 
@@ -712,29 +712,11 @@ function construction(room) {
     }
 
     // v2-planned rooms build ONLY from the adopted plan — legacy stamps,
-    // basePlan and perimeter logic must never touch them
+    // basePlan and perimeter logic must never touch them. A far live spawn
+    // is a hub-migrate job, not a reason to throw the pack away.
     if (room.memory.planV2) {
-        // Live E37N59: pack bunker at 34,33 adopted onto a working spawn at
-        // 21,24. placeFromPlanV2 then sited towers on the east wall (36,30)
-        // 15 tiles from the spawn. Established rooms drop a mismatched pack;
-        // young rooms just freeze placement.
-        if (planSpawnMismatch(room)) {
-            const arm = (room.memory as any).planMigration;
-            const migrating = arm && (arm.mode === "gradual" || arm.mode === "auto" || arm.force);
-            const established = room.controller && room.controller.level >= 4 && !!room.storage;
-            if (established && !migrating) {
-                logAlways(`construction ${room.name}: stripping planV2 — live spawn is not the pack spawn`);
-                delete room.memory.planV2;
-                (room.memory as any).planPackSkip = true;
-                if (room.memory.construction) room.memory.construction.rampartLocations = [];
-            } else {
-                placeFromPlanV2(room);
-                return;
-            }
-        } else {
-            placeFromPlanV2(room);
-            return;
-        }
+        placeFromPlanV2(room);
+        return;
     }
 
     // SPAWN FIRST — legacy rooms. See ensureSpawnFirst. Nothing below this

@@ -1447,7 +1447,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
     }
 
     if (this.room.name !== this.memory.homeRoom) {
-        if (this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && _hostileTowers(this.room).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
+        if (this.room.controller && !this.room.controller.my && _hostileTowers(this.room).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
             Memory.AvoidRooms.push(this.room.name);
             // When we learned it, for whoever ages the list out. The map is
             // owned elsewhere and may not exist yet — never create it here.
@@ -1712,7 +1712,12 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         this.memory.targetRoom !== this.memory.homeRoom
     ) {
         const home = Game.rooms[this.memory.homeRoom];
-        if (home && home.controller && home.controller.my && home.controller.level < 4) {
+        // Remotes open at RCL3 (cap>=550) / RCL4. The old `< 4` rewrite
+        // yanked every remote miner (and rescue ContainerBuilder that
+        // called harvestEnergy) back home the first empty tick.
+        // ContainerBuilders keep their colony target at any RCL.
+        if (this.memory.role !== "buildcontainer" &&
+            home && home.controller && home.controller.my && home.controller.level < 3) {
             this.memory.targetRoom = this.memory.homeRoom;
             delete this.memory.exit;
             delete this.memory.route;
@@ -2506,20 +2511,19 @@ Creep.prototype.recycle = function recycle() {
             })[0];
             if(bin) {
                 if(this.pos.isEqualTo(bin)) {
-                    let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
-                    let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
-                    if(StructuresOnSpawnLocation.length > 0) {
-                        for(let building of StructuresOnSpawnLocation) {
-                            if(building.structureType == STRUCTURE_SPAWN) {
-                                let spawn:any = building;
-                                if(spawn) {
-                                    spawn.recycleCreep(this)
-
-                                }
-                            }
-                        }
+                    // findBin is any container within 2 of storage. Stamp-hub
+                    // assumed spawn at bin.y+1; PlanV2 bins almost never have
+                    // that (road/extension = silent no-op, empty = suicide).
+                    let spawns = this.room.find(FIND_MY_SPAWNS);
+                    let next = null;
+                    for(let spawn of spawns) {
+                        if(this.pos.isNearTo(spawn)) { next = spawn; break; }
                     }
-                    else {
+                    if(next) {
+                        next.recycleCreep(this);
+                    } else if(spawns.length) {
+                        this.MoveCostMatrixRoadPrio(spawns[0], 1);
+                    } else {
                         this.suicide();
                     }
                 }

@@ -176,6 +176,10 @@ declare global {
           lastRcl?: number;
           [key: string]: any;
         };
+        /** Last visible controller.level — spawn rescue ranking when dark. */
+        lastRcl?: number;
+        /** Last visible energyCapacityAvailable — same ranking. */
+        lastEnergyCapacity?: number;
         /** Dynamic layout cache — see utils/BasePlan.ts */
         basePlan?: any;
         /**

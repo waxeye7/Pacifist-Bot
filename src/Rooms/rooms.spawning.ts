@@ -1,9 +1,10 @@
 import construction from "./rooms.construction";
-import { remoteIsHot, markRemoteHot } from "./rooms.remotes";
+import { remoteIsHot, markRemoteHot, remoteHasHostileTower } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
 import { logAlways } from "utils/Logger";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
 
 /**
  * Boostable stock is storage + TERMINAL.
@@ -19,55 +20,7 @@ function boostStock(room, res): number {
     return ((s && s.store[res]) || 0) + ((t && t.store[res]) || 0);
 }
 
-/**
- * Home sources/spawn come first. Remotes wait until the bank and miners exist.
- *
- * "Miners exist" has to mean ONE PER LOCAL SOURCE, not a flat two. A room with
- * a single source can never reach two home miners, so a flat `< 2` marked it
- * starved forever — and `remotesAllowed` does not merely skip remotes when this
- * is true, it walks room.memory.resources and sets every remote's `active` to
- * false. VPS W2N1 and W1N2 are both one-source RCL7 rooms: every remote off,
- * storage pinned at 0, therefore never reaching the 5000 that would have let
- * them out. The room that most needs remote income was the one guaranteed
- * never to get it.
- */
-function homeEconomyStarved(room: any): boolean {
-    const storageE = room.storage && room.storage.my ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
-    if (storageE >= 5000) return false;
-    let homeMiners = 0;
-    for (const cn in Game.creeps) {
-        const c = Game.creeps[cn];
-        if (!c.memory || c.memory.role !== "EnergyMiner") continue;
-        if (c.memory.homeRoom === room.name && (!c.memory.targetRoom || c.memory.targetRoom === room.name)) {
-            homeMiners++;
-        }
-    }
-    const localSources = room.find(FIND_SOURCES).length;
-    // Home sources unstaffed is the real "not ready for remotes" signal.
-    if (homeMiners < Math.min(2, localSources)) return true;
-
-    /*
-     * The `energyAvailable < 300` clause below is a BOOTSTRAP test — "this room
-     * cannot even buy a basic creep yet" — and it only means that in a room
-     * whose capacity is close to 300, i.e. one that has not built a storage.
-     *
-     * Applied to an established room it is actively harmful. energyAvailable is
-     * the instantaneous extension fill, so any room that is spending dips under
-     * 300 routinely; and this predicate does not merely skip remote work when
-     * it is true, it makes `remotesAllowed` false, which walks
-     * room.memory.resources and sets EVERY remote's `active` to false. Closing
-     * a remote recalls its whole crew (see rooms.remotes/remoteRecalled) and
-     * reopening it costs a re-scout — so one unlucky tick tears down the remote
-     * fleet of a room that was working perfectly.
-     *
-     * Live VPS W2N1: RCL7, capacity 4300, ONE local source, storage 0, caught
-     * at 56 energy mid-spawn. Every one of its seven candidate remotes was
-     * force-closed — and a single-source RCL7 has no route out of poverty that
-     * does not go through remotes.
-     */
-    if (room.storage && room.storage.my) return false;
-    return room.energyAvailable < 300;
-}
+// homeEconomyStarved / roomIsBroke live in spawnSafety.ts (unit-tested).
 
 /**
  * Neighbor haul when a room's towers/spawn are dry after an invader.
@@ -113,7 +66,7 @@ function offerEmergencyFeed(fromRoom: any): void {
         fromRoom.memory.spawn_list.unshift(
             [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE],
             name,
-            { memory: { role: "carry", homeRoom: n, targetRoom: n, emergencyFeed: n } },
+            { memory: { role: "carry", homeRoom: fromRoom.name, targetRoom: n, emergencyFeed: n } },
         );
         logAlways(`emergency feed ${n} from ${fromRoom.name}`);
         return;
@@ -167,6 +120,8 @@ const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
     Signifer: true, Sign: true, RoomLocker: true, Escort: true, claimer: true,
     SneakyControllerUpgrader: true, Convoy: true, clearer: true, billtong: true,
     SpecialRepair: true, SpecialCarry: true, RemoteRepair: true,
+    // Live E37N59: 0 bank, 550/1950, stall 58 on Maintainer. Roads can wait.
+    maintainer: true,
     // Rampart crews are defence, but this whole pass is skipped while
     // room.memory.danger is set, so reaching here means nothing is attacking.
     RampartDefender: true, RRD: true, RampartErector: true, rampartUpgrader: true,
@@ -180,15 +135,6 @@ const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
  */
 /** Ticks between spawn-triage log lines for one room. */
 const TRIAGE_LOG_EVERY = 100;
-
-function roomIsBroke(room: any): boolean {
-    if (room.memory.danger) return false;
-    const storage = room.storage && room.storage.my ? room.storage : null;
-    if (storage && (storage.store[RESOURCE_ENERGY] || 0) >= 5000) return false;
-    const terminal = room.terminal && room.terminal.my ? room.terminal : null;
-    if (terminal && (terminal.store[RESOURCE_ENERGY] || 0) >= 5000) return false;
-    return room.energyAvailable < room.energyCapacityAvailable * 0.5;
-}
 
 function dropNonRecoverySpend(room: any): void {
     const list = room.memory.spawn_list;
@@ -249,6 +195,7 @@ function spawning(room: any) {
     if(!room.memory.Structures) {
         room.memory.Structures = {};
     }
+    rememberOwnedRoomStats(room);
 
     if(!room.memory.spawn_list) {
         room.memory.spawn_list = [];
@@ -295,7 +242,7 @@ function spawning(room: any) {
         room.memory.lastTimeSpawnUsed = Game.time;
     }
 
-    if(Game.time % 100 == 0 && Game.time - room.memory.lastTimeSpawnUsed > 1200) {
+    if(idleQueueShouldWipe(Game.time, room.memory.lastTimeSpawnUsed, room.memory.spawn_list.length)) {
         room.memory.spawn_list = [];
     }
 
@@ -383,8 +330,10 @@ function spawning(room: any) {
     // whatever the bucket says; the queue walk and the producer, which are the
     // expensive halves, stay skipped exactly as before.
     if(Game.cpu.bucket < 1000) {
-        emergencyFillerRescue(room, spawn);
-        return;
+        if (emergencyFillerRescue(room, spawn)) return;
+        // Under attack the queue still has to hatch. A mute spawn at
+        // bucket 999 is how a raid becomes a wipe.
+        if (!room.memory.danger) return;
     }
 
     // Before the head gets its claim on the spawn: if the room cannot feed
@@ -463,27 +412,30 @@ function clampSpawnListToCapacity(room) {
     }
 
     let hardCap = room.energyCapacityAvailable;
-    // What the room can actually PAY right now: the bank plus whatever is
-    // already sitting in the spawn and extensions. energyCapacityAvailable is
-    // only what it could pay ONCE THE EXTENSIONS ARE FULL, and filling them
-    // takes income.
-    let clampStorage:any = Game.getObjectById(room.memory.Structures && room.memory.Structures.storage);
-    let payable = room.energyAvailable
-        + (clampStorage && clampStorage.store ? (clampStorage.store[RESOURCE_ENERGY] || 0) : 0);
+    // What the room can actually PAY right now: the bank (storage+terminal)
+    // plus whatever is already sitting in the spawn and extensions.
+    // energyCapacityAvailable is only what it could pay ONCE THE EXTENSIONS
+    // ARE FULL, and filling them takes income. Terminal used to be ignored,
+    // so ALIGN leftover (storage 0, terminal 10k) dest-cheaped miners to 300.
+    let payable = spawnPayable(room);
+    if (!room.storage) {
+        let clampStorage:any = Game.getObjectById(room.memory.Structures && room.memory.Structures.storage);
+        if (clampStorage && clampStorage.store) {
+            payable += clampStorage.store[RESOURCE_ENERGY] || 0;
+        }
+    }
     for(let i = 0; i + 2 < room.memory.spawn_list.length; i += 3) {
         let body:string[] = room.memory.spawn_list[i];
         if(!body || !body.length) continue;
         let name:string = room.memory.spawn_list[i+1];
 
         // 85% of 550 is 467 and strips a WORK off the home 550 [5W,M].
+        // Same-pass 85% of 800 is 680 and used to strip the RCL4-5 750e 6W.
         // Cycle-14 hatched 4W so WORK>=5 never counted. Wait for full cap.
-        if(name && name.startsWith("EnergyMiner") && hardCap >= 550 && body.length === 6) {
+        if(name && name.startsWith("EnergyMiner") && hardCap >= 550 && isHomeSlamMinerBody(body)) {
             let homeMem:any = room.memory.spawn_list[i+2];
             homeMem = homeMem && homeMem.memory;
-            if((!homeMem || !homeMem.targetRoom || homeMem.targetRoom === room.name)
-                && bodyCost(body) === 550
-                && _.filter(body, (p:any) => p === WORK).length === 5
-                && _.filter(body, (p:any) => p === MOVE).length === 1) {
+            if(!homeMem || !homeMem.targetRoom || homeMem.targetRoom === room.name) {
                 continue;
             }
         }
@@ -560,7 +512,7 @@ function clampSpawnListToCapacity(room) {
         // matter of course — that is just what RCL1-3 looks like — and its body
         // sizing is the thing docs/EARLY-GAME-SPEEDRUN-CAMPAIGN.md measures
         // against a frozen control. This fix has no business moving that number.
-        if(isRoutineSpawn(name) && room.storage && room.storage.my && roomIsBroke(room)) {
+        if(isRoutineSpawn(name) && room.controller && room.controller.level >= 4 && roomIsBroke(room)) {
             budget = Math.min(budget, Math.max(payable, SPAWN_ENERGY_CAPACITY));
         }
 
@@ -1677,20 +1629,22 @@ function add_creeps_to_spawn_list(room, spawn) {
     let activeRemotes = [];
     // Home always counts. Remotes: RCL3 after slam-5 if CPU allows (one
     // close unreserved source). Reservers stay RCL5+. disableRemotes off-switch.
-    const remotesAllowed =
-        room.controller &&
+    const remotesPolicyOk =
+        !!(room.controller &&
         room.controller.level >= 3 &&
         (room.controller.level >= 4 || room.energyCapacityAvailable >= 550) &&
-        !remotesDisabled() &&
-        !homeEconomyStarved(room);
+        !remotesDisabled());
+    // Starve is transient (missing miner, last-hatchery rescue). Skip remotes
+    // this tick — do not persist-close. RCL3 slam-5 remotes have no pathLength
+    // and scoreOrHoldUnsurveyed used to skip inactive ones forever.
+    const remotesAllowed = remotesPolicyOk && !homeEconomyStarved(room);
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);
         } else if(roomResources[remoteRoom]?.active) {
             if (remotesAllowed) {
                 activeRemotes.push(remoteRoom);
-            } else {
-                // force off until RCL4+
+            } else if (!remotesPolicyOk) {
                 roomResources[remoteRoom].active = false;
             }
         }
@@ -3103,7 +3057,10 @@ function add_creeps_to_spawn_list(room, spawn) {
 
         if(closestRoom && closestRoom.name == room.name) {
 
-            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && room.controller.level >= 3 && Game.time % 800 <= 100 && storage && storage.store[RESOURCE_ENERGY] > 10000 && distance_to_target_room <= 7 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
+            // This room is already the elected closest mother. A second
+            // 10k+range-7 gate here meant AutoExpand armed a colonise that
+            // never hatched (pack target 8 tiles out, or every storage < 10k).
+            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && room.controller.level >= 3 && Game.time % 800 <= 100 && room.energyCapacityAvailable >= 650 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
                 let newName = 'Claimer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'claimer', targetRoom: target_colonise, homeRoom:room.name}});
                 console.log('Adding Claimer to Spawn List: ' + newName);
@@ -3358,15 +3315,19 @@ function add_creeps_to_spawn_list(room, spawn) {
  * Returns true when it took the spawn this tick.
  */
 function emergencyFillerRescue(room, spawn): boolean {
-    let storage = Game.getObjectById(room.memory.Structures?.storage);
+    let storage = (room.storage && room.storage.my) ? room.storage
+        : Game.getObjectById(room.memory.Structures?.storage);
+    if (storage && storage.structureType !== STRUCTURE_STORAGE) storage = null;
     let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
     // a carrier can drop into storage/spawn too, so it counts as "something can
     // still move energy" for the last-resort rung below ("FakeFiller" is a
     // carrier mid-dropoff, see carry.ts)
     let haulersInRoom = _.filter(Game.creeps, (creep:any) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller') && creep.room.name == room.name).length;
 
-    // Check if room is energy starved and has nobody to fill the spawn
-    if(room.controller.level >= 4 && storage && fillersInRoom === 0) {
+    // RCL4+ with nobody filling. A live storage is the normal case. After a
+    // hub wipe the cached id is dead and room.storage is gone — still hatch
+    // a last-resort hauler if nothing is moving energy.
+    if(room.controller.level >= 4 && fillersInRoom === 0 && (storage || haulersInRoom === 0)) {
         console.log(`Room ${room.name} energy: ${room.energyAvailable}/${room.energyCapacityAvailable}, checking for emergency spawn`);
 
         if(room.energyAvailable < room.energyCapacityAvailable * 0.5) {
@@ -3513,14 +3474,17 @@ function spawnFirstInLine(room, spawn) {
                 let storage = Game.getObjectById(room.memory.Structures?.storage);
                 if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 1000 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
                     let body = [MOVE,CARRY];
-                    if(room.controller.level === 7)
+                    if(room.controller.level === 7 && room.energyAvailable >= 200)
                         body.push(CARRY,CARRY)
-                    if(room.controller.level === 8)
+                    if(room.controller.level === 8 && room.energyAvailable >= 250)
                         body.push(CARRY,CARRY,CARRY)
 
                     let newName = 'emergencyFILLER-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    spawn.spawnCreep(body, newName, {memory: {role: 'filler'}});
-                    return "spawning";
+                    // Ignoring spawnCreep's result used to return "spawning"
+                    // on -6 and freeze shrink/interleave forever.
+                    if(spawn.spawnCreep(body, newName, {memory: {role: 'filler'}}) === 0) {
+                        return "spawning";
+                    }
                 }
 
                 // ---- the shredder ----------------------------------------
@@ -3551,10 +3515,37 @@ function spawnFirstInLine(room, spawn) {
                 // shrink and interleave thresholds first, then give up.
                 // The capacity clause below is unaffected — a body the room can
                 // never afford is still thrown out on sight.
+                //
+                // Lifeline HOL (parked [4W,C,M], 0-miner [5W,M]) must not be
+                // shredded: headBlocksInterleave exists so energy can accumulate,
+                // and this if/else-if used to drop the 4W at stall 61, hatch a
+                // 300e builder, and lock leftover 1W/2W via lastSpawn.
+                const holTgt = room.memory.spawn_list[2] && room.memory.spawn_list[2].memory
+                    && room.memory.spawn_list[2].memory.targetRoom;
+                // Always the live home WORK. Forcing 5 on a non-EnergyMiner HOL
+                // killed the leftover remote-haul latch (RCL4+ Carrier + 1W/2W
+                // treated as slam-5, interleave spent the trickle on 300e).
+                const headIsLifeline = headBlocksInterleave(
+                    room.controller.level,
+                    headName,
+                    bodyCost(room.memory.spawn_list[0] || []),
+                    room.energyCapacityAvailable,
+                    homeMinerBestWork(room),
+                    holTgt,
+                    room.name);
                 if((room.memory.spawnStall > SHRED_STALLED_HEAD_AFTER
                 && room.memory.spawn_list[0].length >= 4
+                && !headIsLifeline
                 && !room.memory.spawn_list[1].startsWith("Carrier")
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner")
+                && !room.memory.spawn_list[1].startsWith("Upgrader")
+                && !room.memory.spawn_list[1].startsWith("ContainerBuilder")
+                // Fillers are the -6 cure and are not on the HOL shrink rung.
+                // Stall 61 used to drop Filler-/EmergencyFiller- and the
+                // producer re-queued the same body (E1S4).
+                && !room.memory.spawn_list[1].startsWith("Filler")
+                && !room.memory.spawn_list[1].startsWith("EmergencyFiller")
+                && !room.memory.spawn_list[1].startsWith("emergencyFILLER")
                 && !room.memory.spawn_list[1].startsWith("WallClearer")
 
                 && !room.memory.spawn_list[1].startsWith("SquadCreepA")
@@ -3617,12 +3608,10 @@ function spawnFirstInLine(room, spawn) {
                 else if(mayShrinkHead && (
                 room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
                 room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3
-                    // [5W,M] is 550e / 6 parts. HOL bar is length*100 = 600, so
-                    // leftover-5 rooms (cap 550) always shrink to 4W. Cost is 550.
+                    // [5W,M] HOL bar is 600; [2M,6W,M] HOL bar is 900. Both
+                    // always shrink on -6 unless exempted.
                     && !(room.energyCapacityAvailable >= 550
-                        && room.memory.spawn_list[0].length === 6
-                        && bodyCost(room.memory.spawn_list[0]) === 550
-                        && _.filter(room.memory.spawn_list[0], (p:any) => p === WORK).length === 5) ||
+                        && isHomeSlamMinerBody(room.memory.spawn_list[0])) ||
                 room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2)) {
                     // NOT .shift(): that stripped parts off the FRONT of the
                     // body and produced miners with no WORK and reservers with
@@ -3640,11 +3629,10 @@ function spawnFirstInLine(room, spawn) {
                     && room.energyCapacityAvailable >= 550
                     && room.energyAvailable < 550
                     && bodyCost(room.memory.spawn_list[0]) >= 550) {
-                    // Dest-22: true 0-miner blackout only. Leftover 1W/2W
-                    // still fill (2–4 e/t) — rewriting HOL [5W,M] is the
-                    // cycle-20 E18S9 stall (then lastSpawn+1500). Best
-                    // WORK, not sum: two 1W is still income.
-                    if(homeMinerBestWork(room) === 0) {
+                    // Dest-22: true 0-miner HOME blackout only. A remote HOL
+                    // is common (unshift after home); rewriting it walks
+                    // [2W,M] to the remote and home stays at 0 WORK.
+                    if(destCheapRewritesHead(room.memory.spawn_list[1], holTgt, room.name, homeMinerBestWork(room))) {
                         room.memory.spawn_list[0] = room.energyAvailable >= 250
                             ? [WORK, WORK, MOVE] : [WORK, MOVE];
                         console.log("cheap miner head — leftover-5 blackout", room.name);
@@ -3712,14 +3700,9 @@ function spawnFirstInLine(room, spawn) {
                  * a miner exists, so let the head starve the room for a moment
                  * and buy the thing that ends the starvation.
                  */
-                let headIsLifeline = false;
-                if(headName && headName.startsWith("EnergyMiner")) {
-                    const homeMiners = _.filter(Game.creeps, (c:any) =>
-                        c.memory && c.memory.role === "EnergyMiner"
-                        && (c.memory.homeRoom === room.name || c.room.name === room.name)
-                        && (!c.memory.targetRoom || c.memory.targetRoom === room.name)).length;
-                    headIsLifeline = homeMiners === 0;
-                }
+                // Leftover 1W/2W is not a lifeline: count WORK, and also
+                // refuse to interleave around a full-cap HOL at RCL<=3
+                // (clamp-exempt [5W,M], parked [4W,C,M]).
                 if(room.memory.spawnStall > interleaveAfter
                 && !headIsLifeline
                 && room.memory.spawn_list.length >= 6
@@ -4073,6 +4056,17 @@ function homeMinerBestWork(room): number {
     let best = 0;
     for (const c of creepsWithRole("EnergyMiner")) {
         if ((c.memory.targetRoom || c.room.name) !== room.name) continue;
+        const w = workFromBody(c);
+        if (w > best) best = w;
+    }
+    return best;
+}
+
+/** Body WORK of the best live EnergyMiner on this source (hatchlings included). */
+function minerWorkOnSource(sourceId): number {
+    let best = 0;
+    for (const c of creepsForSource(sourceId)) {
+        if (c.memory.role !== "EnergyMiner") continue;
         const w = workFromBody(c);
         if (w > best) best = w;
     }
@@ -4796,28 +4790,10 @@ function queuedWithPrefix(room, prefix:string):boolean {
 function queueRemoteHaul(room, body, name, opts): void {
     const q = room.memory.spawn_list;
     const tgt = opts && opts.memory && opts.memory.targetRoom;
-    let at = 0;
-    if(tgt && tgt !== room.name) {
-        // Walk past the whole PRIORITY BLOCK at the head — fill crew, every
-        // remote miner (any remote), and haul/reserve triples queued before
-        // this one — and land right behind it. Breaking on the first miner
-        // of a DIFFERENT remote (the previous rule) put E37N59's queue at
-        // [Carrier36, Carrier38, Miner36, Miner38, Filler, Reserver]: two
-        // 1750e carriers hatching 200 ticks before the miners they haul for,
-        // and a filler four bodies deep. Miners still unshift to index 0, so
-        // they always precede the haul that follows them; carriers keep FIFO
-        // among themselves; a later emergency unshift still beats all of it.
-        while(at + 2 < q.length) {
-            const mem = q[at + 2] && q[at + 2].memory;
-            if(!mem) break;
-            const remote = !!mem.targetRoom && mem.targetRoom !== room.name;
-            const priority =
-                mem.role === 'filler' || mem.role === 'EnergyManager' ||
-                (remote && (mem.role === 'EnergyMiner' || mem.role === 'carry' || mem.role === 'reserve'));
-            if(!priority) break;
-            at += 3;
-        }
-    }
+    // Walk past the whole PRIORITY BLOCK at the head — fill crew, HOME
+    // leftoverUpgrade / slam-5 miner, every remote miner, and haul/reserve
+    // triples queued before this one — and land right behind it.
+    const at = tgt && tgt !== room.name ? remoteHaulInsertIndex(q, room.name) : 0;
     // splice(0, 0, ...) is unshift; anything else lands right behind the
     // priority block already at the front.
     q.splice(at, 0, body, name, opts);
@@ -4851,10 +4827,11 @@ function minerGoingToRemote(room, targetRoomName): boolean {
     return found;
 }
 
-/** Hostiles or an invader core — same bar remoteIsHot uses on a visible room. */
+/** Hostiles, leftover towers, or an invader core — same bar remoteIsHot uses. */
 function remoteLooksThreatened(vis): boolean {
     if(!vis) return false;
     if(vis.find(FIND_HOSTILE_CREEPS).length > 0) return true;
+    if(remoteHasHostileTower(vis)) return true;
     return vis.find(FIND_HOSTILE_STRUCTURES, {
         filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
     }).length > 0;
@@ -5120,7 +5097,11 @@ function roomHasHauler(room): boolean {
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
     let storage = Game.getObjectById(room.memory.Structures?.storage) || room.findStorage();
 
-    _.forEach(resourceData, function(data, targetRoomName){
+    // Remotes first so a later home leftoverUpgrade unshift stays HOL.
+    const walk = resourceNamesHomeLast(Object.keys(resourceData || {}), room.name);
+    _.forEach(walk, function(targetRoomName: string){
+        const data = resourceData[targetRoomName];
+        if(!data) return;
         if(activeRemotes.includes(targetRoomName)) {
             let index = 0;
 
@@ -5227,9 +5208,27 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                     return;
                 }
 
-                if (Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME) {
+                const leftoverUpgrade = targetRoomName == room.name
+                    && leftoverUpgradeShouldQueue(
+                        room.energyCapacityAvailable,
+                        minerWorkOnSource(sourceId),
+                        queuedForSource(room, 'EnergyMiner', sourceId),
+                        !!values.fiveWQueued);
+                if (minerReplacementShouldQueue(onTheWay, leftoverUpgrade, values.lastSpawn || 0, Game.time, CREEP_LIFE_TIME)) {
                     let newName = 'EnergyMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     if(targetRoomName == room.name) {
+                        // leftover 1W/2W upgrade is always [5W,M]. cap>=750 /
+                        // RCL4-5 used to queue [2M,6W,M] (750e, 9 parts), which
+                        // missed every leftover-5 exemption (clamp, HOL shrink,
+                        // promoteHomeSlamFiveHol).
+                        if(leftoverUpgrade) {
+                            room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,MOVE], newName,
+                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                            console.log('Adding Energy Miner to Spawn List: ' + newName);
+                            values.lastSpawn = Game.time;
+                            values.fiveWQueued = true;
+                        }
+                        else {
                         let danger = false;
                         if(values.pathLength && room.memory.danger && values.pathLength >= 13) {
                             danger = true;
@@ -5349,6 +5348,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             }
                             return;
                         }
+                        }
                     }
 
                     else {
@@ -5464,7 +5464,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                     }
                 }
 
-                if(Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME*3) {
+                if(minerBackupShouldQueue(onTheWay, values.lastSpawn || 0, Game.time, CREEP_LIFE_TIME)) {
                     let newName = 'EnergyMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
@@ -5473,7 +5473,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                 }
 
 
-                if(!values.lastSpawn && Game.time < CREEP_LIFE_TIME) {
+                if(!onTheWay && !values.lastSpawn && Game.time < CREEP_LIFE_TIME) {
                     let newName = 'EnergyMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
@@ -5485,6 +5485,9 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
         }
 
     });
+    if(room.memory && room.memory.spawn_list) {
+        promoteHomeSlamFiveHol(room.memory.spawn_list, room.name);
+    }
 }
 
 
@@ -6154,10 +6157,14 @@ function roomLooksSpawnlessOwned(name: string): boolean {
             s.structureType === STRUCTURE_SPAWN}).length > 0;
     }
     // No vision: Memory from the last visit. W3N3 sat 0-creep / 0-vision
-    // with a spawn site and an empty target_colonise.
-    // Never trust target_colonise here — live parks that on leftover
-    // foreign spawns (E35N59 Enrique). Plan tile ≠ our site.
-    if (Memory.target_colonise && Memory.target_colonise.room === name) return false;
+    // with a spawn site. pinSpawnRescue writes tc.room=need — that is not
+    // a disqualification when this room is the pinned rescue. Still veto
+    // leftover-foreign parks (E35N59) that are not the pin.
+    if (coloniseVetoesNoVisionSpawnless(
+        name,
+        Memory.target_colonise && Memory.target_colonise.room,
+        (Memory as any).spawnRescue,
+    )) return false;
     const mem: any = Memory.rooms && Memory.rooms[name];
     if (!mem) return false;
     if (mem.Structures && mem.Structures.spawns && mem.Structures.spawns.length) return false;
@@ -6205,57 +6212,6 @@ function spawnEmergencyOn(): boolean {
  */
 const RESCUE_BUILDER_CAP = 10;
 
-/**
- * Hard cap on live builders standing in one room. Rescue retask +
- * revertSpawnEmergency converted ContainerBuilders into regular builders
- * and left them piled on one site — live shard3 hit 35, then 41, against
- * a 20 CPU limit. Four WORK creeps already saturate a storage site;
- * extras cost CPU and strip the rooms they came from.
- */
-const LIVE_BUILDER_CAP = 4;
-let lastBuilderCullTick = 0;
-
-function cullSurplusBuildersOnce(): void {
-    if (lastBuilderCullTick === Game.time) return;
-    lastBuilderCullTick = Game.time;
-    const byRoom: { [rn: string]: Creep[] } = {};
-    for (const name in Game.creeps) {
-        const c = Game.creeps[name];
-        if (!c.memory) continue;
-        const role = c.memory.role;
-        if (role !== "builder" && role !== "buildcontainer") continue;
-        (byRoom[c.room.name] = byRoom[c.room.name] || []).push(c);
-    }
-    for (const rn in byRoom) {
-        const room = Game.rooms[rn];
-        const mine = !!(room && room.controller && room.controller.my);
-        const sites = mine ? room.find(FIND_MY_CONSTRUCTION_SITES).length : 0;
-        const cap = sites > 0 ? Math.min(LIVE_BUILDER_CAP, Math.max(1, sites)) : 0;
-        const list = byRoom[rn];
-        list.sort((a, b) => b.getActiveBodyparts(WORK) - a.getActiveBodyparts(WORK));
-        let converted = 0;
-        for (let i = 0; i < list.length; i++) {
-            const c = list[i];
-            if (i < cap) {
-                if (c.memory.role !== "builder") c.memory.role = "builder";
-                if (!c.memory.homeRoom) c.memory.homeRoom = rn;
-                continue;
-            }
-            if (c.getActiveBodyparts(CARRY) > 0 && converted < LIVE_BUILDER_CAP) {
-                c.memory.role = "carry";
-                c.memory.homeRoom = rn;
-                delete (c.memory as any).fill;
-                delete (c.memory as any).building;
-                delete (c.memory as any).locked;
-                delete (c.memory as any).targetRoom;
-                converted++;
-            } else {
-                c.suicide();
-            }
-        }
-    }
-}
-
 function colonyBuilderCap(need: string): number {
     // Spawn-new cap. Retask of existing WORK creeps is uncapped separately.
     // Cap-99 hatching is what emptied the last live spawn (E37N58 59/1150).
@@ -6299,28 +6255,15 @@ function finishableSpawnSiteRooms(from: string): string[] {
     return hits;
 }
 
-/**
- * What a rebuilt spawn in this room is WORTH to the empire, as a tiebreak.
- *
- * Not cosmetic. A restored spawn's value is mostly the size of the creep it can
- * hatch, and that is energyCapacityAvailable — an RCL6 room comes back at 1850
- * and can immediately build for everyone else, while an RCL3 room comes back at
- * 250 and can barely feed itself. The room's own standing structures are the
- * other half: losing an RCL6 with 37 extensions, 3 labs, links and an extractor
- * is a different order of loss from an RCL3 with none of that.
- */
-function spawnRescueValue(name: string): number {
-    const r = Game.rooms[name];
-    if (!r || !r.controller || !r.controller.my) return 0;
-    return (r.controller.level * 1000) + r.energyCapacityAvailable;
-}
-
 /** Progress rung, so trivial differences do not decide the order. See below. */
 const RESCUE_PROGRESS_RUNG = 5000;
 
 function pickSpawnRescue(): string | null {
     const pinned = (Memory as any).spawnRescue;
-    if (typeof pinned === "string" && roomLooksSpawnlessOwned(pinned)) return pinned;
+    if (typeof pinned === "string"
+        && spawnRescuePinHolds(roomLooksSpawnlessOwned(pinned), spawnSiteUnfinishable(pinned))) {
+        return pinned;
+    }
     let best: string | null = null;
     let bestRung = -1;
     let bestValue = -1;
@@ -6531,7 +6474,7 @@ function retaskBuildersToSpawnless(need: string): void {
         const homeName = c.memory.homeRoom || c.room.name;
         const home = Game.rooms[homeName] || c.room;
         const homeHasSpawn = home.find(FIND_MY_SPAWNS).length > 0;
-        if (homeHasSpawn && (role === "filler" || role === "carry")) continue;
+        if (retaskKeepsHatcheryRole(role, homeHasSpawn)) continue;
         const canBuild = c.getActiveBodyparts(WORK) > 0;
         const canHaul = c.getActiveBodyparts(CARRY) > 0;
         if (!canBuild && !canHaul) continue;
@@ -6579,10 +6522,14 @@ function stripNonRescueQueue(room: any): void {
          * A builder is not a luxury: it is the only thing that converts a
          * room's energy into structures. Blocking it does not save the energy
          * for the rescue, it just leaves it sitting in a full spawn.
+         *
+         * EnergyManager is the RCL5+ bank. Producer re-queues it every tick;
+         * dropping it here means link/terminal income never reaches storage
+         * while the last hatchery is supposed to fund the rescue.
          */
-        if (role === "buildcontainer" || role === "EnergyMiner" ||
-            role === "filler" || role === "carry" || role === "builder" ||
-            role === "upgrader") next.push(body, name, opts);
+        if (stripKeepsRescueRole(role, !!(room.memory && room.memory.danger))) {
+            next.push(body, name, opts);
+        }
         return true;
     });
     if (next.length !== q.length) room.memory.spawn_list = next;
@@ -6648,7 +6595,8 @@ function maybeSpawnColonyBuilder(room: Room): void {
     if (need) retaskBuildersToSpawnless(need);
     // Spawn-rebuild is an emergency (FORCE-migrate just deleted the only
     // spawn). The 10k / bucket-7750 gates are for optional new colonies.
-    const rescue = !!(need && Game.rooms[need] && Game.rooms[need].find(FIND_MY_SPAWNS).length === 0);
+    // No vision still counts: Game.rooms[need] is undefined while CBs walk.
+    const rescue = colonyNeedIsRescue(need, need ? Game.rooms[need] : undefined);
     if (!rescue) {
         if (!storage || bank <= 10000) return;
         if (Game.cpu.bucket <= 7750) return;
@@ -6660,17 +6608,25 @@ function maybeSpawnColonyBuilder(room: Room): void {
     if (!room.find(FIND_MY_SPAWNS).length) return;
     const dist = Game.map.getRoomLinearDistance(room.name, need);
     if (dist > 7) return;
-    // Only the closest funded mother queues.
-    let best: string = room.name;
-    let bestDist = dist;
-    let bestE = bank;
+    // Only ONE mother queues. Do not default `best` to this room — after a
+    // hub wipe every bank is <= 10k, the loop skips everyone, and every
+    // RCL3+ caller unshifts its own CB.
+    let best: string = null;
+    let bestDist = 99;
+    let bestE = -1;
     for (const name in Game.rooms) {
         const r = Game.rooms[name];
         if (!r.controller || !r.controller.my || r.controller.level < 3) continue;
         if (r.memory.danger) continue;
-        const st: any = Game.getObjectById(r.memory.Structures && r.memory.Structures.storage);
+        if (!r.find(FIND_MY_SPAWNS).length) continue;
+        const st: any = Game.getObjectById(r.memory.Structures && r.memory.Structures.storage)
+            || (r.storage && r.storage.my ? r.storage : null);
         const e = st && st.store ? (st.store[RESOURCE_ENERGY] || 0) : 0;
-        if (e <= 10000) continue;
+        if (rescue) {
+            if (e <= 10000 && r.energyAvailable < rescueMotherFloor(r)) continue;
+        } else if (e <= 10000) {
+            continue;
+        }
         const d = Game.map.getRoomLinearDistance(name, need);
         if (d > 7) continue;
         if (d < bestDist || (d === bestDist && e > bestE)) {
@@ -6679,17 +6635,27 @@ function maybeSpawnColonyBuilder(room: Room): void {
             bestE = e;
         }
     }
-    if (best !== room.name) return;
+    if (!best || best !== room.name) return;
     if (colonyBuildersOn(need) >= colonyBuilderCap(need)) return;
-    let alreadyQueued = false;
-    forEachQueued(room, function(body, name, opts) {
+    let alreadyAt = -1;
+    forEachQueued(room, function(body, name, opts, idx) {
         if(opts && opts.memory && opts.memory.role == 'buildcontainer' && opts.memory.targetRoom == need) {
-            alreadyQueued = true;
+            alreadyAt = idx;
             return false;
         }
         return true;
     });
-    if (alreadyQueued) return;
+    if (alreadyAt >= 0) {
+        // Rescue CB is unshifted once. Producer cadence then unshifts miners
+        // to 0 and queueRemoteHaul used to splice at 0, so alreadyQueued
+        // left the CB mid-queue behind 550–1500e remotes.
+        if (rescue && rescueCbShouldLead(alreadyAt)) {
+            const q = room.memory.spawn_list;
+            const triple = q.splice(alreadyAt, 3);
+            q.unshift(triple[0], triple[1], triple[2]);
+        }
+        return;
+    }
     /*
      * AFFORDABLE NOW, not affordable in principle.
      *

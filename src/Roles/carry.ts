@@ -306,6 +306,12 @@ function depotSink(creep: any): any {
     // wrecked one. Without this the carry walks home empty (homeRoom is dest).
     if (creep.memory.emergencyFeed && !creep.memory.full) {
         const dest = creep.memory.emergencyFeed;
+        const donor = creep.memory.homeRoom;
+        if (creep.room.name === dest && donor && donor !== dest) {
+            // Dumped. Walk back to the donor for another load — homeRoom
+            // used to be dest, so they acquired energy in the wreck forever.
+            return creep.moveToRoomAvoidEnemyRooms(donor);
+        }
         if (creep.room.name !== dest) {
             const stor = creep.room.storage;
             if (stor && stor.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() > 0) {

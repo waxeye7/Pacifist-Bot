@@ -56,6 +56,16 @@ describe("main: economyOnly load shedding", () => {
     }
   });
 
+  it("remote panic valve follows allowRemotes, not a second avg cliff", () => {
+    const ROOMS = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.ts"), "utf8");
+    assert.include(ROOMS, "if (!policy.allowRemotes)");
+    assert.notInclude(
+      ROOMS,
+      "avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3)",
+      "the fiveHundredTickAvg cliff re-opened the starvation latch",
+    );
+  });
+
   it("keeps the creep loop outside every conditional gate", () => {
     // Stronger than the list above: assert the creeps phase is at top level of
     // the loop body, so a future edit cannot quietly wrap it in a new gate.

@@ -12,6 +12,16 @@
 import { assert } from "chai";
 import * as fs from "fs";
 import * as path from "path";
+import {
+  countedShellRoad,
+  brokeBankStripFires,
+  towerOccupiesPlannedHub,
+  hubTypeReclaimsTower,
+  lastTowerInstaMayDestroy,
+  lastTowerReclaimMayDestroy,
+  instaDestroyedThisPass,
+  isSourceIncomeStructure,
+} from "../../src/utils/PlanV2";
 
 const SRC = fs.readFileSync(path.join(__dirname, "../../src/utils/PlanV2.ts"), "utf8");
 
@@ -50,6 +60,11 @@ describe("PlanV2 migration safety", () => {
   });
 
   describe("spawn protection", () => {
+    it("serializes last-spawn hub retires so four rooms cannot collapse to one", () => {
+      assert.include(SRC, "_hubSpawnRetireTick");
+      assert.include(SRC, "otherSpawnless");
+    });
+
     it("refuses to retire a room's own last spawn, not merely the empire's", () => {
       // The old guard was `empireSpawns <= 1`, which let four spawns become one
       // because each room's pass saw others still standing.
@@ -108,6 +123,273 @@ describe("PlanV2 migration safety", () => {
       assert.include(SRC, "const MIGRATE_ENERGY = 20000");
       assert.match(SRC, /const rich = force \|\| migrationEnergy\(room\) > MIGRATE_ENERGY/);
     });
+  });
+
+  describe("broke-align does not keep sweeping a bankless room", () => {
+    it("disarms an align pass when the hub is already gone", () => {
+      // After force-hub retired the storages, every later align tick deleted
+      // source containers (the only income). Disarm, don't keep sweeping.
+      assert.include(SRC, 'by: "broke-align"');
+      assert.match(
+        SRC,
+        /if \(!wantHub && !room\.storage && room\.find\(FIND_MY_SPAWNS\)\.length > 0\)/,
+      );
+    });
+
+    it("never insta-deletes source-adjacent containers", () => {
+      // Empty storage used to make the skip miss; ALIGN then deleted income.
+      assert.notMatch(SRC, /STRUCTURE_CONTAINER && !room\.storage/);
+      assert.match(SRC, /if \(s\.structureType === STRUCTURE_CONTAINER\) \{/);
+      assert.include(SRC, "findInRange(FIND_SOURCES, 1)");
+    });
+
+    it("does not insta-delete exterior roads", () => {
+      assert.include(SRC, "isExteriorTile(room, s.pos.x, s.pos.y)");
+    });
+
+    it("refuses all roads when interior is unusable — isExteriorTile fail-opens to false", () => {
+      // getCache miss => isExteriorTile returns false, so "skip if exterior"
+      // alone would DELETE remotes. Gradual already requires interiorReady.
+      assert.match(
+        SRC,
+        /STRUCTURE_ROAD &&\s*\n\s*\(!interiorReady\(room\) \|\| isExteriorTile\(room, s\.pos\.x, s\.pos\.y\)\)/,
+      );
+    });
+
+    it("does not insta-delete the room's last tower", () => {
+      assert.include(SRC, "STRUCTURE_TOWER &&");
+      assert.include(SRC, "lastTowerInstaMayDestroy(");
+    });
+
+    it("gradual last-tower N-1 counts only owned towers", () => {
+      // Hostile leftovers used to increment rankOffPlan.built and sit in
+      // `off`. At cap with 1 owned + 1 hostile, farther-first destroy()d
+      // the only owned tower (hostile destroy fails).
+      const fn = SRC.slice(SRC.indexOf("function rankOffPlan"), SRC.indexOf("function migrateClass"));
+      assert.match(
+        fn,
+        /!\(s as any\)\.my && type !== STRUCTURE_ROAD && type !== STRUCTURE_CONTAINER/,
+      );
+    });
+
+    it("reclaimTile does not destroy a source-adjacent container", () => {
+      // migrateInsta skips those boxes; the same placeFromPlanV2 pass
+      // used to reclaimTile() one that squatted a planned link.
+      const fn = SRC.slice(SRC.indexOf("function reclaimTile"), SRC.indexOf("const MIGRATE_ENERGY"));
+      assert.include(fn, "isSourceIncomeStructure(squatter)");
+    });
+
+    it("gradual migrateClass does not retire source-adjacent containers", () => {
+      // rankOffPlan is farthest-from-hub, so off-plan source boxes used
+      // to be first out under FREE_REPLACE and poor rank<=1.
+      const rank = SRC.slice(SRC.indexOf("function rankOffPlan"), SRC.indexOf("function migrateClass"));
+      assert.include(rank, "isSourceIncomeStructure(s)");
+      const cls = SRC.slice(SRC.indexOf("function migrateClass"), SRC.indexOf("function migrateSpawns"));
+      assert.match(cls, /STRUCTURE_CONTAINER \|\| type === STRUCTURE_LINK/);
+      assert.include(cls, "isSourceIncomeStructure(c.s)");
+    });
+
+    it("never insta-deletes a source-adjacent link", () => {
+      // RCL5+ income is the source link (energyMiner range 2). Align used
+      // to delete an off-plan source link while the guard was container-only.
+      assert.include(SRC, "function isSourceIncomeStructure");
+      assert.include(SRC, "findInRange(FIND_SOURCES, 2)");
+      const insta = SRC.slice(SRC.indexOf("function migrateInsta"), SRC.indexOf("function runMigration"));
+      assert.include(insta, "isSourceIncomeStructure(s)");
+      assert.notMatch(insta, /if \(s\.structureType === STRUCTURE_CONTAINER\) \{/);
+    });
+
+    it("hostile leftover source links are not income and can be cleared", () => {
+      function src(type: string, mine: boolean, near: boolean): any {
+        return {
+          structureType: type,
+          my: mine,
+          pos: { findInRange: () => (near ? [{}] : []) },
+        };
+      }
+      assert.isFalse(isSourceIncomeStructure(src(STRUCTURE_LINK, false, true)), "hostile leftover");
+      assert.isTrue(isSourceIncomeStructure(src(STRUCTURE_LINK, true, true)));
+      assert.isFalse(isSourceIncomeStructure(src(STRUCTURE_LINK, true, false)));
+      assert.isTrue(isSourceIncomeStructure(src(STRUCTURE_CONTAINER, false, true)), "unowned box is usable");
+      assert.isFalse(isSourceIncomeStructure(src(STRUCTURE_CONTAINER, false, false)));
+      const income = SRC.slice(
+        SRC.indexOf("export function isSourceIncomeStructure"),
+        SRC.indexOf("function coreBuildoutIncomplete"),
+      );
+      assert.include(income, "!(s as any).my");
+      const insta = SRC.slice(SRC.indexOf("function migrateInsta"), SRC.indexOf("function runMigration"));
+      assert.match(
+        insta,
+        /STRUCTURE_CONTAINER &&\s*\n\s*s\.structureType !== STRUCTURE_LINK/,
+      );
+      const reclaim = SRC.slice(SRC.indexOf("function reclaimTile"), SRC.indexOf("const MIGRATE_ENERGY"));
+      assert.include(reclaim, "STRUCTURE_LINK && !(squatter as any).my");
+    });
+
+    it("coreBuildoutIncomplete treats missing source income as incomplete at RCL5+", () => {
+      const fn = SRC.slice(
+        SRC.indexOf("function coreBuildoutIncomplete"),
+        SRC.indexOf("function maxSitesFor"),
+      );
+      assert.include(fn, "lvl >= 5");
+      assert.include(fn, "isSourceIncomeStructure(s)");
+    });
+
+    it("broke-bank site strip keeps link and container sites", () => {
+      assert.match(
+        SRC,
+        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,350}?STRUCTURE_LINK \|\| s\.structureType === STRUCTURE_CONTAINER/,
+      );
+    });
+
+    it("does not strip a storage site from a broke room", () => {
+      assert.match(
+        SRC,
+        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,250}?STRUCTURE_STORAGE/,
+      );
+    });
+
+    it("does not strip naked-shell road/rampart sites on a standing storage", () => {
+      // brokeBank already requires my storage. bankE<1000 cannot free a
+      // storage slot; it only reset the 2-slot wall rebuild.
+      assert.notInclude(SRC, "brokeBank && bankE < 1000");
+      const strip = SRC.slice(
+        SRC.indexOf("if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete))"),
+        SRC.indexOf("existing structures + sites by type"),
+      );
+      assert.include(strip, "STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD");
+    });
+
+    it("incomplete-core strip fires at budget===0 so leftover labs free the 2 slots", () => {
+      // 2 leftover lab/nuker/RCL6+ rampart sites → maxSitesFor=2, budget=0.
+      // budget<0 never stripped; missing extensions/towers never sited.
+      assert.isFalse(brokeBankStripFires(0, false, false), "complete core at allowance");
+      assert.isTrue(brokeBankStripFires(0, false, true), "incomplete core at allowance");
+      assert.isTrue(brokeBankStripFires(-1, false, false), "over budget still strips");
+      assert.isFalse(brokeBankStripFires(1, false, false), "headroom, complete core");
+      assert.isTrue(brokeBankStripFires(0, true, false), "naked shell still strips");
+      const strip = SRC.slice(
+        SRC.indexOf("let budget = maxSitesFor"),
+        SRC.indexOf("existing structures + sites by type"),
+      );
+      assert.include(strip, "coreBuildoutIncomplete");
+      assert.include(strip, "brokeBankStripFires(budget, nakedShell, coreIncomplete)");
+    });
+
+    it("reclaim does not take the last tower after insta acted this pass", () => {
+      // migrateInsta tears surplus (myTowers>1), refuses the hub-sitter
+      // (n>0), then placeFromPlanV2 reclaimTile used to destroy() that
+      // last tower — insta does not stamp planMigrate[tower].
+      assert.isFalse(lastTowerReclaimMayDestroy(1, true, 1));
+      assert.isFalse(lastTowerReclaimMayDestroy(2, true, 3), "stale 2-count after surplus");
+      assert.isTrue(lastTowerReclaimMayDestroy(1, true, 0), "solo hub-swap when insta idle");
+      assert.isTrue(lastTowerReclaimMayDestroy(2, true, 0));
+      assert.isFalse(lastTowerReclaimMayDestroy(1, false, 0));
+      const g: any = global;
+      const prev = g.Game;
+      g.Game = Object.assign({}, prev || {}, { time: 100 });
+      try {
+        assert.strictEqual(instaDestroyedThisPass({ memory: { _instaPass: 100, _instaN: 2 } }), 2);
+        assert.strictEqual(instaDestroyedThisPass({ memory: { _instaPass: 99, _instaN: 2 } }), 0);
+        assert.strictEqual(instaDestroyedThisPass({ memory: {} }), 0);
+      } finally {
+        g.Game = prev;
+      }
+      const reclaim = SRC.slice(SRC.indexOf("function reclaimTile"), SRC.indexOf("const MIGRATE_ENERGY"));
+      assert.include(reclaim, "lastTowerReclaimMayDestroy(");
+      assert.include(reclaim, "instaDestroyedThisPass(room)");
+      const insta = SRC.slice(SRC.indexOf("function migrateInsta"), SRC.indexOf("function runMigration"));
+      assert.include(insta, "mem._instaPass = Game.time");
+      assert.include(insta, "mem._instaN = n");
+    });
+
+    it("insta does not take surplus then the last hub-sitter in one pass", () => {
+      // FIND_STRUCTURES order is unspecified. 2+ off-plan with the hub
+      // tower last used to decrement myTowers to 1 then hub-swap to 0.
+      function remaining(order: boolean[]): number {
+        let myTowers = order.length;
+        let n = 0;
+        for (let i = 0; i < order.length; i++) {
+          if (lastTowerInstaMayDestroy(myTowers, order[i], n)) {
+            myTowers--;
+            n++;
+          }
+        }
+        return myTowers;
+      }
+      assert.strictEqual(remaining([false, true]), 1, "surplus then hub");
+      assert.strictEqual(remaining([true, false]), 1, "hub then surplus");
+      assert.strictEqual(remaining([false, false, true]), 1);
+      assert.strictEqual(remaining([true]), 0, "solo hub-swap still allowed");
+      assert.strictEqual(remaining([false]), 1, "solo off-hub kept");
+      assert.isFalse(lastTowerInstaMayDestroy(1, true, 1));
+      assert.isTrue(lastTowerInstaMayDestroy(1, true, 0));
+      assert.isTrue(lastTowerInstaMayDestroy(2, true, 0));
+      const insta = SRC.slice(SRC.indexOf("function migrateInsta"), SRC.indexOf("function runMigration"));
+      assert.include(insta, "lastTowerInstaMayDestroy(");
+    });
+
+    it("last tower on planned storage/spawn is a swap, not a floor", () => {
+      const storage = 10 + 20 * 50;
+      const spawn = 5;
+      const plan = { t: { storage: [storage], spawn: [spawn], tower: [7] } };
+      assert.isTrue(towerOccupiesPlannedHub(storage, plan));
+      assert.isTrue(towerOccupiesPlannedHub(spawn, plan));
+      assert.isFalse(towerOccupiesPlannedHub(7, plan), "planned tower tile is not the hub");
+      assert.isTrue(hubTypeReclaimsTower(STRUCTURE_STORAGE));
+      assert.isTrue(hubTypeReclaimsTower(STRUCTURE_SPAWN));
+      assert.isFalse(hubTypeReclaimsTower(STRUCTURE_TOWER));
+      const reclaim = SRC.slice(SRC.indexOf("function reclaimTile"), SRC.indexOf("const MIGRATE_ENERGY"));
+      assert.include(reclaim, "hubTypeReclaimsTower(type)");
+      assert.include(reclaim, "STRUCTURE_TOWER");
+      const insta = SRC.slice(SRC.indexOf("function migrateInsta"), SRC.indexOf("function runMigration"));
+      assert.include(insta, "towerOccupiesPlannedHub(packed, plan)");
+      const cls = SRC.slice(SRC.indexOf("function migrateClass"), SRC.indexOf("function migrateSpawns"));
+      assert.include(cls, "last-tower swap — occupies planned hub");
+      assert.include(cls, "if (!wanted && !isRoad && !hubSwap)");
+    });
+
+    it("counts only interior roads toward a standing shell", () => {
+      const fn = SRC.slice(SRC.indexOf("function isShellNaked"), SRC.indexOf("function coreBuildoutIncomplete"));
+      assert.include(fn, "countedShellRoad(");
+      assert.include(fn, "interiorReady(room)");
+      assert.include(fn, "isExteriorTile(room, s.pos.x, s.pos.y)");
+      assert.include(SRC, "function countedShellRoad");
+      assert.isFalse(countedShellRoad(true, true), "leftover remote/approach road");
+      assert.isFalse(countedShellRoad(false, false), "interior classifier not ready");
+      assert.isTrue(countedShellRoad(true, false), "confirmed interior road");
+    });
+
+    it("never freezes plan placement on a spawn-mismatch", () => {
+      // Owner: the pack wins. A far live spawn is a hub-migrate job, not a
+      // reason to stop siting storage / ext / the plan spawn.
+      assert.notInclude(SRC, "placement frozen");
+      assert.include(SRC, "pack wins");
+    });
+
+    it("adopt always arms ALIGN+HUB", () => {
+      assert.include(SRC, "export function armNewPlanMigration");
+      assert.match(SRC, /hub:\s*true/);
+      assert.include(SRC, 'armNewPlanMigration(room, "adopt")');
+    });
+  });
+});
+
+describe("construction never drops the pack", () => {
+  const CON = fs.readFileSync(
+    path.join(__dirname, "../../src/Rooms/rooms.construction.ts"),
+    "utf8",
+  );
+  it("does not strip planV2 because the live spawn is far", () => {
+    assert.notInclude(CON, "stripping planV2");
+    assert.include(CON, "if (room.memory.planV2)");
+    assert.include(CON, "placeFromPlanV2(room)");
+    const fork = CON.slice(
+      CON.indexOf("if (room.memory.planV2)"),
+      CON.indexOf("if (room.memory.planV2)") + 280,
+    );
+    assert.notInclude(fork, "delete room.memory.planV2");
+    assert.notInclude(fork, "planPackSkip");
   });
 });
 

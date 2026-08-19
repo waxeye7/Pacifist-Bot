@@ -361,7 +361,9 @@ const run = function (creep) {
         return;
     }
 
-    if(Game.cpu.bucket < 1000) return;
+    // Do NOT idle miners on a low bucket. Harvest is the only income; turning
+    // it off while CPU is sick is how a room stays sick. Defence/flee above
+    // this line still run. Remotes are already gated by CpuPolicy.
 
     if(creep.holdForFlee()) {
         return;

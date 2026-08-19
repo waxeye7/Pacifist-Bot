@@ -131,7 +131,7 @@ export function economyStressed(room: Room): boolean {
 }
 
 /** Can this room pay for a kit of `cost` and still run itself afterwards? */
-function canFund(room: Room, cost: number): boolean {
+export function canFund(room: Room, cost: number): boolean {
   if (economyStressed(room)) return false;
   // Pre-storage rooms have no bank and fund out of income. The only thing they
   // are ever asked for is a single guard, and the tower/stall tests above have
@@ -150,7 +150,7 @@ function canFund(room: Room, cost: number): boolean {
  * affordability, so guessing high just makes the bot wait for a fatter room.
  * Quad totals are the sum of all four bodies (RCL6 SQR: 2100+2100+1400+1400).
  */
-const KIT_COST = {
+export const KIT_COST = {
   guardPrey: 650, // GUARD_PREY exactly
   guardRaid: 3170, // GUARD_RAID exactly
   duo: 4000,

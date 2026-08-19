@@ -23,6 +23,7 @@ import {
 import { replanRoom, getBasePlan, visualizeBasePlan } from "utils/BasePlan";
 import { getPerimeterTiles } from "utils/Perimeter";
 import { animPlan, animStop } from "utils/PlanAnimator";
+import { canFund, KIT_COST } from "War/kit";
 
 const g = global as any;
 
@@ -451,7 +452,7 @@ global.spawn_mosquito = function (homeRoom: string, roomName: string): boolean {
       room.controller &&
       room.controller.level === 8 &&
       room.controller.my &&
-      room.energyAvailable >= 9000 &&
+      canFund(room, KIT_COST.mosquito) &&
       Game.market.credits > 5000000
     ) {
       let terminal = room.terminal;

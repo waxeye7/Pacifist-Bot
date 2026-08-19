@@ -269,11 +269,17 @@ function observe(room) {
                   if (Game.rooms[adj].controller.level == 0) {
                     openControllerPositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
 
-                    // remove this room name from avoidrooms
-                    if (!Memory.AvoidRooms) {
-                      Memory.AvoidRooms = [];
+                    // RCL0 leftover towers must stay on AvoidRooms. The old
+                    // drop here undid creepFunctions the next observe pass.
+                    const rcl0Towered = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+                    }).length > 0;
+                    if (!rcl0Towered) {
+                      if (!Memory.AvoidRooms) {
+                        Memory.AvoidRooms = [];
+                      }
+                      Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
                     }
-                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
 
 
                     if (
@@ -529,11 +535,16 @@ function observe(room) {
                   // vision we used to drop adj from AvoidRooms, so towered
                   // rooms became walkable after a missed observe.
                   if (Game.rooms[adj]) {
-                    if(!Memory.AvoidRooms) {
-                      Memory.AvoidRooms = [];
-                    }
+                    const stillTowered = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+                    }).length > 0;
+                    if (!stillTowered) {
+                      if(!Memory.AvoidRooms) {
+                        Memory.AvoidRooms = [];
+                      }
 
-                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+                      Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+                    }
                   }
                 }
             }

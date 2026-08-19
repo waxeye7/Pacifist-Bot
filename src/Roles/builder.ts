@@ -288,7 +288,8 @@ function tapStillGood(creep): any {
 				let buildTarget = Game.getObjectById(creep.memory.locked);
 				creep.MoveCostMatrixRoadPrio(buildTarget, 3);
 			}
-		} else if((storage.store[RESOURCE_ENERGY] || 0) <
+		} else if(storage.structureType !== STRUCTURE_STORAGE &&
+				(storage.store[RESOURCE_ENERGY] || 0) <
 				((creep.room.controller && creep.room.controller.level >= 8) ? 150000
 					: (creep.room.controller && creep.room.controller.level >= 7) ? 80000
 					: (creep.room.controller && creep.room.controller.level >= 6) ? 30000
@@ -318,7 +319,12 @@ function tapStillGood(creep): any {
 			if(tap && creep.withdraw(tap, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
 				creep.MoveCostMatrixRoadPrio(tap, 1);
 			}
-		}
+		} else {
+            // Real storage exists but is below the withdraw floor. Do not
+            // drain the extension net the fillers are trying to fill
+            // (E36N57: storage 104, 8 sites, builders emptying 450/450).
+            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        }
     }
 
     else {

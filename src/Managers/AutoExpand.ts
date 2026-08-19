@@ -39,7 +39,7 @@
  * Console: autoExpand() · autoExpandStatus() · stopExpand()
  */
 import { logAlways } from "utils/Logger";
-import { packPlanPayload, clearPlanSpawnTile } from "utils/PlanV2";
+import { packPlanPayload, clearPlanSpawnTile, armNewPlanMigration } from "utils/PlanV2";
 import { requestSegments } from "utils/Segments";
 import { wipeForeignSites } from "utils/ForeignSites";
 
@@ -88,9 +88,22 @@ function ownedRooms(): Room[] {
   return out;
 }
 
-/** Any owned room with no finished MY spawn (site-only counts). */
+/**
+ * Finishable spawnless owned room. A leftover foreign spawn is unfinishable
+ * (same as roomLooksSpawnlessOwned) — after abort we still own that brick
+ * and must not hold the GCL queue until the controller downgrades.
+ */
 function spawnlessOwned(): boolean {
-  return ownedRooms().some((r) => r.find(FIND_MY_SPAWNS).length === 0);
+  return ownedRooms().some((r) => {
+    if (r.find(FIND_MY_SPAWNS).length > 0) return false;
+    return !hasVisibleForeignSpawn(r.name);
+  });
+}
+
+/** Persisted "this room has towers" — expansion targets are usually unvisioned. */
+function isAvoidRoom(roomName: string): boolean {
+  const list = M().AvoidRooms;
+  return Array.isArray(list) && list.indexOf(roomName) >= 0;
 }
 
 /** null = clear to expand, otherwise the reason we are not. */
@@ -165,10 +178,53 @@ function readSegment(seg: number): any | undefined {
 }
 
 /** Someone else's (or our own) — anything we must not target. */
-function takenByAnyone(roomName: string): boolean {
+export function takenByAnyone(roomName: string): boolean {
   const room = Game.rooms[roomName];
   if (!room || !room.controller) return false; // no vision: trust the pack
   return !!room.controller.owner;
+}
+
+/**
+ * Remember a pack name we must not re-pick without new evidence.
+ * pick() only sees takenByAnyone / leftover foreign spawns while the room
+ * is visible; finish() without this re-selected the same name every
+ * CHECK_EVERY and minted claimers in a loop.
+ */
+export function markExpandSkip(roomName: string): void {
+  if (!roomName) return;
+  const m = M();
+  if (!m.expandSkip) m.expandSkip = {};
+  m.expandSkip[roomName] = Game.time;
+}
+
+/** Stamp holds with no vision; vision of a free room forgets it. */
+export function expandSkipHolds(
+  stamped: boolean,
+  vision: boolean,
+  my: boolean,
+  ownedByAnyone: boolean,
+  foreignSpawn: boolean,
+): boolean {
+  if (!stamped) return false;
+  if (!vision) return true;
+  if (my) return false;
+  return !!(ownedByAnyone || foreignSpawn);
+}
+
+export function expandSkipBlocks(roomName: string): boolean {
+  const m = M();
+  const stamped = !!(m.expandSkip && m.expandSkip[roomName] !== undefined);
+  if (!stamped) return false;
+  const room = Game.rooms[roomName];
+  const holds = expandSkipHolds(
+    true,
+    !!room,
+    !!(room && room.controller && room.controller.my),
+    !!(room && room.controller && room.controller.owner),
+    hasVisibleForeignSpawn(roomName),
+  );
+  if (!holds) delete m.expandSkip[roomName];
+  return holds;
 }
 
 /** A home needs two sources. Visible count wins; else the pack must say >= 2. */
@@ -254,7 +310,11 @@ function pick(st: ExpandState): void {
   const mine: { [name: string]: boolean } = {};
   for (const r of ownedRooms()) mine[r.name] = true;
   for (const t of data.targets) {
-    if (mine[t.room] || takenByAnyone(t.room)) continue;
+    if (mine[t.room] || takenByAnyone(t.room) || expandSkipBlocks(t.room)) continue;
+    if (isAvoidRoom(t.room)) {
+      logAlways(`autoExpand: skip ${t.room} — AvoidRooms`);
+      continue;
+    }
     if (hasVisibleForeignSpawn(t.room)) {
       logAlways(`autoExpand: skip ${t.room} — visible foreign spawn`);
       continue;
@@ -292,16 +352,10 @@ function payloadSpawnPos(payload: any): { x: number; y: number } | null {
 }
 
 /** Why this room must not receive this pack. null = ok. */
-function refuseAdopt(room: Room, payload: any): string | null {
-  if (room.find(FIND_SOURCES).length < 2) return "fewer than 2 sources";
-  const live = room.find(FIND_MY_SPAWNS);
-  if (!live.length) return null;
-  const planned = payloadSpawnPos(payload);
-  if (!planned) return null;
-  for (const s of live) {
-    if (Math.max(Math.abs(s.pos.x - planned.x), Math.abs(s.pos.y - planned.y)) <= 6) return null;
-  }
-  return `live spawn ${live[0].pos.x},${live[0].pos.y} != pack spawn ${planned.x},${planned.y}`;
+function refuseAdopt(_room: Room, payload: any): string | null {
+  // Used to refuse far-spawn rooms (and stamp planPackSkip forever) and
+  // 1-source rooms (W3N3). Owner wants the pack on every owned room.
+  return payload ? null : "empty pack";
 }
 
 /** Write a pack payload into room.memory.planV2 and say so. */
@@ -313,17 +367,12 @@ function adoptPacked(room: Room, payload: any, from: string): void {
     return;
   }
   room.memory.planV2 = packPlanPayload(payload);
-  // fresh colonies auto-arm migration so bootstrap squatters get cleared;
-  // established rooms (a pack adopted late) stay placement-only until the
-  // operator runs migratePlan() — same rule as console adoption
-  const young =
-    room.controller != null &&
-    room.controller.level < 4 &&
-    room.find(FIND_MY_STRUCTURES).length < 15;
-  if (!(room.memory as any).planMigration && young) {
-    (room.memory as any).planMigration = { mode: "auto", since: Game.time };
-    logAlways(`autoExpand: ${room.name} auto-armed migration (young colony)`);
-  }
+  armNewPlanMigration(room, from);
+  const planned = payloadSpawnPos(payload);
+  logAlways(
+    `autoExpand: ${room.name} armed ALIGN+HUB toward the pack` +
+      (planned ? ` spawn ${planned.x},${planned.y}` : ""),
+  );
   const t = (room.memory.planV2 as any).t;
   delete (room.memory as any).planPackMiss;
   logAlways(
@@ -433,13 +482,9 @@ export function runPackAdoption(): void {
         // tombstone migrateAbort writes — blocks the self-heal: only rooms
         // that predate the arming model entirely are armed here
         const armless = !(room.memory as any).planMigration;
-        const young =
-          room.controller != null &&
-          room.controller.level < 4 &&
-          room.find(FIND_MY_STRUCTURES).length < 15;
-        if (armless && young) {
-          (room.memory as any).planMigration = { mode: "auto", since: Game.time };
-          logAlways(`autoExpand: ${room.name} auto-armed migration (pre-arming-model colony)`);
+        if (armless) {
+          armNewPlanMigration(room, "pack-self-heal");
+          logAlways(`autoExpand: ${room.name} auto-armed ALIGN+HUB (plan present, no arm)`);
         }
         continue;
       }
@@ -550,16 +595,29 @@ function advance(st: ExpandState): void {
       return;
 
     case "claiming":
+      if (isAvoidRoom(st.room)) {
+        finish(st, "ABORT — AvoidRooms");
+        return;
+      }
       if (Game.rooms[st.room] && tooFewSources(st.room)) {
+        markExpandSkip(st.room);
         finish(st, "ABORT — fewer than 2 sources");
         return;
       }
       if (hasVisibleForeignSpawn(st.room) && !hasSpawn) {
+        markExpandSkip(st.room);
         finish(st, "ABORT — visible foreign spawn while claiming");
         return;
       }
       if (mine) {
         setPhase(st, hasSpawn ? "spawned" : "claimed");
+        return;
+      }
+      // Vision of a foreign-owned controller used to keep armColonise()
+      // (claimer attackController for up to PHASE_TIMEOUT 20k).
+      if (takenByAnyone(st.room)) {
+        markExpandSkip(st.room);
+        finish(st, "ABORT — taken by someone else");
         return;
       }
       // idempotent: rooms.spawning spawns the claimer off target_colonise
@@ -573,6 +631,7 @@ function advance(st: ExpandState): void {
         return;
       }
       if (tooFewSources(st.room)) {
+        markExpandSkip(st.room);
         finish(st, "ABORT — fewer than 2 sources");
         return;
       }
@@ -582,6 +641,7 @@ function advance(st: ExpandState): void {
         return;
       }
       if (hasVisibleForeignSpawn(st.room)) {
+        markExpandSkip(st.room);
         finish(st, "ABORT — visible foreign spawn, still spawnless");
         return;
       }
@@ -619,9 +679,13 @@ export function runAutoExpand(): void {
   // whether we currently want another one. This is the safety net described
   // above, and the only adoption path that survives a memory reset.
   runPackAdoption();
-  if (m.features && m.features.autoExpand === false) return;
   const st = m.autoExpand as ExpandState | undefined;
+  const featureOff = !!(m.features && m.features.autoExpand === false);
   if (!st) {
+    // Off blocks NEW claims only. In-flight claiming/claimed must still
+    // advance() or PHASE_TIMEOUT / CLAIMED_SPAWNLESS never fire and
+    // target_colonise keeps hatching claimers/CBs.
+    if (featureOff) return;
     if (Game.time % CHECK_EVERY !== 0) return;
     if (blockedReason()) return;
     m.autoExpand = {
@@ -632,6 +696,10 @@ export function runAutoExpand(): void {
       started: Game.time,
     } as ExpandState;
     logAlways(`autoExpand: starting — GCL ${Game.gcl.level}, ${ownedRooms().length} rooms, bucket ${Game.cpu.bucket}`);
+    return;
+  }
+  if (featureOff && st.phase === "picking") {
+    finish(st, "ABORT — autoExpand off");
     return;
   }
   // segment phases need consecutive ticks; the rest is world polling
