@@ -1,0 +1,1000 @@
+{
+  "presenceNames": [
+    "arrayPartner",
+    "baseCut",
+    "baseOverGated",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "corridorFallback",
+    "corridorPlaced",
+    "deepBudget",
+    "deepExhausted",
+    "deepReach",
+    "digRoads",
+    "faceAndSatHeld",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "freeLeft",
+    "haulCost",
+    "hubDistCap",
+    "inertPromoted",
+    "lapCeilingFloor",
+    "lapVeto",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mobilityRepair",
+    "noAlternative",
+    "parkCap",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "radii",
+    "rcl5Pair",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "roadsEaten",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "servedFree",
+    "shallowCost",
+    "shallowNow",
+    "shallowRamparts",
+    "shallowRefused",
+    "stitchTiles",
+    "stitched",
+    "strandedFirst",
+    "stubCap",
+    "stubExhausted",
+    "stubRoads",
+    "takeTowerSwap",
+    "tourRule",
+    "towerOnly",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derivedNames": [
+    "battlementFloor",
+    "center",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "mineralBubble",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "priceyWall",
+    "protectRadius",
+    "refillDistsUnblocked",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "swampPaved"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowRefused": 3,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 44,
+  "flippedEvents": 4319,
+  "flipped2": {
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowRefused": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1,
+    "shallowRamparts": 1
+  },
+  "flippedBase": {
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowRefused": 3,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1,
+    "shallowRamparts": 1
+  },
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "fleetMinusBaseCut": {
+    "label": "presence-zero-excl-baseCut",
+    "pass": 169,
+    "fail": 3,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+        ]
+      },
+      {
+        "room": "E2S3",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 4 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+        ]
+      },
+      {
+        "room": "E9S2",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 15 of 60 sit at depth < 4 and rent a personal rampart forever. Cause of the 15 that remain…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Outcome: every shallow slot …\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+        ]
+      }
+    ]
+  },
+  "fleetExcl": {
+    "label": "presence-zero-excl-shallowNow-baseCut",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "singles": [
+    {
+      "name": "PRESENCE-arrayPartner",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-baseOverGated-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-battlementGap",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-battlementGapTiles",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-boundHeld-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-boundLap-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-boundRederived",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-budgetSpent",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-causeFirst",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-cleanAnchor",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-corridorFallback-flattered",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-corridorPlaced-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-deepBudget-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.deepBudget` is 0 and `meta.extensions.laneMeta.deepBudget` is 8. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.deepBudget` is 0 and `meta.extensions.laneMeta.deepBudget` is 8. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-deepExhausted-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-deepReach-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-digRoads-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-faceAndSatHeld-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-fillerTiles",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-floorGated-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-floorOver-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-floorOverGated-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-floorUngated-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.floorUngated` is 0 and `meta.extensions.laneMeta.floorUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.floorUngated` is 0 and `meta.extensions.laneMeta.floorUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-freeDin-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-freeLeft-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-haulCost-flattered",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-hubDistCap-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-inertPromoted-flattered",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-lapCeilingFloor-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-lapVeto",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-massAdds-flattered",
+      "room": "E11S7",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-maxDist-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-maxHubDist-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-minDmgArray-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-minDmgPicked-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-mineralApproachAtReservation",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-mineralContainer-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-mineralSeatAtReservation",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-mobilityRepair",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-noAlternative",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-parkCap-flattered",
+      "room": "E12S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-paveRetired",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-pickedBy",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-priceProven-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-radii-flattered",
+      "room": "E13S8",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rcl5Pair",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-rescueSpent",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-rescuedLap-flattered",
+      "room": "E13S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rescuedTo",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-roadsEaten-flattered",
+      "room": "E9S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rolledBackFrom",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-searchedSeats-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-servedExts",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-servedFree-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-shallowCost-flattered",
+      "room": "E2S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-shallowRamparts-flattered",
+      "room": "E9S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-shallowRefused-flattered",
+      "room": "E12S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-stitchTiles-flattered",
+      "room": "E11S9",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-stitched-flattered",
+      "room": "E11S9",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-strandedFirst-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.strandedFirst` is 0 and `meta.extensions.laneMeta.strandedFirst` is 13. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.strandedFirst` is 0 and `meta.extensions.laneMeta.strandedFirst` is 13. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-stubCap-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-stubExhausted-flattered",
+      "room": "E16S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-stubRoads-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-takeTowerSwap",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-tourRule",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-towerOnly-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-towerSwapOffer",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-tradeCost",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unreachableExts",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unreachedClusters",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unsealed-flattered",
+      "room": "E12S5",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.unsealed` is 0 and `meta.extensions.laneMeta.unsealed` is 18. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.unsealed` is 0 and `meta.extensions.laneMeta.unsealed` is 18. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-uselessCut",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-wasLap-flattered",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-worstCase-flattered",
+      "room": "E12S2",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCase` is 0 and `meta.extensions.laneMeta.worstCase` is 7.5. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.worstCase` is 0 and `meta.extensions.laneMeta.worstCase` is 7.5. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-worstCaseUngated-flattered",
+      "room": "E11S9",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCaseUngated` is 0 and `meta.extensions.laneMeta.worstCaseUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.worstCaseUngated` is 0 and `meta.extensions.laneMeta.worstCaseUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    }
+  ],
+  "singleEscapes": [
+    "PRESENCE-baseOverGated-flattered",
+    "PRESENCE-boundHeld-flattered",
+    "PRESENCE-boundLap-flattered",
+    "PRESENCE-corridorFallback-flattered",
+    "PRESENCE-corridorPlaced-flattered",
+    "PRESENCE-deepExhausted-flattered",
+    "PRESENCE-deepReach-flattered",
+    "PRESENCE-digRoads-flattered",
+    "PRESENCE-floorGated-flattered",
+    "PRESENCE-floorOver-flattered",
+    "PRESENCE-floorOverGated-flattered",
+    "PRESENCE-freeDin-flattered",
+    "PRESENCE-freeLeft-flattered",
+    "PRESENCE-haulCost-flattered",
+    "PRESENCE-hubDistCap-flattered",
+    "PRESENCE-inertPromoted-flattered",
+    "PRESENCE-lapCeilingFloor-flattered",
+    "PRESENCE-massAdds-flattered",
+    "PRESENCE-maxDist-flattered",
+    "PRESENCE-maxHubDist-flattered",
+    "PRESENCE-minDmgArray-flattered",
+    "PRESENCE-minDmgPicked-flattered",
+    "PRESENCE-mineralContainer-flattered",
+    "PRESENCE-parkCap-flattered",
+    "PRESENCE-radii-flattered",
+    "PRESENCE-rescuedLap-flattered",
+    "PRESENCE-roadsEaten-flattered",
+    "PRESENCE-servedFree-flattered",
+    "PRESENCE-shallowCost-flattered",
+    "PRESENCE-shallowRamparts-flattered",
+    "PRESENCE-shallowRefused-flattered",
+    "PRESENCE-stitchTiles-flattered",
+    "PRESENCE-stitched-flattered",
+    "PRESENCE-stubCap-flattered",
+    "PRESENCE-stubExhausted-flattered",
+    "PRESENCE-stubRoads-flattered",
+    "PRESENCE-towerOnly-flattered",
+    "PRESENCE-wasLap-flattered"
+  ],
+  "singleBites": [
+    "PRESENCE-deepBudget-flattered",
+    "PRESENCE-faceAndSatHeld-flattered",
+    "PRESENCE-floorUngated-flattered",
+    "PRESENCE-priceProven-flattered",
+    "PRESENCE-searchedSeats-flattered",
+    "PRESENCE-strandedFirst-flattered",
+    "PRESENCE-unsealed-flattered",
+    "PRESENCE-worstCase-flattered",
+    "PRESENCE-worstCaseUngated-flattered"
+  ],
+  "ms": 49878
+}

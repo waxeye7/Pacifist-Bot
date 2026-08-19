@@ -1,0 +1,959 @@
+{
+  "rows": [
+    {
+      "name": "98 append 19,27 both reserved lists wanted+1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 prefix swap 18,27→19,27 both lists",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 wanted += 1 only",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 leaky 20,9→19,9 complete stays true + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 leaky 20,9→19,9 AND complete=false + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 sealing 29,33→28,34 + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 last-fat complete=false only + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p13 mineralContainer := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass"
+    },
+    {
+      "name": "p13 minDmgPicked := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p13 servedFree := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.servedFree is 0 and 4 shipped-cut cluster(s) already D8-touch a pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass"
+    },
+    {
+      "name": "p13 stitched := 2",
+      "room": "E11S9",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.stitched is 2 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+    },
+    {
+      "name": "p13 stitched := 2 on laid>=2",
+      "room": "E8S4",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.stitched is 2 and laidByKind.stitch is 2. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+    },
+    {
+      "name": "p14 arrayPartner moved 1,1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.towers.rcl5Pair.arrayPartner is 1,1 and towers[swapped ? 2 : 1] is 26,42. The partner is that shipped tower — moving it used to pass"
+    },
+    {
+      "name": "p14 rcl5Pair.picked moved 1,1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.towers.rcl5Pair.picked is 1,1 and towers[1] is 27,39. The RCL5 pick is the second shipped tower — moving it used to pass"
+    },
+    {
+      "name": "p14 minDmgArray := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.towers.rcl5Pair.minDmgArray is 0 and towers[0]+arrayPartner cover the freeze cut's weakest tile at 630. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p14 battlementGap := 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p14 battlementGapTiles plant 1,1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+    },
+    {
+      "name": "p14 boundHeld flipped false",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.boundHeld is false and the as-built gated lap 1.5 is inside lane.bounded 1.56. The bound held — flipping the flag used to pass"
+    },
+    {
+      "name": "p14 boundLap := 0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.boundLap is 0 and the as-built gated lap is 1.5. They are the same walk when the bound held — flattening it used to pass"
+    },
+    {
+      "name": "p14 fillerTiles := 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+    },
+    {
+      "name": "p14 shallowCost := 0",
+      "room": "E2S3",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.labs.shallowCost is 0 and this room ships 1 lab(s) at depth < 4, which costs 3. It is that depth count times 3, not a comment — zeroing it used to pass"
+    },
+    {
+      "name": "p14 shallowRefused cleared",
+      "room": "E12S6",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.reflow.shallowRefused names [] and this room ships shallow extension(s) [17,7 18,6 22,18 31,3 32,3 36,3]. The roster is those tiles, not a comment — clearing it used to pass"
+    },
+    {
+      "name": "p15 floorGated := 0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.floorGated is 0 and the mass-free walk on the shipped wall (extensions lifted, other structures kept) is 1.5. It is that floor, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p15 floorOver := 0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.floorOver is 0 and the mass-free walk has 15 ungated over-target pair(s). It is that count, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p15 floorOverGated := 0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.floorOverGated is 0 and the mass-free walk has 3 gated over-target pair(s). It is that count, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p15 worst.freeDin := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.mobility.worst.freeDin is 0 and the mass-free walk of the published worst pair is 1. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p15 massAdds := 0 both copies",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.walls.mobility.worst.massAdds is 0 and the built walk minus the mass-free walk of that pair is 3. It is that difference — flattening it used to pass"
+    },
+    {
+      "name": "p15 roadOrder.maxDist := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.roadOrder.maxDist is 0 and the sitter-to-road BFS on the conducting network is 32. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p15 deepReach := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.deepReach is 0 and min(hubDistCap+2, 18) is 18. The deep flank ceiling is that formula — flattening it used to pass"
+    },
+    {
+      "name": "p15 stubCap := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 0 and the rich/poor paving ceiling on this room's deep ext-capable pool is 43. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p15 stubCap 43→51",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 51 and the rich/poor paving ceiling on this room's deep ext-capable pool is 43. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p15 mineralSeatAtReservation → 1,1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.mineralSeatAtReservation is 1,1 and the mineral is at 23,7. The reserved seat is a chebyshev-1 neighbour of the mineral — moving it used to pass"
+    },
+    {
+      "name": "p15 mineralApproachAtReservation → 1,1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.mineralApproachAtReservation is 1,1 and the reserved seat is 24,8. The reserved approach is a D8 neighbour of that seat — moving it used to pass"
+    },
+    {
+      "name": "141e seedScore := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.seedScore is 0 and the fullest confluence score in the seed window is -92.9. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "141e seedScore += 999",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.seedScore is 906.1 and the fullest confluence score in the seed window is -92.9. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p16 hubDistCap := 17 off-ladder",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+    },
+    {
+      "name": "p16 hubDistCap 16→19 in-enum",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p16 lapCeilingFloor := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "reflow.lapCeilingFloor is 0 and MOBILITY_TARGET is 1.2. The ceiling floor is that target, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced := 0 keep fallback 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.corridorPlaced is 0 and corridorFallback is 0. Fallback is 0 iff every extension sat on a corridor (60) — flattening the count used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced := 0 and fallback := 1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p17 stubCap 43→51",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 51 and the rich/poor paving ceiling on this room's deep ext-capable pool is 43. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p17 stubCap 51→43",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 43 and the rich/poor paving ceiling on this room's deep ext-capable pool is 51. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p17 floorUngated := 0 both copies",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.extensions.laneMeta.floorUngated is 0 and the mass-free ungated walk on the freeze cut (extensions not yet placed) is 1. It is that floor, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p17 radii rewritten [1,2,3]",
+      "room": "E13S8",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.radii is [1,2,3] and the escalation table for needDeepBonus 25 is 6,7,8,9,10,11,12,13,14. The list is that composeOpts walk — rewriting it used to pass"
+    },
+    {
+      "name": "p17 radii planted on absent",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.radii is [6,7,8,9,10,11,12,13,14] and the escalation table for needDeepBonus none is absent. The list is that composeOpts walk — rewriting it used to pass"
+    },
+    {
+      "name": "p17 parkCap := 0",
+      "room": "E12S5",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.parkCap is 0 and ctrlParkFloorCap is 2. The cap is the reservation this composition held — flattening it used to pass"
+    },
+    {
+      "name": "p17 takeTowerSwap.to → 1,1",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 3,
+      "first": "meta.composeOpts.takeTowerSwap.to is 1,1 and no shipped tower sits there. The take's destination is a tower on the board this room ships — moving it used to pass"
+    },
+    {
+      "name": "p18 maxHubDist := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 15. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p18 maxHubDist += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.maxHubDist is 16 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 15. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p18 takeTowerSwap.from → 1,1",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.composeOpts.takeTowerSwap.from is 1,1 and to is 34,24. The take vacated a D8 neighbour of the destination — moving it off that ring used to pass"
+    },
+    {
+      "name": "p18 takeTowerSwap.from other D8 35,24",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+    },
+    {
+      "name": "p19 takeTowerSwap.from other D8 35,24 composeOpts only",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+    },
+    {
+      "name": "p19 takeTowerSwap.from other D8 + rewrite published take",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "PLANNER NOTE — `meta.noteRecords[0]` (class towerSwap) says `.taken` is {\"from\":{\"x\":34,\"y\":25},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"} and `meta.towers.acrossPriorTake.taken` — the tower-swap record this file re-derives against the shipped board — says {\"from\":{\"x\":35,\"y\":24},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"}. A note is"
+    },
+    {
+      "name": "p19 unreachedClusters += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+    },
+    {
+      "name": "p19 unreachableExts += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+    },
+    {
+      "name": "p19 servedExts += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+    },
+    {
+      "name": "p19 servedExts += 1 and fillerTiles += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+    }
+  ],
+  "hashed": [
+    "E19S6",
+    "E14S5",
+    "E6S5",
+    "E12S2",
+    "E3S9"
+  ],
+  "brief": {
+    "E19S6": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 44,
+      "protect": 12,
+      "seedScore": 3.7,
+      "seed": {
+        "x": 12,
+        "y": 9
+      },
+      "hub": {
+        "x": 12,
+        "y": 9
+      },
+      "sitter": {
+        "x": 13,
+        "y": 9
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "shallowExt",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "14,3",
+        "14,4",
+        "3,13",
+        "4,13",
+        "5,12",
+        "6,11",
+        "8,21",
+        "9,20"
+      ],
+      "laneRes": []
+    },
+    "E14S5": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 30,
+      "protect": 12,
+      "seedScore": -70.2,
+      "seed": {
+        "x": 28,
+        "y": 33
+      },
+      "hub": {
+        "x": 28,
+        "y": 33
+      },
+      "sitter": {
+        "x": 28,
+        "y": 32
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "redundantCut",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "towers/weak-battery",
+        "eco"
+      ],
+      "outcome": "allRefused",
+      "holders": [
+        {
+          "t": "spawn",
+          "k": "31,32",
+          "keys": [
+            "type",
+            "x",
+            "y",
+            "recovers",
+            "recoversDeep"
+          ]
+        },
+        {
+          "t": "tower",
+          "k": "31,33",
+          "keys": [
+            "type",
+            "x",
+            "y",
+            "recovers",
+            "recoversDeep"
+          ]
+        }
+      ],
+      "rungs": [],
+      "reserved": [
+        "33,45",
+        "34,44",
+        "35,43",
+        "36,42"
+      ],
+      "laneRes": [
+        "33,45",
+        "34,44",
+        "35,43",
+        "36,42"
+      ]
+    },
+    "E6S5": {
+      "hashed": true,
+      "drift": [
+        "remove 23,5 layer7-inertPrune",
+        "add 22,6 layer7-reconcileSeal"
+      ],
+      "baseCut": 34,
+      "protect": 11,
+      "seedScore": -22.4,
+      "seed": {
+        "x": 9,
+        "y": 21
+      },
+      "hub": {
+        "x": 9,
+        "y": 21
+      },
+      "sitter": {
+        "x": 9,
+        "y": 22
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "redundantCut",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "12,24",
+        "12,28",
+        "13,23",
+        "14,28",
+        "14,32",
+        "15,21",
+        "15,29",
+        "16,20",
+        "16,29",
+        "18,17",
+        "18,18",
+        "19,18",
+        "19,19",
+        "20,19",
+        "20,20",
+        "3,26",
+        "4,10",
+        "5,11"
+      ],
+      "laneRes": [
+        "12,24",
+        "12,28",
+        "13,23",
+        "14,28",
+        "14,32",
+        "15,21",
+        "15,29",
+        "16,20",
+        "16,29",
+        "18,17",
+        "18,18",
+        "19,18",
+        "19,19",
+        "20,19",
+        "20,20",
+        "3,26",
+        "4,10",
+        "5,11"
+      ]
+    },
+    "E12S2": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 65,
+      "protect": 8,
+      "seedScore": -21.6,
+      "seed": {
+        "x": 26,
+        "y": 27
+      },
+      "hub": {
+        "x": 26,
+        "y": 27
+      },
+      "sitter": {
+        "x": 26,
+        "y": 28
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "18,22",
+        "18,31",
+        "19,23",
+        "19,30",
+        "20,24"
+      ],
+      "laneRes": [
+        "18,22",
+        "18,31",
+        "19,23",
+        "19,30",
+        "20,24"
+      ]
+    },
+    "E3S9": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 39,
+      "protect": 10,
+      "seedScore": -13.5,
+      "seed": {
+        "x": 36,
+        "y": 16
+      },
+      "hub": {
+        "x": 35,
+        "y": 18
+      },
+      "sitter": {
+        "x": 34,
+        "y": 18
+      },
+      "mobility": 2.57,
+      "enclosedCtrl": true,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network",
+        "mobility"
+      ],
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 2.57,
+          "ramp": 42,
+          "cut": 39,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 2.57,
+          "ramp": 42,
+          "cut": 39,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 2.57,
+          "ramp": 42,
+          "cut": 39,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 4,
+          "ramp": 50,
+          "cut": 48,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "26,18",
+        "27,18",
+        "27,25",
+        "28,25",
+        "28,6",
+        "29,26",
+        "29,7",
+        "30,8",
+        "33,25",
+        "34,26",
+        "35,21",
+        "35,22",
+        "35,23",
+        "36,20",
+        "36,24",
+        "36,26",
+        "37,19",
+        "37,25",
+        "38,18",
+        "38,25",
+        "39,17",
+        "40,16",
+        "41,15",
+        "41,6",
+        "42,6",
+        "43,15",
+        "44,16",
+        "44,6",
+        "44,7",
+        "45,15",
+        "45,17",
+        "46,16",
+        "46,18"
+      ],
+      "laneRes": [
+        "26,18",
+        "27,18",
+        "27,25",
+        "28,25",
+        "28,6",
+        "29,26",
+        "29,7",
+        "30,8",
+        "33,25",
+        "34,26",
+        "35,21",
+        "35,22",
+        "35,23",
+        "36,20",
+        "36,24",
+        "36,26",
+        "37,19",
+        "37,25",
+        "38,18",
+        "38,25",
+        "39,17",
+        "40,16",
+        "41,15",
+        "41,6",
+        "42,6",
+        "43,15",
+        "44,16",
+        "44,6",
+        "44,7",
+        "45,15",
+        "45,17",
+        "46,16",
+        "46,18"
+      ]
+    },
+    "E11S1": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 32,
+      "protect": 12,
+      "seedScore": -92.9,
+      "seed": {
+        "x": 25,
+        "y": 39
+      },
+      "hub": {
+        "x": 24,
+        "y": 41
+      },
+      "sitter": {
+        "x": 24,
+        "y": 40
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "shallowExt",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "eco"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "laneRes": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    "E2S7": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 18,
+      "protect": 12,
+      "seedScore": -21.5,
+      "seed": {
+        "x": 13,
+        "y": 27
+      },
+      "hub": {
+        "x": 13,
+        "y": 27
+      },
+      "sitter": {
+        "x": 14,
+        "y": 27
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ],
+      "laneRes": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ]
+    },
+    "E1S4": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 24,
+      "protect": 12,
+      "seedScore": -31.8,
+      "seed": {
+        "x": 35,
+        "y": 22
+      },
+      "hub": {
+        "x": 35,
+        "y": 22
+      },
+      "sitter": {
+        "x": 35,
+        "y": 21
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ],
+      "laneRes": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ]
+    }
+  }
+}

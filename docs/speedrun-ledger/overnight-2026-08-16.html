@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Overnight · Pacifist speedrun · 16 Aug</title>
+  <style>
+    :root {
+      --bg: #11140f;
+      --paper: #1a1f17;
+      --ink: #e8eadf;
+      --mute: #9aa391;
+      --line: #2c3328;
+      --keep: #8fd16a;
+      --keep-bg: #1f3a18;
+      --back: #e07a6a;
+      --back-bg: #3a1c18;
+      --run: #e6c35c;
+      --run-bg: #3a3314;
+      --hold: #7eb6d6;
+      --hold-bg: #17303a;
+      --good: #8fd16a;
+      --bad: #e07a6a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+    body {
+      font: 18px/1.45 "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+      max-width: 46rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 5rem;
+    }
+    h1 { font-size: 2.1rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+    .sub { color: var(--mute); font-size: 0.95rem; margin-bottom: 1.6rem; }
+    h2 { font-size: 1.15rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute); margin: 2.2rem 0 0.75rem; font-weight: 600; }
+    p { margin: 0 0 0.75rem; }
+    .lead { font-size: 1.2rem; }
+    .lead p { margin: 0 0 0.45rem; }
+    .cards { display: grid; gap: 0.7rem; }
+    .split { display: grid; gap: 0.7rem; }
+    @media (min-width: 640px) {
+      .split { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.95rem 1.05rem;
+    }
+    .card strong { display: block; margin-bottom: 0.2rem; }
+    .hero {
+      display: grid;
+      gap: 0.7rem;
+      margin: 1.2rem 0 0.4rem;
+    }
+    @media (min-width: 640px) {
+      .hero { grid-template-columns: 1fr 1fr 1fr; }
+    }
+    .hero .card { text-align: center; padding: 1.15rem 0.8rem 1.05rem; }
+    .big {
+      font: 800 2.55rem/1 "Segoe UI", system-ui, sans-serif;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+      margin: 0.15rem 0 0.2rem;
+    }
+    .hero .lbl { color: var(--mute); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .tag {
+      display: inline-block;
+      font: 700 0.72rem/1 "Segoe UI", system-ui, sans-serif;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.22rem 0.45rem;
+      border-radius: 999px;
+      margin-right: 0.28rem;
+    }
+    .keep { background: var(--keep-bg); color: var(--keep); }
+    .back { background: var(--back-bg); color: var(--back); }
+    .run { background: var(--run-bg); color: var(--run); }
+    .hold { background: var(--hold-bg); color: var(--hold); }
+    .void { background: #2a2a26; color: #b8b6a8; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.9rem; }
+    th { text-align: left; color: var(--mute); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.35rem 0.4rem 0.45rem 0; }
+    td { padding: 0.48rem 0.35rem 0.48rem 0; border-top: 1px solid var(--line); vertical-align: top; }
+    td:nth-child(n+3) { text-align: right; font-family: "Segoe UI", system-ui, sans-serif; }
+    td:last-child { text-align: right; white-space: nowrap; }
+    table.rooms th:nth-child(n+2),
+    table.rooms td:nth-child(n+2) { text-align: right; font-family: "Segoe UI", system-ui, sans-serif; }
+    .num { font-family: "Segoe UI", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    .win { color: var(--good); }
+    .lose { color: var(--bad); }
+    ol, ul { margin: 0.25rem 0 0.7rem; padding-left: 1.2rem; }
+    li { margin: 0.32rem 0; }
+    .now { background: #24301c; border-color: #3d5a2c; }
+    .keep-card { border-color: #3d5a2c; }
+    .back-card { border-color: #5a332c; }
+    .back-card .big { color: var(--bad); }
+    .dirty-card { border-color: #5a332c; background: #241614; }
+    .dirty-card .big { color: var(--bad); }
+    .stat { font: 700 1.35rem/1.15 "Segoe UI", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    footer { margin-top: 3rem; color: var(--mute); font-size: 0.85rem; }
+    code { font-size: 0.88em; }
+    .mono { font-family: "Segoe UI", system-ui, sans-serif; }
+    @media (max-width: 640px) {
+      body { font-size: 16px; }
+      .big { font-size: 2.1rem; }
+      .hide-sm { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Overnight, in one page</h1>
+  <p class="sub">15–16 Aug · cycle 15 finished 8/8 · SEND BACK lastSpawn latch · lower ticks = faster</p>
+
+  <div class="lead">
+    <p>Cycle 15 is done. <strong>SEND BACK</strong> the <code>lastSpawn=0</code> latch. It never hatched 5W — clamp made <strong>4W</strong>.</p>
+    <p>RCL4 <span class="num">32,092</span> vs this control <span class="num">28,657</span> (<span class="lose">+3,435</span>). vs honest mark <span class="num">29,029</span> (<span class="lose">+3,063</span>).</p>
+    <p>No new RCL4 record. Honest leftover-5+6W on a clean world is cycle-8 <span class="num">29,029</span> (8/8). Clean-world RCL4 sits in a <span class="num">29–32k</span> band.</p>
+    <p><span class="num">24,512</span> is <strong>DIRTY</strong> — leftover boxes already standing, 7/8. Not the mark. Do not race against it.</p>
+    <p>We kept leftover-5, 6W, depot miss-guard, no RCL3 roads, no RCL2 boxes. Recycle, one-box, haul-2, both 5W floods, and now the latch went back.</p>
+  </div>
+
+  <div class="hero">
+    <div class="card dirty-card">
+      <div class="lbl"><span class="tag back">dirty</span> leftover-5 · not the mark</div>
+      <div class="big">24,512</div>
+      <div>7/8 · leftover boxes already there</div>
+    </div>
+    <div class="card keep-card">
+      <div class="lbl"><span class="tag keep">honest</span> leftover-5+6W · cycle 8</div>
+      <div class="big">29,029</div>
+      <div>8/8 clean · band 29–32k</div>
+    </div>
+    <div class="card back-card">
+      <div class="lbl"><span class="tag back">send back</span> cycle 15 · lastSpawn latch</div>
+      <div class="big">32,092</div>
+      <div>8/8 · vs ctrl +3,435 · 4W not 5W</div>
+    </div>
+  </div>
+
+  <h2>Finished — cycle 15</h2>
+  <div class="card back-card">
+    <span class="tag back">send back</span>
+    <strong>lastSpawn latch · 8/8 · 4W, not 5W</strong>
+    <p style="margin-top:0.45rem">Wanted one extra 5W at 550. Latch <em>held</em> — no 13/14 flood. Clamp still hatched <strong>4W</strong>. leftover-5 held L3, then dumped 15 ext sites at L4.</p>
+    <p>
+      RCL2 <span class="stat win">811</span> vs 907 <span class="win">−96</span> · 8/8<br>
+      RCL3 <span class="stat lose">15,177</span> vs 15,134 <span class="lose">+43</span> · 8/8<br>
+      RCL4 <span class="stat lose">32,092</span> vs 28,657 <span class="lose">+3,435</span> · 8/8
+    </p>
+    <p style="margin-bottom:0">vs cycle-8 <span class="num">29,029</span> · <span class="lose">+3,063</span>. Revert <code>lastSpawn=0</code> poke and <code>fiveWQueued</code> together.</p>
+  </div>
+
+  <h2>RCL4 rooms · this race</h2>
+  <p>Spawn → RCL4 elapsed from the race JSON. Pair mates under <code>--swap</code>.</p>
+  <table class="rooms">
+    <thead>
+      <tr>
+        <th>Pair</th>
+        <th>Cand</th>
+        <th>Ctrl</th>
+        <th>Δ</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>B1</td>
+        <td>E5S3 <span class="num">34,900</span></td>
+        <td>E9S1 <span class="num">27,406</span></td>
+        <td class="lose">+7,494</td>
+      </tr>
+      <tr>
+        <td>B2</td>
+        <td>E12S3 <span class="num">34,236</span></td>
+        <td>E13S9 <span class="num">31,964</span></td>
+        <td class="lose">+2,272</td>
+      </tr>
+      <tr>
+        <td>B3</td>
+        <td>E18S9 <span class="num">36,623</span></td>
+        <td>E8S5 <span class="num">26,914</span></td>
+        <td class="lose">+9,709</td>
+      </tr>
+      <tr>
+        <td>B4</td>
+        <td>E11S6 <span class="num">29,188</span></td>
+        <td>E8S3 <span class="num">29,950</span></td>
+        <td class="win">−762</td>
+      </tr>
+      <tr>
+        <td>B5</td>
+        <td>E16S9 <span class="num">32,248</span></td>
+        <td>E4S7 <span class="num">22,403</span></td>
+        <td class="lose">+9,845</td>
+      </tr>
+      <tr>
+        <td>B6</td>
+        <td>E18S5 <span class="num">30,245</span></td>
+        <td>E6S1 <span class="num">30,758</span></td>
+        <td class="win">−513</td>
+      </tr>
+      <tr>
+        <td>B7</td>
+        <td>E12S1 <span class="num">32,370</span></td>
+        <td>E3S5 <span class="num">36,935</span></td>
+        <td class="win">−4,565</td>
+      </tr>
+      <tr>
+        <td>B8</td>
+        <td>E13S7 <span class="num">26,926</span></td>
+        <td>E21S4 <span class="num">22,927</span></td>
+        <td class="lose">+3,999</td>
+      </tr>
+      <tr>
+        <td>mean</td>
+        <td><span class="num">32,092</span></td>
+        <td><span class="num">28,657</span></td>
+        <td class="lose">+3,435</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>KEEP / send back</h2>
+  <div class="split">
+    <div class="card keep-card">
+      <span class="tag keep">keep</span>
+      <ul>
+        <li><strong>4 · 6W after 550</strong> — 29,181 vs 30,851</li>
+        <li><strong>5 · leftover-5 hold</strong> — 24,512 dirty; policy still keep · L4 dump fired (15 sites)</li>
+        <li><strong>8 · depot miss-guard</strong> — 29,029 vs 29,628</li>
+        <li><strong>9 · no RCL3 roads</strong> — policy; clock lost (30,728)</li>
+        <li><strong>10 · no RCL2 boxes</strong> — won RCL3; clock lost (30,002)</li>
+      </ul>
+    </div>
+    <div class="card back-card">
+      <span class="tag back">send back</span>
+      <ul>
+        <li><strong>1 · HOL + recycle</strong> — RCL3 17,249 vs 15,166</li>
+        <li><strong>2 · leftover-5 leaked</strong> — sited all 10 anyway</li>
+        <li><strong>6 · RCL1 HOL</strong> — 30,139 vs 28,818</li>
+        <li><strong>7 · suicide 200e</strong> — walks the 1W off the controller</li>
+        <li><strong>11 · one source box</strong> — 29,819 vs 28,518</li>
+        <li><strong>12 · haul-2</strong> — 32,303 vs 29,843 · starved the 4W</li>
+        <li><strong>13 · 5W flood</strong> — 15 miners / source</li>
+        <li><strong>14 · 5W one-shot</strong> — 14 miners (4W clamp)</li>
+        <li><strong>15 · lastSpawn latch</strong> — 32,092 vs 28,657 · 4W not 5W</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Scoreboard 0–15</h2>
+  <p>Mean ticks vs frozen control. <span class="win">Green = faster</span>, <span class="lose">red = slower</span>.</p>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Idea</th>
+        <th>RCL3</th>
+        <th>RCL4</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>0</td>
+        <td>Local baseline</td>
+        <td>13,654 6/8</td>
+        <td>—</td>
+        <td><span class="tag void">cck void</span></td>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>HOL + recycle bundle</td>
+        <td class="lose">17,249</td>
+        <td>29,726 7/8</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Hold leftover 5 — leaked</td>
+        <td>15,276</td>
+        <td>27,984 7/8</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Slam 5, no leftover hold</td>
+        <td class="lose">17,380</td>
+        <td>30,603 6/8</td>
+        <td><span class="tag void">baseline</span></td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>6 shuttles after 550</td>
+        <td>16,062</td>
+        <td class="win">29,181</td>
+        <td><span class="tag keep">keep</span></td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>Leftover-5 actually holds</td>
+        <td>11,000</td>
+        <td class="lose">24,512 7/8</td>
+        <td><span class="tag keep">keep policy</span> <span class="tag back">dirty clock</span></td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>RCL1 opening HOL</td>
+        <td>14,321</td>
+        <td class="lose">30,139</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Suicide 200e upgraders at 550</td>
+        <td class="lose">15,329</td>
+        <td>25,962 3/8</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Site a controller depot if missing</td>
+        <td>13,829</td>
+        <td class="win">29,029</td>
+        <td><span class="tag keep">honest mark</span></td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>No roads at RCL3</td>
+        <td>15,308</td>
+        <td class="lose">30,728</td>
+        <td><span class="tag keep">keep policy</span></td>
+      </tr>
+      <tr>
+        <td>10</td>
+        <td>No source/depot boxes until RCL3</td>
+        <td class="win">13,327</td>
+        <td class="lose">30,002</td>
+        <td><span class="tag keep">keep RCL3</span></td>
+      </tr>
+      <tr>
+        <td>11</td>
+        <td>Only one source box during the 135k</td>
+        <td>13,704</td>
+        <td class="lose">29,819</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>12</td>
+        <td>Max 2 haulers per source</td>
+        <td class="win">14,535</td>
+        <td class="lose">32,303</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>13</td>
+        <td>Overlap 5W while 2W still lives</td>
+        <td colspan="2">aborted — 15-miner flood</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>14</td>
+        <td>Same 5W, one-shot only</td>
+        <td colspan="2">aborted — 14 miners (4W clamp)</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+      <tr>
+        <td>15</td>
+        <td>Same 5W, latch</td>
+        <td class="lose">15,177</td>
+        <td class="lose">32,092</td>
+        <td><span class="tag back">send back</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>What’s next</h2>
+  <p>15 sent the <em>latch</em> back — not leftover-5, not 6W. 15 never hatched 5W, so it did not test 5W.</p>
+  <ol>
+    <li><strong>Cycle 16 — real [5W,M]</strong> — skip the 85% clamp for a home 550 miner, and skip HOL shrink when cost ≤ cap. Do <em>not</em> re-poke <code>lastSpawn=0</code>.</li>
+    <li><strong>Overlap-replace</strong> — hatch a parked 4W while leftover 2W still work; suicide the oldest 2W after it lands. Do not park 6×4W. Do not recycle-walk.</li>
+    <li><strong>Sticky pickup</strong> — hauler with <code>sourceId</code> only takes that pile. Cycle-12 cut count without this and starved the far 4W.</li>
+    <li><strong>Adopt plans</strong> — write the 16-room v2 pack to candidate segments only. First-box is inert until rooms have a plan.</li>
+  </ol>
+  <p>Next race vs cycle-8 <span class="num">29,029</span> (8/8) and this seed’s live control. <span class="num">24,512</span> is dirty — do not beat that.</p>
+
+  <h2>Live and VPS</h2>
+  <div class="cards">
+    <div class="card">
+      <strong>Official · shard3</strong>
+      <span class="tag back">spawn-block</span> <strong>E39N58</strong> — Zhaban leftover spawn 32,17. 0 creeps. Frozen RCL2.<br>
+      <span class="tag back">spawn-block</span> <strong>E35N59</strong> — foreign spawn 25,10. AutoExpand stuck <code>claimed</code>.<br>
+      <span class="tag keep">keep</span> <strong>E36N57</strong> — RCL3, own spawn 21,27, 19 creeps, tower up.
+    </div>
+    <div class="card">
+      <strong>VPS</strong>
+      <p class="mono" style="margin:0.35rem 0 0">screeps.marlyman123.com · W1N1 RCL8 bank 116k · W2N1/W3N1 RCL7 bank 0 · W2N1 0 ramparts · W3N3 RCL1 spawn site 0/15k</p>
+    </div>
+  </div>
+
+  <footer>
+    Cycle-15 <span class="num">run-2026-08-15T23-57-10Z</span> · finished tick <span class="num">4734130</span> · JSON <span class="num">2026-08-16T01:20:35Z</span> · RCL4 8/8.
+    Means from that JSON. 8 pairs / 16 rooms, set 1f90aub, --swap, 40k budget. Control frozen e839fc8.
+  </footer>
+</body>
+</html>

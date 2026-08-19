@@ -1,0 +1,940 @@
+{
+  "rooms": {
+    "mineral": "E11S1",
+    "mineralOff": "E11S1",
+    "residue": [
+      "E2S5",
+      "E5S1",
+      "E5S3"
+    ],
+    "swap": "E11S1",
+    "battlement": "E13S3",
+    "adoptEmpty": "E11S1",
+    "adoptAdds": "E13S3",
+    "dmg": "E11S1",
+    "mob": "E11S2",
+    "refill": "E11S1",
+    "cutPasses": "E11S1",
+    "prunePass": "E11S6",
+    "twoPrune": null,
+    "nuker": "E11S1",
+    "observer": "E11S1",
+    "refillU": "E11S1",
+    "protect": "E11S2",
+    "pricey": "E11S7",
+    "baseCut": "E11S1",
+    "bubble": "E11S1",
+    "swamp": "E11S5",
+    "spur": "E11S2",
+    "newRoads": "E11S1",
+    "ladderFat": "E11S2",
+    "ladderAny": "E11S2",
+    "recovLadder": "E11S7",
+    "fatCutNeFreeze": "E13S3",
+    "plain": "E11S3",
+    "shrunk": "E11S1",
+    "droppedRoom": "E12S5",
+    "taken": "E11S7",
+    "takenFixed": "E15S6",
+    "preTakeHold": "E11S1",
+    "seedSkip": "E12S5",
+    "seedScore": "E11S1",
+    "seedCoord": "E11S1",
+    "ec": "E11S1"
+  },
+  "presenceKlass": [
+    "arrayPartner",
+    "baseCut",
+    "baseOverGated",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "center",
+    "cleanAnchor",
+    "corridorFallback",
+    "corridorPlaced",
+    "coveredDetourDeclared",
+    "deepBudget",
+    "deepExhausted",
+    "deepReach",
+    "digRoads",
+    "faceAndSatHeld",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "freeLeft",
+    "haulCost",
+    "hubDistCap",
+    "inertPromoted",
+    "lapCeilingFloor",
+    "lapVeto",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mineralSeatNetTiles",
+    "mobilityRepair",
+    "noAlternative",
+    "nukerInWindow",
+    "parkCap",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "radii",
+    "rcl5Pair",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "roadsEaten",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "servedFree",
+    "shallowCost",
+    "shallowNow",
+    "shallowRamparts",
+    "shallowRefused",
+    "stitchTiles",
+    "stitched",
+    "strandedFirst",
+    "stubCap",
+    "stubExhausted",
+    "stubRoads",
+    "takeTowerSwap",
+    "tourRule",
+    "towerOnly",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derivedKlass": [
+    "battlementFloor",
+    "cutAdopted",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "mineralBubble",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "observerHubDist",
+    "priceyWall",
+    "protectRadius",
+    "refillDistsUnblocked",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "swampPaved"
+  ],
+  "results": [
+    {
+      "name": "98-named-forge-fullRun-plus-shrink",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "fullRun.reserved has 3 tile(s) and fullRun.tiles is 15. tiles is that board's size",
+      "nFails": 3,
+      "fails": [
+        "fullRun.reserved has 3 tile(s) and fullRun.tiles is 15. tiles is that board's size",
+        "fullRun.byRound has 2 round(s) and fullRun.rounds is 10. rounds is that list's length",
+        "fullRun.reserved has 3 tile(s) and the shipped reservation has 3. A shrink is a proper tile prefix, not the same board with a new integer in front of it"
+      ]
+    },
+    {
+      "name": "98-delete-fullRun-reserved",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "fullRun.reserved is missing. It is the cap-10 reserved-tile board; without it a plain room forges tiles/ext/shallow and publishes a priced shrink of a walk that never ran",
+      "nFails": 1,
+      "fails": [
+        "fullRun.reserved is missing. It is the cap-10 reserved-tile board; without it a plain room forges tiles/ext/shallow and publishes a priced shrink of a walk that never ran"
+      ]
+    },
+    {
+      "name": "98-delete-fullRun",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.fullRun` is {\"tiles\":3,\"rounds\":2,\"shallow\":0,\"ext\":60,\"builtLap\":0,\"str and `meta.extensions.laneMeta.fullRun` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 2,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.fullRun` is {\"tiles\":3,\"rounds\":2,\"shallow\":0,\"ext\":60,\"builtLap\":0,\"str and `meta.extensions.laneMeta.fullRun` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+        "meta.extensions.laneMeta.fullRun is missing. It is the cap-10 walk every room composes before shrink, and without it a plain room can publish a priced shrink that never ran"
+      ]
+    },
+    {
+      "name": "98-delete-lane-reserved",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.reserved` is [\"25,40\",\"31,17\",\"32,16\"] and `meta.extensions.laneMeta.reserved` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 2,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.reserved` is [\"25,40\",\"31,17\",\"32,16\"] and `meta.extensions.laneMeta.reserved` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+        "lane.reserved is missing. It is the shipped reservation; a shrink is a proper prefix of the cap-10 board, and without the shipped tiles that sentence has no board"
+      ]
+    },
+    {
+      "name": "98-60-0-shallow-rewrite-keep",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "fullRun.ext is 58 and this room ships 60 extension(s). A kept cap-10 walk is the shipped mass",
+      "nFails": 2,
+      "fails": [
+        "fullRun.ext is 58 and this room ships 60 extension(s). A kept cap-10 walk is the shipped mass",
+        "this room ships 60/0 and kept the cap-10 walk, and fullRun is ext=58 shallow=2. Forging those two integers is how a free walk publishes a priced refusal that never ran"
+      ]
+    },
+    {
+      "name": "98-60-0-shallow-rewrite-ran-false",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "meta.extensions.laneMeta.fullRun.ran is false and the cap-10 walk is tiles=3 ext=58 shallow=2. ran is that predicate, not a flag",
+      "nFails": 3,
+      "fails": [
+        "meta.extensions.laneMeta.fullRun.ran is false and the cap-10 walk is tiles=3 ext=58 shallow=2. ran is that predicate, not a flag",
+        "fullRun.ext is 58 and this room ships 60 extension(s). A kept cap-10 walk is the shipped mass",
+        "this room ships 60/0 and kept the cap-10 walk, and fullRun is ext=58 shallow=2. Forging those two integers is how a free walk publishes a priced refusal that never ran"
+      ]
+    },
+    {
+      "name": "98-invent-shrink-leave-fullRun-honest",
+      "room": "E11S3",
+      "status": "BITES",
+      "detail": "this room publishes a SHRINK and its cap-10 walk was free (ext=60, shallow=0, tiles=3). That is the invent direction of criticism 98 — a priced refusal of a search that never ran",
+      "nFails": 2,
+      "fails": [
+        "this room publishes a SHRINK and its cap-10 walk was free (ext=60, shallow=0, tiles=3). That is the invent direction of criticism 98 — a priced refusal of a search that never ran",
+        "fullRun.reserved has 3 tile(s) and the shipped reservation has 3. A shrink is a proper tile prefix, not the same board with a new integer in front of it"
+      ]
+    },
+    {
+      "name": "98-erase-real-shrink",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.shrunk` is {\"from\":10,\"to\":2,\"wanted\":7,\"premium\":2} and `meta.extensions.laneMeta.shrunk` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 5,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.shrunk` is {\"from\":10,\"to\":2,\"wanted\":7,\"premium\":2} and `meta.extensions.laneMeta.shrunk` is undefined. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+        "walls/lane-anchor — `meta.walls.mobility.lanes.roundCap` is 10 and layer 6's own record of the same decision says 2 (the reservation was SHRUNK to `shrunk.to` 2 round(s)). The cap is not a free number beside the census: it is the census's own outcome, and the six-leaf null licence the mobility record takes off it is only worth what closes it",
+        "fullRun.to is 2 and used is 3 and the room publishes neither shrink nor drop. The search kept the cap-10 walk",
+        "fullRun.reserved and lane.reserved disagree and this room kept the cap-10 walk. They are the same board when shrink never ran"
+      ]
+    },
+    {
+      "name": "98-extra-reserved-prefix-match-on-real-shrink",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-extra-reserved-as-new-round-prefix-match",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-invent-shrink-with-extra-reserved-prefix",
+      "room": "E11S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-delete-reserved-on-drop",
+      "room": "E12S5",
+      "status": "BITES",
+      "detail": "fullRun.reserved is missing. It is the cap-10 reserved-tile board; without it a plain room forges tiles/ext/shallow and publishes a priced shrink of a walk that never ran",
+      "nFails": 1,
+      "fails": [
+        "fullRun.reserved is missing. It is the cap-10 reserved-tile board; without it a plain room forges tiles/ext/shallow and publishes a priced shrink of a walk that never ran"
+      ]
+    },
+    {
+      "name": "88-fatter-discarded-mobility-and-regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "ladder.rungs needDeep+85 mobility is 0.5 and enclosureMobility of its published cut is 2.5. Regenerating the paragraph does not launder a fatter rung's invented lap",
+      "nFails": 3,
+      "fails": [
+        "ladder.rungs needDeep+85 mobility is 0.5 and enclosureMobility of its published cut is 2.5. Regenerating the paragraph does not launder a fatter rung's invented lap",
+        "meta.shellEscalation.rungs needDeep+85 mobility is 0.5 and enclosureMobility of its own cutTiles is 2.5. The discarded rung's lap is a walk over the published cut, not a free number",
+        "ladder.rungs needDeep+85 mobility is 0.5 and the cut the trail published for that rung walks 2.5. Regenerating the paragraph does not launder a fatter rung's invented lap"
+      ]
+    },
+    {
+      "name": "88-replace-fatter-with-shipped-cut",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "88-replace-fatter-with-shipped-keep-rampart-count",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "ladder.rungs needDeep+85 has 50 ramparts against a shipped 46 and its cutTiles ARE cutAtFreeze. A fatter discarded enclosure is not the winner's cut — swapping them in and walking the prettier lap used to pass",
+      "nFails": 1,
+      "fails": [
+        "ladder.rungs needDeep+85 has 50 ramparts against a shipped 46 and its cutTiles ARE cutAtFreeze. A fatter discarded enclosure is not the winner's cut — swapping them in and walking the prettier lap used to pass"
+      ]
+    },
+    {
+      "name": "88-replace-fatter-with-shipped-on-cut-ne-freeze",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "88-prettier-search",
+      "room": "E11S2",
+      "status": "INFO",
+      "detail": "{\"shipLap\":1.56,\"discarded\":{\"bonus\":25,\"mob\":1.56,\"n\":37},\"found\":{\"lap\":1.56,\"n\":37,\"sameish\":true},\"tryN\":204,\"tryLaps\":[0,1.56]}"
+    },
+    {
+      "name": "88-invent-prettier-non-improvement",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "88-invent-8tile-box-own-lap",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — mobility: ladder rung 1 (needDeep+25) is recorded COMPLETE at a lap of 0 for 46 rampart(s), and this room shipped a wider-composed rung at 1.56 for 46. The escalation walk composed that rung with this one already the incumbent and takes any challenger that is shorter and no dearer, so a rung that is both and did not ship is a rung the walk's own rule says would have. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — mobility: ladder rung 1 (needDeep+25) is recorded COMPLETE at a lap of 0 for 46 rampart(s), and this room shipped a wider-composed rung at 1.56 for 46. The escalation walk composed that rung with this one already the incumbent and takes any challenger that is shorter and no dearer, so a rung that is both and did not ship is a rung the walk's own rule says would have. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "88-recovery-discarded-mobility-0.5",
+      "room": "E11S7",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — mobility|: `ladder.rungs` does not contain the rung this room SHIPPED (lap 7.33 at 53 rampart(s)); the rows are [[0.5,53],[0.5,53],[0.5,53],[0.5,53]]. Every rung but one is an enclosure nobody built — the one that IS on the board is the only anchor the trail has, and a trail that does not contain it is describing a different room — and the record-leaf inventory holds it to exactly that (\"and the rung the room SHIPPED is ON it — some row carries exactly (`shippedLap`, `shippedRamparts`), which is true of all 57 of the fleet's records and is the ladder's version of the rule that `winningCap` has to be one of the caps that were composed\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 5,
+      "fails": [
+        "DECLARATION CONTENT — mobility|: `ladder.rungs` does not contain the rung this room SHIPPED (lap 7.33 at 53 rampart(s)); the rows are [[0.5,53],[0.5,53],[0.5,53],[0.5,53]]. Every rung but one is an enclosure nobody built — the one that IS on the board is the only anchor the trail has, and a trail that does not contain it is describing a different room — and the record-leaf inventory holds it to exactly that (\"and the rung the room SHIPPED is ON it — some row carries exactly (`shippedLap`, `shippedRamparts`), which is true of all 57 of the fleet's records and is the ladder's version of the rule that `winningCap` has to be one of the caps that were composed\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "ladder.rungs needDeep+0 mobility is 0.5 and enclosureMobility of its published cut is 7.33. Regenerating the paragraph does not launder a fatter rung's invented lap",
+        "ladder.rungs needDeep+25 mobility is 0.5 and enclosureMobility of its published cut is 7.33. Regenerating the paragraph does not launder a fatter rung's invented lap",
+        "ladder.rungs needDeep+55 mobility is 0.5 and enclosureMobility of its published cut is 7.33. Regenerating the paragraph does not launder a fatter rung's invented lap"
+      ]
+    },
+    {
+      "name": "93-taken-invent-holder-off-board",
+      "room": "E11S7",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.fixedHolders` is [] and `meta.sealedRecovery.fixedHolders` — the sealed-recovery record this file gates against the shipped board — says [{\"type\":\"lab\",\"x\":1,\"y\":1,\"recovers\":99,\"recoversDeep\":99}]. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 7,
+      "fails": [
+        "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.fixedHolders` is [] and `meta.sealedRecovery.fixedHolders` — the sealed-recovery record this file gates against the shipped board — says [{\"type\":\"lab\",\"x\":1,\"y\":1,\"recovers\":99,\"recoversDeep\":99}]. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` names a lab at 1,1 and this room ships nothing there. Inventing a tile the board does not carry used to pass on a taken room. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 1,1 still carries recovers=99 / recoversDeep=99. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery` splits this room's holders into 8 movable one(s) and 1 fixed-geometry one(s), and its own pocket census names 8 holder(s) in total. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted."
+      ]
+    },
+    {
+      "name": "93-taken-inflate-recovers-only",
+      "room": "E15S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "93-taken-inflate-recovers-and-regen-note",
+      "room": "E15S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "93-taken-inflate-recoversDeep-and-regen-note",
+      "room": "E15S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "93-pre-take-pocket-holder-invent",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 10,
+      "fails": [
+        "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0].holders` names [\"30,41\",\"31,41\",\"31,44\",\"32,41\",\"32,42\",\"32,43\",\"32,44\",\"1,1\"] and the structures of ours D8-adjacent to this pocket are [\"30,41\",\"31,41\",\"32,41\",\"32,42\",\"32,43\",\"32,44\",\"31,44\"] — invented 1,1. A holder roster that omits a candidate is a recovery the pass was never offered. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 1,1 returns 99 tile(s) (99 deep) and deleting exactly that structure and re-running the own-creep flood returns 0 (0 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0].best` names 30,41 (2 deep) and the roster's own best is 1,1 (99 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    },
+    {
+      "name": "cutAdopted-plant-non-add-rampart",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.cutAdopted is [13,43] and layer7b-reconcileSeal adds are []. The list is that pass's adoptions, not a subset of every add — planting a real layer-7 add into the empty list used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.cutAdopted is [13,43] and layer7b-reconcileSeal adds are []. The list is that pass's adoptions, not a subset of every add — planting a real layer-7 add into the empty list used to pass"
+      ]
+    },
+    {
+      "name": "cutAdopted-plant-real-l7-add",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "meta.shell.cutAdopted is [14,35] and layer7b-reconcileSeal adds are []. The list is that pass's adoptions, not a subset of every add — planting a real layer-7 add into the empty list used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.cutAdopted is [14,35] and layer7b-reconcileSeal adds are []. The list is that pass's adoptions, not a subset of every add — planting a real layer-7 add into the empty list used to pass"
+      ]
+    },
+    {
+      "name": "cutPasses-sealCritical-plus-999",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal names 1031 seal-critical tile(s) over 43 rampart(s) · layer7b-reconcileSeal names 1031 seal-critical tile(s) over 43 rampart(s). Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal names 1031 seal-critical tile(s) over 43 rampart(s) · layer7b-reconcileSeal names 1031 seal-critical tile(s) over 43 rampart(s). Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "cutPasses-sealCritical-plus-1",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal names 33 seal-critical tile(s) and the single-removal test on the ramparts that invocation saw finds 32 · layer7b-reconcileSeal names 33 seal-critical tile(s) and the single-removal test on the ramparts that invocation saw finds 32. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal names 33 seal-critical tile(s) and the single-removal test on the ramparts that invocation saw finds 32 · layer7b-reconcileSeal names 33 seal-critical tile(s) and the single-removal test on the ramparts that invocation saw finds 32. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "cutPasses-prune-ramparts-zeroed",
+      "room": "E11S6",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune deleted 1 of 0 rampart(s) · layer7b-inertPrune names 0 rampart(s) before it ran and the shipped wall plus its own deletions reconstruct 41. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune deleted 1 of 0 rampart(s) · layer7b-inertPrune names 0 rampart(s) before it ran and the shipped wall plus its own deletions reconstruct 41. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "cutPasses-kind-rewritten",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune is kind \"reviewer\" and that pass is a inertPrune · layer7-reconcileSeal is kind \"reviewer\" and that pass is a reconcileSeal · layer7b-inertPrune is kind \"reviewer\" and that pass is a inertPrune · layer7b-reconcileSeal is kind \"reviewer\" and that pass is a reconcileSeal. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune is kind \"reviewer\" and that pass is a inertPrune · layer7-reconcileSeal is kind \"reviewer\" and that pass is a reconcileSeal · layer7b-inertPrune is kind \"reviewer\" and that pass is a inertPrune · layer7b-reconcileSeal is kind \"reviewer\" and that pass is a reconcileSeal. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "cutPasses-swap-rampartsDeleted-sum-held",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with both prune markers deleting"
+    },
+    {
+      "name": "cutPasses-prune-ramparts-plus-8",
+      "room": "E11S6",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune names 50 rampart(s) before it ran and the shipped wall plus this room's own later deletions reconstruct 42 · layer7b-inertPrune names 49 rampart(s) before it ran and the shipped wall plus its own deletions reconstruct 41. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 1,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune names 50 rampart(s) before it ran and the shipped wall plus this room's own later deletions reconstruct 42 · layer7b-inertPrune names 49 rampart(s) before it ran and the shipped wall plus its own deletions reconstruct 41. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, or log a move no pass reports. That is the leg that does not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the anchor left every one of these markers standing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "134a-drop-one-freeze-tile",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.exteriorContract ext(L6): its `withheldTiles` roster is 11 tile(s) and this file re-derives 232 from terrain — the flood over `meta.shell.cutAtFreeze` against the cut layer 2 froze plus EVERY rampart this room ships — the widest wall any consumer could have read, and the one reading that needs no producer list at all · 221 derived tile(s) the record does not name (22,26 23,26 24,26 25,26 17,27 18,27). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 4,
+      "fails": [
+        "DECLARATION CONTENT — meta.exteriorContract ext(L6): its `withheldTiles` roster is 11 tile(s) and this file re-derives 232 from terrain — the flood over `meta.shell.cutAtFreeze` against the cut layer 2 froze plus EVERY rampart this room ships — the widest wall any consumer could have read, and the one reading that needs no producer list at all · 221 derived tile(s) the record does not name (22,26 23,26 24,26 25,26 17,27 18,27). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.shell.cutAtFreeze does not seal this room: the flood over it reaches 23 of this room's own owned structures (24,41=storage 26,41=spawn 24,43=spawn 24,38=spawn 23,40=terminal 25,39=tower). It is published as LAYER 2's CUT and every reading of the enclosure contract is taken against the flood over it, so a snapshot that is not a sealing curve is not the cut — and shrinking it is how a room inflates every withheld roster it publishes at once. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.shell.cutDrift does not reconcile this room's two cuts: replaying its 0 move(s) onto `meta.shell.cutAtFreeze` (31 tile(s)) gives 31 and the room ships 32 · 1 shipped cut tile(s) the replay never reaches (13,43). The frozen cut plus every logged move IS the shipped cut — that identity is what binds the snapshot every withheld roster is derived from to a board a reader can see. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "meta/shell.remeasured — shipped prose is not the sentence this room's own census renders. They agree for 132 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…red cut moves from the 32 tile(s) layer 2 froze to the 32 this room ship…\". Derived: \"…red cut moves from the 31 tile(s) layer 2 froze to the 32 this room ship…\""
+      ]
+    },
+    {
+      "name": "134c-ec1-withheld-plus-1",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.exteriorContract labs(L4): `withheldTiles` carries [object Object] — the roster is \"x,y\" tiles of this room's own 50x50 board. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 5,
+      "fails": [
+        "DECLARATION CONTENT — meta.exteriorContract labs(L4): `withheldTiles` carries [object Object] — the roster is \"x,y\" tiles of this room's own 50x50 board. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContract: 1 tile(s) withheld from labs(L4) ([object Object]) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContract labs(L4): its `withheldTiles` roster is 11 tile(s) and this file re-derives 10 from terrain — the flood over `meta.shell.cutAtFreeze` against that wall plus the ramparts this room's towers stand on — the cover layer 3 rented before the lab layer ran · 1 named tile(s) the derivation does not reach ([object Object]). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContract labs(L4): its roster is not between the two readings this file can take without believing anything the producer wrote — the frozen cut against layer 2's own bubbles (10 tile(s)) and the frozen cut against every rampart the room ships (11) · 1 tile(s) above the ceiling are named ([object Object]). A middle consumer reads a wall between those two and nothing else. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "134c-ec2-withheld-zeroed",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.exteriorContract: 10 tile(s) withheld from labs(L4) (4,25 4,26 6,28 42,28 6,29 7,29) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 4,
+      "fails": [
+        "DECLARATION CONTENT — meta.exteriorContract: 10 tile(s) withheld from labs(L4) (4,25 4,26 6,28 42,28 6,29 7,29) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContract misc(L5): its `withheldTiles` roster is 0 tile(s) and this file re-derives 10 from terrain — the flood over `meta.shell.cutAtFreeze` against that wall plus the ramparts this room's labs stand on — the board layer 5 read · 10 derived tile(s) the record does not name (4,25 4,26 6,28 42,28 6,29 7,29). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContract misc(L5): its roster is not between the two readings this file can take without believing anything the producer wrote — the frozen cut against layer 2's own bubbles (10 tile(s)) and the frozen cut against every rampart the room ships (11) · 10 tile(s) below the floor are missing (4,25 4,26 6,28 42,28 6,29 7,29). A middle consumer reads a wall between those two and nothing else. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — meta.exteriorContractBasis's census contradicts the contract it is printed beside: it sums the readings to 41 and the four counts add to 31 · it reads misc(L5) as withholding 10 and the record says 0 · it names misc(L5)'s roster as \"4,25 4,26 42,28 42,29 5,30 5,31 6,28 6,29 7,29 8,29\" and the record's is \"nothing\". The census is what makes the field about THIS room — without it a cross-room transplant is a no-op, which is what \"byte-identical in 172 of 172 rooms\" meant. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "141e-seedScore-to-0",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "141e-seedScore-plus-999",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "141e-seedSkip-zeroed-alone",
+      "room": "E12S5",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — runtime|heavy-search: `runtime.seedSkip` says 1, re-derived from this room's own board it is 0. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 2,
+      "fails": [
+        "DECLARATION CONTENT — runtime|heavy-search: `runtime.seedSkip` says 1, re-derived from this room's own board it is 0. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "DECLARATION CONTENT — eco|: `eco.seedSkip` says 1, re-derived from this room's own board it is 0. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "141e-seedSkip-all-twins-zeroed-regen",
+      "room": "E12S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "141e-seedPool-halved",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "eco/seed-pool — the plan says layer 1 ranked 12 confluence(s) and this room's terrain admits 68 seed candidate(s), which layer 1 takes the first 25 of: 25. The pool is quoted to a reader as \"seed rank N of M scored confluences\" and it was a witnessed number with one mirror; both copies are written in the same pass, so the pair is one edit",
+      "nFails": 2,
+      "fails": [
+        "eco/seed-pool — the plan says layer 1 ranked 12 confluence(s) and this room's terrain admits 68 seed candidate(s), which layer 1 takes the first 25 of: 25. The pool is quoted to a reader as \"seed rank N of M scored confluences\" and it was a witnessed number with one mirror; both copies are written in the same pass, so the pair is one edit",
+        "DECLARATION CONTENT — eco|: `eco.seedPool` is 25 and `@meta.seedPool` says 12 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.seedPool`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+      ]
+    },
+    {
+      "name": "141e-plan-seed-rewritten",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "film note — NOTES.seed is \"seed (25,39) → hub (24,41)\" and this room's plan.seed / hub generate \"seed (1,1) → hub (24,41)\". The caption is a rendered channel",
+      "nFails": 1,
+      "fails": [
+        "film note — NOTES.seed is \"seed (25,39) → hub (24,41)\" and this room's plan.seed / hub generate \"seed (1,1) → hub (24,41)\". The caption is a rendered channel"
+      ]
+    },
+    {
+      "name": "141e-plan-seed-deleted",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "film note — plan.seed is undefined. The page and the film print a seed tile; dropping it from the artifact left 46 rooms' seed≠hub unre-derivable",
+      "nFails": 1,
+      "fails": [
+        "film note — plan.seed is undefined. The page and the film print a seed tile; dropping it from the artifact left 46 rooms' seed≠hub unre-derivable"
+      ]
+    },
+    {
+      "name": "pick-protectRadius-zeroed",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.shell.protectRadius is 0 and the negotiation radii are 6,7,8,9,10,11,12,13,14. Zero is not a radius this room was allowed to try",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.protectRadius is 0 and the negotiation radii are 6,7,8,9,10,11,12,13,14. Zero is not a radius this room was allowed to try"
+      ]
+    },
+    {
+      "name": "pick-protectRadius-swapped-inside-enum",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "pick-baseCut-zeroed",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+      ]
+    },
+    {
+      "name": "pick-baseCut-decrement-keep-pricey",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "pick-priceyWall-cleared",
+      "room": "E11S7",
+      "status": "BITES",
+      "detail": "meta.shell.priceyWall is 0 and baseCut 50 exceeds MAX_CUT 45. priceyWall is that comparison, not a free flag",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.priceyWall is 0 and baseCut 50 exceeds MAX_CUT 45. priceyWall is that comparison, not a free flag"
+      ]
+    },
+    {
+      "name": "MF5-mineral-append",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 569 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…road set, not layer 5's. THE WALL IS FREE.…\". Derived: \"…road set, not layer 5's.…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 569 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…road set, not layer 5's. THE WALL IS FREE.…\". Derived: \"…road set, not layer 5's.…\""
+      ]
+    },
+    {
+      "name": "MF5-mineral-invert-suffix",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 375 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…9 step(s) away. no road was grown to it, but a corridor another layer la…\". Derived: \"…9 step(s) away. no road by design — mineral hauling is one trickle depos…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 375 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…9 step(s) away. no road was grown to it, but a corridor another layer la…\". Derived: \"…9 step(s) away. no road by design — mineral hauling is one trickle depos…\""
+      ]
+    },
+    {
+      "name": "MF5-mineral-residue-nearest-E2S5",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "MF5-mineral-residue-nearest-E5S1",
+      "room": "E5S1",
+      "status": "BITES",
+      "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 319 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…tile this room ships is 1,1, 1 step(s) away. The seat DOES touch the net…\". Derived: \"…tile this room ships is 28,29, 1 step(s) away. The seat DOES touch the n…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 319 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…tile this room ships is 1,1, 1 step(s) away. The seat DOES touch the net…\". Derived: \"…tile this room ships is 28,29, 1 step(s) away. The seat DOES touch the n…\""
+      ]
+    },
+    {
+      "name": "MF5-mineral-residue-nearest-E5S3",
+      "room": "E5S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "MF5-swap-face-999",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 251 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…eakest cut-tile face at 999 and its saturation at 999 EXACTLY, and 0 of …\". Derived: \"…eakest cut-tile face at 2250 and its saturation at 2250 EXACTLY, and 0 o…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 251 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…eakest cut-tile face at 999 and its saturation at 999 EXACTLY, and 0 of …\". Derived: \"…eakest cut-tile face at 2250 and its saturation at 2250 EXACTLY, and 0 o…\""
+      ]
+    },
+    {
+      "name": "MF5-swap-regen-from-minShellDmg",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "MF6-battlement-zero-count",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.battlementUnreachable says 0 and this room's own floods give 1. The enclosure verdicts are a flood, a ring and a works list — the arithmetic this file already runs four times over — and while they were unread the flattering direction was free in every one of them at once. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "nFails": 2,
+      "fails": [
+        "DECLARATION CONTENT — meta.shell.battlementUnreachable says 0 and this room's own floods give 1. The enclosure verdicts are a flood, a ring and a works list — the arithmetic this file already runs four times over — and while they were unread the flattering direction was free in every one of them at once. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+        "meta.shell.battlementUnreachable is 0 / [14,35] and the interior walk from the sitter misses 1 cut tile(s) [14,35]. The count and the roster are one walk, not two leaves that agree"
+      ]
+    },
+    {
+      "name": "MF6-shippedShellDmg-inflate",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: min 9999 vs 2250 · avg 9999 vs 2477 · worst {\"x\":1,\"y\":1} vs {\"x\":13,\"y\":43}. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: min 9999 vs 2250 · avg 9999 vs 2477 · worst {\"x\":1,\"y\":1} vs {\"x\":13,\"y\":43}. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free"
+      ]
+    },
+    {
+      "name": "MF6-mobilityShipped-zeroed",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.shell.mobilityShipped.maxGated is 0 and the as-built gated lap (walls.mobility.builtGated) is 1.5. They are the same walk on the same shipped wall — zeroing the shipped copy alone used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.mobilityShipped.maxGated is 0 and the as-built gated lap (walls.mobility.builtGated) is 1.5. They are the same walk on the same shipped wall — zeroing the shipped copy alone used to pass"
+      ]
+    },
+    {
+      "name": "MF5-refill-blocked-forged",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.refillBasis — shipped prose is not the sentence this room's own census renders. They agree for 56 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ed from the sitter with 1 tile(s) blocked by the finished mass — 25,39 1…\". Derived: \"…ed from the sitter with 91 tile(s) blocked by the finished mass — 25,39 …\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.refillBasis — shipped prose is not the sentence this room's own census renders. They agree for 56 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ed from the sitter with 1 tile(s) blocked by the finished mass — 25,39 1…\". Derived: \"…ed from the sitter with 91 tile(s) blocked by the finished mass — 25,39 …\""
+      ]
+    },
+    {
+      "name": "MF6-nukerHubDist-to-1",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.misc.nukerHubDist is 1 and the layer-5 hub walk to the shipped nuker at 25,42 is 2. It is a walk, not a chebyshev, and it is not a comment",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.nukerHubDist is 1 and the layer-5 hub walk to the shipped nuker at 25,42 is 2. It is a walk, not a chebyshev, and it is not a comment"
+      ]
+    },
+    {
+      "name": "MF6-observerHubDist-to-1",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.misc.observerHubDist is 1 and the layer-5 hub walk to the shipped observer at 35,41 is 11",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.observerHubDist is 1 and the layer-5 hub walk to the shipped observer at 35,41 is 11"
+      ]
+    },
+    {
+      "name": "MF6-refillDistsUnblocked-flat-1",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.refillDistsUnblocked is not the pre-mass hub-kit walk to the shipped towers: 27,39: 1 vs 3 · 26,42: 1 vs 2 · 23,37: 1 vs 3 · 25,36: 1 vs 4. Flattening every entry to 1 used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.refillDistsUnblocked is not the pre-mass hub-kit walk to the shipped towers: 27,39: 1 vs 3 · 26,42: 1 vs 2 · 23,37: 1 vs 3 · 25,36: 1 vs 4. Flattening every entry to 1 used to pass"
+      ]
+    },
+    {
+      "name": "MF6-mineralBubble-zeroed",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.misc.mineralBubble is 0 and the mineral seat at 24,8 carries a rampart. The count is 1 iff the seat is ramparted",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.mineralBubble is 0 and the mineral seat at 24,8 carries a rampart. The count is 1 iff the seat is ramparted"
+      ]
+    },
+    {
+      "name": "MF6-swampPaved-zeroed",
+      "room": "E11S5",
+      "status": "BITES",
+      "detail": "meta.walls.swampPaved is 0 and laid.swampPave + restored.swampPave is 3. It counts holes closed, which is laid tiles plus the ones the prune had taken and this pass put back",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.swampPaved is 0 and laid.swampPave + restored.swampPave is 3. It counts holes closed, which is laid tiles plus the ones the prune had taken and this pass put back"
+      ]
+    },
+    {
+      "name": "MF6-spurred-zeroed",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.spurred is 0 and laidByKind.spur is 13. A cluster was served iff the spur pass laid a tile — zeroing the event while the laid book still names tiles used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.spurred is 0 and laidByKind.spur is 13. A cluster was served iff the spur pass laid a tile — zeroing the event while the laid book still names tiles used to pass"
+      ]
+    },
+    {
+      "name": "MF6-spurred-decrement-keep-nonzero",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "MF6-newRoads-zeroed",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.newRoads is 0 and this room's roadLayer has 5 layer-3 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.newRoads is 0 and this room's roadLayer has 5 layer-3 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+      ]
+    },
+    {
+      "name": "PRESENCE-extractorOffNetwork-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.misc.extractorOffNetwork is false and mineralOffNetwork is true. They are one measurement — the extractor is off iff the seat is",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.extractorOffNetwork is false and mineralOffNetwork is true. They are one measurement — the extractor is off iff the seat is"
+      ]
+    },
+    {
+      "name": "PRESENCE-mobilityShippedFree.maxGated-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.shell.mobilityShippedFree.maxGated is 0 and the mass-free walk on the shipped wall is 1.5. It is layer 2's own measurement of this wall, not a comment",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.mobilityShippedFree.maxGated is 0 and the mass-free walk on the shipped wall is 1.5. It is layer 2's own measurement of this wall, not a comment"
+      ]
+    },
+    {
+      "name": "PRESENCE-corridorFallback-flattered",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-corridorPlaced-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-roadsEaten-flattered",
+      "room": "E9S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-stitched-flattered",
+      "room": "E11S9",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-mineralSeatNetTiles-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-extractorSeatNetTiles-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.misc.extractorSeatNetTiles is [] and the finished network's D8 of the extractor excluding the seat is [12,30 13,30]. Clearing it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.extractorSeatNetTiles is [] and the finished network's D8 of the extractor excluding the seat is [12,30 13,30]. Clearing it used to pass"
+      ]
+    },
+    {
+      "name": "PRESENCE-baseOverGated",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-nukerInWindow",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-towerOnly",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-stubRoads-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-deepBudget",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-boundHeld",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-floorGated",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-shallowNow",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no room with truthy value"
+    },
+    {
+      "name": "PRESENCE-baseCut-as-presence-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+      "nFails": 1,
+      "fails": [
+        "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+      ]
+    }
+  ]
+}

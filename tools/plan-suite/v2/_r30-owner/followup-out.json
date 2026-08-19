@@ -1,0 +1,151 @@
+{
+  "dump": {
+    "outcome": "taken",
+    "taken": {
+      "withdrawn": {
+        "x": 37,
+        "y": 34
+      },
+      "kind": "extension",
+      "pockets": [
+        {
+          "at": {
+            "x": 38,
+            "y": 33
+          },
+          "tiles": 69,
+          "deep": 69,
+          "recoveredTiles": 69
+        }
+      ]
+    },
+    "holders": [
+      {
+        "type": "lab",
+        "x": 34,
+        "y": 31
+      },
+      {
+        "type": "lab",
+        "x": 35,
+        "y": 31
+      },
+      {
+        "type": "lab",
+        "x": 33,
+        "y": 29
+      },
+      {
+        "type": "lab",
+        "x": 33,
+        "y": 30
+      }
+    ],
+    "cap": 72,
+    "noteHolders": [
+      [
+        {
+          "t": "lab",
+          "k": "34,31"
+        },
+        {
+          "t": "lab",
+          "k": "35,31"
+        },
+        {
+          "t": "lab",
+          "k": "33,29"
+        },
+        {
+          "t": "lab",
+          "k": "33,30"
+        }
+      ]
+    ]
+  },
+  "attacks": [
+    {
+      "name": "88b fatter mobility 0.5 + renderDecl",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 mobility is 0.5 and enclosureMobility of its published cut is 2.5. Regenerating the paragraph does not launder a fatter rung's invented lap"
+    },
+    {
+      "name": "88b swap fatter with freeze keep ramparts + renderDecl",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "ladder.rungs needDeep+85 has 50 ramparts against a shipped 46 and its cutTiles ARE cutAtFreeze. A fatter discarded enclosure is not the winner's cut — swapping them in and walking the prettier lap used to pass"
+    },
+    {
+      "name": "88b invent box cut + own lap + renderDecl",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88b invent non-freeze cut walking its lap + renderDecl",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "ladder.rungs needDeep+85 has 50 ramparts against a shipped 46 and its cutTiles ARE cutAtFreeze. A fatter discarded enclosure is not the winner's cut — swapping them in and walking the prettier lap used to pass"
+    },
+    {
+      "name": "93b recovers += 1 keep deep + both copies + renderNote",
+      "room": "E15S6",
+      "status": "ESCAPE",
+      "changed": false,
+      "n": 0
+    },
+    {
+      "name": "93b recovers := cap keep deep in [1,cap] + twins",
+      "room": "E15S6",
+      "status": "ESCAPE",
+      "changed": false,
+      "n": 0
+    },
+    {
+      "name": "98b extra reserved on plain kept room",
+      "room": "E11S3",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "fullRun.to is 2 and fullRun.used is 3. A room that never entered shrink kept the cap-10 walk; to and used are one number"
+    },
+    {
+      "name": "98b replace a later-round tile on shrink (identity swap)",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98b extra reserved + extra byRound on shrink, no wanted update",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "shrunk.wanted is 7 and the cap-10 walk reserved 8 tile(s). wanted is that walk, not a free larger number"
+    },
+    {
+      "name": "cutPasses first-prune ramparts += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune names 47 rampart(s) before it ran and the shipped wall plus this room's own later deletions reconstruct 46. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name ar"
+    },
+    {
+      "name": "cutPasses first-prune deleted += 1 last adjusted",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "changed": false,
+      "n": 0
+    }
+  ]
+}

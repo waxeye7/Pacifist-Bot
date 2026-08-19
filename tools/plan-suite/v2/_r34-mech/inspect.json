@@ -1,0 +1,1481 @@
+{
+  "md5": "8e5d6725885bd3f3731379bedf408326",
+  "md5Ok": true,
+  "bytes": 27780512,
+  "roomsDump": 172,
+  "plans": 172,
+  "missingTerrain": [],
+  "hashedFive": [
+    {
+      "room": "E3S9",
+      "h": 69226873
+    },
+    {
+      "room": "E8S5",
+      "h": 111430700
+    },
+    {
+      "room": "E19S1",
+      "h": 114618860
+    },
+    {
+      "room": "E18S8",
+      "h": 122319690
+    },
+    {
+      "room": "E19S2",
+      "h": 128825731
+    }
+  ],
+  "boardsField": [],
+  "fullRun": {
+    "n": 172,
+    "ran": 17,
+    "shrunk": 7,
+    "dropped": 9,
+    "plain": 156,
+    "reservedMissing": 0,
+    "reservedEqLane": 163,
+    "reservedGtLane": 9
+  },
+  "shrunk": [
+    {
+      "room": "E11S1",
+      "tiles": 6,
+      "rounds": 2,
+      "frTiles": 6,
+      "reserved": 6,
+      "laneRes": 6,
+      "wanted": 7,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      },
+      "dropped": false
+    },
+    {
+      "room": "E11S2",
+      "tiles": 20,
+      "rounds": 6,
+      "frTiles": 20,
+      "reserved": 20,
+      "laneRes": 20,
+      "wanted": 21,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 6,
+        "wanted": 21,
+        "premium": 0
+      },
+      "dropped": false
+    },
+    {
+      "room": "E13S3",
+      "tiles": 9,
+      "rounds": 3,
+      "frTiles": 9,
+      "reserved": 9,
+      "laneRes": 9,
+      "wanted": 20,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 3,
+        "wanted": 20,
+        "premium": 0
+      },
+      "dropped": false
+    },
+    {
+      "room": "E17S6",
+      "tiles": 12,
+      "rounds": 6,
+      "frTiles": 12,
+      "reserved": 12,
+      "laneRes": 12,
+      "wanted": 17,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 6,
+        "wanted": 17,
+        "premium": 1
+      },
+      "dropped": false
+    },
+    {
+      "room": "E1S6",
+      "tiles": 21,
+      "rounds": 5,
+      "frTiles": 21,
+      "reserved": 21,
+      "laneRes": 21,
+      "wanted": 39,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 5,
+        "wanted": 39,
+        "premium": 3
+      },
+      "dropped": false
+    },
+    {
+      "room": "E9S3",
+      "tiles": 10,
+      "rounds": 2,
+      "frTiles": 10,
+      "reserved": 10,
+      "laneRes": 10,
+      "wanted": 21,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 21,
+        "premium": 0
+      },
+      "dropped": false
+    },
+    {
+      "room": "E9S4",
+      "tiles": 12,
+      "rounds": 2,
+      "frTiles": 12,
+      "reserved": 12,
+      "laneRes": 12,
+      "wanted": 13,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 13,
+        "premium": 1
+      },
+      "dropped": false
+    }
+  ],
+  "dropped": [
+    {
+      "room": "E12S5",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 7,
+      "reserved": 7,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E13S2",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 2,
+      "reserved": 2,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E19S6",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 8,
+      "reserved": 8,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E2S3",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 8,
+      "reserved": 8,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 4,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E2S5",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 6,
+      "reserved": 6,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E3S7",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 1,
+      "reserved": 1,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E7S7",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 21,
+      "reserved": 21,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    },
+    {
+      "room": "E8S7",
+      "tiles": 0,
+      "rounds": 0,
+      "frTiles": 12,
+      "reserved": 12,
+      "laneRes": 0,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": true
+    }
+  ],
+  "plain60": [
+    {
+      "room": "E11S3",
+      "tiles": 3,
+      "rounds": 2,
+      "frTiles": 3,
+      "reserved": 3,
+      "laneRes": 3,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": false
+    },
+    {
+      "room": "E11S4",
+      "tiles": 10,
+      "rounds": 3,
+      "frTiles": 10,
+      "reserved": 10,
+      "laneRes": 10,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": false
+    },
+    {
+      "room": "E11S5",
+      "tiles": 14,
+      "rounds": 4,
+      "frTiles": 14,
+      "reserved": 14,
+      "laneRes": 14,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": false
+    },
+    {
+      "room": "E11S6",
+      "tiles": 32,
+      "rounds": 6,
+      "frTiles": 32,
+      "reserved": 32,
+      "laneRes": 32,
+      "wanted": null,
+      "shippedExt": 60,
+      "shippedShallow": 0,
+      "shrunk": null,
+      "dropped": false
+    }
+  ],
+  "ladders": {
+    "n": 57,
+    "fat": 37,
+    "e11s2": {
+      "room": "E11S2",
+      "shippedR": 46,
+      "cut": 37,
+      "freeze": 37,
+      "cutEqFreeze": true,
+      "picked": 0,
+      "hasEsc": true,
+      "fat": true,
+      "rungs": [
+        {
+          "bonus": 0,
+          "ramparts": 46,
+          "mobility": 1.56,
+          "cut": 37,
+          "complete": true,
+          "fat": false
+        },
+        {
+          "bonus": 25,
+          "ramparts": 46,
+          "mobility": 1.56,
+          "cut": 37,
+          "complete": true,
+          "fat": false
+        },
+        {
+          "bonus": 55,
+          "ramparts": 46,
+          "mobility": 1.56,
+          "cut": 37,
+          "complete": true,
+          "fat": false
+        },
+        {
+          "bonus": 85,
+          "ramparts": 50,
+          "mobility": 2.5,
+          "cut": 42,
+          "complete": true,
+          "fat": true
+        }
+      ]
+    }
+  },
+  "taken": [
+    {
+      "room": "E11S7",
+      "fixed": 0,
+      "holders": []
+    },
+    {
+      "room": "E15S6",
+      "fixed": 4,
+      "holders": [
+        "lab@34,31=undefined/undefined",
+        "lab@35,31=undefined/undefined",
+        "lab@33,29=undefined/undefined",
+        "lab@33,30=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E18S3",
+      "fixed": 1,
+      "holders": [
+        "tower@17,40=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E19S2",
+      "fixed": 5,
+      "holders": [
+        "nuker@28,31=undefined/undefined",
+        "tower@28,32=undefined/undefined",
+        "lab@25,27=undefined/undefined",
+        "lab@26,27=undefined/undefined",
+        "lab@26,28=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E2S1",
+      "fixed": 0,
+      "holders": []
+    },
+    {
+      "room": "E4S6",
+      "fixed": 4,
+      "holders": [
+        "tower@9,18=undefined/undefined",
+        "tower@11,16=undefined/undefined",
+        "spawn@11,17=undefined/undefined",
+        "tower@11,18=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E5S5",
+      "fixed": 0,
+      "holders": []
+    },
+    {
+      "room": "E7S2",
+      "fixed": 0,
+      "holders": []
+    },
+    {
+      "room": "E7S5",
+      "fixed": 3,
+      "holders": [
+        "lab@15,11=undefined/undefined",
+        "lab@15,12=undefined/undefined",
+        "lab@16,12=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E8S2",
+      "fixed": 4,
+      "holders": [
+        "lab@37,23=undefined/undefined",
+        "lab@37,24=undefined/undefined",
+        "lab@38,24=undefined/undefined",
+        "lab@38,25=undefined/undefined"
+      ]
+    },
+    {
+      "room": "E9S1",
+      "fixed": 0,
+      "holders": []
+    },
+    {
+      "room": "E9S9",
+      "fixed": 4,
+      "holders": [
+        "lab@33,15=undefined/undefined",
+        "lab@34,15=undefined/undefined",
+        "tower@35,19=undefined/undefined",
+        "spawn@35,20=undefined/undefined"
+      ]
+    }
+  ],
+  "seed": {
+    "has": 172,
+    "missing": 0,
+    "neHub": 46,
+    "eqHub": 126,
+    "onStorage": 126,
+    "neHubRooms": [
+      {
+        "room": "E11S1",
+        "seed": {
+          "x": 25,
+          "y": 39
+        },
+        "hub": {
+          "x": 24,
+          "y": 41
+        },
+        "score": -92.9
+      },
+      {
+        "room": "E11S9",
+        "seed": {
+          "x": 18,
+          "y": 37
+        },
+        "hub": {
+          "x": 17,
+          "y": 35
+        },
+        "score": -58.1
+      },
+      {
+        "room": "E12S3",
+        "seed": {
+          "x": 30,
+          "y": 22
+        },
+        "hub": {
+          "x": 30,
+          "y": 24
+        },
+        "score": -50.3
+      },
+      {
+        "room": "E12S5",
+        "seed": {
+          "x": 11,
+          "y": 19
+        },
+        "hub": {
+          "x": 9,
+          "y": 21
+        },
+        "score": -20.1
+      },
+      {
+        "room": "E12S6",
+        "seed": {
+          "x": 28,
+          "y": 10
+        },
+        "hub": {
+          "x": 29,
+          "y": 10
+        },
+        "score": -85.5
+      },
+      {
+        "room": "E13S9",
+        "seed": {
+          "x": 17,
+          "y": 35
+        },
+        "hub": {
+          "x": 15,
+          "y": 33
+        },
+        "score": -39.4
+      },
+      {
+        "room": "E14S1",
+        "seed": {
+          "x": 33,
+          "y": 26
+        },
+        "hub": {
+          "x": 34,
+          "y": 27
+        },
+        "score": -20.9
+      },
+      {
+        "room": "E14S3",
+        "seed": {
+          "x": 18,
+          "y": 31
+        },
+        "hub": {
+          "x": 20,
+          "y": 31
+        },
+        "score": -26.4
+      }
+    ]
+  },
+  "film": {
+    "parseFail": 0,
+    "seedEq": 126,
+    "seedNe": 46,
+    "captionMismatch": 0,
+    "mismatches": []
+  },
+  "cutAdopted": {
+    "nonempty": 0,
+    "empty": 172,
+    "l7adds": 34,
+    "l7badds": 0
+  },
+  "cutPasses": {
+    "reconcile": 172,
+    "pruneDel": 37,
+    "twoPruneDel": 0,
+    "twoPruneRooms": [],
+    "swapable": [
+      {
+        "room": "E11S6",
+        "a": 1,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 42,
+        "bR": 41,
+        "shipped": 41
+      },
+      {
+        "room": "E16S6",
+        "a": 3,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 56,
+        "bR": 53,
+        "shipped": 53
+      },
+      {
+        "room": "E17S4",
+        "a": 1,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 73,
+        "bR": 72,
+        "shipped": 72
+      },
+      {
+        "room": "E3S7",
+        "a": 5,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 30,
+        "bR": 25,
+        "shipped": 25
+      },
+      {
+        "room": "E5S2",
+        "a": 1,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 68,
+        "bR": 67,
+        "shipped": 67
+      },
+      {
+        "room": "E5S5",
+        "a": 1,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 35,
+        "bR": 34,
+        "shipped": 34
+      },
+      {
+        "room": "E6S7",
+        "a": 2,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 21,
+        "bR": 19,
+        "shipped": 19
+      },
+      {
+        "room": "E8S1",
+        "a": 1,
+        "b": 0,
+        "aRem": 0,
+        "bRem": 0,
+        "aR": 69,
+        "bR": 68,
+        "shipped": 68
+      }
+    ]
+  },
+  "baseline": {
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "sample": [
+    {
+      "room": "E3S9",
+      "h": 69226873,
+      "ext": 60,
+      "road": 75,
+      "ramp": 42,
+      "cut": 39,
+      "freeze": 39,
+      "lap": 2.57,
+      "baseCut": 39,
+      "protectRadius": 10,
+      "pricey": false,
+      "seed": {
+        "x": 36,
+        "y": 16
+      },
+      "hub": {
+        "x": 35,
+        "y": 18
+      },
+      "sitter": {
+        "x": 34,
+        "y": 18
+      },
+      "mineral": {
+        "x": 37,
+        "y": 31,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 33,
+        "rounds": 9,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "26,18",
+          "27,18",
+          "27,25",
+          "28,25",
+          "28,6",
+          "29,26",
+          "29,7",
+          "30,8",
+          "33,25",
+          "34,26",
+          "35,21",
+          "35,22",
+          "35,23",
+          "36,20",
+          "36,24",
+          "36,26",
+          "37,19",
+          "37,25",
+          "38,18",
+          "38,25",
+          "39,17",
+          "40,16",
+          "41,15",
+          "41,6",
+          "42,6",
+          "43,15",
+          "44,16",
+          "44,6",
+          "44,7",
+          "45,15",
+          "45,17",
+          "46,16",
+          "46,18"
+        ],
+        "frReserved": [
+          "26,18",
+          "27,18",
+          "27,25",
+          "28,25",
+          "28,6",
+          "29,26",
+          "29,7",
+          "30,8",
+          "33,25",
+          "34,26",
+          "35,21",
+          "35,22",
+          "35,23",
+          "36,20",
+          "36,24",
+          "36,26",
+          "37,19",
+          "37,25",
+          "38,18",
+          "38,25",
+          "39,17",
+          "40,16",
+          "41,15",
+          "41,6",
+          "42,6",
+          "43,15",
+          "44,16",
+          "44,6",
+          "44,7",
+          "45,15",
+          "45,17",
+          "46,16",
+          "46,18"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E8S5",
+      "h": 111430700,
+      "ext": 60,
+      "road": 86,
+      "ramp": 81,
+      "cut": 72,
+      "freeze": 72,
+      "lap": 0,
+      "baseCut": 72,
+      "protectRadius": 8,
+      "pricey": true,
+      "seed": {
+        "x": 26,
+        "y": 11
+      },
+      "hub": {
+        "x": 26,
+        "y": 11
+      },
+      "sitter": {
+        "x": 26,
+        "y": 12
+      },
+      "mineral": {
+        "x": 27,
+        "y": 25,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 0,
+        "rounds": 0,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [],
+        "frReserved": []
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E19S1",
+      "h": 114618860,
+      "ext": 60,
+      "road": 78,
+      "ramp": 51,
+      "cut": 49,
+      "freeze": 49,
+      "lap": 2.27,
+      "baseCut": 49,
+      "protectRadius": 12,
+      "pricey": true,
+      "seed": {
+        "x": 27,
+        "y": 35
+      },
+      "hub": {
+        "x": 28,
+        "y": 35
+      },
+      "sitter": {
+        "x": 29,
+        "y": 35
+      },
+      "mineral": {
+        "x": 43,
+        "y": 23,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 13,
+        "rounds": 6,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "15,27",
+          "16,28",
+          "17,29",
+          "18,30",
+          "22,23",
+          "23,24",
+          "24,23",
+          "25,46",
+          "26,45",
+          "36,25",
+          "36,26",
+          "38,29",
+          "39,28"
+        ],
+        "frReserved": [
+          "15,27",
+          "16,28",
+          "17,29",
+          "18,30",
+          "22,23",
+          "23,24",
+          "24,23",
+          "25,46",
+          "26,45",
+          "36,25",
+          "36,26",
+          "38,29",
+          "39,28"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E18S8",
+      "h": 122319690,
+      "ext": 60,
+      "road": 69,
+      "ramp": 33,
+      "cut": 31,
+      "freeze": 32,
+      "lap": 0,
+      "baseCut": 32,
+      "protectRadius": 7,
+      "pricey": false,
+      "seed": {
+        "x": 21,
+        "y": 20
+      },
+      "hub": {
+        "x": 21,
+        "y": 20
+      },
+      "sitter": {
+        "x": 21,
+        "y": 19
+      },
+      "mineral": {
+        "x": 10,
+        "y": 35,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 13,
+        "rounds": 4,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "14,14",
+          "15,15",
+          "18,13",
+          "19,14",
+          "21,17",
+          "24,15",
+          "25,14",
+          "25,18",
+          "26,13",
+          "26,19",
+          "27,20",
+          "27,22",
+          "28,21"
+        ],
+        "frReserved": [
+          "14,14",
+          "15,15",
+          "18,13",
+          "19,14",
+          "21,17",
+          "24,15",
+          "25,14",
+          "25,18",
+          "26,13",
+          "26,19",
+          "27,20",
+          "27,22",
+          "28,21"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E19S2",
+      "h": 128825731,
+      "ext": 60,
+      "road": 72,
+      "ramp": 39,
+      "cut": 32,
+      "freeze": 32,
+      "lap": 1.5,
+      "baseCut": 32,
+      "protectRadius": 10,
+      "pricey": false,
+      "seed": {
+        "x": 30,
+        "y": 31
+      },
+      "hub": {
+        "x": 30,
+        "y": 31
+      },
+      "sitter": {
+        "x": 30,
+        "y": 30
+      },
+      "mineral": {
+        "x": 5,
+        "y": 27,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 22,
+        "rounds": 6,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "20,37",
+          "21,38",
+          "22,39",
+          "23,40",
+          "23,41",
+          "24,39",
+          "24,40",
+          "25,21",
+          "25,23",
+          "25,24",
+          "26,22",
+          "26,41",
+          "27,40",
+          "29,38",
+          "31,37",
+          "32,38",
+          "33,39",
+          "34,40",
+          "35,40",
+          "35,41",
+          "39,26",
+          "40,27"
+        ],
+        "frReserved": [
+          "20,37",
+          "21,38",
+          "22,39",
+          "23,40",
+          "23,41",
+          "24,39",
+          "24,40",
+          "25,21",
+          "25,23",
+          "25,24",
+          "26,22",
+          "26,41",
+          "27,40",
+          "29,38",
+          "31,37",
+          "32,38",
+          "33,39",
+          "34,40",
+          "35,40",
+          "35,41",
+          "39,26",
+          "40,27"
+        ]
+      },
+      "taken": true,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E11S1",
+      "h": 1738000062,
+      "ext": 60,
+      "road": 101,
+      "ramp": 43,
+      "cut": 32,
+      "freeze": 32,
+      "lap": 0,
+      "baseCut": 32,
+      "protectRadius": 12,
+      "pricey": false,
+      "seed": {
+        "x": 25,
+        "y": 39
+      },
+      "hub": {
+        "x": 24,
+        "y": 41
+      },
+      "sitter": {
+        "x": 24,
+        "y": 40
+      },
+      "mineral": {
+        "x": 24,
+        "y": 8,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 6,
+        "rounds": 2,
+        "ran": true,
+        "shrunk": {
+          "from": 10,
+          "to": 2,
+          "wanted": 7,
+          "premium": 2
+        },
+        "reserved": [
+          "18,27",
+          "19,28",
+          "19,29",
+          "24,28",
+          "25,27",
+          "25,29"
+        ],
+        "frReserved": [
+          "18,27",
+          "19,28",
+          "19,29",
+          "24,28",
+          "25,27",
+          "25,29"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E11S2",
+      "h": 826596872,
+      "ext": 60,
+      "road": 101,
+      "ramp": 46,
+      "cut": 37,
+      "freeze": 37,
+      "lap": 1.5,
+      "baseCut": 37,
+      "protectRadius": 10,
+      "pricey": false,
+      "seed": {
+        "x": 32,
+        "y": 21
+      },
+      "hub": {
+        "x": 32,
+        "y": 21
+      },
+      "sitter": {
+        "x": 32,
+        "y": 20
+      },
+      "mineral": {
+        "x": 14,
+        "y": 30,
+        "off": false
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 20,
+        "rounds": 6,
+        "ran": true,
+        "shrunk": {
+          "from": 10,
+          "to": 6,
+          "wanted": 21,
+          "premium": 0
+        },
+        "reserved": [
+          "22,13",
+          "23,11",
+          "24,12",
+          "25,12",
+          "25,13",
+          "26,11",
+          "26,14",
+          "27,15",
+          "30,15",
+          "31,14",
+          "32,13",
+          "33,12",
+          "34,11",
+          "38,13",
+          "39,14",
+          "40,14",
+          "41,14",
+          "41,15",
+          "42,13",
+          "42,16"
+        ],
+        "frReserved": [
+          "22,13",
+          "23,11",
+          "24,12",
+          "25,12",
+          "25,13",
+          "26,11",
+          "26,14",
+          "27,15",
+          "30,15",
+          "31,14",
+          "32,13",
+          "33,12",
+          "34,11",
+          "38,13",
+          "39,14",
+          "40,14",
+          "41,14",
+          "41,15",
+          "42,13",
+          "42,16"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E11S3",
+      "h": 1675375508,
+      "ext": 60,
+      "road": 80,
+      "ramp": 37,
+      "cut": 32,
+      "freeze": 32,
+      "lap": 0,
+      "baseCut": 32,
+      "protectRadius": 12,
+      "pricey": false,
+      "seed": {
+        "x": 28,
+        "y": 28
+      },
+      "hub": {
+        "x": 28,
+        "y": 28
+      },
+      "sitter": {
+        "x": 28,
+        "y": 27
+      },
+      "mineral": {
+        "x": 12,
+        "y": 37,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 3,
+        "rounds": 2,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "25,40",
+          "31,17",
+          "32,16"
+        ],
+        "frReserved": [
+          "25,40",
+          "31,17",
+          "32,16"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E11S7",
+      "h": 2874038677,
+      "ext": 60,
+      "road": 69,
+      "ramp": 53,
+      "cut": 50,
+      "freeze": 50,
+      "lap": 8.67,
+      "baseCut": 50,
+      "protectRadius": 12,
+      "pricey": true,
+      "seed": {
+        "x": 22,
+        "y": 12
+      },
+      "hub": {
+        "x": 22,
+        "y": 12
+      },
+      "sitter": {
+        "x": 22,
+        "y": 13
+      },
+      "mineral": {
+        "x": 8,
+        "y": 42,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 11,
+        "rounds": 3,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "10,11",
+          "12,13",
+          "12,15",
+          "14,11",
+          "15,10",
+          "16,10",
+          "16,19",
+          "16,20",
+          "17,20",
+          "20,20",
+          "21,19"
+        ],
+        "frReserved": [
+          "10,11",
+          "12,13",
+          "12,15",
+          "14,11",
+          "15,10",
+          "16,10",
+          "16,19",
+          "16,20",
+          "17,20",
+          "20,20",
+          "21,19"
+        ]
+      },
+      "taken": true,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    },
+    {
+      "room": "E2S7",
+      "h": 3208781873,
+      "ext": 60,
+      "road": 72,
+      "ramp": 21,
+      "cut": 18,
+      "freeze": 18,
+      "lap": 0,
+      "baseCut": 18,
+      "protectRadius": 12,
+      "pricey": false,
+      "seed": {
+        "x": 13,
+        "y": 27
+      },
+      "hub": {
+        "x": 13,
+        "y": 27
+      },
+      "sitter": {
+        "x": 14,
+        "y": 27
+      },
+      "mineral": {
+        "x": 32,
+        "y": 3,
+        "off": true
+      },
+      "leaks": [],
+      "throughCut": [],
+      "throughFreeze": [],
+      "sitterOutCut": false,
+      "sitterOutFreeze": false,
+      "shallowBare": 0,
+      "noD4": 0,
+      "lane": {
+        "tiles": 8,
+        "rounds": 3,
+        "ran": false,
+        "shrunk": null,
+        "reserved": [
+          "11,16",
+          "11,17",
+          "12,15",
+          "22,30",
+          "23,29",
+          "24,28",
+          "25,27",
+          "3,27"
+        ],
+        "frReserved": [
+          "11,16",
+          "11,17",
+          "12,15",
+          "22,30",
+          "23,29",
+          "24,28",
+          "25,27",
+          "3,27"
+        ]
+      },
+      "taken": false,
+      "check": {
+        "pass": true,
+        "nFails": 0,
+        "fails": []
+      }
+    }
+  ]
+}

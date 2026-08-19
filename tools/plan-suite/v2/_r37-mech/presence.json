@@ -1,0 +1,1672 @@
+{
+  "presenceNames": [
+    "baseCut",
+    "baseOverGated",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "corridorFallback",
+    "corridorPlaced",
+    "deepBudget",
+    "deepExhausted",
+    "digRoads",
+    "faceAndSatHeld",
+    "floorUngated",
+    "freeLeft",
+    "haulCost",
+    "hubDistCap",
+    "inertPromoted",
+    "lapCeilingFloor",
+    "lapVeto",
+    "maxHubDist",
+    "mobilityRepair",
+    "noAlternative",
+    "parkCap",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "radii",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "shallowNow",
+    "shallowRamparts",
+    "strandedFirst",
+    "stubExhausted",
+    "takeTowerSwap",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derivedNames": [
+    "arrayPartner",
+    "battlementFloor",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "center",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "deepReach",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "freeDin",
+    "massAdds",
+    "maxDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralBubble",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "priceyWall",
+    "protectRadius",
+    "rcl5Pair",
+    "refillDistsUnblocked",
+    "roadsEaten",
+    "servedFree",
+    "shallowCost",
+    "shallowRefused",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "stitchTiles",
+    "stitched",
+    "stubCap",
+    "stubRoads",
+    "swampPaved",
+    "towerOnly"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 25,
+  "flippedEvents": 2470,
+  "flipped2": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "flippedBase": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fleetMinusBaseCut": {
+    "label": "presence-zero-excl-baseCut",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fleetExcl": {
+    "label": "presence-zero-excl-shallowNow-baseCut",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fleetExclP12": {
+    "label": "presence-zero-excl-shallowNow-baseCut-p12",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fleetExclNew": {
+    "label": "presence-zero-excl-shallowNow-baseCut-newly-derived",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "flipped3": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "flipped4": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "p12Derived": [
+    "stitched",
+    "stitchTiles",
+    "roadsEaten",
+    "towerOnly",
+    "stubRoads"
+  ],
+  "p13Derived": [
+    "mineralContainer",
+    "minDmgPicked",
+    "servedFree"
+  ],
+  "p14Nine": [
+    "arrayPartner",
+    "rcl5Pair",
+    "minDmgArray",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "fillerTiles",
+    "shallowCost",
+    "shallowRefused"
+  ],
+  "p14Derived": [
+    "arrayPartner",
+    "rcl5Pair",
+    "minDmgArray",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "fillerTiles",
+    "shallowCost",
+    "shallowRefused",
+    "boundLap"
+  ],
+  "p15Ten": [
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "freeDin",
+    "massAdds",
+    "maxDist",
+    "deepReach",
+    "stubCap",
+    "mineralSeatAtReservation",
+    "mineralApproachAtReservation"
+  ],
+  "newlyDerived": [
+    "stitched",
+    "stitchTiles",
+    "roadsEaten",
+    "towerOnly",
+    "stubRoads",
+    "mineralContainer",
+    "minDmgPicked",
+    "servedFree",
+    "arrayPartner",
+    "rcl5Pair",
+    "minDmgArray",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "fillerTiles",
+    "shallowCost",
+    "shallowRefused",
+    "boundLap",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "freeDin",
+    "massAdds",
+    "maxDist",
+    "deepReach",
+    "stubCap",
+    "mineralSeatAtReservation",
+    "mineralApproachAtReservation"
+  ],
+  "fleetExclAllDerived": {
+    "label": "presence-zero-excl-shallowNow-baseCut-all-derived",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "flipped5": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "singles": [
+    {
+      "name": "PRESENCE-baseOverGated-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-boundRederived",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-budgetSpent",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-causeFirst",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-cleanAnchor",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-corridorFallback-flattered",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-corridorPlaced-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-deepBudget-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.deepBudget` is 0 and `meta.extensions.laneMeta.deepBudget` is 8. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.deepBudget` is 0 and `meta.extensions.laneMeta.deepBudget` is 8. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-deepExhausted-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-digRoads-flattered",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-faceAndSatHeld-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-floorUngated-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.floorUngated` is 0 and `meta.extensions.laneMeta.floorUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.floorUngated` is 0 and `meta.extensions.laneMeta.floorUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-freeLeft-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-haulCost-flattered",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-hubDistCap-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.extensions.deepReach is 18 and min(hubDistCap+2, 18) is 2. The deep flank ceiling is that formula — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "PRESENCE-inertPromoted-flattered",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-lapCeilingFloor-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-lapVeto",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-maxHubDist-flattered",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-mobilityRepair",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-noAlternative",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-parkCap-flattered",
+      "room": "E12S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-paveRetired",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-pickedBy",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-priceProven-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-radii-flattered",
+      "room": "E13S8",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rescueSpent",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-rescuedLap-flattered",
+      "room": "E13S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rescuedTo-flattered",
+      "room": "E13S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-rolledBackFrom-flattered",
+      "room": "E13S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-searchedSeats-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\""
+      ]
+    },
+    {
+      "name": "PRESENCE-servedExts",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-shallowRamparts-flattered",
+      "room": "E9S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-strandedFirst-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.strandedFirst` is 0 and `meta.extensions.laneMeta.strandedFirst` is 13. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.strandedFirst` is 0 and `meta.extensions.laneMeta.strandedFirst` is 13. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-stubExhausted-flattered",
+      "room": "E16S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-takeTowerSwap",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-tourRule",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-towerSwapOffer",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-tradeCost",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unreachableExts",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unreachedClusters",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-unsealed-flattered",
+      "room": "E12S5",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.unsealed` is 0 and `meta.extensions.laneMeta.unsealed` is 18. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.unsealed` is 0 and `meta.extensions.laneMeta.unsealed` is 18. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-uselessCut",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "PRESENCE-wasLap-flattered",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "PRESENCE-worstCase-flattered",
+      "room": "E12S2",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCase` is 0 and `meta.extensions.laneMeta.worstCase` is 7.5. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.worstCase` is 0 and `meta.extensions.laneMeta.worstCase` is 7.5. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    },
+    {
+      "name": "PRESENCE-worstCaseUngated-flattered",
+      "room": "E11S9",
+      "status": "BITES",
+      "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCaseUngated` is 0 and `meta.extensions.laneMeta.worstCaseUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about",
+      "nFails": 1,
+      "fails": [
+        "walls/lane-anchor — `meta.walls.mobility.lanes.worstCaseUngated` is 0 and `meta.extensions.laneMeta.worstCaseUngated` is 1. They are one object written twice by one pass; a room whose two copies disagree is a room one of them is not about"
+      ]
+    }
+  ],
+  "derivedSingles": [
+    {
+      "name": "DERIVED-stitched-flattered",
+      "room": "E11S9",
+      "status": "BITES",
+      "detail": "meta.walls.stitched is 0 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.stitched is 0 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-stitchTiles-flattered",
+      "room": "E11S9",
+      "status": "BITES",
+      "detail": "meta.walls.stitchTiles is 0 and laidByKind.stitch is 1. It is that laid count, not a comment — zeroing it while the book still names the tiles used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.stitchTiles is 0 and laidByKind.stitch is 1. It is that laid count, not a comment — zeroing it while the book still names the tiles used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-roadsEaten-flattered",
+      "room": "E9S2",
+      "status": "BITES",
+      "detail": "meta.labs.roadsEaten is 0 and 3 lab-road-eat tile(s) sit on a shipped lab. The diamond ate those roads — zeroing the count while the tiles still name labs used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.labs.roadsEaten is 0 and 3 lab-road-eat tile(s) sit on a shipped lab. The diamond ate those roads — zeroing the count while the tiles still name labs used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-towerOnly-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.nukeWindow.towerOnly is 1 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.nukeWindow.towerOnly is 1 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-stubRoads-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.extensions.stubRoads is 0 and this room's roadLayer has 39 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.extensions.stubRoads is 0 and this room's roadLayer has 39 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-mineralContainer-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-minDmgPicked-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-servedFree-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.walls.servedFree is 0 and 4 shipped-cut cluster(s) already D8-touch a pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.servedFree is 0 and 4 shipped-cut cluster(s) already D8-touch a pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-arrayPartner-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.rcl5Pair.arrayPartner is 1,1 and towers[swapped ? 2 : 1] is 26,42. The partner is that shipped tower — moving it used to pass",
+      "nFails": 2,
+      "fails": [
+        "meta.towers.rcl5Pair.arrayPartner is 1,1 and towers[swapped ? 2 : 1] is 26,42. The partner is that shipped tower — moving it used to pass",
+        "meta.towers.rcl5Pair.minDmgArray is 630 and towers[0]+arrayPartner cover the freeze cut's weakest tile at 510. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-rcl5Pair-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.rcl5Pair.picked is 1,1 and towers[1] is 27,39. The RCL5 pick is the second shipped tower — moving it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.rcl5Pair.picked is 1,1 and towers[1] is 27,39. The RCL5 pick is the second shipped tower — moving it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-minDmgArray-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.towers.rcl5Pair.minDmgArray is 0 and towers[0]+arrayPartner cover the freeze cut's weakest tile at 630. It is that pair's min on the freeze wall, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.towers.rcl5Pair.minDmgArray is 0 and towers[0]+arrayPartner cover the freeze cut's weakest tile at 630. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-battlementGap",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "DERIVED-battlementGapTiles",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "DERIVED-boundHeld-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.boundHeld is false and the as-built gated lap 1.5 is inside lane.bounded 1.56. The bound held — flipping the flag used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.boundHeld is false and the as-built gated lap 1.5 is inside lane.bounded 1.56. The bound held — flipping the flag used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-fillerTiles",
+      "room": "-",
+      "status": "SKIP",
+      "detail": "no truthy leaf"
+    },
+    {
+      "name": "DERIVED-shallowCost-flattered",
+      "room": "E2S3",
+      "status": "BITES",
+      "detail": "meta.labs.shallowCost is 0 and this room ships 1 lab(s) at depth < 4, which costs 3. It is that depth count times 3, not a comment — zeroing it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.labs.shallowCost is 0 and this room ships 1 lab(s) at depth < 4, which costs 3. It is that depth count times 3, not a comment — zeroing it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-shallowRefused-flattered",
+      "room": "E12S6",
+      "status": "BITES",
+      "detail": "meta.walls.reflow.shallowRefused names [] and this room ships shallow extension(s) [17,7 18,6 22,18 31,3 32,3 36,3]. The roster is those tiles, not a comment — clearing it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.reflow.shallowRefused names [] and this room ships shallow extension(s) [17,7 18,6 22,18 31,3 32,3 36,3]. The roster is those tiles, not a comment — clearing it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-boundLap-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.boundLap is 0 and the as-built gated lap is 1.5. They are the same walk when the bound held — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.boundLap is 0 and the as-built gated lap is 1.5. They are the same walk when the bound held — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-floorGated-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.floorGated is 0 and the mass-free walk on the shipped wall (extensions lifted, other structures kept) is 1.5. It is that floor, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.floorGated is 0 and the mass-free walk on the shipped wall (extensions lifted, other structures kept) is 1.5. It is that floor, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-floorOver-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.floorOver is 0 and the mass-free walk has 15 ungated over-target pair(s). It is that count, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.floorOver is 0 and the mass-free walk has 15 ungated over-target pair(s). It is that count, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-floorOverGated-flattered",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.floorOverGated is 0 and the mass-free walk has 3 gated over-target pair(s). It is that count, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.floorOverGated is 0 and the mass-free walk has 3 gated over-target pair(s). It is that count, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-freeDin-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.worst.freeDin is 0 and the mass-free walk of the published worst pair is 1. It is that walk, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.worst.freeDin is 0 and the mass-free walk of the published worst pair is 1. It is that walk, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-massAdds-flattered",
+      "room": "E11S7",
+      "status": "BITES",
+      "detail": "meta.walls.mobility.massAdds is 0 and the built walk minus the mass-free walk of the published worst pair is 3. It is that difference — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.walls.mobility.massAdds is 0 and the built walk minus the mass-free walk of the published worst pair is 3. It is that difference — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-maxDist-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.roadOrder.maxDist is 0 and the sitter-to-road BFS on the conducting network is 32. It is that walk, not a comment — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.roadOrder.maxDist is 0 and the sitter-to-road BFS on the conducting network is 32. It is that walk, not a comment — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-deepReach-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.extensions.deepReach is 0 and min(hubDistCap+2, 18) is 18. The deep flank ceiling is that formula — flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.extensions.deepReach is 0 and min(hubDistCap+2, 18) is 18. The deep flank ceiling is that formula — flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-stubCap-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.extensions.stubCap is 0 and the layer-6 paving ceiling is 43 or 51. Flattening it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.extensions.stubCap is 0 and the layer-6 paving ceiling is 43 or 51. Flattening it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-mineralSeatAtReservation-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.mineralSeatAtReservation is 1,1 and the mineral is at 23,7. The reserved seat is a chebyshev-1 neighbour of the mineral — moving it used to pass",
+      "nFails": 2,
+      "fails": [
+        "meta.mineralSeatAtReservation is 1,1 and the mineral is at 23,7. The reserved seat is a chebyshev-1 neighbour of the mineral — moving it used to pass",
+        "meta.mineralApproachAtReservation is 25,9 and the reserved seat is 1,1. The reserved approach is a D8 neighbour of that seat — moving it used to pass"
+      ]
+    },
+    {
+      "name": "DERIVED-mineralApproachAtReservation-flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.mineralApproachAtReservation is 1,1 and the reserved seat is 24,8. The reserved approach is a D8 neighbour of that seat — moving it used to pass",
+      "nFails": 1,
+      "fails": [
+        "meta.mineralApproachAtReservation is 1,1 and the reserved seat is 24,8. The reserved approach is a D8 neighbour of that seat — moving it used to pass"
+      ]
+    }
+  ],
+  "singleEscapes": [
+    "PRESENCE-baseOverGated-flattered",
+    "PRESENCE-corridorFallback-flattered",
+    "PRESENCE-corridorPlaced-flattered",
+    "PRESENCE-deepExhausted-flattered",
+    "PRESENCE-digRoads-flattered",
+    "PRESENCE-freeLeft-flattered",
+    "PRESENCE-haulCost-flattered",
+    "PRESENCE-inertPromoted-flattered",
+    "PRESENCE-lapCeilingFloor-flattered",
+    "PRESENCE-maxHubDist-flattered",
+    "PRESENCE-parkCap-flattered",
+    "PRESENCE-radii-flattered",
+    "PRESENCE-rescuedLap-flattered",
+    "PRESENCE-rescuedTo-flattered",
+    "PRESENCE-rolledBackFrom-flattered",
+    "PRESENCE-shallowRamparts-flattered",
+    "PRESENCE-stubExhausted-flattered",
+    "PRESENCE-wasLap-flattered"
+  ],
+  "singleBites": [
+    "PRESENCE-deepBudget-flattered",
+    "PRESENCE-faceAndSatHeld-flattered",
+    "PRESENCE-floorUngated-flattered",
+    "PRESENCE-hubDistCap-flattered",
+    "PRESENCE-priceProven-flattered",
+    "PRESENCE-searchedSeats-flattered",
+    "PRESENCE-strandedFirst-flattered",
+    "PRESENCE-unsealed-flattered",
+    "PRESENCE-worstCase-flattered",
+    "PRESENCE-worstCaseUngated-flattered"
+  ],
+  "derivedEscapes": [],
+  "derivedBites": [
+    "DERIVED-stitched-flattered",
+    "DERIVED-stitchTiles-flattered",
+    "DERIVED-roadsEaten-flattered",
+    "DERIVED-towerOnly-flattered",
+    "DERIVED-stubRoads-flattered",
+    "DERIVED-mineralContainer-flattered",
+    "DERIVED-minDmgPicked-flattered",
+    "DERIVED-servedFree-flattered",
+    "DERIVED-arrayPartner-flattered",
+    "DERIVED-rcl5Pair-flattered",
+    "DERIVED-minDmgArray-flattered",
+    "DERIVED-boundHeld-flattered",
+    "DERIVED-shallowCost-flattered",
+    "DERIVED-shallowRefused-flattered",
+    "DERIVED-boundLap-flattered",
+    "DERIVED-floorGated-flattered",
+    "DERIVED-floorOver-flattered",
+    "DERIVED-floorOverGated-flattered",
+    "DERIVED-freeDin-flattered",
+    "DERIVED-massAdds-flattered",
+    "DERIVED-maxDist-flattered",
+    "DERIVED-deepReach-flattered",
+    "DERIVED-stubCap-flattered",
+    "DERIVED-mineralSeatAtReservation-flattered",
+    "DERIVED-mineralApproachAtReservation-flattered"
+  ],
+  "ms": 92013
+}

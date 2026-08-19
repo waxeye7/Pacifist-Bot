@@ -1,0 +1,597 @@
+{
+  "rows": [
+    {
+      "name": "98 append 19,27 both reserved lists wanted+1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 prefix swap 18,27→19,27 both lists",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 wanted += 1 only",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 leaky 20,9→19,9 complete stays true + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 leaky 20,9→19,9 AND complete=false + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 sealing 29,33→28,34 + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 last-fat complete=false only + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p13 mineralContainer := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass"
+    },
+    {
+      "name": "p13 minDmgPicked := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p13 servedFree := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.servedFree is 0 and 4 shipped-cut cluster(s) already D8-touch a pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass"
+    },
+    {
+      "name": "p13 stitched := 2",
+      "room": "E11S9",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.stitched is 2 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+    },
+    {
+      "name": "p13 stitched := 2 on laid>=2",
+      "room": "E8S4",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.stitched is 2 and laidByKind.stitch is 2. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+    }
+  ],
+  "hashed": [
+    "E7S1",
+    "E12S6",
+    "E18S2",
+    "E7S5",
+    "E16S5"
+  ],
+  "brief": {
+    "E7S1": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 42,
+      "protect": 9,
+      "seedScore": -24.6,
+      "seed": {
+        "x": 14,
+        "y": 39
+      },
+      "hub": {
+        "x": 14,
+        "y": 39
+      },
+      "sitter": {
+        "x": 15,
+        "y": 39
+      },
+      "mobility": 3.5,
+      "enclosedCtrl": true,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "mobility"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 3.5,
+          "ramp": 45,
+          "cut": 42,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 3.5,
+          "ramp": 45,
+          "cut": 42,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 3,
+          "ramp": 49,
+          "cut": 47,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 3,
+          "ramp": 49,
+          "cut": 47,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "10,35",
+        "10,37",
+        "11,36",
+        "22,32",
+        "23,33",
+        "5,34",
+        "5,40",
+        "5,41",
+        "6,34",
+        "6,41",
+        "6,42",
+        "7,40",
+        "8,39",
+        "9,34",
+        "9,38"
+      ],
+      "laneRes": [
+        "10,35",
+        "10,37",
+        "11,36",
+        "22,32",
+        "23,33",
+        "5,34",
+        "5,40",
+        "5,41",
+        "6,34",
+        "6,41",
+        "6,42",
+        "7,40",
+        "8,39",
+        "9,34",
+        "9,38"
+      ]
+    },
+    "E12S6": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 33,
+      "protect": 12,
+      "seedScore": -85.5,
+      "seed": {
+        "x": 28,
+        "y": 10
+      },
+      "hub": {
+        "x": 29,
+        "y": 10
+      },
+      "sitter": {
+        "x": 29,
+        "y": 11
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "shallowExt"
+      ],
+      "shortfalls": [
+        "towers/weak-battery",
+        "extensions/shallow",
+        "eco"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "16,5",
+        "17,6",
+        "18,7",
+        "19,8",
+        "22,7",
+        "24,3",
+        "33,3"
+      ],
+      "laneRes": [
+        "16,5",
+        "17,6",
+        "18,7",
+        "19,8",
+        "22,7",
+        "24,3",
+        "33,3"
+      ]
+    },
+    "E18S2": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 46,
+      "protect": 12,
+      "seedScore": -25.9,
+      "seed": {
+        "x": 10,
+        "y": 17
+      },
+      "hub": {
+        "x": 11,
+        "y": 17
+      },
+      "sitter": {
+        "x": 11,
+        "y": 18
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [],
+      "shortfalls": [
+        "shell",
+        "battlements",
+        "towers/weak-battery",
+        "misc/off-network"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "18,28",
+        "19,29"
+      ],
+      "laneRes": [
+        "18,28",
+        "19,29"
+      ]
+    },
+    "E7S5": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 14,
+      "protect": 8,
+      "seedScore": -58.9,
+      "seed": {
+        "x": 18,
+        "y": 17
+      },
+      "hub": {
+        "x": 18,
+        "y": 17
+      },
+      "sitter": {
+        "x": 19,
+        "y": 17
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "mobility/covered-detour",
+        "eco"
+      ],
+      "outcome": "taken",
+      "holders": [
+        {
+          "t": "lab",
+          "k": "15,11",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        },
+        {
+          "t": "lab",
+          "k": "15,12",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        },
+        {
+          "t": "lab",
+          "k": "16,12",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        }
+      ],
+      "rungs": [],
+      "reserved": [
+        "10,12",
+        "11,13",
+        "23,6",
+        "24,5",
+        "25,5",
+        "27,7",
+        "28,16",
+        "28,8",
+        "29,13",
+        "29,14",
+        "29,15",
+        "29,17"
+      ],
+      "laneRes": [
+        "10,12",
+        "11,13",
+        "23,6",
+        "24,5",
+        "25,5",
+        "27,7",
+        "28,16",
+        "28,8",
+        "29,13",
+        "29,14",
+        "29,15",
+        "29,17"
+      ]
+    },
+    "E16S5": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 52,
+      "protect": 8,
+      "seedScore": -32.3,
+      "seed": {
+        "x": 30,
+        "y": 35
+      },
+      "hub": {
+        "x": 30,
+        "y": 35
+      },
+      "sitter": {
+        "x": 30,
+        "y": 36
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "shallowExt",
+        "redundantCut"
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "eco"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "22,28",
+        "23,29",
+        "24,27",
+        "25,28",
+        "25,31",
+        "25,32",
+        "26,29",
+        "26,44",
+        "27,44",
+        "28,30",
+        "29,30",
+        "30,29",
+        "31,28",
+        "32,27",
+        "34,27",
+        "35,35",
+        "35,36",
+        "36,34",
+        "36,37",
+        "37,33",
+        "37,38",
+        "38,32",
+        "38,38"
+      ],
+      "laneRes": [
+        "22,28",
+        "23,29",
+        "24,27",
+        "25,28",
+        "25,31",
+        "25,32",
+        "26,29",
+        "26,44",
+        "27,44",
+        "28,30",
+        "29,30",
+        "30,29",
+        "31,28",
+        "32,27",
+        "34,27",
+        "35,35",
+        "35,36",
+        "36,34",
+        "36,37",
+        "37,33",
+        "37,38",
+        "38,32",
+        "38,38"
+      ]
+    },
+    "E11S1": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 32,
+      "protect": 12,
+      "seedScore": -92.9,
+      "seed": {
+        "x": 25,
+        "y": 39
+      },
+      "hub": {
+        "x": 24,
+        "y": 41
+      },
+      "sitter": {
+        "x": 24,
+        "y": 40
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "shallowExt",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "eco"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "laneRes": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    "E2S7": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 18,
+      "protect": 12,
+      "seedScore": -21.5,
+      "seed": {
+        "x": 13,
+        "y": 27
+      },
+      "hub": {
+        "x": 13,
+        "y": 27
+      },
+      "sitter": {
+        "x": 14,
+        "y": 27
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ],
+      "laneRes": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ]
+    },
+    "E1S4": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 24,
+      "protect": 12,
+      "seedScore": -31.8,
+      "seed": {
+        "x": 35,
+        "y": 22
+      },
+      "hub": {
+        "x": 35,
+        "y": 22
+      },
+      "sitter": {
+        "x": 35,
+        "y": 21
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ],
+      "laneRes": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ]
+    }
+  }
+}

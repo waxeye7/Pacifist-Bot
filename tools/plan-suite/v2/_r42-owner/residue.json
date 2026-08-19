@@ -1,0 +1,40 @@
+{
+  "room": "E14S1",
+  "alt": {
+    "x": 35,
+    "y": 24
+  },
+  "rows": [
+    {
+      "name": "p19 from other D8 35,24 + all take twins",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "PLANNER NOTE — `meta.noteRecords[0]` (class towerSwap) says `.taken` is {\"from\":{\"x\":34,\"y\":25},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"} and `meta.towers.acrossPriorTake.taken` — the tower-swap record this file re-derives against the shipped board — says {\"from\":{\"x\":35,\"y\":24},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"}. A note is"
+    },
+    {
+      "name": "p19 from other D8 35,24 + twins + noteRecords",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 408 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…[8, 5, 5] the offer is 34"
+    },
+    {
+      "name": "p19 servedExts+filler+extFace += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "META — the late-road books: `extFace`: the pass laid 1 tile(s), 0 ship with its provenance and `lostByKind` names 0. What a pass laid is what survives plus what a later pass took, tile by tile — a difference the room does not name makes the laid figure a claim about a board nobody shipped. This is the channel a reader "
+    },
+    {
+      "name": "p19 unreachedClusters := 0 no-op",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": false,
+      "n": 0
+    }
+  ]
+}

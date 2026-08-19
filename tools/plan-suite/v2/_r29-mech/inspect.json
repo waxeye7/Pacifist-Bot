@@ -1,0 +1,1111 @@
+{
+  "hashFive": [
+    {
+      "room": "E18S7",
+      "h": 778406
+    },
+    {
+      "room": "E6S2",
+      "h": 54698231
+    },
+    {
+      "room": "E6S3",
+      "h": 113713646
+    },
+    {
+      "room": "E21S3",
+      "h": 148954485
+    },
+    {
+      "room": "E14S7",
+      "h": 181070856
+    }
+  ],
+  "rooms": [
+    {
+      "room": "E18S7",
+      "hash": 778406,
+      "counts": {
+        "ext": 60,
+        "roads": 67,
+        "ramparts": 88,
+        "cut": 79,
+        "freeze": 79,
+        "towers": 6,
+        "labs": 10,
+        "decls": 1,
+        "notes": 1
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 1,
+        "baseCut": 79,
+        "protectRadius": 9,
+        "priceyWall": true,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "12,24",
+        "metaSeat": "12,24",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "13,24 (nothing of ours)",
+          "11,24 (nothing of ours)",
+          "12,25 (nothing of ours)",
+          "12,23 (nothing of ours)",
+          "13,25 (nothing of ours)",
+          "13,23 (nothing of ours)",
+          "11,25 (extractor)",
+          "11,23 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 577
+      },
+      "lane": {
+        "tiles": 0,
+        "rounds": 0,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 0,
+          "rounds": 0,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 0,
+          "to": 0
+        }
+      },
+      "ladder": null,
+      "recovery": null,
+      "seed": {
+        "seed": null,
+        "seedScore": -24.7,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 28,
+          "y": 21
+        },
+        "sitter": {
+          "x": 28,
+          "y": 22
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 1
+      }
+    },
+    {
+      "room": "E6S2",
+      "hash": 54698231,
+      "counts": {
+        "ext": 60,
+        "roads": 72,
+        "ramparts": 57,
+        "cut": 48,
+        "freeze": 48,
+        "towers": 6,
+        "labs": 10,
+        "decls": 1,
+        "notes": 0
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 2,
+        "baseCut": 48,
+        "protectRadius": 10,
+        "priceyWall": true,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "28,6",
+        "metaSeat": "28,6",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "29,6 (nothing of ours)",
+          "27,6 (nothing of ours)",
+          "28,7 (nothing of ours)",
+          "28,5 (nothing of ours)",
+          "29,7 (extractor)",
+          "29,5 (nothing of ours)",
+          "27,7 (nothing of ours)",
+          "27,5 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 568
+      },
+      "lane": {
+        "tiles": 21,
+        "rounds": 5,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 21,
+          "rounds": 5,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 5,
+          "to": 5
+        }
+      },
+      "ladder": null,
+      "recovery": null,
+      "seed": {
+        "seed": null,
+        "seedScore": -33.3,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 36,
+          "y": 28
+        },
+        "sitter": {
+          "x": 36,
+          "y": 27
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 1
+      }
+    },
+    {
+      "room": "E6S3",
+      "hash": 113713646,
+      "counts": {
+        "ext": 60,
+        "roads": 90,
+        "ramparts": 68,
+        "cut": 64,
+        "freeze": 64,
+        "towers": 6,
+        "labs": 10,
+        "decls": 2,
+        "notes": 1
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": true,
+        "enclosedSources": 1,
+        "baseCut": 60,
+        "protectRadius": 8,
+        "priceyWall": true,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "42,41",
+        "metaSeat": "42,41",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "43,41 (nothing of ours)",
+          "41,41 (nothing of ours)",
+          "42,42 (nothing of ours)",
+          "42,40 (nothing of ours)",
+          "43,42 (extractor)",
+          "43,40 (nothing of ours)",
+          "41,42 (nothing of ours)",
+          "41,40 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 577
+      },
+      "lane": {
+        "tiles": 16,
+        "rounds": 4,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 16,
+          "rounds": 4,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 4,
+          "to": 4
+        }
+      },
+      "ladder": null,
+      "recovery": null,
+      "seed": {
+        "seed": null,
+        "seedScore": -29.4,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 13,
+          "y": 19
+        },
+        "sitter": {
+          "x": 13,
+          "y": 20
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 2
+      }
+    },
+    {
+      "room": "E21S3",
+      "hash": 148954485,
+      "counts": {
+        "ext": 60,
+        "roads": 68,
+        "ramparts": 37,
+        "cut": 29,
+        "freeze": 29,
+        "towers": 6,
+        "labs": 10,
+        "decls": 1,
+        "notes": 5
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 1,
+        "baseCut": 27,
+        "protectRadius": 7,
+        "priceyWall": false,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "37,41",
+        "metaSeat": "37,41",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "38,41 (nothing of ours)",
+          "36,41 (nothing of ours)",
+          "37,42 (nothing of ours)",
+          "37,40 (nothing of ours)",
+          "38,42 (nothing of ours)",
+          "38,40 (extractor)",
+          "36,42 (nothing of ours)",
+          "36,40 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 577
+      },
+      "lane": {
+        "tiles": 7,
+        "rounds": 2,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 7,
+          "rounds": 2,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 2,
+          "to": 2
+        }
+      },
+      "ladder": null,
+      "recovery": {
+        "outcome": "belowThreshold",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -4.6,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 31,
+          "y": 26
+        },
+        "sitter": {
+          "x": 32,
+          "y": 26
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 1
+      }
+    },
+    {
+      "room": "E14S7",
+      "hash": 181070856,
+      "counts": {
+        "ext": 60,
+        "roads": 85,
+        "ramparts": 61,
+        "cut": 56,
+        "freeze": 56,
+        "towers": 6,
+        "labs": 10,
+        "decls": 2,
+        "notes": 3
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": true,
+        "enclosedSources": 1,
+        "baseCut": 52,
+        "protectRadius": 8,
+        "priceyWall": true,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "4,13",
+        "metaSeat": "4,13",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "5,13 (nothing of ours)",
+          "3,13 (nothing of ours)",
+          "4,14 (nothing of ours)",
+          "4,12 (nothing of ours)",
+          "5,14 (extractor)",
+          "5,12 (nothing of ours)",
+          "3,14 (nothing of ours)",
+          "3,12 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 568
+      },
+      "lane": {
+        "tiles": 27,
+        "rounds": 7,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 27,
+          "rounds": 7,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 3,
+          "stranded": 0,
+          "ran": false,
+          "used": 7,
+          "to": 7
+        }
+      },
+      "ladder": {
+        "rungs": [
+          {
+            "bonus": 0,
+            "ramparts": 61,
+            "mobility": 3,
+            "cut": 56
+          },
+          {
+            "bonus": 25,
+            "ramparts": 68,
+            "mobility": 3.33,
+            "cut": 63
+          },
+          {
+            "bonus": 55,
+            "ramparts": 68,
+            "mobility": 3.33,
+            "cut": 63
+          },
+          {
+            "bonus": 85,
+            "ramparts": 72,
+            "mobility": 3.33,
+            "cut": 69
+          }
+        ],
+        "hasEsc": true,
+        "escRungs": [
+          {
+            "bonus": 0,
+            "ramparts": 61,
+            "mobility": 3,
+            "cut": 56
+          },
+          {
+            "bonus": 25,
+            "ramparts": 68,
+            "mobility": 3.33,
+            "cut": 63
+          },
+          {
+            "bonus": 55,
+            "ramparts": 68,
+            "mobility": 3.33,
+            "cut": 63
+          },
+          {
+            "bonus": 85,
+            "ramparts": 72,
+            "mobility": 3.33,
+            "cut": 69
+          }
+        ]
+      },
+      "recovery": {
+        "outcome": "belowThreshold",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -20.7,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 15,
+          "y": 30
+        },
+        "sitter": {
+          "x": 16,
+          "y": 30
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 2
+      }
+    },
+    {
+      "room": "E11S1",
+      "hash": 3760374761,
+      "counts": {
+        "ext": 60,
+        "roads": 101,
+        "ramparts": 43,
+        "cut": 32,
+        "freeze": 32,
+        "towers": 6,
+        "labs": 10,
+        "decls": 2,
+        "notes": 3
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 1,
+        "baseCut": 32,
+        "protectRadius": 12,
+        "priceyWall": false,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "24,8",
+        "metaSeat": "24,8",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "25,8 (nothing of ours)",
+          "23,8 (nothing of ours)",
+          "24,9 (nothing of ours)",
+          "24,7 (nothing of ours)",
+          "25,9 (nothing of ours)",
+          "25,7 (nothing of ours)",
+          "23,9 (nothing of ours)",
+          "23,7 (extractor)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 569
+      },
+      "lane": {
+        "tiles": 6,
+        "rounds": 2,
+        "shrunk": {
+          "from": 10,
+          "to": 2,
+          "wanted": 7,
+          "premium": 2
+        },
+        "dropped": false,
+        "fullRun": {
+          "tiles": 7,
+          "rounds": 3,
+          "shallow": 3,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": true,
+          "used": 3,
+          "to": 2
+        }
+      },
+      "ladder": null,
+      "recovery": {
+        "outcome": "belowThreshold",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -92.9,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 24,
+          "y": 41
+        },
+        "sitter": {
+          "x": 24,
+          "y": 40
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 2
+      }
+    },
+    {
+      "room": "E11S2",
+      "hash": 1581124263,
+      "counts": {
+        "ext": 60,
+        "roads": 101,
+        "ramparts": 46,
+        "cut": 37,
+        "freeze": 37,
+        "towers": 6,
+        "labs": 10,
+        "decls": 2,
+        "notes": 1
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 1,
+        "baseCut": 37,
+        "protectRadius": 10,
+        "priceyWall": false,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "14,30",
+        "metaSeat": "14,30",
+        "seatHasRoad": true,
+        "seatHasRamp": true,
+        "touch": 2,
+        "ring": [
+          "15,30 (road)",
+          "13,30 (road)",
+          "14,31 (nothing of ours)",
+          "14,29 (nothing of ours)",
+          "15,31 (nothing of ours)",
+          "15,29 (nothing of ours)",
+          "13,31 (extractor)",
+          "13,29 (nothing of ours)"
+        ],
+        "publishedOn": true,
+        "publishedOff": false,
+        "whyLen": 589
+      },
+      "lane": {
+        "tiles": 20,
+        "rounds": 6,
+        "shrunk": {
+          "from": 10,
+          "to": 6,
+          "wanted": 21,
+          "premium": 0
+        },
+        "dropped": false,
+        "fullRun": {
+          "tiles": 21,
+          "rounds": 7,
+          "shallow": 1,
+          "ext": 60,
+          "builtLap": 1.56,
+          "stranded": 0,
+          "ran": true,
+          "used": 7,
+          "to": 6
+        }
+      },
+      "ladder": {
+        "rungs": [
+          {
+            "bonus": 0,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 25,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 55,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 85,
+            "ramparts": 50,
+            "mobility": 2.5,
+            "cut": 42
+          }
+        ],
+        "hasEsc": true,
+        "escRungs": [
+          {
+            "bonus": 0,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 25,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 55,
+            "ramparts": 46,
+            "mobility": 1.56,
+            "cut": 37
+          },
+          {
+            "bonus": 85,
+            "ramparts": 50,
+            "mobility": 2.5,
+            "cut": 42
+          }
+        ]
+      },
+      "recovery": null,
+      "seed": {
+        "seed": null,
+        "seedScore": -42.4,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 32,
+          "y": 21
+        },
+        "sitter": {
+          "x": 32,
+          "y": 20
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 2
+      }
+    },
+    {
+      "room": "E11S3",
+      "hash": 2069124695,
+      "counts": {
+        "ext": 60,
+        "roads": 80,
+        "ramparts": 37,
+        "cut": 32,
+        "freeze": 32,
+        "towers": 6,
+        "labs": 10,
+        "decls": 2,
+        "notes": 3
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": false,
+        "enclosedSources": 2,
+        "baseCut": 32,
+        "protectRadius": 12,
+        "priceyWall": false,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "12,37",
+        "metaSeat": "12,37",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "13,37 (nothing of ours)",
+          "11,37 (nothing of ours)",
+          "12,38 (nothing of ours)",
+          "12,36 (nothing of ours)",
+          "13,38 (nothing of ours)",
+          "13,36 (extractor)",
+          "11,38 (nothing of ours)",
+          "11,36 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 577
+      },
+      "lane": {
+        "tiles": 3,
+        "rounds": 2,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 3,
+          "rounds": 2,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 2,
+          "to": 2
+        }
+      },
+      "ladder": null,
+      "recovery": {
+        "outcome": "belowThreshold",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -44.2,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 28,
+          "y": 28
+        },
+        "sitter": {
+          "x": 28,
+          "y": 27
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 2
+      }
+    },
+    {
+      "room": "E11S7",
+      "hash": 2941477323,
+      "counts": {
+        "ext": 60,
+        "roads": 69,
+        "ramparts": 53,
+        "cut": 50,
+        "freeze": 50,
+        "towers": 6,
+        "labs": 10,
+        "decls": 3,
+        "notes": 3
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": true,
+        "enclosedSources": 1,
+        "baseCut": 50,
+        "protectRadius": 12,
+        "priceyWall": true,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "8,42",
+        "metaSeat": "8,42",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "9,42 (nothing of ours)",
+          "7,42 (nothing of ours)",
+          "8,43 (nothing of ours)",
+          "8,41 (nothing of ours)",
+          "9,43 (nothing of ours)",
+          "9,41 (extractor)",
+          "7,43 (nothing of ours)",
+          "7,41 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 569
+      },
+      "lane": {
+        "tiles": 11,
+        "rounds": 3,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 11,
+          "rounds": 3,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 8.67,
+          "stranded": 0,
+          "ran": false,
+          "used": 3,
+          "to": 3
+        }
+      },
+      "ladder": {
+        "rungs": [
+          {
+            "bonus": 0,
+            "ramparts": 53,
+            "mobility": 7.33,
+            "cut": 50
+          },
+          {
+            "bonus": 25,
+            "ramparts": 53,
+            "mobility": 7.33,
+            "cut": 50
+          },
+          {
+            "bonus": 55,
+            "ramparts": 53,
+            "mobility": 7.33,
+            "cut": 50
+          },
+          {
+            "bonus": 85,
+            "ramparts": 53,
+            "mobility": 7.33,
+            "cut": 50
+          }
+        ],
+        "hasEsc": false,
+        "escRungs": []
+      },
+      "recovery": {
+        "outcome": "taken",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -15,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 22,
+          "y": 12
+        },
+        "sitter": {
+          "x": 22,
+          "y": 13
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 3
+      }
+    },
+    {
+      "room": "E2S7",
+      "hash": 3654774899,
+      "counts": {
+        "ext": 60,
+        "roads": 72,
+        "ramparts": 21,
+        "cut": 18,
+        "freeze": 18,
+        "towers": 6,
+        "labs": 10,
+        "decls": 1,
+        "notes": 2
+      },
+      "enclosure": {
+        "leaks": [],
+        "sitterCutOut": false,
+        "sitterFreezeOut": false,
+        "coreThroughCut": [],
+        "coreThroughFreeze": [],
+        "enclosedController": true,
+        "enclosedSources": 2,
+        "baseCut": 18,
+        "protectRadius": 12,
+        "priceyWall": false,
+        "battlementUnreachable": 0
+      },
+      "shallow": {
+        "derived": 0,
+        "published": 0,
+        "bare": 0,
+        "noD4": 0
+      },
+      "mineral": {
+        "seat": "32,3",
+        "metaSeat": "32,3",
+        "seatHasRoad": false,
+        "seatHasRamp": true,
+        "touch": 0,
+        "ring": [
+          "33,3 (nothing of ours)",
+          "31,3 (nothing of ours)",
+          "32,4 (nothing of ours)",
+          "32,2 (nothing of ours)",
+          "33,4 (extractor)",
+          "33,2 (nothing of ours)",
+          "31,4 (nothing of ours)",
+          "31,2 (nothing of ours)"
+        ],
+        "publishedOn": false,
+        "publishedOff": true,
+        "whyLen": 569
+      },
+      "lane": {
+        "tiles": 8,
+        "rounds": 3,
+        "shrunk": null,
+        "dropped": false,
+        "fullRun": {
+          "tiles": 8,
+          "rounds": 3,
+          "shallow": 0,
+          "ext": 60,
+          "builtLap": 0,
+          "stranded": 0,
+          "ran": false,
+          "used": 3,
+          "to": 3
+        }
+      },
+      "ladder": null,
+      "recovery": {
+        "outcome": "belowThreshold",
+        "fixed": []
+      },
+      "seed": {
+        "seed": null,
+        "seedScore": -21.5,
+        "seedSkip": 0,
+        "seedPool": 25,
+        "hub": {
+          "x": 13,
+          "y": 27
+        },
+        "sitter": {
+          "x": 14,
+          "y": 27
+        }
+      },
+      "gate": {
+        "fails": 0,
+        "first": null,
+        "declared": 1
+      }
+    }
+  ]
+}

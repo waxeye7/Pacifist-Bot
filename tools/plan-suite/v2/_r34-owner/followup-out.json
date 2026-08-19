@@ -1,0 +1,661 @@
+{
+  "rows": [
+    {
+      "name": "98 append 19,27 both reserved lists wanted+1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 prefix swap 18,27→19,27 both lists",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 wanted += 1 only",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 leaky 20,9→19,9 complete stays true + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 leaky 20,9→19,9 AND complete=false + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "ladder.rungs needDeep+85 discarded cut leaks the sitter. A discarded enclosure is not a composed enclosure if the exterior flood from the room border reaches the garrison, complete or not"
+    },
+    {
+      "name": "88 sealing 29,33→28,34 + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 last-fat complete=false only + regen",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    }
+  ],
+  "hashed": [
+    "E17S9",
+    "E2S5",
+    "E15S8",
+    "E3S4",
+    "E4S2"
+  ],
+  "brief": {
+    "E17S9": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 32,
+      "protect": 8,
+      "seedScore": -21,
+      "seed": {
+        "x": 17,
+        "y": 27
+      },
+      "hub": {
+        "x": 17,
+        "y": 27
+      },
+      "sitter": {
+        "x": 17,
+        "y": 28
+      },
+      "mobility": 1.54,
+      "enclosedCtrl": true,
+      "notes": [],
+      "shortfalls": [
+        "mobility"
+      ],
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 1.54,
+          "ramp": 40,
+          "cut": 36,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 2.67,
+          "ramp": 39,
+          "cut": 34,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 1.82,
+          "ramp": 44,
+          "cut": 40,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 2,
+          "ramp": 47,
+          "cut": 44,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "10,20",
+        "10,26",
+        "10,33",
+        "11,19",
+        "11,27",
+        "11,32",
+        "12,18",
+        "12,28",
+        "12,30",
+        "13,29",
+        "24,30",
+        "24,32",
+        "24,33",
+        "24,34",
+        "25,29",
+        "25,31",
+        "25,35",
+        "4,32",
+        "9,21",
+        "9,25",
+        "9,34"
+      ],
+      "laneRes": [
+        "10,20",
+        "10,26",
+        "10,33",
+        "11,19",
+        "11,27",
+        "11,32",
+        "12,18",
+        "12,28",
+        "12,30",
+        "13,29",
+        "24,30",
+        "24,32",
+        "24,33",
+        "24,34",
+        "25,29",
+        "25,31",
+        "25,35",
+        "4,32",
+        "9,21",
+        "9,25",
+        "9,34"
+      ]
+    },
+    "E2S5": {
+      "hashed": true,
+      "drift": [
+        "remove 23,43 layer7-inertPrune",
+        "add 22,42 layer7-reconcileSeal"
+      ],
+      "baseCut": 28,
+      "protect": 9,
+      "seedScore": -27.2,
+      "seed": {
+        "x": 29,
+        "y": 31
+      },
+      "hub": {
+        "x": 29,
+        "y": 31
+      },
+      "sitter": {
+        "x": 29,
+        "y": 30
+      },
+      "mobility": 1.92,
+      "enclosedCtrl": true,
+      "notes": [
+        "shallowExt",
+        "redundantCut",
+        "containerRoad"
+      ],
+      "shortfalls": [
+        "mobility"
+      ],
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 1.42,
+          "ramp": 33,
+          "cut": 28,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 2.63,
+          "ramp": 43,
+          "cut": 39,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 3.83,
+          "ramp": 50,
+          "cut": 47,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 3.83,
+          "ramp": 50,
+          "cut": 47,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "27,40",
+        "34,34",
+        "35,35",
+        "36,36",
+        "37,37",
+        "38,38"
+      ],
+      "laneRes": []
+    },
+    "E15S8": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 19,
+      "protect": 11,
+      "seedScore": -34.6,
+      "seed": {
+        "x": 26,
+        "y": 23
+      },
+      "hub": {
+        "x": 26,
+        "y": 23
+      },
+      "sitter": {
+        "x": 27,
+        "y": 23
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "17,33",
+        "18,33",
+        "20,33",
+        "20,34",
+        "21,12",
+        "22,13"
+      ],
+      "laneRes": [
+        "17,33",
+        "18,33",
+        "20,33",
+        "20,34",
+        "21,12",
+        "22,13"
+      ]
+    },
+    "E3S4": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 23,
+      "protect": 10,
+      "seedScore": -28,
+      "seed": {
+        "x": 27,
+        "y": 35
+      },
+      "hub": {
+        "x": 27,
+        "y": 35
+      },
+      "sitter": {
+        "x": 26,
+        "y": 35
+      },
+      "mobility": 2.83,
+      "enclosedCtrl": true,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network",
+        "mobility"
+      ],
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 2.83,
+          "ramp": 27,
+          "cut": 23,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 2.83,
+          "ramp": 27,
+          "cut": 23,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 2.83,
+          "ramp": 27,
+          "cut": 23,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 7.33,
+          "ramp": 32,
+          "cut": 29,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "17,42",
+        "18,41",
+        "19,41",
+        "20,42",
+        "21,43",
+        "21,45",
+        "22,42",
+        "22,44",
+        "25,24",
+        "29,26",
+        "30,25",
+        "30,37",
+        "30,38",
+        "31,36",
+        "31,39",
+        "32,35",
+        "33,34",
+        "34,33",
+        "35,29",
+        "35,32",
+        "36,30",
+        "36,31",
+        "37,30",
+        "37,32"
+      ],
+      "laneRes": [
+        "17,42",
+        "18,41",
+        "19,41",
+        "20,42",
+        "21,43",
+        "21,45",
+        "22,42",
+        "22,44",
+        "25,24",
+        "29,26",
+        "30,25",
+        "30,37",
+        "30,38",
+        "31,36",
+        "31,39",
+        "32,35",
+        "33,34",
+        "34,33",
+        "35,29",
+        "35,32",
+        "36,30",
+        "36,31",
+        "37,30",
+        "37,32"
+      ]
+    },
+    "E4S2": {
+      "hashed": true,
+      "drift": [],
+      "baseCut": 31,
+      "protect": 10,
+      "seedScore": -48.6,
+      "seed": {
+        "x": 27,
+        "y": 29
+      },
+      "hub": {
+        "x": 27,
+        "y": 29
+      },
+      "sitter": {
+        "x": 27,
+        "y": 30
+      },
+      "mobility": 1.5,
+      "enclosedCtrl": false,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "mobility"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 0,
+          "ramp": 41,
+          "cut": 31,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 1.5,
+          "ramp": 40,
+          "cut": 31,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 2.13,
+          "ramp": 46,
+          "cut": 38,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 3.17,
+          "ramp": 49,
+          "cut": 41,
+          "complete": true
+        }
+      ],
+      "reserved": [
+        "17,24",
+        "18,25",
+        "21,25",
+        "22,20",
+        "22,24",
+        "23,19",
+        "23,21",
+        "23,23",
+        "25,21",
+        "25,38",
+        "26,20",
+        "26,39",
+        "27,19",
+        "28,19",
+        "29,19",
+        "30,22",
+        "30,25",
+        "31,21",
+        "31,26",
+        "32,20",
+        "32,22",
+        "32,27",
+        "33,19",
+        "33,21",
+        "33,23",
+        "33,27",
+        "34,28",
+        "35,29",
+        "36,28",
+        "37,29"
+      ],
+      "laneRes": [
+        "17,24",
+        "18,25",
+        "21,25",
+        "22,20",
+        "22,24",
+        "23,19",
+        "23,21",
+        "23,23",
+        "25,21",
+        "25,38",
+        "26,20",
+        "26,39",
+        "27,19",
+        "28,19",
+        "29,19",
+        "30,22",
+        "30,25",
+        "31,21",
+        "31,26",
+        "32,20",
+        "32,22",
+        "32,27",
+        "33,19",
+        "33,21",
+        "33,23",
+        "33,27",
+        "34,28",
+        "35,29",
+        "36,28",
+        "37,29"
+      ]
+    },
+    "E11S1": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 32,
+      "protect": 12,
+      "seedScore": -92.9,
+      "seed": {
+        "x": 25,
+        "y": 39
+      },
+      "hub": {
+        "x": 24,
+        "y": 41
+      },
+      "sitter": {
+        "x": 24,
+        "y": 40
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [
+        "shallowExt",
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "eco"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "laneRes": [
+        "18,27",
+        "19,28",
+        "19,29",
+        "24,28",
+        "25,27",
+        "25,29"
+      ],
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    "E2S7": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 18,
+      "protect": 12,
+      "seedScore": -21.5,
+      "seed": {
+        "x": 13,
+        "y": 27
+      },
+      "hub": {
+        "x": 13,
+        "y": 27
+      },
+      "sitter": {
+        "x": 14,
+        "y": 27
+      },
+      "mobility": 0,
+      "enclosedCtrl": true,
+      "notes": [
+        "sealedFloor",
+        "sealedRecovery"
+      ],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "outcome": "belowThreshold",
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ],
+      "laneRes": [
+        "11,16",
+        "11,17",
+        "12,15",
+        "22,30",
+        "23,29",
+        "24,28",
+        "25,27",
+        "3,27"
+      ]
+    },
+    "E1S4": {
+      "hashed": false,
+      "drift": [],
+      "baseCut": 24,
+      "protect": 12,
+      "seedScore": -31.8,
+      "seed": {
+        "x": 35,
+        "y": 22
+      },
+      "hub": {
+        "x": 35,
+        "y": 22
+      },
+      "sitter": {
+        "x": 35,
+        "y": 21
+      },
+      "mobility": 0,
+      "enclosedCtrl": false,
+      "notes": [],
+      "shortfalls": [
+        "misc/off-network"
+      ],
+      "holders": [],
+      "rungs": [],
+      "reserved": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ],
+      "laneRes": [
+        "44,13",
+        "45,14",
+        "46,15"
+      ]
+    }
+  }
+}

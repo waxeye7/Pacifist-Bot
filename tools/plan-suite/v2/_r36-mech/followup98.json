@@ -1,0 +1,87 @@
+{
+  "extras": [
+    "19,27",
+    "17,27",
+    "18,28",
+    "18,26",
+    "19,26",
+    "17,28",
+    "17,26",
+    "20,28",
+    "20,29",
+    "20,27",
+    "18,29",
+    "19,30",
+    "20,30",
+    "18,30",
+    "25,28",
+    "23,28",
+    "24,29",
+    "24,27",
+    "23,29",
+    "23,27",
+    "26,27",
+    "25,26",
+    "26,28",
+    "26,26",
+    "24,26",
+    "26,29",
+    "25,30",
+    "26,30",
+    "24,30"
+  ],
+  "results": [
+    {
+      "name": "INFO-prefix-neighbors",
+      "room": "E11S1",
+      "status": "INFO",
+      "detail": "{\"reserved\":[\"18,27\",\"19,28\",\"19,29\",\"24,28\",\"25,27\",\"25,29\"],\"extras\":[\"19,27\",\"17,27\",\"18,28\",\"18,26\",\"19,26\",\"17,28\",\"17,26\",\"20,28\"],\"n\":29}"
+    },
+    {
+      "name": "98-identity-swap-first-reserved-for-19-27-both",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-two-d8-neighbors-both-reserved",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-wanted-plus-9-on-shrink",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "98-wanted-set-tiles-plus-1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "INFO-dropped-extra",
+      "room": "E12S5",
+      "status": "INFO",
+      "detail": "11,7"
+    },
+    {
+      "name": "98-dropped-d8-extra-fullRun",
+      "room": "E12S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    }
+  ]
+}

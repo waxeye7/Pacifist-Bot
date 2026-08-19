@@ -1,0 +1,164 @@
+{
+  "rows": [
+    {
+      "name": "98 append 19,27 both reserved lists wanted+1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 prefix swap 18,27→19,27 both lists",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "98 wanted += 1 only",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 leaky 20,9→19,9 complete stays true",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5673 character(s) and then diverge — shipped: \"…mparts · rung 3 (needDeep+85): mobility 2.5, 50 ramparts. No rung this room composed measured a materially shorter lap: the best o…\" vs generated: \"…mparts · r"
+    },
+    {
+      "name": "88 leaky 20,9→19,9 AND complete=false",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5673 character(s) and then diverge — shipped: \"…mparts · rung 3 (needDeep+85): mobility 2.5, 50 ramparts. No rung this room composed measured a materially shorter lap: the best o…\" vs generated: \"…mparts · r"
+    },
+    {
+      "name": "88 sealing 29,33→28,34",
+      "room": "E11S2",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "88 last-fat complete=false only",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5689 character(s) and then diverge — shipped: \"…(needDeep+85): mobility 2.5, 50 ramparts. No rung this room composed measured a materially shorter lap: the best of them is 1.56 a…\" vs generated: \"…(needDeep+"
+    }
+  ],
+  "brief": {
+    "E6S4": {
+      "drift": [
+        "remove 14,36 layer7-inertPrune",
+        "add 15,37 layer7-reconcileSeal"
+      ],
+      "baseCut": 14,
+      "protect": 6,
+      "seedScore": -50.8,
+      "notes": [
+        "redundantCut",
+        "sealedFloor",
+        "sealedRecovery"
+      ]
+    },
+    "E15S3": {
+      "baseCut": 54,
+      "protect": 9,
+      "seedScore": -16.6,
+      "mobility": 0,
+      "shortfalls": [
+        "misc/off-network"
+      ]
+    },
+    "E5S2": {
+      "baseCut": 60,
+      "protect": 9,
+      "seedScore": -16.5,
+      "mobility": 1.5,
+      "picked": 0,
+      "rungs": [
+        {
+          "b": 0,
+          "mob": 1.5,
+          "ramp": 67,
+          "cut": 60,
+          "complete": true
+        },
+        {
+          "b": 25,
+          "mob": 1.5,
+          "ramp": 67,
+          "cut": 60,
+          "complete": true
+        },
+        {
+          "b": 55,
+          "mob": 3,
+          "ramp": 74,
+          "cut": 70,
+          "complete": true
+        },
+        {
+          "b": 85,
+          "mob": 2.75,
+          "ramp": 86,
+          "cut": 83,
+          "complete": true
+        }
+      ],
+      "shortfalls": [
+        "misc/off-network",
+        "mobility"
+      ]
+    },
+    "E15S6": {
+      "outcome": "taken",
+      "holders": [
+        {
+          "t": "lab",
+          "k": "34,31",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        },
+        {
+          "t": "lab",
+          "k": "35,31",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        },
+        {
+          "t": "lab",
+          "k": "33,29",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        },
+        {
+          "t": "lab",
+          "k": "33,30",
+          "keys": [
+            "type",
+            "x",
+            "y"
+          ]
+        }
+      ],
+      "seedScore": -18.5
+    }
+  }
+}

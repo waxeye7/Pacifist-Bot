@@ -1,0 +1,3480 @@
+[
+  {
+    "room": "E13S5",
+    "hashed": true,
+    "sitter": {
+      "x": 18,
+      "y": 22
+    },
+    "hub": {
+      "x": 18,
+      "y": 23
+    },
+    "seed": {
+      "x": 18,
+      "y": 23
+    },
+    "seedScore": -16.7,
+    "protectRadius": 10,
+    "baseCut": 21,
+    "vis": {
+      "ext": 60,
+      "roads": 83,
+      "ramparts": 22,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 0,
+      "roadOnRampOnCut": 0,
+      "clump": 3,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          17,
+          16,
+          20,
+          19
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 18,
+          "y": 22
+        },
+        "storage": {
+          "x": 18,
+          "y": 23
+        },
+        "terminal": {
+          "x": 19,
+          "y": 22
+        },
+        "hubLink": {
+          "x": 19,
+          "y": 23
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 74.74488129694222
+      }
+    },
+    "enc": {
+      "cutN": 21,
+      "freezeN": 21,
+      "rampN": 22,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 21,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 28,
+        "y": 6
+      },
+      "seat": {
+        "x": 29,
+        "y": 7
+      },
+      "pubSeat": {
+        "x": 29,
+        "y": 7
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 21,
+        "seat.outside": 1
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 21,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 21
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "1 tile(s) of this room DO match this facet's own test and are counted under an earlier facet instead — the classifier tests in one order and the first test a tile fits wins: 7,12 as `crossing`"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 22 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "1 tile(s) of this room DO match this facet's own test and are counted under an earlier facet instead — the classifier tests in one order and the first test a tile fits wins: 7,13 as `crossing`"
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 22 rampart(s) is accounted for by an earlier class — 21 on the cut, 2 under a container, 0 on the stand-denial ring and 1 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 22 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 22 ramparts · 83 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.61 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 5,
+      "y0": 4,
+      "x1": 30,
+      "y1": 33,
+      "lines": [
+        "WWWWWWWWW~~~~~~~~~~WWWWWW~",
+        "WWWWWWW~~~~~=~~~~~~WWWWWW~",
+        "WWWWW~~~====.====~WWWWW*~~",
+        "WWWW~~~~EEEE=EEEE~WWWWWWC~",
+        "WWW~~~~~~WWE=E...WWWWWW~~~",
+        "WWW~~~~~~WWE=E...WWWWWW~~~",
+        "WW~~~~.....E=E...WWWWW..~~",
+        "W$~~~......E=E...~WWWW...~",
+        "WWC~.......E=E....~WWW###W",
+        "W~K=WWWWWW.E=EE===E~WW=.WW",
+        "~~#=WWWWWW.E=E.EE=E~.=.WWW",
+        "~~#=WWWWWW.E=E~.E=E~=...WW",
+        "~~#=WWWWWW~E=LL~E=E=~...WW",
+        "..#~=WWWWW~~L=LLE=KC~~..WW",
+        "..#=~=WWW~~~LL=LE==W$WWWWW",
+        "..#~=E=WEEEETLL==EWWWWWWWW",
+        ".WW=~=E=====E=E=T~WWWWWWWW",
+        "WWWW=E=~EEET=T=~SWWWWWWWWW",
+        "WWWW~=E=E~~=N+M=EWWWWWWWWW",
+        "WWWW=E=WW~.T=OK=EWWWWWWWWW",
+        "WWW=~=~WWW.S.==E.WWWWWWWWW",
+        "WW#~..~WWWW.TE=S.WWWWWWWWW",
+        "~~#....WWWWWWWW=EWWWWW~=#~",
+        "~~####WWWWWWWWWW=E..~~=~#~",
+        "~.....WWWWWWWWWWE=E===~~#~",
+        "W....WWWWWWWWWWW~C=WWWW~#~",
+        "W...WWWWWWWWWWWW~K=WWWWWW~",
+        "~..WWWWWWWWWWWWWW~~VWWWWWW",
+        "~.WWWWWWWWW.WWWW@~~~WWWWWW",
+        "~WWWWWWWW~~~~WWWWW~~WWWWWW"
+      ]
+    },
+    "shortfalls": [
+      "misc",
+      "battlements",
+      "shell"
+    ],
+    "notes": [
+      "redundantCut"
+    ]
+  },
+  {
+    "room": "E15S2",
+    "hashed": true,
+    "sitter": {
+      "x": 18,
+      "y": 21
+    },
+    "hub": {
+      "x": 17,
+      "y": 21
+    },
+    "seed": {
+      "x": 17,
+      "y": 23
+    },
+    "seedScore": -43.9,
+    "protectRadius": 6,
+    "baseCut": 17,
+    "vis": {
+      "ext": 60,
+      "roads": 91,
+      "ramparts": 30,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 1,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 2,
+      "clump": 3,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          8,
+          18,
+          11,
+          21
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 7
+      },
+      "hub": {
+        "sitter": {
+          "x": 18,
+          "y": 21
+        },
+        "storage": {
+          "x": 17,
+          "y": 21
+        },
+        "terminal": {
+          "x": 18,
+          "y": 22
+        },
+        "hubLink": {
+          "x": 17,
+          "y": 22
+        },
+        "ok": true,
+        "spawnPairs": 3,
+        "spawnFanMin": 71.56505117707798
+      }
+    },
+    "enc": {
+      "cutN": 18,
+      "freezeN": 18,
+      "rampN": 30,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 18,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 23,
+        "y": 38
+      },
+      "seat": {
+        "x": 22,
+        "y": 39
+      },
+      "pubSeat": {
+        "x": 22,
+        "y": 39
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 18,
+        "cover": 3,
+        "seat.inside": 1,
+        "ring": 5,
+        "seat.outside": 3
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 18,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 18
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 5,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 30 rampart(s) is accounted for by an earlier class — 18 on the cut, 4 under a container, 5 on the stand-denial ring and 3 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 30 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 30 ramparts · 91 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.5 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1.5 max · 0.82 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 0,
+      "y0": 10,
+      "x1": 40,
+      "y1": 40,
+      "lines": [
+        "W.........WWWWWWWWWW.....WWW.......WWWWWW",
+        "WE..WWWW.WWWWW...WWWW....WWW.......WWWWWW",
+        "W=EEWWWWWWWWWW.....W..............WWWWWWW",
+        "WW==WWWWWWWWWWWWWW................WWWWWW.",
+        "WWE=EE=EWWWWWWWWW....~~....WWWWWWW.~~WWW.",
+        "WW===E=EEEE..WWWW....~WW..WWWWWWWW..WWWW.",
+        "WWEEE=EE====EEW.######WWWWWW..WWW...WWW..",
+        "WWWWE=EV=EE=E=.W.....=.W.W.....W....WWW#.",
+        "WWWWE==E=LLE=EWW....=KC=.#..........WW@#.",
+        "WWWWW=E=L=LLEWWWTNE=WWW$=#...........###.",
+        "WWWWWEE=LL=LWWWWE=T=WWWWW==========CK..WW",
+        "WWWWWEE=ELL=EWW==O+=SEWWWW..WW......=..WW",
+        "WWWE.==.....=T=S.KM=T=EWWW..WWW.WW......W",
+        "WWE==.W.....~=ETE==EE=EWWWWWWWWWWW.......",
+        "WW.WWWWW###.=E=E=TE==E.WWWW.WWWWWW..WWW..",
+        "WWWWWWW...#=.EEE=.SE=E.WWWW.WWWWWWWWWWWW.",
+        "WWWWWW~...=.==EWWW.=E.WWWW...WWWWWWWWWW..",
+        "WWWWW~...=WWWWWWWWE=E.WWW~~...WW..WWWWW..",
+        "WWWWW...=.WWWWWWWW=...WWW~~........WWW...",
+        "WWWWW..=...WWWWWW=...WWW~~..............W",
+        "WWWWW.=.....WWWWW####WWWW...............W",
+        "WWW..=..............WWWWW.~~...........WW",
+        "WW..=......WWW.......WWWW~~~~.........WWW",
+        "WW==......WWWW.......WWWW~~~~........WWWW",
+        ".=WWWW.....WWWW......WWWWW~~WWW...WWWWWWW",
+        ".=WWWWW..WWWWWW..WW..WWWWWWWWWW..WWWWWWWW",
+        "..=W$WKWWW..WWWWWWWW..WWWWWWWWWW..WW..WW.",
+        "...=WC..WW..WWWWWWWWWWWWWWWWWWW..........",
+        "....=.WWW....WWW.WWW..W*WWWWWWW..........",
+        "..WWWWWW.....WW...WW..C.WWWWW............",
+        "..WWWWWWW....WWW................WWW.....W"
+      ]
+    },
+    "shortfalls": [
+      "misc"
+    ],
+    "notes": [
+      "shallowExt"
+    ]
+  },
+  {
+    "room": "E11S9",
+    "hashed": true,
+    "sitter": {
+      "x": 17,
+      "y": 34
+    },
+    "hub": {
+      "x": 17,
+      "y": 35
+    },
+    "seed": {
+      "x": 18,
+      "y": 37
+    },
+    "seedScore": -58.1,
+    "protectRadius": 12,
+    "baseCut": 7,
+    "vis": {
+      "ext": 60,
+      "roads": 104,
+      "ramparts": 16,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 1,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 2,
+      "clump": 0,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          21,
+          38,
+          24,
+          41
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 5
+      },
+      "hub": {
+        "sitter": {
+          "x": 17,
+          "y": 34
+        },
+        "storage": {
+          "x": 17,
+          "y": 35
+        },
+        "terminal": {
+          "x": 16,
+          "y": 34
+        },
+        "hubLink": {
+          "x": 16,
+          "y": 35
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 40.60129464500447
+      }
+    },
+    "enc": {
+      "cutN": 9,
+      "freezeN": 9,
+      "rampN": 16,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 9,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 41,
+        "y": 41
+      },
+      "seat": {
+        "x": 42,
+        "y": 41
+      },
+      "pubSeat": {
+        "x": 42,
+        "y": 41
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "cover": 3,
+        "seat.outside": 3,
+        "crossing": 9,
+        "seat.inside": 1
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 9,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 9
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 16 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 16 rampart(s) is accounted for by an earlier class — 9 on the cut, 4 under a container, 0 on the stand-denial ring and 3 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 16 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 16 ramparts · 104 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.73 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 0,
+      "y0": 2,
+      "x1": 43,
+      "y1": 47,
+      "lines": [
+        "WWWWWW...WWW...........WWWWW.WWWWWW....WWWWW",
+        "WWWWW....WWW....==.~~..WWWWWWWWWWWW....WWWWW",
+        "WWWWWW.........=$W=~~..WWWWWWWWWWWW.....WWWW",
+        "WWWWWW~~~~.....CWW=....WWWWWWWWWWWW......WWW",
+        "WWWWWWW~~~WWWWWWK~=....WWWWWWWWWWWW.......WW",
+        "WWWWWWW~~~WWWWWW~~=~...WWWWWWWWWWWW.......WW",
+        "WWWWWWW~~~~WWWWWW~=~~.WWWWWWWWWWWWWW......WW",
+        "WWWWW~~~~~~~WWWWWW=~~~WWWWWWWWWWWWWWW.....WW",
+        "WWWW~~~~~~~~.WWWWWW=~.WWWW..WWWWWWWWWW....WW",
+        "WWW~~~~~~~~~..WWWWWW=.WWW....WWWWWWWWW....WW",
+        "WWW~~~~~~~~~..WWWWWW.=WW.....WWWWWWWWW.....W",
+        "WWW~~~~~~~~~..WWWWWWW.=.......WWWWWWWW......",
+        "WWW~~~WWW~~.WWWWWWWWWW.=......WWWWWWWW......",
+        "WWW.~~WWWWWWWWWWWWWWWWWW=.WW...WWWWWWW......",
+        "WWW..~WWWWWWWWWWWWWWWWWW=#WWW..WWWWWW.......",
+        "WWWW..WWWWWWWWWWWWWWWWWW=..WW###WWWWW...WWWW",
+        "WWWW..WWWWWWWWWWWWWWWWW=CK===...WWWWWWWWWWWW",
+        "WWWW..WWWWWWWWWWWWWWWW=E.=......WWWWWWWWWWWW",
+        "..WW..WWWWWWWWWWWWW===E.VWW@W..WWWWWWWWWWWWW",
+        "......WWWWWWWWWWWE=EE=E.WWWWWWWWWWWWWWWWWWWW",
+        "....~~~WWWWWWWWEE=EE==E.WWWWWWWWWWWWWWWWWWWW",
+        "..WW~~~~WWWWWWW==WWWWW..WWWWWWWWWWWWWWWWWWWW",
+        "..WWW~~.WWWWWWET=WWWWW..WWWWWWWWWWWWWWWWWWWW",
+        "..WWWW...WWWWW=.=TWWWW...WWWWWWWWWWWWWWWWWW.",
+        "...WWW..WWWWWET=EWWW......WWWWWWWWWWWWWWWW..",
+        "....W...WWWWW==WWWWW.....~~WWWWWWWWWWWWWWW..",
+        "...=...WWWWWE=WWWWWWWWWWW~~..WWWWWWWWWWWWWW.",
+        "..=W=KCWWWWWE=WWWWWWWWWWWW~...WWWWWWWWWWWWW.",
+        ".=WWW=.$WWWEE=WWWWWWWWWWWWW...WWWWWWWWWWWW..",
+        ".=WWW.WWWWW==E=WWWWWWWWWWWWW.WWWWWWW......~~",
+        ".=WWWWWWWWW==ET=WWWWWWWWWWWWWWWWWWW.......~~",
+        ".=..WWWWWWWEEE=.=WWWWWWWWWWWWWWWWW........WW",
+        ".=..WWWWWWWEE=W.M+WWT.TWWWWWWWWWWW.......WWW",
+        ".=.WWWWWWWE==WWWKO==SE=EWWWWWWWWWWW.....WWWW",
+        "..=WWWWWWWE=WWWW.=N=E.==WWWWWWWWWWW....WWWWW",
+        "...=WWWWWE=EWWWW.EEE==EEWWWWWWWWWWW...WWWWWW",
+        "....===.==EWWWWESE=.==LLWWWWWWWWWWWW..WWWWWW",
+        "..~~.#.=EEWWWWE===.=SL=LLWWWWWWWWWWWWWWWWWW~",
+        "..~~.#..WWWWWW.=EEE=ELL=LEWWWWWWWWWWWWWWWW~~",
+        ".....#WWWWWWWE=EWWWWW~LL==WWWWWWWWWWWWWWW*C~",
+        ".....WWWWWWWE=.WWWWWWWE==EWWWWWWWWWWWWWWWW~~",
+        "....WWWWWWWWE=WWWWWWWWWEEWWWWWWWWWWWWWWWWW~~",
+        "....WWWWWWWE=.WWWWWWWWWWWWWWWWWWWWWWWWWWWWW~",
+        "....WWWWWWWW==EWWWWWWWWWWWWWWWWWWWW.WWWWWWWW",
+        ".....WWWWWWWEEWWWWWWWWWWWWWWWWWW......WWWWW.",
+        "....WWWWWWWWWWWWWWWWWWWWWWWWWW.............."
+      ]
+    },
+    "shortfalls": [
+      "spawnFan",
+      "towers",
+      "misc",
+      "eco"
+    ],
+    "notes": [
+      "shallowExt",
+      "sealedFloor",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E3S4",
+    "hashed": true,
+    "sitter": {
+      "x": 26,
+      "y": 35
+    },
+    "hub": {
+      "x": 27,
+      "y": 35
+    },
+    "seed": {
+      "x": 27,
+      "y": 35
+    },
+    "seedScore": -28,
+    "protectRadius": 10,
+    "baseCut": 23,
+    "vis": {
+      "ext": 60,
+      "roads": 79,
+      "ramparts": 27,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 1,
+      "roadOnRampOnCut": 1,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          25,
+          37,
+          28,
+          40
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 2
+      },
+      "hub": {
+        "sitter": {
+          "x": 26,
+          "y": 35
+        },
+        "storage": {
+          "x": 27,
+          "y": 35
+        },
+        "terminal": {
+          "x": 26,
+          "y": 34
+        },
+        "hubLink": {
+          "x": 27,
+          "y": 34
+        },
+        "ok": true,
+        "spawnPairs": 3,
+        "spawnFanMin": 102.52880770915151
+      }
+    },
+    "enc": {
+      "cutN": 23,
+      "freezeN": 23,
+      "rampN": 27,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 23,
+      "enclosedCtrl": true,
+      "mobility": 2.83
+    },
+    "mineral": {
+      "mineral": {
+        "x": 31,
+        "y": 7
+      },
+      "seat": {
+        "x": 32,
+        "y": 8
+      },
+      "pubSeat": {
+        "x": 32,
+        "y": 8
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 23,
+        "seat.outside": 2,
+        "cover": 2
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 23,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 23
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "1 tile(s) of this room DO match this facet's own test and are counted under an earlier facet instead — the classifier tests in one order and the first test a tile fits wins: 38,40 as `crossing`"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 27 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 27 rampart(s) is accounted for by an earlier class — 23 on the cut, 3 under a container, 0 on the stand-denial ring and 2 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 27 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 27 ramparts · 79 roads",
+      "mobSub": [
+        "as-built UNGATED lap 2.83 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 2.83 bare-terrain gated · shell ungated record 2.83 max · 0.56 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 8,
+      "y0": 6,
+      "x1": 40,
+      "y1": 48,
+      "lines": [
+        ".WWW.......WWWWW.WWWWWWWWWW....WW",
+        ".WWWW....WWWWWW..WWWWWW*W.......W",
+        "WWWWW...WWWWWW...WWWWWWWC........",
+        "WWWWW..WWWWWW....WWWWW...........",
+        "WWWWW..WWWWW......WW.~...........",
+        "WWWWW...WWW.........~~WWWWWW.....",
+        "WWWWW.......WWWW.....WWWWWWW.....",
+        "WWWWW.......WWWW....WWWWWWW......",
+        "WWWWW.......WWWW....WWWWWW.......",
+        "WWWWW..WW....WWW....WWWWWW.......",
+        "WWWW..WWWW..........WWWWW........",
+        "WWWW..WWW...........WWWWW........",
+        "WWWW................WWWWW...WWWW.",
+        "WWWW................WWWWW..WWWWW.",
+        "WWWWW................WWWW.WWWWW..",
+        "WWWWWW...............WWW..WWWWW..",
+        "WWWWWWW.............WWWW..WWWW...",
+        "WWWWWW..........####WWW...WWWW...",
+        ".........WWWWWWWW=...WW###WWWWW..",
+        "........WWWWWWWWWW=...=...WWWWW..",
+        ".......WWWWWWWWWW@.=.=....WWWWW..",
+        ".....WWWWWWWWWWWWW..=......WWWW..",
+        "...WWWWWWWWWWWWWWW.K.===....WWW..",
+        ".WWWWWWWWWWWWWWWWW.C.EEE=.....#..",
+        "WWWWWWWWWWWWWWWWW.E=E..E=.....#..",
+        "WWWWWWWWWWWWWWWWW.E=E..E=E..=.#.W",
+        "WWWWWWWWWWWWWWWW..E=E..E=EE=.=#..",
+        "WWWWWWWWWWWWWWWWTS=.EETE=E=WWW#..",
+        "WWWWWWWWWWWWWWWWN=MK==SE==WWWWW..",
+        "WWWWWWWWWWWWWWW.T=+O=T.E=WWWWWWW.",
+        "WWWWWWWWWW.....E=S==E.E=WWWWWWWW.",
+        ".$WWWWWWW.....T=E=LL=T=EWWWWWWWW.",
+        "..CK..WW#..EEE=E.L=LL=.EWWWWWWW..",
+        "...============E.LL=LE==WWWWW=#..",
+        "........#..EEE=EEELL=E.======KC..",
+        "WW......#....E====E.E..EEEEV.WW$W",
+        "WW...WWW#.WW.E=EE=E.WW......WWWWW",
+        "WW...WWW##WWW=..E=E.WWWW..WWWWWWW",
+        "W.....W...WWW.=EE=E.WWWWWWWWWWWWW",
+        "WW........WWW=..E=E.WWWWWWWWWWWWW",
+        "WWW.........#...E=E.WWWWWWWWWWWWW",
+        "WWWW........#......WWWWWWWWWWWWWW",
+        "WWWW.......WWWWW..WWWWWWWWWWWWWWW"
+      ]
+    },
+    "shortfalls": [
+      "misc",
+      "mobility"
+    ],
+    "notes": []
+  },
+  {
+    "room": "E6S5",
+    "hashed": true,
+    "sitter": {
+      "x": 9,
+      "y": 22
+    },
+    "hub": {
+      "x": 9,
+      "y": 21
+    },
+    "seed": {
+      "x": 9,
+      "y": 21
+    },
+    "seedScore": -22.4,
+    "protectRadius": 11,
+    "baseCut": 34,
+    "vis": {
+      "ext": 60,
+      "roads": 75,
+      "ramparts": 38,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 0,
+      "roadOnRampOnCut": 0,
+      "clump": 0,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          6,
+          15,
+          9,
+          18
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 4
+      },
+      "hub": {
+        "sitter": {
+          "x": 9,
+          "y": 22
+        },
+        "storage": {
+          "x": 9,
+          "y": 21
+        },
+        "terminal": {
+          "x": 10,
+          "y": 22
+        },
+        "hubLink": {
+          "x": 10,
+          "y": 21
+        },
+        "ok": true,
+        "spawnPairs": 3,
+        "spawnFanMin": 56.30993247402023
+      }
+    },
+    "enc": {
+      "cutN": 36,
+      "freezeN": 36,
+      "rampN": 38,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 36,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 25,
+        "y": 24
+      },
+      "seat": {
+        "x": 24,
+        "y": 23
+      },
+      "pubSeat": {
+        "x": 24,
+        "y": 23
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 36,
+        "cover": 1,
+        "seat.outside": 1
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 36,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 36
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "1 tile(s) of this room DO match this facet's own test and are counted under an earlier facet instead — the classifier tests in one order and the first test a tile fits wins: 22,6 as `crossing`"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 38 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 38 rampart(s) is accounted for by an earlier class — 36 on the cut, 2 under a container, 0 on the stand-denial ring and 1 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 38 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 38 ramparts · 75 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.06 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped, and it is above the mass-free shell reading below (1) — our own mass owns the difference.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.61 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 1,
+      "y0": 4,
+      "x1": 26,
+      "y1": 35,
+      "lines": [
+        "..WWWWWW~WWWWWWWWWWWWW...~",
+        ".WWWWWWWWWWWWWWWWWWW$W...~",
+        ".WWWWWWWWWWWWWWWWWWWWC#...",
+        ".WWWWWWWWWWWWWEEEWWWK=#...",
+        "..WWWWWWWWWWE========.#...",
+        ".##WWWWWWWWE=EE=E..V..#WWW",
+        ".#.=WWWWWWW=E.E=...~..WWWW",
+        ".#..=EWWWW=EWWW~.....WWWWW",
+        ".#..E=E.E=WWWWWW....WWWWWW",
+        ".WW.E=E.E=WWWWWW...WWWWWWW",
+        ".WWWE=..E=WWWWWWWWWWWWWWWW",
+        ".WWWE=LLE=WWWWWWWWWWWWWWWW",
+        "WWWWWL=LL=EWWWWWWWWWWWWWW~",
+        "WWWWWLL=L=T~TE..E.WWWWW~..",
+        "WWWWW~LL=.=E~=TE==..#~~~..",
+        "WWWWWES.T=.TE.=.=E=.#~~~~.",
+        "WWWWW==E=.EE=EE=EWW=#~~...",
+        "WWWWEEE=OK=.=E=EWWWW#....W",
+        "WWWE=ES=+M=E~=EWWWWWW~~~WW",
+        "WWWE=.E=N=.S=EWWWWWWWW~CWW",
+        "WW.EE==E.C.=WWWWWWWWWW.~*W",
+        "WW.==KE~.K=WWWWWWWWWWW..WW",
+        "W.=.CWWWW=.WWWWWWWWWWW..WW",
+        "W#.~$WWWW=.@WWWWWWWWWWW.WW",
+        ".#.WWWWWW.==E...#.WWWWW.~W",
+        ".#~WWWWW.T.E=E..#~.WWWWW..",
+        ".#.WWWW..E===E~~#..WWWWW..",
+        ".#.WWW~~..=E=~~~#~..WWWW..",
+        ".#..~~....=E.=~.#~~..WW.~.",
+        ".#######..E.~~###~~~~.....",
+        "....~..WWWW.~~#...~~~~~...",
+        "......WWWWWWWWW...~~~~~..W"
+      ]
+    },
+    "shortfalls": [
+      "misc"
+    ],
+    "notes": [
+      "redundantCut",
+      "sealedFloor",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E12S1",
+    "hashed": false,
+    "sitter": {
+      "x": 26,
+      "y": 18
+    },
+    "hub": {
+      "x": 25,
+      "y": 18
+    },
+    "seed": {
+      "x": 25,
+      "y": 18
+    },
+    "seedScore": -31.1,
+    "protectRadius": 12,
+    "baseCut": 36,
+    "vis": {
+      "ext": 60,
+      "roads": 91,
+      "ramparts": 46,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 1,
+      "roadOnRampOnCut": 1,
+      "clump": 3,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          29,
+          15,
+          32,
+          18
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 26,
+          "y": 18
+        },
+        "storage": {
+          "x": 25,
+          "y": 18
+        },
+        "terminal": {
+          "x": 26,
+          "y": 19
+        },
+        "hubLink": {
+          "x": 25,
+          "y": 19
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 67.38013505195954
+      }
+    },
+    "enc": {
+      "cutN": 37,
+      "freezeN": 37,
+      "rampN": 46,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 37,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 23,
+        "y": 41
+      },
+      "seat": {
+        "x": 22,
+        "y": 40
+      },
+      "pubSeat": {
+        "x": 22,
+        "y": 40
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 37,
+        "seat.inside": 1,
+        "seat.outside": 2,
+        "ring": 5,
+        "cover": 1
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 37,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 37
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 5,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 46 rampart(s) is accounted for by an earlier class — 37 on the cut, 3 under a container, 5 on the stand-denial ring and 1 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 46 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 46 ramparts · 91 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.29 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1.29 max · 0.66 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 11,
+      "y0": 4,
+      "x1": 40,
+      "y1": 42,
+      "lines": [
+        ".......WWWWWWWWWWW...WWW....W.",
+        "......WWW.......WWWWWWWW##WWWW",
+        "....WWWW...........WWWW=..WWWW",
+        ".WWWWWW............WWW=...WWWW",
+        ".WWWWWW.......WWW....=.=..WWWW",
+        ".WWWWW......WWWWWW..=...=.WWWW",
+        ".#WWWWW...WWWWWW$..=WW...=WWW.",
+        ".#=.WW....WWWWWWWC=EWW....=#..",
+        ".#.=.......WWWWW.K=EWW.....#..",
+        "WWW.=.......WWWW.E=E.......#..",
+        "WWW.W=.WWW.EEE...E=E.......#..",
+        "WWWWW=.WWWE===T..E=LL......#..",
+        "WWW.W=WWWW.ES=E.S=L=LL.....#..",
+        "WW=.=..WW....T=T=ELL=L..WW.#..",
+        ".#.=........E=O+N..LL.WWWWW#..",
+        ".#..=EEEEEEE=.KM=T..WWWWWW.#..",
+        ".#...=======SE==E=E.WWWWW..#..",
+        "W#...EEEEE=E.TET.E=EWW.....#..",
+        "WWWW....E=.E......E=E......W.W",
+        "WWWW....=EW=EEEEEEEE=E....WWWW",
+        "WWWWV..=WWWE==========..KCWWW.",
+        ".#W..==WWWW.EE.EEEEEEE====$WW.",
+        ".#=.=WWWWWWW....E...E=...==.#.",
+        "WW.=.WWWWWWW....=...=WWWW..##.",
+        "WW.=.WWWWWWWWWW..=.=.WWWWW.#..",
+        "WWW=#WW..WWWWWWW..=..WWWWW##..",
+        ".W=.......WWWWWW...=..WWWW....",
+        "..=........WWWWW#######WWW...W",
+        "..=.........WWWWW......WW.....",
+        "..=..........WWWW......WWW....",
+        "..=...........WWW......WWW....",
+        "..C....................WWW....",
+        "W.K=.WWW................WW....",
+        "W..#WWWW................WW....",
+        "W..#@WW............W....WWW..W",
+        "...###...................W..WW",
+        "...........C.......W........WW",
+        "...........W*W................",
+        "............W.....WWW........."
+      ]
+    },
+    "shortfalls": [
+      "misc",
+      "eco"
+    ],
+    "notes": []
+  },
+  {
+    "room": "E15S4",
+    "hashed": false,
+    "sitter": {
+      "x": 24,
+      "y": 21
+    },
+    "hub": {
+      "x": 23,
+      "y": 21
+    },
+    "seed": {
+      "x": 25,
+      "y": 23
+    },
+    "seedScore": -29.4,
+    "protectRadius": 11,
+    "baseCut": 30,
+    "vis": {
+      "ext": 60,
+      "roads": 74,
+      "ramparts": 36,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 0,
+      "roadOnRampOnCut": 0,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          18,
+          17,
+          21,
+          20
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 24,
+          "y": 21
+        },
+        "storage": {
+          "x": 23,
+          "y": 21
+        },
+        "terminal": {
+          "x": 24,
+          "y": 20
+        },
+        "hubLink": {
+          "x": 23,
+          "y": 20
+        },
+        "ok": true,
+        "spawnPairs": 3,
+        "spawnFanMin": 79.69515353123397
+      }
+    },
+    "enc": {
+      "cutN": 29,
+      "freezeN": 29,
+      "rampN": 36,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 29,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 24,
+        "y": 5
+      },
+      "seat": {
+        "x": 23,
+        "y": 6
+      },
+      "pubSeat": {
+        "x": 23,
+        "y": 6
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 0
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 29,
+        "ring": 5,
+        "cover": 2
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 29,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 29
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "2 of this room's 36 rampart(s) carry a container (13,14 36,8), and all 2 of them stand INSIDE the frozen enclosure (13,14 36,8), so none is covered out beyond the wall"
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "2 tile(s) of this room DO match this facet's own test and are counted under an earlier facet instead — the classifier tests in one order and the first test a tile fits wins: 13,14 36,8 as `crossing`"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 5,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 5
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 36 rampart(s) is accounted for by an earlier class — 29 on the cut, 2 under a container, 5 on the stand-denial ring and 2 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 36 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 36 ramparts · 74 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.16 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped, and it is above the mass-free shell reading below (1.1) — our own mass owns the difference.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1.1 max · 0.61 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 8,
+      "y0": 4,
+      "x1": 38,
+      "y1": 36,
+      "lines": [
+        "WWWWWW......WWWWWWWWWWWWWWWWWW.",
+        "WWWWW~~.......WW*WWWWWWWWWWWW..",
+        "WWWWW~~........C......WWWWW.#..",
+        "WWWWWW~...............WWWW..#.W",
+        "WWWWWW...WWW..........WWWV.=CWW",
+        "WWWWWW..WWWW~~.........W..=KW$W",
+        "WWWWW#...WW~~~............=WWWW",
+        "WWWW.#....~~~~...........=WWWWW",
+        "WWW..#...E====WW........=WWWWWW",
+        "WW...#...E=EEEWW.....TE=WWWWWWW",
+        "....KC==EE=E~~....WWE=E=WWWWWWW",
+        ".###.#..=E=E~~...EWWE==WWWWWWWW",
+        ".W@#.#..E==E....E=E.E=WWWWWWWWW",
+        ".WW#.#..=E=LL...E=EE=WWWWWWWWWW",
+        ".....#..E.L=LLWWT=E.=WWWWWWWWWW",
+        ".....#....LL=LWW.=T=EWWWWWWWWWW",
+        ".~~..#.....LL=.KMS=E.WWWWWWWW#.",
+        "WWWWWWWWWWWW.E=O+=E..WWWWWW.=#.",
+        "WWWWWWWWWWWWWTE=T=EE.WWWWW.=.#.",
+        "WWWWWWWWWWWWWW=SNE==E.WW..=..#.",
+        "WWWWWWWWWWWWWWW=E.E=S...E=...#.",
+        "WWWWWWWWWWWWWW=E..E=E..E=....#.",
+        "WWWWWWWWWWWWW=E...E=E.E=EWWWWWW",
+        "..WWWWWWWWWW=E....E=EE=EWWWWWWW",
+        ".....#======E...~~E=E=EWWWWWWWW",
+        "...~~#.........~~~E==EWWWWWWWWW",
+        "...WWWW~........~.E=TWWWWWWWWWW",
+        "..WWWWWWW.........E=KWWWWWWWWWW",
+        ".WWWWWWWWWW.........=C$WWWWWWWW",
+        "WWWWWWWWWWWWWWWWWW..=...#.WWWWW",
+        "WWWWWWWWWWWWWWWWWWW.=...#..~WWW",
+        "WWWWWWWWWWWWWWWWWWWW#####..~~..",
+        "WWWWWWWWWWWWWWWWWWWW..........."
+      ]
+    },
+    "shortfalls": [
+      "spawnFan",
+      "towers",
+      "misc"
+    ],
+    "notes": [
+      "redundantCut"
+    ]
+  },
+  {
+    "room": "E11S1",
+    "hashed": false,
+    "sitter": {
+      "x": 24,
+      "y": 40
+    },
+    "hub": {
+      "x": 24,
+      "y": 41
+    },
+    "seed": {
+      "x": 25,
+      "y": 39
+    },
+    "seedScore": -92.9,
+    "protectRadius": 12,
+    "baseCut": 32,
+    "vis": {
+      "ext": 60,
+      "roads": 101,
+      "ramparts": 43,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 3,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 2,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          23,
+          32,
+          26,
+          35
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 5
+      },
+      "hub": {
+        "sitter": {
+          "x": 24,
+          "y": 40
+        },
+        "storage": {
+          "x": 24,
+          "y": 41
+        },
+        "terminal": {
+          "x": 23,
+          "y": 40
+        },
+        "hubLink": {
+          "x": 23,
+          "y": 41
+        },
+        "ok": true,
+        "spawnPairs": 2,
+        "spawnFanMin": 63.43494882292201
+      }
+    },
+    "enc": {
+      "cutN": 32,
+      "freezeN": 32,
+      "rampN": 43,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 32,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 23,
+        "y": 7
+      },
+      "seat": {
+        "x": 24,
+        "y": 8
+      },
+      "pubSeat": {
+        "x": 24,
+        "y": 8
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "seat.outside": 4,
+        "cover": 3,
+        "ring": 4,
+        "crossing": 32
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 32,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 32
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 4,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "4 of this room's 43 rampart(s) carry a container (4,25 42,28 5,31 24,8), and all 4 of them stand OUTSIDE the frozen enclosure (4,25 42,28 5,31 24,8), so none is renting cover inside the wall"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 4,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 43 rampart(s) is accounted for by an earlier class — 32 on the cut, 4 under a container, 4 on the stand-denial ring and 3 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 43 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 43 ramparts · 101 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.79 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 2,
+      "y0": 6,
+      "x1": 44,
+      "y1": 48,
+      "lines": [
+        "WWWWWWWWWWWWWWWWWWWWWW.....WWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWWWWWWWWWW*.....WWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWWWWWWWWWWWC....WWWWWWWWWWWWWWWW",
+        "...WWWWWWWWWWWWWWWWWWW.....WWWWWWWWWWWWWWWW",
+        "....WWWWWWWWWWWWWWWWW....~~WWWWWWWWWWWWWWWW",
+        ".....WWWWWWWWWWWWWWW.....~..WWWWWWWWWWWWWWW",
+        ".....WWWWWWWWWWWWWWW.........WWWWWWWWW.WWWW",
+        ".....WWWWWWWWWWWWWW...........WWWWWW....WWW",
+        "W....WWWWWWWWWWWWWW.......WW...WWW......WWW",
+        "W....WWWWWWWWWWWWW.......WWW...~~........WW",
+        "W...WWWWWWWWWWWWWW.......WW..............WW",
+        "W...WWWWWWWWWWWWWW......................WWW",
+        "W..WWWWWWWWWWWWWWW..................WW..WWW",
+        "W..WWWWWWWWWWWWWWW..................WW..WWW",
+        "W..WWWWWWWWWWWWWWW......................WWW",
+        "W..WWWWWWWWWWWWWWW..WW..................WWW",
+        "W..WWWWWWWWWWWWWW..WWWW.....WWWWW.......WWW",
+        "W..WWWWWWWWWWWWWW.WWWWWW...WWWWWWW......WWW",
+        "W~.$WWWWWWWWWWWW..WWWWWWW..WWWWWWWW.....WWW",
+        "W~CWWWWWWWWWWWWW...WWWWWW.WWWWWWWWWW....WWW",
+        "W=KWWWWWWWWWWWW#####....##WWWWWWWWWWW...WWW",
+        "W=..WWWWWWWWWWW.=......=.WWWWWWWWWWWW..~W$W",
+        "W=.~#@WWWWWWWWW..=....=..WWWWWWWWWWWW..~CWW",
+        "W=.~###WWWWWWW.EE=EEEEE=EWWWWWWWWWWWW...K=W",
+        "W=.K=~~.WWWWWWE==========WWWWWWWWWWWW....=.",
+        "W=.C~~~.WWWWWWWWEEEEE=EEEWWWWWWWWWWWW...=..",
+        "WW=.....WWWWWWWWWWWE==LL.WWWWWWWWWWWW..=WWW",
+        "WW.=...WWWWWWWWWWWWWEL=LLWWWWWWWWWWWW.=WWWW",
+        "WWW=...WWWWWWWWWWWWWWLL=LEWWWWWWWWWWW.=WWWW",
+        "WWW=...WWWWWWWWWWWWWW.LL==EWWWWWWWWWW.=WWWW",
+        "WWWW=..WWWWWWWWWWWWWW.ET=TEEWWWWWWWWW.=WWW.",
+        "WWWW=..WWWWWWWWWWWWWWT=E.===EWWWWWWWW.=.W..",
+        "WWWWW=.WWWWWWWWWWWWWWES==EEE..WWWWWWW=.....",
+        "WWWWW=.WWWWWWWWWWWWWW==TETEEEEEWWWWW=......",
+        "WWWWWW=WWWWWWWWWWWWWWM+========.==.=#.....W",
+        "WWWWWW.=WWWWWWWWWWWWWKO=SEWWEEE=EV=.#...WWW",
+        "WWWWWWW.=WWWWWWWWWWWWE=NTWWWW.E=EE=.#..WWWW",
+        "WWWWWWW..====.========S.WWWWW.E=EE=.#.WWWWW",
+        "WWWWWWWW...#.=EEEEEEE=EWWWWWWEE=EE..#WWWWWW",
+        "WWWWWWWW...#.......~~~WWWWWWW==.==..WWWWWWW",
+        "WWWWWWWW...#...~~~~~~WWWWWWWW=......WWWWWWW",
+        "WWWWWWW....#########WWWWWWWWW######WWWWWWWW",
+        "WWWWWW..............WWWWWWWWW......WWWWWWWW"
+      ]
+    },
+    "shortfalls": [
+      "misc",
+      "eco"
+    ],
+    "notes": [
+      "shallowExt",
+      "sealedFloor",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E12S7",
+    "hashed": false,
+    "sitter": {
+      "x": 23,
+      "y": 36
+    },
+    "hub": {
+      "x": 22,
+      "y": 36
+    },
+    "seed": {
+      "x": 22,
+      "y": 36
+    },
+    "seedScore": -92.3,
+    "protectRadius": 11,
+    "baseCut": 32,
+    "vis": {
+      "ext": 60,
+      "roads": 116,
+      "ramparts": 45,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 3,
+      "roadOnRampOnCut": 3,
+      "clump": 1,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          18,
+          38,
+          21,
+          41
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 23,
+          "y": 36
+        },
+        "storage": {
+          "x": 22,
+          "y": 36
+        },
+        "terminal": {
+          "x": 23,
+          "y": 35
+        },
+        "hubLink": {
+          "x": 22,
+          "y": 35
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 101.30993247402023
+      }
+    },
+    "enc": {
+      "cutN": 35,
+      "freezeN": 35,
+      "rampN": 45,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [
+        "22,19",
+        "23,19",
+        "23,20",
+        "23,21",
+        "23,22"
+      ],
+      "loadBearingN": 30,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 26,
+        "y": 32
+      },
+      "seat": {
+        "x": 25,
+        "y": 32
+      },
+      "pubSeat": {
+        "x": 25,
+        "y": 32
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 0
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 35,
+        "cover": 3,
+        "seat.inside": 1,
+        "seat.outside": 2,
+        "ring": 4
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 35,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 35
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 4,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 45 rampart(s) is accounted for by an earlier class — 35 on the cut, 3 under a container, 4 on the stand-denial ring and 3 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 45 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 45 ramparts · 116 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.15 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped, and it is above the mass-free shell reading below (1) — our own mass owns the difference.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.78 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 9,
+      "y0": 9,
+      "x1": 45,
+      "y1": 48,
+      "lines": [
+        "WWW..WWWWWWWW.......~~~~.....WW......",
+        "WW...WWWWWWWWW...===..~~......~~.....",
+        "WWW..WWWWWWWWW..=WWW=.~~WW..~~~~~....",
+        "WWW.~WWWWWWWWW..=WWW.=~WWWW~~~~WWWW..",
+        "WWW~~~WWWW.WWW..=WWW..=WWWWW~~WWWWWW.",
+        "WWW~~~~WW...WW..=WWWW.=WWWWWWWWWWWWWW",
+        "WWW~~~..........=WWWW..=WWWWWWWWWWWWW",
+        "WW..~~.........~=WWWWW..=...WWWWWWWWW",
+        "W...~~~........~=~WWWW..=..WWWWWWWWWW",
+        "W...~~~WWWWWW..~=WWWWWW.=..WWWWWWWWWW",
+        "...~~WWWWWWWW##.=WWWWWW.=.WWWWWWWWWWW",
+        "...~WWWWWWWWW.#.=WWWWWW.=WWWWWWWWW.WW",
+        "....WWWWWWWW$.#.=WWWWW..=WWWWWWWWW~WW",
+        ".....WWWWWWWWC#.=WWWWWW.=WWWWWWWWW~~W",
+        "~.....WWWWWW~K=.=.WWWWW..=WWWWWWWW~~W",
+        "~######WWWW~~=#=.WWWWWWW..=~~WWWWKCWW",
+        "~#...=..WW~~=~=WWWWWWWWW..~=======.$W",
+        "~#....=.~~~V.=WWWWWWWWWW.~~WWWW...WWW",
+        "WWWW..E=E~..=WWWWWWWWWWW~~WWWWWWWWWWW",
+        "WWWWW.E=EET=WWWWWWWWWWWW~~WWWWWWWWWWW",
+        "WWWWWWE====WWWWWWWWWWWWWWWWWWWWWWWWWW",
+        ".WWWWWWEEE=WWWWWWWWWWWWWWWWWWWWW.....",
+        "WWWWWWWW.E=WWWWWWWWWWWWWWWWWWWW......",
+        "WWWWWWWWWE=WWWWWC*WWWWWWWWWWWW...~...",
+        "WWWWWWWWWT=WWWTET..WWWWWWWWWWW...~...",
+        "WWWWWWWWWE=ST..=S=EEWWW..WWWW.~~.....",
+        "WWWWWWWWWE~=.KM===E=EE...#...~~~~....",
+        "WWWWWWWWE==E=O+EEEE=.=E..#...~~~~....",
+        "WWWWWWWE~=ETE=N=..E=E==.=#...~~~~....",
+        "WWWWWE===ELL==ES====EEE=WWW.....WWW..",
+        "WWWWW.EEELL=L=E.WWWW=E~=WWW.....WWWW.",
+        "WWWWWWWWWL=LL=EWWWWWW==~=====CK.WWWWW",
+        "WWWWWWWWW=LLE=EWWWWWWEE=~#~~~.=#WWWWW",
+        "WWWWWWWWE=EWW=EWWWWWW~~~~#~~~..#@WWWW",
+        "~WWWWWWEE=EWW=EWWWWWW..~~#~~...##WWWW",
+        "~~#..EE==.==EE.WWWWWW#####~~.....WWWW",
+        "~~#..==...EE~WWWWWWWWW...~........WW.",
+        "~~#.=..WWW.WWWWWWWWWWW...............",
+        "WW####WWWWWWWWWWWWWWWWW........WW...W",
+        "WW.....WWWWWWWWWWWWWWWW.......WWWWWWW"
+      ]
+    },
+    "shortfalls": [
+      "towers",
+      "misc",
+      "eco"
+    ],
+    "notes": [
+      "redundantCut",
+      "sealedFloor",
+      "pavedRun",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E12S6",
+    "hashed": false,
+    "sitter": {
+      "x": 29,
+      "y": 11
+    },
+    "hub": {
+      "x": 29,
+      "y": 10
+    },
+    "seed": {
+      "x": 28,
+      "y": 10
+    },
+    "seedScore": -85.5,
+    "protectRadius": 12,
+    "baseCut": 33,
+    "vis": {
+      "ext": 60,
+      "roads": 124,
+      "ramparts": 48,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 3,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 2,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          25,
+          15,
+          28,
+          18
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 4
+      },
+      "hub": {
+        "sitter": {
+          "x": 29,
+          "y": 11
+        },
+        "storage": {
+          "x": 29,
+          "y": 10
+        },
+        "terminal": {
+          "x": 30,
+          "y": 11
+        },
+        "hubLink": {
+          "x": 30,
+          "y": 10
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 63.43494882292201
+      }
+    },
+    "enc": {
+      "cutN": 33,
+      "freezeN": 33,
+      "rampN": 48,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [
+        {
+          "k": "22,18",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "32,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "36,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "31,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "18,6",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "17,7",
+          "d": 3,
+          "ramp": true
+        }
+      ],
+      "pubShallow": 6,
+      "redundant": [],
+      "loadBearingN": 33,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 19,
+        "y": 9
+      },
+      "seat": {
+        "x": 18,
+        "y": 8
+      },
+      "pubSeat": {
+        "x": 18,
+        "y": 8
+      },
+      "approach": true,
+      "off": false,
+      "bubble": 0
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 33,
+        "cover": 8,
+        "seat.inside": 1,
+        "seat.outside": 2,
+        "ring": 4
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 33,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 33
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 4,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 4
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 8,
+          "captions": [
+            {
+              "caption": "personal cover — one extension renting a rampart of its own",
+              "count": 6
+            },
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 48 rampart(s) is accounted for by an earlier class — 33 on the cut, 3 under a container, 4 on the stand-denial ring and 8 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 48 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 48 ramparts · 124 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.5 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1.5 max · 0.7 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 0,
+      "y0": 1,
+      "x1": 48,
+      "y1": 36,
+      "lines": [
+        "WWWWWWWWWWW................WWWWWW........WWWW.WWW",
+        "WWWWWWWWWWW..~~~...WWWWW###WWWWW######WWWWWW....W",
+        "..WWWW.WWWWWW~....WWWWWW=.WWWWWEE=..E.WWWWW......",
+        "...W....WWWWWWW###WWW...==WWWW===~=====.W#.......",
+        "........WWWWWWWW=..WW.E=EEEEE=EEEE=WTVW=.#~......",
+        "........WWWWWWW#.=E.W.E=EE==EE=EE=WWWWWW=#.......",
+        ".......WWWWW...#~E=WWW.==EE=TEEE=WWWWWWW#=.......",
+        "..~~.WWWWWW....#..C====WW=S=E=S=WWWWWWWWW.=.....W",
+        ".~~~WWWWWWWW...#..E*TWWWWW==E==EWWWWWWWWW..=...WW",
+        "..~~.WWWWWW....#..=WWWWWWWEE=OKWWWWWWWWWWW..=..WW",
+        ".....WWWWWW....#...=WWWWWWE=T+M.WWWWWWWWWWW..=.WW",
+        "....WWWWWWW..WWW##.=EWWWWW.S=N=EEWWWWWWWWWWWWW=.W",
+        "....WWWWWWW...W..#..==EWWWE=ETW==E=EWWWWWWWWWWW=.",
+        "...WWWWWWWW.....~#~=E=EWWW=T=WWW=EKC..WWW.~WWWW=.",
+        "..WWWWWWWWW....~.#~=EE.WW=LL=WWWE===$.W...~~WWW=.",
+        "..WWWW...........#.=EEEE=LL=LWWWWEWWWWW....~.~=~.",
+        "..WWW............#.=====EL=LLWWWWWWWWW...=====.~.",
+        "..WW............~#=WW.E.E=LLWWWWWWWWWW..=WWWW....",
+        ".................=#WWWW.E=E.WWWWWWWWW..=.WWWWW...",
+        "................=...WWWWWE=EWWWW.W.W..=..WWWWWW..",
+        "..~......~....==.....WWWW..WWWW#.....=....W..WW~.",
+        "........======WW.....WWWW..WWW@#KC===W.........~.",
+        ".......=WWW...WW......WWWWWWWW##....WWW..~....~~.",
+        "......=WWWW..........WWWW..WW....WWWWWW.~~.......",
+        "..WW.=.WWWW~..........WWW........WWWWW..~WWW..W..",
+        "..WW=..WWW...........WWWW.......WWWWWW.~~WWW..WW.",
+        "...=~..WWW............WWW.W......WWWW.~~~WWWWWWW.",
+        "..=.~~~~WW....WW......WWW.W.....WWW..........W...",
+        ".=.....~~~~..WWW......W.W......WWW..............W",
+        ".=.W....~~~..WW......WWW.....WWWWW..............W",
+        ".=WWW................WWW....WWWWWW..............W",
+        ".=WWWW........~WWW...WWW...WWWWWWW..............W",
+        "..=WWWWW.......WWWWWWWWW....WWWWWW..............W",
+        "..=KWWWWW......WWWWWWWW.....WWWWWWWW............W",
+        "...=C$WWWWWWW...WWWWWW.....~~.WWWWWWW............",
+        ".....WWWWWWWWW..~WWWW.~....~....WWWWWWWW........."
+      ]
+    },
+    "shortfalls": [
+      "towers",
+      "extensions",
+      "eco"
+    ],
+    "notes": [
+      "shallowExt"
+    ]
+  },
+  {
+    "room": "E7S5",
+    "hashed": false,
+    "sitter": {
+      "x": 19,
+      "y": 17
+    },
+    "hub": {
+      "x": 18,
+      "y": 17
+    },
+    "seed": {
+      "x": 18,
+      "y": 17
+    },
+    "seedScore": -58.9,
+    "protectRadius": 8,
+    "baseCut": 14,
+    "vis": {
+      "ext": 60,
+      "roads": 99,
+      "ramparts": 19,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 2,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          13,
+          11,
+          16,
+          14
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 4
+      },
+      "hub": {
+        "sitter": {
+          "x": 19,
+          "y": 17
+        },
+        "storage": {
+          "x": 18,
+          "y": 17
+        },
+        "terminal": {
+          "x": 19,
+          "y": 18
+        },
+        "hubLink": {
+          "x": 18,
+          "y": 18
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 75.96375653207352
+      }
+    },
+    "enc": {
+      "cutN": 14,
+      "freezeN": 14,
+      "rampN": 19,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 14,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 25,
+        "y": 30
+      },
+      "seat": {
+        "x": 24,
+        "y": 31
+      },
+      "pubSeat": {
+        "x": 24,
+        "y": 31
+      },
+      "approach": true,
+      "off": false,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 14,
+        "seat.outside": 3,
+        "cover": 2
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 14,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 14
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "3 of this room's 19 rampart(s) carry a container (34,15 31,43 24,31), and all 3 of them stand OUTSIDE the frozen enclosure (34,15 31,43 24,31), so none is renting cover inside the wall"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 19 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 19 rampart(s) is accounted for by an earlier class — 14 on the cut, 3 under a container, 0 on the stand-denial ring and 2 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 19 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 19 ramparts · 99 roads",
+      "mobSub": [
+        "the gate judged no pair: this room's worst absolute detour is 33 tiles, over the 4-tile floor, and every pair that clears the floor is excused by coverage (a defender on one wall tile already covers everything an attacker can stand on to grind the other)",
+        "as-built UNGATED lap 17.5 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 17.5 max · 1.1 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 8,
+      "y0": 1,
+      "x1": 40,
+      "y1": 44,
+      "lines": [
+        ".WWWWWWWWWWWWWW.....WWWWWWWWWWWWW",
+        "WWWWWWW..EEEW.......WWWWWWW....WW",
+        "WWWWWWWWE===EEEEEE..WWWWW......WW",
+        "W..WWWWWE=E.======.WWWWW.......WW",
+        "...WWWWWWEE=EEEE....WWW.......WWW",
+        "..WWWWWW..E=E.E.WW..WWW.......WWW",
+        ".WWWWWWE..E=EE=EWW...WW.......WWW",
+        ".WWWWWE=EEE=..=@WWW..WWW.....WWWW",
+        "..WWWWE====..K=EWWW..WWWW..WWWWWW",
+        ".#WWWV.E.EE=C=..WWW..WWWW..WWWWWW",
+        ".#.WW=LL..E=WW=EWWW...WWW....WWW.",
+        ".#=~=L=LLE=WWW=EWWWW...W......WW.",
+        ".#.=ELL=LT=EWW.WWWW...WWW........",
+        ".#...ELL=E=ET=EWWWW...WWW........",
+        ".#...=E.E=.E=S.WWWW...WWWWCK.....",
+        ".#..E=EE.T=T=EWWWWW..WWWW$W====..",
+        "WWW.E===.=O+N.WWWWWW..WWWWWWWWW=.",
+        "WWW..EES==KM=WWWWWWWW#WWWWWWWWW=.",
+        "WWW..WW.EE.S=WWWWWW#...WWWWWWWW=.",
+        "W...WWWWWWW.T=WWW====....WWWWW=..",
+        "W..WWWWWWW...E=.=..#W=...WWW==...",
+        "W..WWWWWWWW..TE=E.WWWW======.....",
+        "WWWWWWWWWWWWWWW.=.WWWWWW.........",
+        "WWWWWWWWWWWWWWWWW=WWWWWW.........",
+        "WWWW....WWWWWWWW=..WWWWWWWWW.....",
+        "...............=##.....WWWWWW...W",
+        "........WWW....=.W.....WWWWWWW...",
+        "...............=WWW...WWWWWWWW...",
+        ".........WW....=WWWWW.WWWWWWW....",
+        "................=*WWWWWW..WWW....",
+        "................C=WWWWW...WWW....",
+        "............W.....=WWWWW...W.....",
+        "...........WWWWWW..=WWWW...WW...W",
+        "...........WWWWWWW.=WWWW.........",
+        "..W........WWWWWWW.=WWWW.........",
+        "WWW..~~~...WWWW....=WWW....~.....",
+        "WWW.~~W~..WWW......~=~W..........",
+        "WW.~~WWWW.W..........=...........",
+        "WW...WWW.......WWWW...=..........",
+        "WW...WWW.....W.WWWWWW..=.........",
+        "WWW.........WW..WWWWWWW.=........",
+        "WW..........WW...WWWWWWWK=......W",
+        "...........WWW....WWWW$C=........",
+        "..........WWWW.....WWWWW~........"
+      ]
+    },
+    "shortfalls": [
+      "mobility",
+      "eco"
+    ],
+    "notes": [
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E9S2",
+    "hashed": false,
+    "sitter": {
+      "x": 34,
+      "y": 13
+    },
+    "hub": {
+      "x": 35,
+      "y": 13
+    },
+    "seed": {
+      "x": 35,
+      "y": 13
+    },
+    "seedScore": -40.3,
+    "protectRadius": 12,
+    "baseCut": 21,
+    "vis": {
+      "ext": 60,
+      "roads": 68,
+      "ramparts": 40,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 2,
+      "roadOnRamp": 1,
+      "roadOnRampOnCut": 1,
+      "clump": 4,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          27,
+          16,
+          30,
+          19
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 4
+      },
+      "hub": {
+        "sitter": {
+          "x": 34,
+          "y": 13
+        },
+        "storage": {
+          "x": 35,
+          "y": 13
+        },
+        "terminal": {
+          "x": 34,
+          "y": 14
+        },
+        "hubLink": {
+          "x": 35,
+          "y": 14
+        },
+        "ok": true,
+        "spawnPairs": 2,
+        "spawnFanMin": 45
+      }
+    },
+    "enc": {
+      "cutN": 21,
+      "freezeN": 21,
+      "rampN": 40,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [
+        {
+          "k": "33,4",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "32,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "35,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "34,4",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "31,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "34,3",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "24,19",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "24,24",
+          "d": 3,
+          "ramp": true
+        },
+        {
+          "k": "23,19",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "41,23",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "42,23",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "23,24",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "43,23",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "46,21",
+          "d": 2,
+          "ramp": true
+        },
+        {
+          "k": "46,23",
+          "d": 2,
+          "ramp": true
+        }
+      ],
+      "pubShallow": 15,
+      "redundant": [
+        "22,25",
+        "22,26",
+        "31,2",
+        "35,2",
+        "36,2",
+        "42,24",
+        "47,24"
+      ],
+      "loadBearingN": 14,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 44,
+        "y": 31
+      },
+      "seat": {
+        "x": 43,
+        "y": 30
+      },
+      "pubSeat": {
+        "x": 43,
+        "y": 30
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "cover": 17,
+        "crossing": 21,
+        "seat.outside": 2
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 21,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 21
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "2 of this room's 40 rampart(s) carry a container (30,36 43,30), and all 2 of them stand OUTSIDE the frozen enclosure (30,36 43,30), so none is renting cover inside the wall"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 40 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 17,
+          "captions": [
+            {
+              "caption": "personal cover — one extension renting a rampart of its own",
+              "count": 15
+            },
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 40 rampart(s) is accounted for by an earlier class — 21 on the cut, 2 under a container, 0 on the stand-denial ring and 17 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 40 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 40 ramparts · 68 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.43 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped, and it is above the mass-free shell reading below (1) — our own mass owns the difference.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.94 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 21,
+      "y0": 1,
+      "x1": 48,
+      "y1": 38,
+      "lines": [
+        "WWWW.................WWWWWWW",
+        "WWWWWWWWWW######WWWWWWWWWWWW",
+        "WWWWWWWWWWEE=EEWWWWWWWWWWWWW",
+        "WWWWWWWWWW==EE=$WWWWWWWWWWWW",
+        "WWWWWWWWWWWE=ECWWWWWWWWWWWWW",
+        "WWWWWWWWWWWE==KWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWE=EWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWE=EWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWE=EWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWE=E.WWWWWWWWWWWW",
+        "WWWWWWWWWWWWE=ESEWWWWWWWWWWW",
+        "WWWWWWWWWWWNT==T=EWWWWWWWWWW",
+        "WWWWWWWWWWES=+O=ES.WWWWWWWWW",
+        "WWWWWWWWWE=E=MKE=TE.WWWWWWWW",
+        "WWWWWWWWE=E=T=ETE==E.WWWWWWW",
+        "WWWWWWWLL==EWWWWWWW=EEWWWWWW",
+        "WWWWWWLL=LTWWWWWWWWW==EWWWWW",
+        ".WWWWEL=LLWWWWWWWWWWW=E.WWWW",
+        "~#EEE==LLWWWWWWWWWWWW=EE=WWW",
+        "~#==EE=EWWWWWWWWWWWWW=EE=.WW",
+        "~#..C=EWWWWWWWWWWWWW=VEE=E#W",
+        ".#.K=EWWWWWWWWWWWWWW====.=#.",
+        ".#==EWWWWWWWWWWWWWW=EEEWWE#.",
+        ".#EE@WWWWWWWWWWWWWW=##WWWW#.",
+        ".#.WWWWWWWWWWWWWWW=...WWWW..",
+        ".#WWWWWWWWWWWWWWWW=...~.....",
+        "~WWWWWWWWWWWWWWWW=..........",
+        ".WWWWWWWWWWWWWWWW=..........",
+        ".WWWWWWWWWWWWWWW=.~.........",
+        ".WWWWWWWWWWWWWW=~.~~~.C.....",
+        ".WWWWWWWWWWWWW=.~~~WWWW*WWW.",
+        ".WWWWWWWWWWWW=....WWWWWWWWWW",
+        "..WWWWWWWWWW=....WWWWWWWWWWW",
+        "..WWWWWWWWW=~~..WWWWWWWWWWWW",
+        "WWWWWWWW~~K=~~.WWWWWWWWWWWWW",
+        "WWWWWWWW.C=~~WWWWWWWWWWWWWWW",
+        "WWWWWWWW$W~WWWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWWWWWWWWWWWWWWWWWWW"
+      ]
+    },
+    "shortfalls": [
+      "labs",
+      "extensions",
+      "ctrlParks",
+      "misc",
+      "ctrlParks"
+    ],
+    "notes": [
+      "shallowExt",
+      "redundantCut",
+      "sealedFloor",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E2S7",
+    "hashed": false,
+    "sitter": {
+      "x": 14,
+      "y": 27
+    },
+    "hub": {
+      "x": 13,
+      "y": 27
+    },
+    "seed": {
+      "x": 13,
+      "y": 27
+    },
+    "seedScore": -21.5,
+    "protectRadius": 12,
+    "baseCut": 18,
+    "vis": {
+      "ext": 60,
+      "roads": 72,
+      "ramparts": 21,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 1,
+      "roadOnRampOnCut": 1,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          8,
+          26,
+          11,
+          29
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 14,
+          "y": 27
+        },
+        "storage": {
+          "x": 13,
+          "y": 27
+        },
+        "terminal": {
+          "x": 14,
+          "y": 26
+        },
+        "hubLink": {
+          "x": 13,
+          "y": 26
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 90
+      }
+    },
+    "enc": {
+      "cutN": 18,
+      "freezeN": 18,
+      "rampN": 21,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 18,
+      "enclosedCtrl": true,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 33,
+        "y": 4
+      },
+      "seat": {
+        "x": 32,
+        "y": 3
+      },
+      "pubSeat": {
+        "x": 32,
+        "y": 3
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 18,
+        "cover": 1,
+        "seat.outside": 2
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 18,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 18
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "2 of this room's 21 rampart(s) carry a container (3,13 32,3), and all 2 of them stand OUTSIDE the frozen enclosure (3,13 32,3), so none is renting cover inside the wall"
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this room publishes no controller stand-denial ring at all, so there is no ring tile of its own for one of its 21 rampart(s) to stand on"
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 21 rampart(s) is accounted for by an earlier class — 18 on the cut, 2 under a container, 0 on the stand-denial ring and 1 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 21 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 21 ramparts · 72 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.21 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped, and it is above the mass-free shell reading below (1) — our own mass owns the difference.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1 max · 0.92 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 0,
+      "y0": 2,
+      "x1": 34,
+      "y1": 37,
+      "lines": [
+        "WWWW...WWWWWWWWWWWWWWWWWWWWWWW.....",
+        "WWWW..WWWWWWWWWWWWWWWWWWWWWWWWW.CWW",
+        "WWWW..WWWWWWWWWWWWWWWWWWWWWWWWWWW*W",
+        "WWW...WWWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+        "WW.....WWWWWWWWWWWWWWWWWWWWWWWWWWWW",
+        "W.......WWWWWWWWWWWWWWWWWWWWWWWWWWW",
+        "............WWWWWWWWWWWWWWWWWWWWWWW",
+        ".............WWWWWWWWWWWWWWWWWWWWWW",
+        ".............WWWWWWWWWWWWWWWWWWWWWW",
+        "......WWWWW..WWWWWWWWWWWWWWWWWWWWWW",
+        ".....WWWWWW..WWWWWWWWWWWWWWWWWWWWWW",
+        "..=CWWWWWWW..#....WWWWWWWWWWWWWWWWW",
+        ".=KW$WWWWWW###...WWWWWWWWWWWWWWWWWW",
+        ".=.WWWWWWWW.=...WWWWWWWWWWWWWWWWWWW",
+        ".=#WWWWWWWW=...WWWWWWWWWWWWWWWWWWWW",
+        "..=.WWWWWWW=E.WWWWWWWWWWWWWWWWWWWWW",
+        "..#=.WWWWWE=EWWWWWWWWWWWWWWWWWWWWWW",
+        "W.#.=.WWWEE=EWWWWWWWWWWWWWWWWWWWWWW",
+        "WW#..=E.E===EWWWWWWWWWWWWWWWWWWWWWW",
+        "WW...E=EE=E=EWWWWWWWWWWWWWWWWWWWWWW",
+        "WW....E=E=EETWWWWWWWWWWWWWWWWWWWWWW",
+        "WW...WWW==E...WWWWWWWWWWWWWWWWWWWWW",
+        "WW...WWWE=E..TEWWWWWWWWWWWWWWWWWWWW",
+        "WW...EEEEE=TS.=TWWWWWWWWWWWWWWWWWW.",
+        "WW..=====LL=.KM=KC$WWWWWWW#........",
+        "WW.=.E=EL=LL=O+=S=TWWWWW.=#........",
+        "WW#..E=ELL=L.=T==.EEWWWE=.#WWWWWW..",
+        "W.#..E=EELL=S=ENE====.E=..WWWWWWWW.",
+        "..#..E===E.E=WWWWEEEE==..WWWWWWWWWW",
+        "..#...EEE.E=WWWWWW.E==E.WWWWWWWWWWW",
+        "..#.WWWWWWE=WWWWWWWWEEWWWWWWWWWWWWW",
+        "..#WWWWWWWWE=WWWWWWWWWWWWWWWWWWWWWW",
+        "..WWWWWWWWW.E=WWW@WWWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWWEE.C=.WWWWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWW===.K=VWWWWWWWWWWWWWWWWW",
+        "WWWWWWWWWWW.......WWWWWWWWWWWWWWWW."
+      ]
+    },
+    "shortfalls": [
+      "misc"
+    ],
+    "notes": [
+      "sealedFloor",
+      "sealedRecovery"
+    ]
+  },
+  {
+    "room": "E1S4",
+    "hashed": false,
+    "sitter": {
+      "x": 35,
+      "y": 21
+    },
+    "hub": {
+      "x": 35,
+      "y": 22
+    },
+    "seed": {
+      "x": 35,
+      "y": 22
+    },
+    "seedScore": -31.8,
+    "protectRadius": 12,
+    "baseCut": 24,
+    "vis": {
+      "ext": 60,
+      "roads": 63,
+      "ramparts": 34,
+      "noD4": 0,
+      "noD4Tiles": [],
+      "bricks2": 0,
+      "roadOnRamp": 2,
+      "roadOnRampOnCut": 1,
+      "clump": 2,
+      "labs": {
+        "n": 10,
+        "bbox": [
+          29,
+          20,
+          32,
+          23
+        ],
+        "w": 4,
+        "h": 4,
+        "holes": 6,
+        "box16": true,
+        "haul": 3
+      },
+      "hub": {
+        "sitter": {
+          "x": 35,
+          "y": 21
+        },
+        "storage": {
+          "x": 35,
+          "y": 22
+        },
+        "terminal": {
+          "x": 36,
+          "y": 21
+        },
+        "hubLink": {
+          "x": 36,
+          "y": 22
+        },
+        "ok": true,
+        "spawnPairs": 4,
+        "spawnFanMin": 74.74488129694222
+      }
+    },
+    "enc": {
+      "cutN": 26,
+      "freezeN": 26,
+      "rampN": 34,
+      "sitterLeaks": {
+        "throughCut": false,
+        "throughFreeze": false,
+        "throughLive": false
+      },
+      "leakedLive": [],
+      "shallowExt": [],
+      "pubShallow": 0,
+      "redundant": [],
+      "loadBearingN": 26,
+      "enclosedCtrl": false,
+      "mobility": 0
+    },
+    "mineral": {
+      "mineral": {
+        "x": 10,
+        "y": 37
+      },
+      "seat": {
+        "x": 11,
+        "y": 38
+      },
+      "pubSeat": {
+        "x": 11,
+        "y": 38
+      },
+      "approach": true,
+      "off": true,
+      "bubble": 1
+    },
+    "film": {
+      "missing": false,
+      "disagrees": [],
+      "unpainted": [],
+      "extra": [],
+      "facetCounts": {
+        "crossing": 26,
+        "seat.inside": 1,
+        "cover": 2,
+        "seat.outside": 2,
+        "ring": 3
+      },
+      "census": [
+        {
+          "facet": "crossing",
+          "class": "crossing",
+          "count": 26,
+          "captions": [
+            {
+              "caption": "min-cut wall",
+              "count": 26
+            }
+          ]
+        },
+        {
+          "facet": "seat.outside",
+          "class": "seat",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "seat outside the shell — a container beyond the wall, covered where it stands",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "seat.inside",
+          "class": "seat",
+          "count": 1,
+          "captions": [
+            {
+              "caption": "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
+              "count": 1
+            }
+          ]
+        },
+        {
+          "facet": "ring",
+          "class": "ring",
+          "count": 3,
+          "captions": [
+            {
+              "caption": "controller stand-denial ring",
+              "count": 3
+            }
+          ]
+        },
+        {
+          "facet": "cover",
+          "class": "cover",
+          "count": 2,
+          "captions": [
+            {
+              "caption": "personal cover — one link renting a rampart of its own",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "facet": "unclassified",
+          "class": "unclassified",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "every one of this room's 34 rampart(s) is accounted for by an earlier class — 26 on the cut, 3 under a container, 3 on the stand-denial ring and 2 under some other structure of ours — so 0 are left over, which is what this class exists to demonstrate"
+        },
+        {
+          "facet": "none",
+          "class": "none",
+          "count": 0,
+          "captions": [],
+          "emptyBecause": "this facet is never painted: the stage sweeps this room's 34 rampart(s), so every tile it paints carries one"
+        }
+      ]
+    },
+    "page": {
+      "counts": "60 extensions · 6 towers · 10 labs · 4 links · 3 spawns · 1 storage · 1 terminal · 1 nuker · 1 observer · 1 extractor · 4 containers · 34 ramparts · 63 roads",
+      "mobSub": [
+        "the gate judged no pair: no two wall tiles of this room are more than 4 tiles apart in detour, which is the floor below which a detour is not a detour",
+        "as-built UNGATED lap 1.5 — the same ratio with the extension mass in place and no detour floor: every connected pair judged, nothing excused, no target applied. This is the worst pair in the room as shipped.",
+        "mass-free: 0 bare-terrain gated · shell ungated record 1.5 max · 1.01 mean"
+      ],
+      "notesFilm": []
+    },
+    "ascii": {
+      "x0": 9,
+      "y0": 6,
+      "x1": 48,
+      "y1": 39,
+      "lines": [
+        "....WWWWWWWWWWWWWWWWW...............WWWW",
+        ".....WWWWWWWWWWWWWWWW.............##WWWW",
+        ".....WWWWWWWWWWWWWWWW.............#~WWWW",
+        ".....WWWWWWWWWWWWWWW###############~$WWW",
+        ".....WWWWWWWWWWWWWWW..............~CWWWW",
+        ".....WWWWWWWWWWWWWW...............=KWWWW",
+        ".....WWWWWWWWWWWWWW......~~~WWWW.E=~WWWW",
+        "...~~WWWWWWWWWWWWW..EEEEE..WWWWWWE==WWWW",
+        ".........WWWWWWWWW.E=====EWWWWWWWE=E=WWW",
+        "..........WWWWWWWW.E=EEEEWWWWWW$WT=E.=WW",
+        ".......~...WWWWWWW.E=E..WWWWWWWWC=E...#W",
+        "...........WWWWWWW.E=E..WWWWWWWK=EWW..#.",
+        ".....~~....WWWWWWW.E=E.T.WWWWW==EWWWW.#.",
+        "W.....~....WWWWWWW.E=E.E=TWWW=TE.WWWW.#.",
+        "WW........~WWWWWWW.E=LLTS=N==S...WWWW.#.",
+        "WWW........WWWWWWWW.L=LL.T+M=E...WWW~~#.",
+        "WWWW.....~~WWWWWWWWWLL=LE=OK=E......~.#W",
+        "WWWW.......WWWWWWWWWWLL==E.=E.....~~~.WW",
+        "WWWW........WWWWWWWWWW.E=EE=S.........WW",
+        "WWWW........~WWWWWWWWWWE=E.E.W........WW",
+        "WWWW........~.WWWWWWWWWW=E..WWW......~WW",
+        "WWWW......~~~..WWWWWWWWW=E.WWWW.......WW",
+        "WWW........~.KC=WWWWWWWW=E.~WWW.......WW",
+        "..........###...=WWWWWW=E.............WW",
+        ".......WWWW@WWWWW======E..............WW",
+        ".......WWWWWWWWWWW..VE=E..........~~..WW",
+        "W.....WWWWWWWWWWWWW..E=E~~~.......~...WW",
+        "WW....WWWWWWWWWWWWWW.E=E..............WW",
+        "WWW..WWWWWWWWWWWWWWWWE=E..............WW",
+        "WWW..WWWWWWWWWWWWWWW..=E.............~WW",
+        "WWW~WWWWWWWWWWWWWWW...=EEEE...........WW",
+        "W*..WWWWWWWWWWWWW......====...........WW",
+        "..C.WWWWWWWWWWW.......................WW",
+        "....WWWWWWWWWWW.......................WW"
+      ]
+    },
+    "shortfalls": [
+      "misc"
+    ],
+    "notes": []
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "r1": {
+    "name": "88 sealing same-lap one-tile nudge keep-ramparts",
+    "room": "E11S2",
+    "status": "ESCAPE",
+    "changed": true,
+    "n": 0
+  },
+  "r2": {
+    "name": "98 D8 extra reserved on dropped E12S5",
+    "room": "E12S5",
+    "status": "ESCAPE",
+    "changed": true,
+    "n": 0
+  }
+}

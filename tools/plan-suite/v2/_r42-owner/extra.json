@@ -1,0 +1,602 @@
+{
+  "fleetA": {
+    "label": "skip-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "flipAKinds": 13,
+  "flipAEvents": 1014,
+  "flipA": {
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "fleetB": {
+    "label": "skip-baseCut-shallowNow-hubDistCap",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "extra": [
+    {
+      "name": "p15 seat+approach moved together to other cheb-1/D8",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p16 hubDistCap := 17 off-ladder",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+    },
+    {
+      "name": "p16 hubDistCap 16→19 in-enum",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p16 lapCeilingFloor := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "reflow.lapCeilingFloor is 0 and MOBILITY_TARGET is 1.2. The ceiling floor is that target, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced := 0 keep fallback 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.corridorPlaced is 0 and corridorFallback is 0. Fallback is 0 iff every extension sat on a corridor (60) — flattening the count used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced 0 + fallback 1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p17 stubCap 43→51",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 51 and the rich/poor paving ceiling on this room's deep ext-capable pool is 43. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p17 stubCap 51→43",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.stubCap is 43 and the rich/poor paving ceiling on this room's deep ext-capable pool is 51. It is 51 iff that pool / 60 is at least 1.5, not a comment — swapping 43 for 51 used to pass"
+    },
+    {
+      "name": "p17 floorUngated := 0 both copies",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.extensions.laneMeta.floorUngated is 0 and the mass-free ungated walk on the freeze cut (extensions not yet placed) is 1. It is that floor, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p17 radii rewritten [1,2,3]",
+      "room": "E13S8",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.radii is [1,2,3] and the escalation table for needDeepBonus 25 is 6,7,8,9,10,11,12,13,14. The list is that composeOpts walk — rewriting it used to pass"
+    },
+    {
+      "name": "p17 radii planted on absent",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.radii is [6,7,8,9,10,11,12,13,14] and the escalation table for needDeepBonus none is absent. The list is that composeOpts walk — rewriting it used to pass"
+    },
+    {
+      "name": "p17 parkCap := 0",
+      "room": "E12S5",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.parkCap is 0 and ctrlParkFloorCap is 2. The cap is the reservation this composition held — flattening it used to pass"
+    },
+    {
+      "name": "p17 takeTowerSwap.to → 1,1",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 3,
+      "first": "meta.composeOpts.takeTowerSwap.to is 1,1 and no shipped tower sits there. The take's destination is a tower on the board this room ships — moving it used to pass"
+    },
+    {
+      "name": "p18 maxHubDist := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 15. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p18 maxHubDist += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.maxHubDist is 16 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 15. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p18 takeTowerSwap.from → 1,1",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "meta.composeOpts.takeTowerSwap.from is 1,1 and to is 34,24. The take vacated a D8 neighbour of the destination — moving it off that ring used to pass"
+    },
+    {
+      "name": "p18 takeTowerSwap.from other D8 35,24",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+    },
+    {
+      "name": "p19 takeTowerSwap.from other D8 35,24 composeOpts only",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+    },
+    {
+      "name": "p19 takeTowerSwap.from other D8 + rewrite published take",
+      "room": "E14S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "PLANNER NOTE — `meta.noteRecords[0]` (class towerSwap) says `.taken` is {\"from\":{\"x\":34,\"y\":25},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"} and `meta.towers.acrossPriorTake.taken` — the tower-swap record this file re-derives against the shipped board — says {\"from\":{\"x\":35,\"y\":24},\"to\":{\"x\":34,\"y\":24},\"why\":\"clump\"}. A note is"
+    },
+    {
+      "name": "p19 unreachedClusters += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+    },
+    {
+      "name": "p19 unreachableExts += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+    },
+    {
+      "name": "p19 servedExts += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+    },
+    {
+      "name": "p19 servedExts += 1 and fillerTiles += 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+    },
+    {
+      "name": "p20 baseOverGated := 0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 4 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p20 baseOverGated += 1",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mobilityVeto.baseOverGated is 5 and the freeze-cut walk with the extension mass, nuker and observer lifted has 4 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p20 wasLap := 0",
+      "room": "E11S6",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p20 wasLap += 1",
+      "room": "E11S6",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.misc.mobilityVeto.refused[0].wasLap is 2.5 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+    }
+  ],
+  "minerals": [
+    {
+      "room": "E14S3",
+      "mineral": {
+        "x": 27,
+        "y": 35
+      },
+      "seat": {
+        "x": 26,
+        "y": 34
+      },
+      "seatRes": {
+        "x": 26,
+        "y": 34
+      },
+      "appr": {
+        "x": 25,
+        "y": 33
+      },
+      "apprRes": {
+        "x": 25,
+        "y": 33
+      },
+      "off": false,
+      "seedScore": -26.4,
+      "baseCut": 70,
+      "cut": 70,
+      "freeze": 70,
+      "protect": 9,
+      "redundant": {
+        "tiles": 1,
+        "pruned": 0,
+        "explained": 1,
+        "reasons": {
+          "10,42": {
+            "class": "load-bearing on interior floor",
+            "tile": "9,41",
+            "why": "deleting it would put 9,41 — interior floor the base walks on — outside the wall"
+          }
+        }
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E3S8",
+      "mineral": {
+        "x": 44,
+        "y": 13
+      },
+      "seat": {
+        "x": 45,
+        "y": 14
+      },
+      "seatRes": {
+        "x": 45,
+        "y": 14
+      },
+      "appr": {
+        "x": 44,
+        "y": 15
+      },
+      "apprRes": {
+        "x": 44,
+        "y": 15
+      },
+      "off": true,
+      "seedScore": -17.2,
+      "baseCut": 40,
+      "cut": 40,
+      "freeze": 40,
+      "protect": 8,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E2S4",
+      "mineral": {
+        "x": 8,
+        "y": 17
+      },
+      "seat": {
+        "x": 9,
+        "y": 16
+      },
+      "seatRes": {
+        "x": 9,
+        "y": 16
+      },
+      "appr": {
+        "x": 10,
+        "y": 15
+      },
+      "apprRes": {
+        "x": 10,
+        "y": 15
+      },
+      "off": true,
+      "seedScore": -20.9,
+      "baseCut": 37,
+      "cut": 37,
+      "freeze": 37,
+      "protect": 9,
+      "redundant": {
+        "tiles": 2,
+        "pruned": 0,
+        "explained": 2,
+        "reasons": {
+          "12,7": {
+            "class": "depth promotion",
+            "tile": "15,10",
+            "why": "the structure at 15,10 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          },
+          "12,8": {
+            "class": "depth promotion",
+            "tile": "15,10",
+            "why": "the structure at 15,10 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          }
+        }
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E9S2",
+      "mineral": {
+        "x": 44,
+        "y": 31
+      },
+      "seat": {
+        "x": 43,
+        "y": 30
+      },
+      "seatRes": {
+        "x": 43,
+        "y": 30
+      },
+      "appr": {
+        "x": 42,
+        "y": 29
+      },
+      "apprRes": {
+        "x": 42,
+        "y": 29
+      },
+      "off": true,
+      "seedScore": -40.3,
+      "baseCut": 21,
+      "cut": 21,
+      "freeze": 21,
+      "protect": 12,
+      "redundant": {
+        "tiles": 7,
+        "pruned": 0,
+        "explained": 7,
+        "reasons": {
+          "22,25": {
+            "class": "load-bearing on interior floor",
+            "tile": "23,25",
+            "why": "deleting it would put 23,25 — interior floor the base walks on — outside the wall"
+          },
+          "22,26": {
+            "class": "load-bearing on interior floor",
+            "tile": "23,25",
+            "why": "deleting it would put 23,25 — interior floor the base walks on — outside the wall"
+          },
+          "31,2": {
+            "class": "depth promotion",
+            "tile": "34,5",
+            "why": "the structure at 34,5 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          },
+          "35,2": {
+            "class": "depth promotion",
+            "tile": "35,5",
+            "why": "the structure at 35,5 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          },
+          "36,2": {
+            "class": "depth promotion",
+            "tile": "35,5",
+            "why": "the structure at 35,5 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          },
+          "42,24": {
+            "class": "depth promotion",
+            "tile": "42,21",
+            "why": "the structure at 42,21 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          },
+          "47,24": {
+            "class": "depth promotion",
+            "tile": "44,21",
+            "why": "the structure at 44,21 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          }
+        }
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E18S2",
+      "mineral": {
+        "x": 23,
+        "y": 45
+      },
+      "seat": {
+        "x": 24,
+        "y": 46
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 46
+      },
+      "appr": {
+        "x": 23,
+        "y": 47
+      },
+      "apprRes": {
+        "x": 23,
+        "y": 47
+      },
+      "off": true,
+      "seedScore": -25.9,
+      "baseCut": 46,
+      "cut": 44,
+      "freeze": 44,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E11S1",
+      "mineral": {
+        "x": 23,
+        "y": 7
+      },
+      "seat": {
+        "x": 24,
+        "y": 8
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 8
+      },
+      "appr": {
+        "x": 25,
+        "y": 9
+      },
+      "apprRes": {
+        "x": 25,
+        "y": 9
+      },
+      "off": true,
+      "seedScore": -92.9,
+      "baseCut": 32,
+      "cut": 32,
+      "freeze": 32,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    {
+      "room": "E2S7",
+      "mineral": {
+        "x": 33,
+        "y": 4
+      },
+      "seat": {
+        "x": 32,
+        "y": 3
+      },
+      "seatRes": {
+        "x": 32,
+        "y": 3
+      },
+      "appr": {
+        "x": 31,
+        "y": 2
+      },
+      "apprRes": {
+        "x": 31,
+        "y": 2
+      },
+      "off": true,
+      "seedScore": -21.5,
+      "baseCut": 18,
+      "cut": 18,
+      "freeze": 18,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E1S4",
+      "mineral": {
+        "x": 10,
+        "y": 37
+      },
+      "seat": {
+        "x": 11,
+        "y": 38
+      },
+      "seatRes": {
+        "x": 11,
+        "y": 38
+      },
+      "appr": {
+        "x": 11,
+        "y": 37
+      },
+      "apprRes": {
+        "x": 11,
+        "y": 37
+      },
+      "off": true,
+      "seedScore": -31.8,
+      "baseCut": 24,
+      "cut": 26,
+      "freeze": 26,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    }
+  ]
+}

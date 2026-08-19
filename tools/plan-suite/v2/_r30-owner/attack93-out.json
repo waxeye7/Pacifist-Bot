@@ -1,0 +1,34 @@
+[
+  {
+    "name": "93c plant recovers on taken fixedHolders + note twin",
+    "room": "E15S6",
+    "status": "BITES",
+    "changed": true,
+    "n": 4,
+    "first": "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 34,31 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabric"
+  },
+  {
+    "name": "93c inflate sealedFloor pocket holder recovers + note",
+    "room": "E15S6",
+    "status": "BITES",
+    "changed": true,
+    "n": 14,
+    "first": "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until roun"
+  },
+  {
+    "name": "93c inflate offered recoversDeep + twins",
+    "room": "E15S6",
+    "status": "BITES",
+    "changed": true,
+    "n": 58,
+    "first": "META — the sealed-recovery and across-prior records: `sealedRecovery.offered[3]` (35,32)'s refusal says the counterfactual promised 2 and `recoversDeep` says 3. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withd"
+  },
+  {
+    "name": "93c invent holder on sealedFloor pocket",
+    "room": "E15S6",
+    "status": "BITES",
+    "changed": true,
+    "n": 6,
+    "first": "PLANNER NOTE — `meta.noteRecords[0]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":34,\"y\":32},{\"x\":34,\"y\":33}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\""
+  }
+]

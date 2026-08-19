@@ -1,0 +1,9 @@
+phase: local-race-1-watching
+goal: mean ticks spawn→RCL4
+local: http://127.0.0.1:23456 UP (do not reset)
+run: run-2026-08-14T01-06-48Z
+never: server:local:reset
+never: push-race
+candidate: push-pacifist (already on this race)
+planner: RESUME in parallel — 98/88 binds only (no presence fishing, no hub overwrite mid-race)
+mean: node tools/server/race-mean.mjs

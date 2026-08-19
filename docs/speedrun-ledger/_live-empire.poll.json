@@ -1,0 +1,3304 @@
+{
+  "polled": "2026-08-16T10:05:24.335Z",
+  "dest": "main",
+  "host": "https://screeps.com:443",
+  "shard": "shard3",
+  "time1": {
+    "ok": 1,
+    "time": 82287047
+  },
+  "me": {
+    "status": 200,
+    "ok": 1,
+    "_id": "62f89e0d84c31c184db79629",
+    "username": "PacifistBot",
+    "gcl": 356659863,
+    "cpu": 20
+  },
+  "userRooms": {
+    "ok": 1,
+    "shards": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [
+        "E37N59",
+        "E36N57",
+        "E37N58",
+        "E35N59",
+        "E37N57",
+        "E39N58"
+      ],
+      "shardX": []
+    },
+    "reservations": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [],
+      "shardX": []
+    }
+  },
+  "code": {
+    "status": 200,
+    "ok": 1,
+    "moduleBytes": 2154811,
+    "sha256": "8e64b3654d3674be63dcc55c094a7d06e959704bdd41fed1c681fe51680b7bff"
+  },
+  "memoryStatus": 200,
+  "memoryOk": 1,
+  "memory": {
+    "autoExpand": null,
+    "target_colonise": {},
+    "features": {
+      "disablePower": true,
+      "speedrun": true,
+      "dynamicLayout": true,
+      "placeFromPlan": false,
+      "minCutWalls": true,
+      "squareWalls": false,
+      "pickupLock": true,
+      "sourceMaps": false,
+      "expandMinRcl": 7
+    },
+    "CanClaimRemote": 6,
+    "CPU": {
+      "bucket": 10000,
+      "hundred": [
+        "17.09",
+        "13.63",
+        "17.61"
+      ],
+      "five": {
+        "data": [],
+        "avg": 15.111339999999998
+      }
+    }
+  },
+  "cbAndClaimers": [
+    {
+      "name": "ContainerBuilder-6146803-E37N59",
+      "role": "buildcontainer",
+      "targetRoom": "E39N58",
+      "homeRoom": "E37N59",
+      "fill": false,
+      "building": true
+    }
+  ],
+  "roomMem": {
+    "E37N59": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [
+        [
+          "claim",
+          "claim",
+          "move",
+          "move"
+        ],
+        "Reserver-64416231-E37N59",
+        {
+          "memory": {
+            "role": "reserve",
+            "targetRoom": "E36N59",
+            "homeRoom": "E37N59"
+          }
+        },
+        [
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "carry",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move",
+          "move"
+        ],
+        "Carrier-2645821-E37N59",
+        {
+          "memory": {
+            "role": "carry",
+            "sourceId": "5bbcaf289099fc012e63a406",
+            "targetRoom": "E38N59",
+            "homeRoom": "E37N59",
+            "pathLength": 79
+          }
+        },
+        [
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move"
+        ],
+        "RemoteRepairer-6109913-E37N59",
+        {
+          "memory": {
+            "role": "RemoteRepair",
+            "targetRoom": "E38N59",
+            "homeRoom": "E37N59"
+          }
+        },
+        [
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move",
+          "work",
+          "carry",
+          "move"
+        ],
+        "RemoteRepairer-42992279-E37N59",
+        {
+          "memory": {
+            "role": "RemoteRepair",
+            "targetRoom": "E36N59",
+            "homeRoom": "E37N59"
+          }
+        }
+      ]
+    },
+    "E37N58": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": []
+    },
+    "E36N57": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": []
+    },
+    "E36N58": {},
+    "E37N57": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": []
+    },
+    "E35N59": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": []
+    },
+    "E39N58": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": []
+    },
+    "E36N59": {},
+    "E38N59": {}
+  },
+  "raw": {
+    "E37N59": {
+      "n": 271,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 44,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 6,
+          "p": 269724,
+          "pt": 0,
+          "dg": 82407048,
+          "sm": 81901441,
+          "sma": 5,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 21,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "spawning": {
+            "name": "ControllerLinkFiller-46125726-E37N59",
+            "needTime": 72,
+            "spawnTime": 82287114
+          },
+          "hits": 5000
+        }
+      ],
+      "sites": [],
+      "creeps": [
+        {
+          "name": "Builder-25305635-E37N59",
+          "x": 22,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 500
+          },
+          "cap": 500,
+          "fat": 0,
+          "age": 82287090,
+          "hits": 2500,
+          "body": "wwccmwwccmwwccmwwccmwwccm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-55639061-E37N59",
+          "x": 41,
+          "y": 30,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 114
+          },
+          "cap": 150,
+          "fat": 0,
+          "age": 82287144,
+          "hits": 1800,
+          "body": "wwwwcmwwwwcmwwwwcm",
+          "acts": {
+            "upgradeController": {
+              "x": 44,
+              "y": 29
+            }
+          }
+        },
+        {
+          "name": "MineralMiner-53378412-E37N59",
+          "x": 35,
+          "y": 36,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0,
+            "H": 230
+          },
+          "cap": 500,
+          "fat": 0,
+          "age": 82287219,
+          "hits": 2500,
+          "body": "wwccmwwccmwwccmwwccmwwccm",
+          "acts": {}
+        },
+        {
+          "name": "Sweeper-58256932-E37N59",
+          "x": 22,
+          "y": 23,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82287237,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "MineralMiner-48850371-E37N59",
+          "x": 35,
+          "y": 35,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0,
+            "H": 0
+          },
+          "cap": 500,
+          "fat": 0,
+          "age": 82287312,
+          "hits": 2500,
+          "body": "wwccmwwccmwwccmwwccmwwccm",
+          "acts": {}
+        },
+        {
+          "name": "Sweeper-62518201-E37N59",
+          "x": 28,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82287330,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-15948495-E37N59",
+          "x": 26,
+          "y": 42,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 250,
+          "fat": 0,
+          "age": 82287393,
+          "hits": 2000,
+          "body": "wwwwwwwwccccmmmmwwcm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-58110244-E37N59",
+          "x": 10,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 220
+          },
+          "cap": 250,
+          "fat": 0,
+          "age": 82287453,
+          "hits": 2000,
+          "body": "wwwwwwwwccccmmmmwwcm",
+          "acts": {
+            "harvest": {
+              "x": 9,
+              "y": 20
+            }
+          }
+        },
+        {
+          "name": "Filler-45777308-E37N59",
+          "x": 26,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82287928,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyManager-21243694-E37N59",
+          "x": 20,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82288018,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "Filler-62387049-E37N59",
+          "x": 25,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82288071,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "Filler-10904447-E37N59",
+          "x": 35,
+          "y": 32,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82288284,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "ControllerLinkFiller-26462475-E37N59",
+          "x": 26,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 800
+          },
+          "cap": 800,
+          "fat": 0,
+          "age": 82288361,
+          "hits": 2400,
+          "body": "ccmccmccmccmccmccmccmccm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-41399447-E37N59",
+          "x": 34,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 650,
+          "fat": 0,
+          "age": 82288530,
+          "hits": 2600,
+          "body": "cccccccccccccmmmmmmmmmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-19275514-E37N59",
+          "x": 19,
+          "y": 23,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 2,
+          "age": 82288539,
+          "hits": 300,
+          "body": "wwm",
+          "acts": {}
+        },
+        {
+          "name": "ControllerLinkFiller-46125726-E37N59",
+          "x": 21,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 800,
+          "fat": 0,
+          "hits": 2400,
+          "body": "ccmccmccmccmccmccmccmccm",
+          "acts": {}
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf189099fc012e63a27c",
+          "x": 9,
+          "y": 20,
+          "e": 1020,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf189099fc012e63a27e",
+          "x": 27,
+          "y": 41,
+          "e": 0,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [
+        {
+          "type": "storage",
+          "x": 21,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 10524,
+            "UH": 132,
+            "ZH": 275,
+            "KO": 203,
+            "GO": 1128,
+            "H": 3000
+          },
+          "hits": 10000
+        }
+      ],
+      "towers": [
+        {
+          "type": "tower",
+          "x": 36,
+          "y": 30,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 190
+          },
+          "hits": 3000
+        },
+        {
+          "type": "tower",
+          "x": 34,
+          "y": 31,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 760
+          },
+          "hits": 3000
+        }
+      ],
+      "ext": 37,
+      "containers": [
+        {
+          "type": "container",
+          "x": 10,
+          "y": 21,
+          "store": {
+            "energy": 40
+          },
+          "hits": 159800
+        },
+        {
+          "type": "container",
+          "x": 41,
+          "y": 31,
+          "store": {
+            "energy": 1568
+          },
+          "hits": 116200
+        },
+        {
+          "type": "container",
+          "x": 28,
+          "y": 42,
+          "store": {
+            "energy": 0
+          },
+          "hits": 22900
+        },
+        {
+          "type": "container",
+          "x": 35,
+          "y": 36,
+          "store": {
+            "energy": 0
+          },
+          "hits": 159600
+        }
+      ],
+      "drops": [
+        {
+          "type": "energy",
+          "x": 28,
+          "y": 23,
+          "res": "energy"
+        }
+      ]
+    },
+    "E37N58": {
+      "n": 105,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 39,
+          "y": 5,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 4,
+          "p": 158071,
+          "pt": 0,
+          "dg": 82327048,
+          "sm": null,
+          "sma": 3,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [
+        {
+          "name": "Spawn4",
+          "x": 24,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 300
+          },
+          "spawning": null,
+          "hits": 5000
+        }
+      ],
+      "sites": [],
+      "creeps": [
+        {
+          "name": "Carrier-18179526-E37N58",
+          "x": 31,
+          "y": 10,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 500
+          },
+          "cap": 500,
+          "fat": 0,
+          "age": 82287106,
+          "hits": 1500,
+          "body": "ccccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-8278441-E37N58",
+          "x": 35,
+          "y": 6,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 450,
+          "fat": 0,
+          "age": 82287150,
+          "hits": 1400,
+          "body": "cccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Filler-11869109-E37N58",
+          "x": 26,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 120
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82287434,
+          "hits": 800,
+          "body": "ccccmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-21784797-E37N58",
+          "x": 36,
+          "y": 5,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 52
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82287730,
+          "hits": 1200,
+          "body": "wwwwcmwwwwcm",
+          "acts": {
+            "upgradeController": {
+              "x": 39,
+              "y": 5
+            }
+          }
+        },
+        {
+          "name": "EnergyMiner-35854389-E37N58",
+          "x": 25,
+          "y": 23,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82287857,
+          "hits": 900,
+          "body": "mmwwwwwwm",
+          "acts": {
+            "harvest": {
+              "x": 26,
+              "y": 24
+            }
+          }
+        },
+        {
+          "name": "Filler-26339714-E37N58",
+          "x": 26,
+          "y": 13,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 190
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82288341,
+          "hits": 800,
+          "body": "ccccmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Sweeper-17384682-E37N58",
+          "x": 25,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82288359,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "RampartErector-17344996-E37N58",
+          "x": 25,
+          "y": 14,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 250
+          },
+          "cap": 250,
+          "fat": 0,
+          "age": 82288406,
+          "hits": 1500,
+          "body": "wcmwcmwcmwcmwcm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-66485990-E37N58",
+          "x": 13,
+          "y": 13,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82288473,
+          "hits": 900,
+          "body": "mmwwwwwwm",
+          "acts": {
+            "harvest": {
+              "x": 12,
+              "y": 12
+            }
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf189099fc012e63a281",
+          "x": 12,
+          "y": 12,
+          "e": 1212,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf189099fc012e63a282",
+          "x": 26,
+          "y": 24,
+          "e": 2028,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [
+        {
+          "type": "storage",
+          "x": 24,
+          "y": 13,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 11410
+          },
+          "hits": 10000
+        }
+      ],
+      "towers": [
+        {
+          "type": "tower",
+          "x": 27,
+          "y": 14,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 1000
+          },
+          "hits": 3000
+        }
+      ],
+      "ext": 20,
+      "containers": [
+        {
+          "type": "container",
+          "x": 25,
+          "y": 14,
+          "store": {
+            "energy": 165
+          },
+          "hits": 215000
+        },
+        {
+          "type": "container",
+          "x": 36,
+          "y": 5,
+          "store": {
+            "energy": 1420
+          },
+          "hits": 17500
+        },
+        {
+          "type": "container",
+          "x": 13,
+          "y": 13,
+          "store": {
+            "energy": 516
+          },
+          "hits": 33300
+        },
+        {
+          "type": "container",
+          "x": 25,
+          "y": 23,
+          "store": {
+            "energy": 485
+          },
+          "hits": 184600
+        },
+        {
+          "type": "container",
+          "x": 24,
+          "y": 14,
+          "store": {
+            "energy": 0
+          },
+          "hits": 216300
+        }
+      ],
+      "drops": []
+    },
+    "E36N57": {
+      "n": 65,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 36,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 4,
+          "p": 5360,
+          "dg": 82327048,
+          "sm": 82270833,
+          "sma": 2,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [
+        {
+          "name": "Spawn5",
+          "x": 21,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 300
+          },
+          "spawning": null,
+          "hits": 5000
+        }
+      ],
+      "sites": [
+        {
+          "x": 15,
+          "y": 19,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a80699c788ccdf1a1bbc483"
+        },
+        {
+          "x": 16,
+          "y": 19,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a806aa5b6c5fa518b2618d2"
+        },
+        {
+          "x": 16,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a806aa5b6c5fac9b12618d3"
+        },
+        {
+          "x": 17,
+          "y": 19,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a806aa5b6c5fa5bb62618d4"
+        },
+        {
+          "x": 17,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a806aa5b6c5faf26e2618d6"
+        },
+        {
+          "x": 16,
+          "y": 18,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 150,
+          "pt": 300,
+          "id": "6a806aa5b6c5fa3d922618d8"
+        },
+        {
+          "x": 21,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "storage",
+          "p": 10540,
+          "pt": 30000,
+          "id": "6a814cf2f3d07d10deb833f2"
+        },
+        {
+          "x": 21,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a814cf2f3d07d5fc5b833fa"
+        },
+        {
+          "x": 13,
+          "y": 20,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc719247dec7"
+        },
+        {
+          "x": 13,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc3f2a47dec8"
+        },
+        {
+          "x": 13,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bca08e47dec9"
+        },
+        {
+          "x": 13,
+          "y": 23,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc541f47deca"
+        },
+        {
+          "x": 13,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bcfbd347decb"
+        },
+        {
+          "x": 13,
+          "y": 32,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc82f047decc"
+        },
+        {
+          "x": 13,
+          "y": 33,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc6c9047decd"
+        },
+        {
+          "x": 13,
+          "y": 34,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a817c666597bc67ed47dece"
+        },
+        {
+          "x": 30,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "rampart",
+          "p": 0,
+          "pt": 1,
+          "id": "6a818adbeaf9506dd31475c9"
+        }
+      ],
+      "creeps": [
+        {
+          "name": "Carrier-59790437-E36N57",
+          "x": 16,
+          "y": 18,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 400,
+          "fat": 0,
+          "age": 82287121,
+          "hits": 1200,
+          "body": "ccccccccmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-21497470-E36N57",
+          "x": 17,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 400,
+          "fat": 0,
+          "age": 82287199,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-32675077-E36N57",
+          "x": 38,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 30
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82287237,
+          "hits": 600,
+          "body": "wwwwcm",
+          "acts": {
+            "upgradeController": {
+              "x": 36,
+              "y": 24
+            }
+          }
+        },
+        {
+          "name": "Upgrader-38682313-E36N57",
+          "x": 40,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 50,
+          "fat": 2,
+          "age": 82287275,
+          "hits": 600,
+          "body": "wwwwcm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-30029351-E36N57",
+          "x": 6,
+          "y": 43,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82287537,
+          "hits": 800,
+          "body": "wwwwwmmm",
+          "acts": {
+            "harvest": {
+              "x": 7,
+              "y": 42
+            }
+          }
+        },
+        {
+          "name": "Carrier-10826631-E36N57",
+          "x": 8,
+          "y": 5,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 400
+          },
+          "cap": 400,
+          "fat": 0,
+          "age": 82287601,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Builder-6248718-E36N57",
+          "x": 15,
+          "y": 20,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82287781,
+          "hits": 500,
+          "body": "wccmm",
+          "acts": {}
+        },
+        {
+          "name": "Builder-30394344-E36N57",
+          "x": 11,
+          "y": 2,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82287896,
+          "hits": 500,
+          "body": "wccmm",
+          "acts": {}
+        },
+        {
+          "name": "RampartErector-4378530-E36N57",
+          "x": 19,
+          "y": 31,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 150
+          },
+          "cap": 150,
+          "fat": 0,
+          "age": 82287952,
+          "hits": 900,
+          "body": "wcmwcmwcm",
+          "acts": {}
+        },
+        {
+          "name": "Sweeper-17514083-E36N57",
+          "x": 20,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 200,
+          "fat": 0,
+          "age": 82287970,
+          "hits": 600,
+          "body": "ccccmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-59653918-E36N57",
+          "x": 38,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 12
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82288008,
+          "hits": 600,
+          "body": "wwwwcm",
+          "acts": {
+            "upgradeController": {
+              "x": 36,
+              "y": 24
+            }
+          }
+        },
+        {
+          "name": "Builder-55546079-E36N57",
+          "x": 5,
+          "y": 38,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 100
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82288043,
+          "hits": 500,
+          "body": "wccmm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-62570658-E36N57",
+          "x": 14,
+          "y": 3,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 279
+          },
+          "cap": 400,
+          "fat": 2,
+          "age": 82288142,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-64281033-E36N57",
+          "x": 39,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 26
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82288180,
+          "hits": 600,
+          "body": "wwwwcm",
+          "acts": {
+            "upgradeController": {
+              "x": 36,
+              "y": 24
+            }
+          }
+        },
+        {
+          "name": "Carrier-54220335-E36N57",
+          "x": 4,
+          "y": 42,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 400
+          },
+          "cap": 400,
+          "fat": 0,
+          "age": 82288259,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-3848256-E36N57",
+          "x": 29,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 50,
+          "fat": 2,
+          "age": 82288453,
+          "hits": 600,
+          "body": "wwwwcm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-39999755-E36N57",
+          "x": 21,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82288537,
+          "hits": 800,
+          "body": "wwwwwmmm",
+          "acts": {}
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf089099fc012e63a033",
+          "x": 10,
+          "y": 7,
+          "e": 540,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf089099fc012e63a035",
+          "x": 7,
+          "y": 42,
+          "e": 2690,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [
+        {
+          "type": "tower",
+          "x": 18,
+          "y": 20,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 885
+          },
+          "hits": 3000
+        }
+      ],
+      "ext": 10,
+      "containers": [
+        {
+          "type": "container",
+          "x": 16,
+          "y": 20,
+          "store": {
+            "energy": 0
+          },
+          "hits": 185000
+        },
+        {
+          "type": "container",
+          "x": 38,
+          "y": 27,
+          "store": {
+            "energy": 0
+          },
+          "hits": 181700
+        },
+        {
+          "type": "container",
+          "x": 9,
+          "y": 6,
+          "store": {
+            "energy": 1600
+          },
+          "hits": 182600
+        },
+        {
+          "type": "container",
+          "x": 6,
+          "y": 43,
+          "store": {
+            "energy": 2000
+          },
+          "hits": 185000
+        }
+      ],
+      "drops": [
+        {
+          "type": "energy",
+          "x": 6,
+          "y": 43,
+          "res": "energy"
+        }
+      ]
+    },
+    "E36N58": {
+      "n": 7,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 39,
+          "y": 7,
+          "user": null,
+          "level": 0,
+          "p": 0,
+          "dg": null,
+          "sm": null,
+          "sma": 0,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [],
+      "sites": [],
+      "creeps": [
+        {
+          "name": "EnergyMiner-49058271-E36N57",
+          "x": 40,
+          "y": 5,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82287413,
+          "hits": 600,
+          "body": "wwmwwm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-26094148-E36N57",
+          "x": 42,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 300,
+          "fat": 0,
+          "age": 82287686,
+          "hits": 1200,
+          "body": "ccccccmmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-24330383-E36N57",
+          "x": 27,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 300
+          },
+          "cap": 300,
+          "fat": 24,
+          "age": 82288335,
+          "hits": 1200,
+          "body": "ccccccmmmmmm",
+          "acts": {}
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf089099fc012e63a030",
+          "x": 39,
+          "y": 6,
+          "e": 0,
+          "ec": 1500,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": [
+        {
+          "type": "energy",
+          "x": 40,
+          "y": 5,
+          "res": "energy"
+        }
+      ]
+    },
+    "E37N57": {
+      "n": 21,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 22,
+          "y": 10,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 2,
+          "p": 2804,
+          "pt": 0,
+          "dg": 82296977,
+          "sm": null,
+          "sma": 1,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [
+        {
+          "name": "Spawn6",
+          "x": 26,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 300
+          },
+          "spawning": null,
+          "hits": 5000
+        }
+      ],
+      "sites": [
+        {
+          "x": 24,
+          "y": 31,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6a8157439192282212e7ec67"
+        },
+        {
+          "x": 28,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6a81574391922881d6e7ec68"
+        },
+        {
+          "x": 23,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6a815743919228285de7ec69"
+        },
+        {
+          "x": 23,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6a8157439192287803e7ec6a"
+        },
+        {
+          "x": 23,
+          "y": 30,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6a815743919228275ae7ec6b"
+        },
+        {
+          "x": 26,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "container",
+          "p": 3050,
+          "pt": 5000,
+          "id": "6a815743919228d647e7ec6c"
+        }
+      ],
+      "creeps": [
+        {
+          "name": "Builder-75937653-E37N57",
+          "x": 41,
+          "y": 45,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82287162,
+          "hits": 400,
+          "body": "wcmm",
+          "acts": {}
+        },
+        {
+          "name": "EnergyMiner-78269504-E37N57",
+          "x": 43,
+          "y": 45,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82287491,
+          "hits": 300,
+          "body": "wwm",
+          "acts": {
+            "harvest": {
+              "x": 44,
+              "y": 44
+            }
+          }
+        },
+        {
+          "name": "Carrier-50509073-E37N57",
+          "x": 42,
+          "y": 46,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 150
+          },
+          "cap": 150,
+          "fat": 10,
+          "age": 82287546,
+          "hits": 500,
+          "body": "cccmm",
+          "acts": {}
+        },
+        {
+          "name": "Carrier-24245592-E37N57",
+          "x": 36,
+          "y": 42,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 99
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82287601,
+          "hits": 400,
+          "body": "ccmm",
+          "acts": {}
+        },
+        {
+          "name": "Builder-23597700-E37N57",
+          "x": 35,
+          "y": 41,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82287694,
+          "hits": 400,
+          "body": "wcmm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-49523521-E37N57",
+          "x": 34,
+          "y": 40,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82287763,
+          "hits": 300,
+          "body": "wcm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-80686781-E37N57",
+          "x": 14,
+          "y": 11,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 33
+          },
+          "cap": 50,
+          "fat": 0,
+          "age": 82287932,
+          "hits": 300,
+          "body": "wcm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-36053714-E37N57",
+          "x": 42,
+          "y": 45,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 50
+          },
+          "cap": 50,
+          "fat": 6,
+          "age": 82288221,
+          "hits": 300,
+          "body": "wcm",
+          "acts": {}
+        },
+        {
+          "name": "Sweeper-69075585-E37N57",
+          "x": 25,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 100,
+          "fat": 0,
+          "age": 82288237,
+          "hits": 300,
+          "body": "ccm",
+          "acts": {}
+        },
+        {
+          "name": "Upgrader-46171821-E37N57",
+          "x": 13,
+          "y": 12,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 7
+          },
+          "cap": 50,
+          "fat": 2,
+          "age": 82288386,
+          "hits": 300,
+          "body": "wcm",
+          "acts": {}
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf189099fc012e63a285",
+          "x": 44,
+          "y": 44,
+          "e": 2312,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": [
+        {
+          "type": "energy",
+          "x": 43,
+          "y": 45,
+          "res": "energy"
+        }
+      ]
+    },
+    "E35N59": {
+      "n": 537,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        },
+        "68da3f7d7b34b70012d9c41e": {
+          "_id": "68da3f7d7b34b70012d9c41e",
+          "username": "Enrique",
+          "badge": {
+            "type": 16,
+            "color1": "#000051",
+            "color2": "#ff0000",
+            "color3": "#00f4ff",
+            "param": 24,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 17,
+          "y": 20,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 2,
+          "p": 1000,
+          "pt": 0,
+          "dg": 82288313,
+          "sm": null,
+          "sma": 1,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 25,
+          "y": 10,
+          "user": "68da3f7d7b34b70012d9c41e",
+          "store": {
+            "energy": 300
+          },
+          "spawning": null,
+          "hits": 5000
+        }
+      ],
+      "sites": [],
+      "creeps": [],
+      "sources": [
+        {
+          "id": "5bbcaef69099fc012e639e07",
+          "x": 18,
+          "y": 6,
+          "e": 3000,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaef69099fc012e639e09",
+          "x": 37,
+          "y": 20,
+          "e": 3000,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": []
+    },
+    "E39N58": {
+      "n": 22,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        },
+        "68662bcb27d90f00122a8c7a": {
+          "_id": "68662bcb27d90f00122a8c7a",
+          "username": "Zhaban",
+          "badge": {
+            "type": 16,
+            "color1": "#10ca81",
+            "color2": "#06ff54",
+            "color3": "#1cba00",
+            "param": 23,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 19,
+          "y": 38,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 1,
+          "p": 2460,
+          "pt": 0,
+          "dg": 82290950,
+          "sm": null,
+          "sma": 0,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [],
+      "sites": [
+        {
+          "name": "Spawn3",
+          "x": 22,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "spawn",
+          "p": 11520,
+          "pt": 15000,
+          "id": "6a814eb4dde82e292eeed149"
+        },
+        {
+          "name": null,
+          "x": 30,
+          "y": 19,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6866476927d90f00122a95cd"
+        },
+        {
+          "name": null,
+          "x": 31,
+          "y": 20,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "68664778a9d0b400122382f0"
+        },
+        {
+          "name": null,
+          "x": 32,
+          "y": 20,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6866477827d90f00122a95d0"
+        },
+        {
+          "name": null,
+          "x": 33,
+          "y": 20,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "686647792df7a3001167b7b6"
+        },
+        {
+          "name": null,
+          "x": 34,
+          "y": 19,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "id": "6866477927d90f00122a95d1"
+        },
+        {
+          "name": null,
+          "x": 32,
+          "y": 14,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "686647822df7a3001167b7bc"
+        },
+        {
+          "name": null,
+          "x": 32,
+          "y": 15,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "68664783a9d0b400122382f1"
+        },
+        {
+          "name": null,
+          "x": 32,
+          "y": 16,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "686647832df7a3001167b7be"
+        },
+        {
+          "name": null,
+          "x": 32,
+          "y": 13,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "68664784a9d0b400122382f3"
+        },
+        {
+          "name": null,
+          "x": 31,
+          "y": 13,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "68664785a9d0b400122382f5"
+        },
+        {
+          "name": null,
+          "x": 29,
+          "y": 12,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6866478627d90f00122a95d5"
+        },
+        {
+          "name": null,
+          "x": 29,
+          "y": 11,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "68664787a9d0b400122382f7"
+        },
+        {
+          "name": null,
+          "x": 31,
+          "y": 17,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "686647992df7a3001167b7c9"
+        },
+        {
+          "name": null,
+          "x": 30,
+          "y": 17,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6866479927d90f00122a95df"
+        },
+        {
+          "name": null,
+          "x": 29,
+          "y": 17,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6866479a2df7a3001167b7ca"
+        },
+        {
+          "name": null,
+          "x": 28,
+          "y": 19,
+          "user": "68662bcb27d90f00122a8c7a",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6866479ba9d0b40012238303"
+        }
+      ],
+      "creeps": [
+        {
+          "name": "ContainerBuilder-6146803-E37N59",
+          "x": 11,
+          "y": 34,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 400
+          },
+          "cap": 400,
+          "fat": 16,
+          "age": 82287840,
+          "hits": 2400,
+          "body": "wcmwcmwcmwcmwcmwcmwcmwcm",
+          "acts": {}
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf3a9099fc012e63a595",
+          "x": 22,
+          "y": 7,
+          "e": 3000,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf3a9099fc012e63a597",
+          "x": 3,
+          "y": 41,
+          "e": 1960,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": []
+    },
+    "E38N56": {
+      "n": 4,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        }
+      },
+      "ctrl": [
+        {
+          "x": 43,
+          "y": 10,
+          "user": null,
+          "level": 0,
+          "p": 0,
+          "pt": 0,
+          "dg": null,
+          "sm": null,
+          "sma": 0,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [],
+      "sites": [],
+      "creeps": [],
+      "sources": [
+        {
+          "id": "5bbcaf299099fc012e63a410",
+          "x": 45,
+          "y": 18,
+          "e": 1500,
+          "ec": 1500,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf299099fc012e63a411",
+          "x": 45,
+          "y": 40,
+          "e": 1500,
+          "ec": 1500,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": []
+    },
+    "E36N59": {
+      "n": 8,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 35,
+          "y": 19,
+          "user": null,
+          "level": 0,
+          "p": 0,
+          "pt": 0,
+          "dg": null,
+          "sm": null,
+          "sma": 0,
+          "ub": null,
+          "reservation": null
+        }
+      ],
+      "spawns": [],
+      "sites": [
+        {
+          "x": 17,
+          "y": 9,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "container",
+          "p": 0,
+          "pt": 5000,
+          "id": "6a818ab94878f14269a388a9"
+        },
+        {
+          "x": 48,
+          "y": 16,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818ab94878f109a7a388aa"
+        },
+        {
+          "x": 47,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818ab94878f153eda388ab"
+        },
+        {
+          "x": 46,
+          "y": 14,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818ab94878f15967a388ac"
+        },
+        {
+          "x": 46,
+          "y": 13,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818ab94878f1439fa388ad"
+        }
+      ],
+      "creeps": [],
+      "sources": [
+        {
+          "id": "5bbcaf089099fc012e63a02d",
+          "x": 16,
+          "y": 9,
+          "e": 1500,
+          "ec": 1500,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": []
+    },
+    "E38N59": {
+      "n": 12,
+      "users": {
+        "2": {
+          "_id": "2",
+          "username": "Invader"
+        },
+        "3": {
+          "_id": "3",
+          "username": "Source Keeper"
+        },
+        "62f89e0d84c31c184db79629": {
+          "_id": "62f89e0d84c31c184db79629",
+          "username": "PacifistBot",
+          "badge": {
+            "type": 1,
+            "color1": "#0d261a",
+            "color2": "#d9265f",
+            "color3": "#4d4d4d",
+            "param": -89,
+            "flip": false
+          }
+        }
+      },
+      "ctrl": [
+        {
+          "x": 8,
+          "y": 6,
+          "user": null,
+          "level": 0,
+          "p": 0,
+          "dg": null,
+          "sm": null,
+          "sma": 0,
+          "ub": null,
+          "reservation": {
+            "user": "62f89e0d84c31c184db79629",
+            "endTime": 82287160
+          }
+        }
+      ],
+      "spawns": [],
+      "sites": [
+        {
+          "x": 44,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "container",
+          "p": 0,
+          "pt": 5000,
+          "id": "6a818aba78e947acdf5303b5"
+        },
+        {
+          "x": 1,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818aba78e9470d405303b6"
+        },
+        {
+          "x": 2,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818aba78e9479b595303b7"
+        },
+        {
+          "x": 3,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818aba78e947bc095303b8"
+        },
+        {
+          "x": 4,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "st": "road",
+          "p": 0,
+          "pt": 300,
+          "id": "6a818aba78e94713e15303b9"
+        }
+      ],
+      "creeps": [
+        {
+          "name": "EnergyMiner-46082376-E37N59",
+          "x": 44,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82288188,
+          "hits": 300,
+          "body": "wwm",
+          "acts": {
+            "harvest": {
+              "x": 45,
+              "y": 25
+            }
+          }
+        },
+        {
+          "name": "Carrier-2461061-E37N59",
+          "x": 34,
+          "y": 41,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 650,
+          "fat": 0,
+          "age": 82288266,
+          "hits": 2600,
+          "body": "cccccccccccccmmmmmmmmmmmmm",
+          "acts": {}
+        },
+        {
+          "name": "Reserver-50850697-E37N59",
+          "x": 9,
+          "y": 7,
+          "user": "62f89e0d84c31c184db79629",
+          "store": {
+            "energy": 0
+          },
+          "cap": 0,
+          "fat": 0,
+          "age": 82287473,
+          "hits": 400,
+          "body": "ccmm",
+          "acts": {
+            "reserveController": {
+              "x": 8,
+              "y": 6
+            }
+          }
+        }
+      ],
+      "sources": [
+        {
+          "id": "5bbcaf289099fc012e63a406",
+          "x": 45,
+          "y": 25,
+          "e": 1140,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "storage": [],
+      "towers": [],
+      "ext": 0,
+      "containers": [],
+      "drops": [
+        {
+          "type": "energy",
+          "x": 44,
+          "y": 26,
+          "res": "energy"
+        }
+      ]
+    }
+  },
+  "rooms": {
+    "E37N59": {
+      "name": "E37N59",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 6,
+      "progress": 269724,
+      "progressTotal": 0,
+      "downgradeTime": 82407048,
+      "dg": 119999,
+      "safeMode": 81901441,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 21,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 0,
+          "spawning": {
+            "name": "ControllerLinkFiller-46125726-E37N59",
+            "needTime": 72,
+            "spawnTime": 82287114
+          }
+        }
+      ],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 16,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Builder-25305635-E37N59",
+        "Upgrader-55639061-E37N59",
+        "MineralMiner-53378412-E37N59",
+        "Sweeper-58256932-E37N59",
+        "MineralMiner-48850371-E37N59",
+        "Sweeper-62518201-E37N59",
+        "EnergyMiner-15948495-E37N59",
+        "EnergyMiner-58110244-E37N59",
+        "Filler-45777308-E37N59",
+        "EnergyManager-21243694-E37N59",
+        "Filler-62387049-E37N59",
+        "Filler-10904447-E37N59",
+        "ControllerLinkFiller-26462475-E37N59",
+        "Carrier-41399447-E37N59",
+        "EnergyMiner-19275514-E37N59",
+        "ControllerLinkFiller-46125726-E37N59"
+      ],
+      "roles": {
+        "Builder": 1,
+        "Upgrader": 1,
+        "MineralMiner": 2,
+        "Sweeper": 2,
+        "EnergyMiner": 3,
+        "Filler": 3,
+        "EnergyManager": 1,
+        "ControllerLinkFiller": 2,
+        "Carrier": 1
+      },
+      "storageE": 10524,
+      "storageExists": true,
+      "ext": 37,
+      "towers": 2,
+      "towerE": [
+        190,
+        760
+      ],
+      "containers": 4
+    },
+    "E37N58": {
+      "name": "E37N58",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 4,
+      "progress": 158071,
+      "progressTotal": 0,
+      "downgradeTime": 82327048,
+      "dg": 39999,
+      "safeMode": null,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn4",
+          "x": 24,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 9,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Carrier-18179526-E37N58",
+        "Carrier-8278441-E37N58",
+        "Filler-11869109-E37N58",
+        "Upgrader-21784797-E37N58",
+        "EnergyMiner-35854389-E37N58",
+        "Filler-26339714-E37N58",
+        "Sweeper-17384682-E37N58",
+        "RampartErector-17344996-E37N58",
+        "EnergyMiner-66485990-E37N58"
+      ],
+      "roles": {
+        "Carrier": 2,
+        "Filler": 2,
+        "Upgrader": 1,
+        "EnergyMiner": 2,
+        "Sweeper": 1,
+        "RampartErector": 1
+      },
+      "storageE": 11410,
+      "storageExists": true,
+      "ext": 20,
+      "towers": 1,
+      "towerE": [
+        1000
+      ],
+      "containers": 5
+    },
+    "E36N57": {
+      "name": "E36N57",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 4,
+      "progress": 5360,
+      "downgradeTime": 82327048,
+      "dg": 39999,
+      "safeMode": 82270833,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn5",
+          "x": 21,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 17,
+      "foreignSites": 0,
+      "siteTypes": {
+        "road": [
+          {
+            "x": 15,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 21,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 17,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 17,
+            "y": 21,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 18,
+            "p": 150,
+            "tot": 300
+          }
+        ],
+        "storage": [
+          {
+            "x": 21,
+            "y": 28,
+            "p": 10540,
+            "tot": 30000
+          }
+        ],
+        "rampart": [
+          {
+            "x": 21,
+            "y": 27,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 20,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 21,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 22,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 23,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 24,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 32,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 33,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 13,
+            "y": 34,
+            "p": 0,
+            "tot": 1
+          },
+          {
+            "x": 30,
+            "y": 28,
+            "p": 0,
+            "tot": 1
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 17,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Carrier-59790437-E36N57",
+        "Carrier-21497470-E36N57",
+        "Upgrader-32675077-E36N57",
+        "Upgrader-38682313-E36N57",
+        "EnergyMiner-30029351-E36N57",
+        "Carrier-10826631-E36N57",
+        "Builder-6248718-E36N57",
+        "Builder-30394344-E36N57",
+        "RampartErector-4378530-E36N57",
+        "Sweeper-17514083-E36N57",
+        "Upgrader-59653918-E36N57",
+        "Builder-55546079-E36N57",
+        "Carrier-62570658-E36N57",
+        "Upgrader-64281033-E36N57",
+        "Carrier-54220335-E36N57",
+        "Upgrader-3848256-E36N57",
+        "EnergyMiner-39999755-E36N57"
+      ],
+      "roles": {
+        "Carrier": 5,
+        "Upgrader": 5,
+        "EnergyMiner": 2,
+        "Builder": 3,
+        "RampartErector": 1,
+        "Sweeper": 1
+      },
+      "storageE": null,
+      "storageExists": false,
+      "ext": 10,
+      "towers": 1,
+      "towerE": [
+        885
+      ],
+      "containers": 4
+    },
+    "E36N58": {
+      "name": "E36N58",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 3,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "EnergyMiner-49058271-E36N57",
+        "Carrier-26094148-E36N57",
+        "Carrier-24330383-E36N57"
+      ],
+      "roles": {
+        "EnergyMiner": 1,
+        "Carrier": 2
+      },
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E37N57": {
+      "name": "E37N57",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 2,
+      "progress": 2804,
+      "progressTotal": 0,
+      "downgradeTime": 82296977,
+      "dg": 9928,
+      "safeMode": null,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn6",
+          "x": 26,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 6,
+      "foreignSites": 0,
+      "siteTypes": {
+        "extension": [
+          {
+            "x": 24,
+            "y": 31,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 28,
+            "y": 27,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 23,
+            "y": 26,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 23,
+            "y": 28,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 23,
+            "y": 30,
+            "p": 0,
+            "tot": 3000
+          }
+        ],
+        "container": [
+          {
+            "x": 26,
+            "y": 27,
+            "p": 3050,
+            "tot": 5000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 10,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Builder-75937653-E37N57",
+        "EnergyMiner-78269504-E37N57",
+        "Carrier-50509073-E37N57",
+        "Carrier-24245592-E37N57",
+        "Builder-23597700-E37N57",
+        "Upgrader-49523521-E37N57",
+        "Upgrader-80686781-E37N57",
+        "Upgrader-36053714-E37N57",
+        "Sweeper-69075585-E37N57",
+        "Upgrader-46171821-E37N57"
+      ],
+      "roles": {
+        "Builder": 2,
+        "EnergyMiner": 1,
+        "Carrier": 2,
+        "Upgrader": 4,
+        "Sweeper": 1
+      },
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E35N59": {
+      "name": "E35N59",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 2,
+      "progress": 1000,
+      "progressTotal": 0,
+      "downgradeTime": 82288313,
+      "dg": 1264,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 1,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 25,
+          "y": 10,
+          "user": "68da3f7d7b34b70012d9c41e",
+          "mine": false,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E39N58": {
+      "name": "E39N58",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 1,
+      "progress": 2460,
+      "progressTotal": 0,
+      "downgradeTime": 82290950,
+      "dg": 3901,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 1,
+      "foreignSites": 16,
+      "siteTypes": {
+        "spawn": [
+          {
+            "name": "Spawn3",
+            "x": 22,
+            "y": 29,
+            "p": 11520,
+            "tot": 15000
+          }
+        ]
+      },
+      "foreignSiteTypes": {
+        "extension": 5,
+        "road": 11
+      },
+      "creeps": 1,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "ContainerBuilder-6146803-E37N59"
+      ],
+      "roles": {
+        "ContainerBuilder": 1
+      },
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E38N56": {
+      "name": "E38N56",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "progressTotal": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E36N59": {
+      "name": "E36N59",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "progressTotal": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 5,
+      "foreignSites": 0,
+      "siteTypes": {
+        "container": [
+          {
+            "x": 17,
+            "y": 9,
+            "p": 0,
+            "tot": 5000
+          }
+        ],
+        "road": [
+          {
+            "x": 48,
+            "y": 16,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 47,
+            "y": 15,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 46,
+            "y": 14,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 46,
+            "y": 13,
+            "p": 0,
+            "tot": 300
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    },
+    "E38N59": {
+      "name": "E38N59",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 5,
+      "foreignSites": 0,
+      "siteTypes": {
+        "container": [
+          {
+            "x": 44,
+            "y": 26,
+            "p": 0,
+            "tot": 5000
+          }
+        ],
+        "road": [
+          {
+            "x": 1,
+            "y": 28,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 2,
+            "y": 28,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 3,
+            "y": 28,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 4,
+            "y": 29,
+            "p": 0,
+            "tot": 300
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 3,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "EnergyMiner-46082376-E37N59",
+        "Carrier-2461061-E37N59",
+        "Reserver-50850697-E37N59"
+      ],
+      "roles": {
+        "EnergyMiner": 1,
+        "Carrier": 1,
+        "Reserver": 1
+      },
+      "storageE": null,
+      "storageExists": false,
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0
+    }
+  },
+  "time2": {
+    "ok": 1,
+    "time": 82287049
+  }
+}

@@ -1,0 +1,358 @@
+{
+  "fleetA": {
+    "label": "skip-baseCut-shallowNow-hubDistCap",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "flipAKinds": 22,
+  "flipAEvents": 2123,
+  "flipA": {
+    "deepExhausted": 36,
+    "corridorPlaced": 172,
+    "maxHubDist": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "fleetB": {
+    "label": "skip-also-stubCap",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "extra": [
+    {
+      "name": "p15 seat+approach moved together to other cheb-1/D8",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    }
+  ],
+  "minerals": [
+    {
+      "room": "E2S5",
+      "mineral": {
+        "x": 28,
+        "y": 22
+      },
+      "seat": {
+        "x": 27,
+        "y": 23
+      },
+      "seatRes": {
+        "x": 27,
+        "y": 23
+      },
+      "appr": {
+        "x": 26,
+        "y": 24
+      },
+      "apprRes": {
+        "x": 26,
+        "y": 24
+      },
+      "off": false,
+      "seedScore": -27.2,
+      "baseCut": 28,
+      "cut": 28,
+      "freeze": 28,
+      "protect": 9,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 1,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": true,
+      "shrunk": null
+    },
+    {
+      "room": "E2S3",
+      "mineral": {
+        "x": 13,
+        "y": 8
+      },
+      "seat": {
+        "x": 12,
+        "y": 9
+      },
+      "seatRes": {
+        "x": 12,
+        "y": 9
+      },
+      "appr": {
+        "x": 13,
+        "y": 10
+      },
+      "apprRes": {
+        "x": 13,
+        "y": 10
+      },
+      "off": true,
+      "seedScore": -69.4,
+      "baseCut": 20,
+      "cut": 20,
+      "freeze": 20,
+      "protect": 12,
+      "redundant": {
+        "tiles": 1,
+        "pruned": 0,
+        "explained": 1,
+        "reasons": {
+          "47,40": {
+            "class": "depth promotion",
+            "tile": "44,37",
+            "why": "the structure at 44,37 would drop from depth 4 to 3, inside a ranged attacker's reach"
+          }
+        }
+      },
+      "dropped": true,
+      "shrunk": null
+    },
+    {
+      "room": "E16S8",
+      "mineral": {
+        "x": 10,
+        "y": 11
+      },
+      "seat": {
+        "x": 11,
+        "y": 10
+      },
+      "seatRes": {
+        "x": 11,
+        "y": 10
+      },
+      "appr": {
+        "x": 12,
+        "y": 11
+      },
+      "apprRes": {
+        "x": 12,
+        "y": 11
+      },
+      "off": true,
+      "seedScore": -24.5,
+      "baseCut": 61,
+      "cut": 65,
+      "freeze": 65,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E2S8",
+      "mineral": {
+        "x": 42,
+        "y": 40
+      },
+      "seat": {
+        "x": 41,
+        "y": 39
+      },
+      "seatRes": {
+        "x": 41,
+        "y": 39
+      },
+      "appr": {
+        "x": 40,
+        "y": 38
+      },
+      "apprRes": {
+        "x": 40,
+        "y": 38
+      },
+      "off": true,
+      "seedScore": -39.3,
+      "baseCut": 4,
+      "cut": 4,
+      "freeze": 4,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E6S5",
+      "mineral": {
+        "x": 25,
+        "y": 24
+      },
+      "seat": {
+        "x": 24,
+        "y": 23
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 23
+      },
+      "appr": {
+        "x": 23,
+        "y": 22
+      },
+      "apprRes": {
+        "x": 23,
+        "y": 22
+      },
+      "off": true,
+      "seedScore": -22.4,
+      "baseCut": 34,
+      "cut": 36,
+      "freeze": 36,
+      "protect": 11,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 1,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E11S1",
+      "mineral": {
+        "x": 23,
+        "y": 7
+      },
+      "seat": {
+        "x": 24,
+        "y": 8
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 8
+      },
+      "appr": {
+        "x": 25,
+        "y": 9
+      },
+      "apprRes": {
+        "x": 25,
+        "y": 9
+      },
+      "off": true,
+      "seedScore": -92.9,
+      "baseCut": 32,
+      "cut": 32,
+      "freeze": 32,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    {
+      "room": "E2S7",
+      "mineral": {
+        "x": 33,
+        "y": 4
+      },
+      "seat": {
+        "x": 32,
+        "y": 3
+      },
+      "seatRes": {
+        "x": 32,
+        "y": 3
+      },
+      "appr": {
+        "x": 31,
+        "y": 2
+      },
+      "apprRes": {
+        "x": 31,
+        "y": 2
+      },
+      "off": true,
+      "seedScore": -21.5,
+      "baseCut": 18,
+      "cut": 18,
+      "freeze": 18,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E1S4",
+      "mineral": {
+        "x": 10,
+        "y": 37
+      },
+      "seat": {
+        "x": 11,
+        "y": 38
+      },
+      "seatRes": {
+        "x": 11,
+        "y": 38
+      },
+      "appr": {
+        "x": 11,
+        "y": 37
+      },
+      "apprRes": {
+        "x": 11,
+        "y": 37
+      },
+      "off": true,
+      "seedScore": -31.8,
+      "baseCut": 24,
+      "cut": 26,
+      "freeze": 26,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    }
+  ]
+}

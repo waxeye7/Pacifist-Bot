@@ -1,0 +1,1602 @@
+{
+  "md5": "8e5d6725885bd3f3731379bedf408326",
+  "n": 172,
+  "presenceN": 39,
+  "derivedN": 60,
+  "presence": [
+    "baseCut",
+    "baseOverGated",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "deepBudget",
+    "deepExhausted",
+    "digRoads",
+    "faceAndSatHeld",
+    "freeLeft",
+    "haulCost",
+    "inertPromoted",
+    "lapVeto",
+    "mobilityRepair",
+    "noAlternative",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "shallowNow",
+    "shallowRamparts",
+    "strandedFirst",
+    "stubExhausted",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "swaps": [
+    {
+      "room": "E14S1",
+      "from": {
+        "x": 34,
+        "y": 25
+      },
+      "to": {
+        "x": 34,
+        "y": 24
+      },
+      "towers": [
+        "32,27",
+        "36,24",
+        "32,25",
+        "32,29",
+        "34,24",
+        "35,29"
+      ],
+      "fromIsTower": false,
+      "toIsTower": true,
+      "fromOcc": [
+        "nuker"
+      ],
+      "d8ofTo": [
+        {
+          "k": "35,24",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "33,24",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "34,25",
+          "liveTower": false,
+          "isFrom": true
+        },
+        {
+          "k": "34,23",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "35,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "35,23",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "33,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "33,23",
+          "liveTower": false,
+          "isFrom": false
+        }
+      ],
+      "emptyD8ofTo": [
+        "35,24",
+        "33,24",
+        "34,25",
+        "34,23",
+        "35,25",
+        "35,23",
+        "33,25",
+        "33,23"
+      ],
+      "emptyUnoccD8": [
+        "33,23"
+      ],
+      "uniqueEmptyD8": false,
+      "uniqueUnoccD8": true,
+      "offerBest": {
+        "from": {
+          "x": 34,
+          "y": 25
+        },
+        "to": {
+          "x": 34,
+          "y": 24
+        },
+        "after": [
+          8,
+          4,
+          4
+        ]
+      },
+      "offerFromEq": true,
+      "offerToEq": true,
+      "sapSeat": null,
+      "sapLeaves": null,
+      "sapLeavesEq": false,
+      "sapSeatEq": false,
+      "takeTaken": {
+        "from": {
+          "x": 34,
+          "y": 25
+        },
+        "to": {
+          "x": 34,
+          "y": 24
+        },
+        "why": "clump"
+      },
+      "takeFromEq": true,
+      "takeToEq": true,
+      "takeWhy": "clump",
+      "takeOutcome": null,
+      "chebFromTo": 1
+    },
+    {
+      "room": "E3S5",
+      "from": {
+        "x": 26,
+        "y": 26
+      },
+      "to": {
+        "x": 27,
+        "y": 26
+      },
+      "towers": [
+        "23,25",
+        "26,23",
+        "23,23",
+        "22,27",
+        "27,26",
+        "28,22"
+      ],
+      "fromIsTower": false,
+      "toIsTower": true,
+      "fromOcc": [
+        "extension"
+      ],
+      "d8ofTo": [
+        {
+          "k": "28,26",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "26,26",
+          "liveTower": false,
+          "isFrom": true
+        },
+        {
+          "k": "27,27",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "27,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "28,27",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "28,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "26,27",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "26,25",
+          "liveTower": false,
+          "isFrom": false
+        }
+      ],
+      "emptyD8ofTo": [
+        "28,26",
+        "26,26",
+        "27,27",
+        "27,25",
+        "28,27",
+        "28,25",
+        "26,27",
+        "26,25"
+      ],
+      "emptyUnoccD8": [
+        "28,26",
+        "28,27",
+        "28,25"
+      ],
+      "uniqueEmptyD8": false,
+      "uniqueUnoccD8": false,
+      "offerBest": {
+        "from": {
+          "x": 26,
+          "y": 26
+        },
+        "to": {
+          "x": 27,
+          "y": 26
+        },
+        "after": [
+          9,
+          4,
+          4
+        ]
+      },
+      "offerFromEq": true,
+      "offerToEq": true,
+      "sapSeat": null,
+      "sapLeaves": null,
+      "sapLeavesEq": false,
+      "sapSeatEq": false,
+      "takeTaken": {
+        "from": {
+          "x": 26,
+          "y": 26
+        },
+        "to": {
+          "x": 27,
+          "y": 26
+        },
+        "why": "clump"
+      },
+      "takeFromEq": true,
+      "takeToEq": true,
+      "takeWhy": "clump",
+      "takeOutcome": null,
+      "chebFromTo": 1
+    },
+    {
+      "room": "E4S3",
+      "from": {
+        "x": 25,
+        "y": 26
+      },
+      "to": {
+        "x": 24,
+        "y": 25
+      },
+      "towers": [
+        "25,28",
+        "23,24",
+        "25,24",
+        "24,25",
+        "23,26",
+        "21,24"
+      ],
+      "fromIsTower": false,
+      "toIsTower": true,
+      "fromOcc": [],
+      "d8ofTo": [
+        {
+          "k": "25,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "23,25",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "24,26",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "24,24",
+          "liveTower": false,
+          "isFrom": false
+        },
+        {
+          "k": "25,26",
+          "liveTower": false,
+          "isFrom": true
+        },
+        {
+          "k": "25,24",
+          "liveTower": true,
+          "isFrom": false
+        },
+        {
+          "k": "23,26",
+          "liveTower": true,
+          "isFrom": false
+        },
+        {
+          "k": "23,24",
+          "liveTower": true,
+          "isFrom": false
+        }
+      ],
+      "emptyD8ofTo": [
+        "25,25",
+        "23,25",
+        "24,26",
+        "24,24",
+        "25,26"
+      ],
+      "emptyUnoccD8": [
+        "25,26"
+      ],
+      "uniqueEmptyD8": false,
+      "uniqueUnoccD8": true,
+      "offerBest": null,
+      "offerFromEq": false,
+      "offerToEq": false,
+      "sapSeat": {
+        "x": 24,
+        "y": 25
+      },
+      "sapLeaves": {
+        "x": 25,
+        "y": 26
+      },
+      "sapLeavesEq": true,
+      "sapSeatEq": true,
+      "takeTaken": {
+        "from": {
+          "x": 25,
+          "y": 26
+        },
+        "to": {
+          "x": 24,
+          "y": 25
+        },
+        "why": "lift"
+      },
+      "takeFromEq": true,
+      "takeToEq": true,
+      "takeWhy": "lift",
+      "takeOutcome": null,
+      "chebFromTo": 1
+    }
+  ],
+  "swapN": 3,
+  "spurEq": 99,
+  "spurN": 172,
+  "spurMismatch": [
+    {
+      "room": "E11S2",
+      "spurred": 4,
+      "laid": 13
+    },
+    {
+      "room": "E11S4",
+      "spurred": 2,
+      "laid": 19
+    },
+    {
+      "room": "E11S5",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E11S6",
+      "spurred": 1,
+      "laid": 3
+    },
+    {
+      "room": "E11S8",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E11S9",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E12S1",
+      "spurred": 1,
+      "laid": 3
+    },
+    {
+      "room": "E12S5",
+      "spurred": 3,
+      "laid": 4
+    },
+    {
+      "room": "E12S8",
+      "spurred": 2,
+      "laid": 4
+    },
+    {
+      "room": "E12S9",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E13S3",
+      "spurred": 5,
+      "laid": 14
+    },
+    {
+      "room": "E13S5",
+      "spurred": 2,
+      "laid": 11
+    },
+    {
+      "room": "E13S6",
+      "spurred": 3,
+      "laid": 4
+    },
+    {
+      "room": "E14S1",
+      "spurred": 3,
+      "laid": 13
+    },
+    {
+      "room": "E14S4",
+      "spurred": 4,
+      "laid": 5
+    },
+    {
+      "room": "E14S6",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E14S8",
+      "spurred": 1,
+      "laid": 3
+    },
+    {
+      "room": "E15S2",
+      "spurred": 1,
+      "laid": 3
+    },
+    {
+      "room": "E15S4",
+      "spurred": 2,
+      "laid": 8
+    },
+    {
+      "room": "E15S6",
+      "spurred": 1,
+      "laid": 6
+    }
+  ],
+  "spurSample": [
+    {
+      "room": "E11S1",
+      "spurred": 1,
+      "laid": 1
+    },
+    {
+      "room": "E11S2",
+      "spurred": 4,
+      "laid": 13
+    },
+    {
+      "room": "E11S3",
+      "spurred": 0,
+      "laid": 0
+    },
+    {
+      "room": "E11S4",
+      "spurred": 2,
+      "laid": 19
+    },
+    {
+      "room": "E11S5",
+      "spurred": 1,
+      "laid": 2
+    },
+    {
+      "room": "E11S6",
+      "spurred": 1,
+      "laid": 3
+    },
+    {
+      "room": "E11S7",
+      "spurred": 0,
+      "laid": 0
+    },
+    {
+      "room": "E11S8",
+      "spurred": 1,
+      "laid": 2
+    }
+  ],
+  "servedHist": {
+    "0": 172
+  },
+  "unreachHist": {
+    "0": 172
+  },
+  "unreachedClHist": {
+    "0": 172
+  },
+  "svcSample": [
+    {
+      "room": "E11S1",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 4,
+      "spurred": 1,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 1,
+      "extN": 60
+    },
+    {
+      "room": "E11S2",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 2,
+      "spurred": 4,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 13,
+      "extN": 60
+    },
+    {
+      "room": "E11S3",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 3,
+      "spurred": 0,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 0,
+      "extN": 60
+    },
+    {
+      "room": "E11S4",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 3,
+      "spurred": 2,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 19,
+      "extN": 60
+    },
+    {
+      "room": "E11S5",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 5,
+      "spurred": 1,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 2,
+      "extN": 60
+    },
+    {
+      "room": "E11S6",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 4,
+      "spurred": 1,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 3,
+      "extN": 60
+    },
+    {
+      "room": "E11S7",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 4,
+      "spurred": 0,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 0,
+      "extN": 60
+    },
+    {
+      "room": "E11S8",
+      "servedExts": 0,
+      "unreachableExts": 0,
+      "unreachedClusters": 0,
+      "servedFree": 5,
+      "spurred": 1,
+      "fillerTiles": 0,
+      "laidExtFace": 0,
+      "laidSpur": 2,
+      "extN": 60
+    }
+  ],
+  "svcNonzeroUnreach": [],
+  "svcNonzeroUnreachedCl": [],
+  "dig": [
+    {
+      "room": "E11S1",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S2",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 5
+        }
+      ]
+    },
+    {
+      "room": "E11S3",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S4",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S5",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S6",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S7",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    },
+    {
+      "room": "E11S8",
+      "hits": [
+        {
+          "path": "meta.extensions.digRoads",
+          "v": 0
+        }
+      ]
+    }
+  ],
+  "shallowR": [
+    {
+      "room": "E11S1",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S2",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S3",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S4",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S5",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S6",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S7",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    },
+    {
+      "room": "E11S8",
+      "hits": [
+        {
+          "path": "meta.walls.reflow.shallowRamparts",
+          "v": []
+        }
+      ]
+    }
+  ],
+  "presenceSample": {
+    "servedExts": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.walls.servedExts",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.walls.servedExts",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.walls.servedExts",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.walls.servedExts",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    "digRoads": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.extensions.digRoads",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.extensions.digRoads",
+              "t": "number",
+              "v": 5
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.extensions.digRoads",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.extensions.digRoads",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    "shallowRamparts": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.shallowRamparts",
+              "t": "arr0",
+              "v": []
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.shallowRamparts",
+              "t": "arr0",
+              "v": []
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.shallowRamparts",
+              "t": "arr0",
+              "v": []
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.shallowRamparts",
+              "t": "arr0",
+              "v": []
+            }
+          ]
+        }
+      ]
+    },
+    "inertPromoted": {
+      "roomsWith": {
+        "1": 37
+      },
+      "sample": [
+        {
+          "room": "E11S6",
+          "hits": [
+            {
+              "path": "meta.shell.inertPromoted",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E13S3",
+          "hits": [
+            {
+              "path": "meta.shell.inertPromoted",
+              "t": "number",
+              "v": 4
+            }
+          ]
+        },
+        {
+          "room": "E13S4",
+          "hits": [
+            {
+              "path": "meta.shell.inertPromoted",
+              "t": "number",
+              "v": 1
+            }
+          ]
+        },
+        {
+          "room": "E13S5",
+          "hits": [
+            {
+              "path": "meta.shell.inertPromoted",
+              "t": "number",
+              "v": 2
+            }
+          ]
+        }
+      ]
+    },
+    "strandedFirst": {
+      "roomsWith": {
+        "2": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.strandedFirst",
+              "t": "number",
+              "v": 13
+            },
+            {
+              "path": "meta.extensions.laneMeta.strandedFirst",
+              "t": "number",
+              "v": 13
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.strandedFirst",
+              "t": "number",
+              "v": 21
+            },
+            {
+              "path": "meta.extensions.laneMeta.strandedFirst",
+              "t": "number",
+              "v": 21
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.strandedFirst",
+              "t": "number",
+              "v": 20
+            },
+            {
+              "path": "meta.extensions.laneMeta.strandedFirst",
+              "t": "number",
+              "v": 20
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.strandedFirst",
+              "t": "number",
+              "v": 12
+            },
+            {
+              "path": "meta.extensions.laneMeta.strandedFirst",
+              "t": "number",
+              "v": 12
+            }
+          ]
+        }
+      ]
+    },
+    "haulCost": {
+      "roomsWith": {
+        "1": 6
+      },
+      "sample": [
+        {
+          "room": "E11S6",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.nuker.haulCost",
+              "t": "number",
+              "v": 1
+            }
+          ]
+        },
+        {
+          "room": "E12S6",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.observer.haulCost",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E16S1",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.observer.haulCost",
+              "t": "number",
+              "v": -1
+            }
+          ]
+        },
+        {
+          "room": "E1S5",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.observer.haulCost",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    "cleanAnchor": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.labs.lapVeto.cleanAnchor",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.labs.lapVeto.cleanAnchor",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.labs.lapVeto.cleanAnchor",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.labs.lapVeto.cleanAnchor",
+              "t": "object",
+              "v": null
+            }
+          ]
+        }
+      ]
+    },
+    "freeLeft": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.extensions.reflow.freeLeft",
+              "t": "number",
+              "v": 2
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.extensions.reflow.freeLeft",
+              "t": "number",
+              "v": 15
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.extensions.reflow.freeLeft",
+              "t": "number",
+              "v": 8
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.extensions.reflow.freeLeft",
+              "t": "number",
+              "v": 36
+            }
+          ]
+        }
+      ]
+    },
+    "deepBudget": {
+      "roomsWith": {
+        "2": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.deepBudget",
+              "t": "number",
+              "v": 8
+            },
+            {
+              "path": "meta.extensions.laneMeta.deepBudget",
+              "t": "number",
+              "v": 8
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.deepBudget",
+              "t": "number",
+              "v": 24
+            },
+            {
+              "path": "meta.extensions.laneMeta.deepBudget",
+              "t": "number",
+              "v": 24
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.deepBudget",
+              "t": "number",
+              "v": 24
+            },
+            {
+              "path": "meta.extensions.laneMeta.deepBudget",
+              "t": "number",
+              "v": 24
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.walls.mobility.lanes.deepBudget",
+              "t": "number",
+              "v": 24
+            },
+            {
+              "path": "meta.extensions.laneMeta.deepBudget",
+              "t": "number",
+              "v": 24
+            }
+          ]
+        }
+      ]
+    },
+    "baseOverGated": {
+      "roomsWith": {
+        "1": 172
+      },
+      "sample": [
+        {
+          "room": "E11S1",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.baseOverGated",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S2",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.baseOverGated",
+              "t": "number",
+              "v": 4
+            }
+          ]
+        },
+        {
+          "room": "E11S3",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.baseOverGated",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        },
+        {
+          "room": "E11S4",
+          "hits": [
+            {
+              "path": "meta.misc.mobilityVeto.baseOverGated",
+              "t": "number",
+              "v": 0
+            }
+          ]
+        }
+      ]
+    },
+    "rolledBackFrom": {
+      "roomsWith": {
+        "2": 2,
+        "6": 1
+      },
+      "sample": [
+        {
+          "room": "E13S6",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "room": "E15S2",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.moved[4].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.walls.reflow.moved[3].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.walls.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.moved[4].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.moved[3].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "room": "E1S8",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.moved[2].rolledBackFrom",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "rescuedTo": {
+      "roomsWith": {
+        "2": 2,
+        "6": 1
+      },
+      "sample": [
+        {
+          "room": "E13S6",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "room": "E15S2",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[2].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.walls.reflow.boundRollback[1].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.walls.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[2].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[1].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        },
+        {
+          "room": "E1S8",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].rescuedTo",
+              "t": "object",
+              "v": [
+                "x",
+                "y"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "paveRetired": {
+      "roomsWith": {
+        "2": 3,
+        "6": 1
+      },
+      "sample": [
+        {
+          "room": "E12S6",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E13S6",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E15S2",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[2].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.walls.reflow.boundRollback[1].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.walls.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[2].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[1].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            }
+          ]
+        },
+        {
+          "room": "E1S8",
+          "hits": [
+            {
+              "path": "meta.walls.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            },
+            {
+              "path": "meta.extensions.reflow.boundRollback[0].paveRetired",
+              "t": "object",
+              "v": null
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

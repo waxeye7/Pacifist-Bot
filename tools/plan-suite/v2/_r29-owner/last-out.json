@@ -1,0 +1,461 @@
+{
+  "taken": [
+    {
+      "room": "E11S4",
+      "taken": null,
+      "nHold": 2,
+      "kinds": [
+        "lab"
+      ],
+      "recovers": [
+        {
+          "t": "lab",
+          "k": "28,36",
+          "r": 2,
+          "d": 2
+        },
+        {
+          "t": "lab",
+          "k": "28,37",
+          "r": 2,
+          "d": 2
+        }
+      ],
+      "cap": 5
+    },
+    {
+      "room": "E11S7",
+      "taken": {
+        "withdrawn": {
+          "x": 14,
+          "y": 8
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 13,
+              "y": 6
+            },
+            "tiles": 5,
+            "deep": 5,
+            "recoveredTiles": 5
+          }
+        ]
+      },
+      "nHold": 0,
+      "kinds": [],
+      "recovers": [],
+      "cap": 5
+    },
+    {
+      "room": "E14S5",
+      "taken": null,
+      "nHold": 2,
+      "kinds": [
+        "spawn",
+        "tower"
+      ],
+      "recovers": [
+        {
+          "t": "spawn",
+          "k": "31,32",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "tower",
+          "k": "31,33",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 4
+    },
+    {
+      "room": "E15S6",
+      "taken": {
+        "withdrawn": {
+          "x": 37,
+          "y": 34
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 38,
+              "y": 33
+            },
+            "tiles": 69,
+            "deep": 69,
+            "recoveredTiles": 69
+          }
+        ]
+      },
+      "nHold": 4,
+      "kinds": [
+        "lab"
+      ],
+      "recovers": [
+        {
+          "t": "lab",
+          "k": "34,31",
+          "r": 2,
+          "d": 2
+        },
+        {
+          "t": "lab",
+          "k": "35,31",
+          "r": 2,
+          "d": 2
+        },
+        {
+          "t": "lab",
+          "k": "33,29",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "lab",
+          "k": "33,30",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 72
+    },
+    {
+      "room": "E18S3",
+      "taken": {
+        "withdrawn": {
+          "x": 23,
+          "y": 34
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 17,
+              "y": 37
+            },
+            "tiles": 4,
+            "deep": 4,
+            "recoveredTiles": 4
+          }
+        ]
+      },
+      "nHold": 1,
+      "kinds": [
+        "tower"
+      ],
+      "recovers": [
+        {
+          "t": "tower",
+          "k": "17,40",
+          "r": 4,
+          "d": 4
+        }
+      ],
+      "cap": 4
+    },
+    {
+      "room": "E19S2",
+      "taken": {
+        "withdrawn": {
+          "x": 28,
+          "y": 39
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 27,
+              "y": 32
+            },
+            "tiles": 7,
+            "deep": 7,
+            "recoveredTiles": 7
+          }
+        ]
+      },
+      "nHold": 5,
+      "kinds": [
+        "nuker",
+        "tower",
+        "lab"
+      ],
+      "recovers": [
+        {
+          "t": "nuker",
+          "k": "28,31",
+          "r": 7,
+          "d": 7
+        },
+        {
+          "t": "tower",
+          "k": "28,32",
+          "r": 7,
+          "d": 7
+        },
+        {
+          "t": "lab",
+          "k": "25,27",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "lab",
+          "k": "26,27",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 8
+    },
+    {
+      "room": "E2S1",
+      "taken": {
+        "withdrawn": {
+          "x": 30,
+          "y": 20
+        },
+        "kind": "observer",
+        "pockets": [
+          {
+            "at": {
+              "x": 30,
+              "y": 21
+            },
+            "tiles": 5,
+            "deep": 5,
+            "recoveredTiles": 5
+          },
+          {
+            "at": {
+              "x": 35,
+              "y": 17
+            },
+            "tiles": 1,
+            "deep": 1,
+            "recoveredTiles": 1
+          }
+        ]
+      },
+      "nHold": 0,
+      "kinds": [],
+      "recovers": [],
+      "cap": 6
+    },
+    {
+      "room": "E4S6",
+      "taken": {
+        "withdrawn": {
+          "x": 27,
+          "y": 28
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 21,
+              "y": 29
+            },
+            "tiles": 7,
+            "deep": 7,
+            "recoveredTiles": 7
+          }
+        ]
+      },
+      "nHold": 4,
+      "kinds": [
+        "tower",
+        "spawn"
+      ],
+      "recovers": [
+        {
+          "t": "tower",
+          "k": "9,18",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "tower",
+          "k": "11,16",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "spawn",
+          "k": "11,17",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "tower",
+          "k": "11,18",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 8
+    },
+    {
+      "room": "E4S9",
+      "taken": null,
+      "nHold": 6,
+      "kinds": [
+        "lab",
+        "spawn"
+      ],
+      "recovers": [
+        {
+          "t": "lab",
+          "k": "23,34",
+          "r": 3,
+          "d": 3
+        },
+        {
+          "t": "lab",
+          "k": "23,35",
+          "r": 3,
+          "d": 3
+        },
+        {
+          "t": "lab",
+          "k": "25,33",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "lab",
+          "k": "25,34",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 4
+    },
+    {
+      "room": "E5S5",
+      "taken": {
+        "withdrawn": {
+          "x": 12,
+          "y": 38
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 10,
+              "y": 31
+            },
+            "tiles": 10,
+            "deep": 6,
+            "recoveredTiles": 10
+          }
+        ]
+      },
+      "nHold": 0,
+      "kinds": [],
+      "recovers": [],
+      "cap": 11
+    },
+    {
+      "room": "E7S2",
+      "taken": {
+        "withdrawn": {
+          "x": 25,
+          "y": 45
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 22,
+              "y": 46
+            },
+            "tiles": 3,
+            "deep": 3,
+            "recoveredTiles": 3
+          },
+          {
+            "at": {
+              "x": 27,
+              "y": 42
+            },
+            "tiles": 1,
+            "deep": 1,
+            "recoveredTiles": 1
+          }
+        ]
+      },
+      "nHold": 0,
+      "kinds": [],
+      "recovers": [],
+      "cap": 4
+    },
+    {
+      "room": "E7S5",
+      "taken": {
+        "withdrawn": {
+          "x": 16,
+          "y": 10
+        },
+        "kind": "extension",
+        "pockets": [
+          {
+            "at": {
+              "x": 16,
+              "y": 6
+            },
+            "tiles": 3,
+            "deep": 3,
+            "recoveredTiles": 3
+          },
+          {
+            "at": {
+              "x": 16,
+              "y": 11
+            },
+            "tiles": 1,
+            "deep": 1,
+            "recoveredTiles": 1
+          }
+        ]
+      },
+      "nHold": 3,
+      "kinds": [
+        "lab"
+      ],
+      "recovers": [
+        {
+          "t": "lab",
+          "k": "15,11",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "lab",
+          "k": "15,12",
+          "r": 1,
+          "d": 1
+        },
+        {
+          "t": "lab",
+          "k": "16,12",
+          "r": 1,
+          "d": 1
+        }
+      ],
+      "cap": 4
+    }
+  ],
+  "attacks": [
+    {
+      "name": "93 recovers := cap on real taken room, fixedHolders only",
+      "room": "E11S4",
+      "status": "BITES",
+      "first": "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.fixedHolders` is [{\"type\":\"lab\",\"x\":28,\"y\":36,\"recovers\":2,\"recoversDeep\":2},{\"type\":\"lab\",\"x\":28,\"y\":37,\"r and `meta.sealedRecovery.fixedHolders` — the sealed-recovery reco"
+    }
+  ]
+}

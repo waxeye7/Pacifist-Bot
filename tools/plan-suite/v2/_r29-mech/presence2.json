@@ -1,0 +1,75 @@
+{
+  "presenceN": 82,
+  "flipped": {
+    "nukerInWindow": 152,
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "extractorOffNetwork": 133,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "coveredDetourDeclared": 8,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1
+  },
+  "flippedKinds": 43,
+  "pass": 169,
+  "fail": 3,
+  "declared": 300,
+  "firstFails": [
+    {
+      "room": "E12S6",
+      "fails": [
+        "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    },
+    {
+      "room": "E2S3",
+      "fails": [
+        "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 4 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    },
+    {
+      "room": "E9S2",
+      "fails": [
+        "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 15 of 60 sit at depth < 4 and rent a personal rampart forever. Cause of the 15 that remain…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Outcome: every shallow slot …\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    }
+  ],
+  "failKinds": {
+    "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class s": 3
+  }
+}

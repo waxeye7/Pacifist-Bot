@@ -1,0 +1,11 @@
+{
+  "attacks": [],
+  "taken": null,
+  "cap": 3,
+  "holders": [],
+  "e9cls": [
+    "shallowExt",
+    "sealedFloor",
+    "sealedRecovery"
+  ]
+}

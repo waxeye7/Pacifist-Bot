@@ -1,0 +1,117 @@
+{
+  "attacks": [
+    {
+      "name": "cutPasses.sealCritical += 999 on add room",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.ramparts := 0 on prune markers",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.kind rewritten to reviewer",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: the prune markers delete 0 rampart(s) between them and `meta.shell.inertPruned` names 4. Each marker is one invocation's own count of"
+    },
+    {
+      "name": "swap rampartsDeleted between prune markers (sum preserved)",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutDrift.why append false clause (should bite)",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 3,
+      "first": "DECLARATION CONTENT — meta.shell.cutDrift carries 6 entr(y/ies) that are not a move this room's two passes made: [0] 13,34 remove states a reason the producer's own generator does not produce for (remove, layer7-inertPru"
+    },
+    {
+      "name": "E5S1 mineralWhy keep seat+suffix rewrite ring (official residue door)",
+      "room": "E5S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 69 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 revie"
+    },
+    {
+      "name": "E2S5 mineralWhy keep seat+suffix rewrite nearest",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "E5S3 mineralWhy whole-value swap to E5S1's (different seat)",
+      "room": "E5S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 34 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 revie"
+    },
+    {
+      "name": "nukerHubDist := 1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "protectRadius := 0",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    }
+  ],
+  "mineralLies": [
+    {
+      "room": "E2S5",
+      "kind": "seat-road-not-named",
+      "seat": "27,23",
+      "nearest": "28,23@1"
+    },
+    {
+      "room": "E5S1",
+      "kind": "ring-missed-structure",
+      "tile": "28,30",
+      "pub": "nothing of ours",
+      "board": "road"
+    },
+    {
+      "room": "E5S3",
+      "kind": "seat-road-not-named",
+      "seat": "32,11",
+      "nearest": "33,10@1"
+    }
+  ],
+  "mineralLieKinds": {
+    "seat-road-not-named": 2,
+    "ring-missed-structure": 1
+  },
+  "e3s4_38_40": {
+    "at3840": {
+      "container": true,
+      "rampart": true
+    },
+    "cutHas": true,
+    "freezeHas": true
+  },
+  "e11s1_shallowNotes": [
+    {
+      "cls": "shallowExt",
+      "recKeys": [
+        "shallowNow",
+        "total",
+        "extTarget",
+        "mobilityTarget",
+        "l6",
+        "l7",
+        "search",
+        "lap"
+      ],
+      "detail": ""
+    }
+  ]
+}

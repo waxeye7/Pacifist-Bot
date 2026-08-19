@@ -1,0 +1,684 @@
+{
+  "presenceN": 36,
+  "derivedN": 63,
+  "presence": [
+    "baseCut",
+    "baseOverGated",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "deepBudget",
+    "deepExhausted",
+    "digRoads",
+    "faceAndSatHeld",
+    "freeLeft",
+    "haulCost",
+    "inertPromoted",
+    "lapVeto",
+    "mobilityRepair",
+    "noAlternative",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "searchedSeats",
+    "shallowNow",
+    "shallowRamparts",
+    "strandedFirst",
+    "stubExhausted",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derived": [
+    "arrayPartner",
+    "battlementFloor",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "center",
+    "corridorFallback",
+    "corridorPlaced",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "deepReach",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "hubDistCap",
+    "lapCeilingFloor",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralBubble",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "parkCap",
+    "priceyWall",
+    "protectRadius",
+    "radii",
+    "rcl5Pair",
+    "refillDistsUnblocked",
+    "roadsEaten",
+    "servedExts",
+    "servedFree",
+    "shallowCost",
+    "shallowRefused",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "stitchTiles",
+    "stitched",
+    "stubCap",
+    "stubRoads",
+    "swampPaved",
+    "takeTowerSwap",
+    "towerOnly",
+    "unreachableExts",
+    "unreachedClusters"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 17,
+  "flippedEvents": 1250,
+  "flipped2": {
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipped2Kinds": 15,
+  "flipped2Events": 1075,
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      }
+    ]
+  },
+  "fleetSkip": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "maxHubN": 172,
+  "fleetMaxHub": {
+    "label": "p18-maxHubDist-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 15. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 17. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 11. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 16. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 10. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 8. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 14. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.maxHubDist is 0 and the layer-6 hub-field max of the extensions this room stood before the 7b reflow is 12. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fromN": 3,
+  "fleetFrom": {
+    "label": "p18-takeTowerSwap-from-moved",
+    "pass": 169,
+    "fail": 3,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E14S1",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap.from is 1,1 and to is 34,24. The take vacated a D8 neighbour of the destination — moving it off that ring used to pass",
+          "meta.composeOpts.takeTowerSwap is 1,1 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E3S5",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap.from is 1,1 and to is 27,26. The take vacated a D8 neighbour of the destination — moving it off that ring used to pass",
+          "meta.composeOpts.takeTowerSwap is 1,1 -> 27,26 and the published swap is 26,26 -> 27,26. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E4S3",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap.from is 1,1 and to is 24,25. The take vacated a D8 neighbour of the destination — moving it off that ring used to pass",
+          "meta.composeOpts.takeTowerSwap is 1,1 -> 24,25 and the published swap is 25,26 -> 24,25. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      }
+    ]
+  },
+  "fromD8n": 3,
+  "fleetFromD8": {
+    "label": "p19-takeTowerSwap-from-other-D8",
+    "pass": 169,
+    "fail": 3,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E14S1",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E3S5",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 28,26 -> 27,26 and the published swap is 26,26 -> 27,26. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E4S3",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 25,25 -> 24,25 and the published swap is 25,26 -> 24,25. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      }
+    ]
+  },
+  "ucN": 172,
+  "fleetUc": {
+    "label": "p19-unreachedClusters-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.walls.unreachedClusters is 1 and 0 shipped-cut cluster(s) of size ≥ 2 D8-touch no road. It is that walk, not a comment — setting it used to pass"
+        ]
+      }
+    ]
+  },
+  "ueN": 172,
+  "fleetUe": {
+    "label": "p19-unreachableExts-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.walls.unreachableExts is 1 and 0 shipped extension(s) have no D4 road. It is that walk, not a comment — setting it used to pass"
+        ]
+      }
+    ]
+  },
+  "seN": 172,
+  "fleetSe": {
+    "label": "p19-servedExts-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.walls.servedExts is 1 and the filler laid 0 tile(s). The service census is 0 iff the filler laid nothing — setting it used to pass"
+        ]
+      }
+    ]
+  },
+  "seFillN": 172,
+  "fleetSeFill": {
+    "label": "p19-servedExts-and-filler-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.walls.fillerTiles is 1 and laidByKind.extFace is 0. It is that laid count, not a comment — setting it while the book still names the tiles used to pass"
+        ]
+      }
+    ]
+  },
+  "capEnum": 170,
+  "fleetCapEnum": {
+    "label": "p16-hubDistCap-16-to-19",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "capOff": 172,
+  "fleetCapOff": {
+    "label": "p16-hubDistCap-17",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "seedZeroed": 172,
+  "fleetSeed": {
+    "label": "seedScore-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -92.9. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -42.4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -44.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -31.8. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -40.1. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -33.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -15. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -23.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "ms": 187591
+}
