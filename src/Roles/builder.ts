@@ -46,6 +46,32 @@ function weakestSanctionedRampart(room): any {
 
 
 /**
+ * The room's ONE designated paver: the first builder name in sort order among
+ * the room's live builders, and only when the crew is >= 2 (a lone builder
+ * stays on eco). Cached per room per tick — findLocked runs every tick for
+ * every idle builder.
+ */
+let _paverTick = -1;
+let _paver: {[roomName: string]: string | null} = {};
+function isDesignatedPaver(creep): boolean {
+	if(_paverTick !== Game.time) {
+		_paverTick = Game.time;
+		_paver = {};
+	}
+	const rn = creep.room.name;
+	if(_paver[rn] === undefined) {
+		const names: string[] = [];
+		for(const n in Game.creeps) {
+			const c = Game.creeps[n];
+			if(c.memory && c.memory.role === "builder" &&
+				(c.memory.homeRoom || c.room.name) === rn) names.push(n);
+		}
+		_paver[rn] = names.length >= 2 ? names.sort()[0] : null;
+	}
+	return _paver[rn] === creep.name;
+}
+
+/**
  * Re-validate the cached extension/spawn tap against the EXACT predicate the
  * search uses, so the cache can never hand back something the search would
  * not have picked: gone, moved to another room, or drained below the floor
@@ -180,14 +206,17 @@ function tapStillGood(creep): any {
 		}
 	}
 
-	// THE PAVER SHARE. Extension/container sites almost always exist in a
-	// growing room, so the closest-site fallback at the bottom — the only
-	// path that ever picked a road — never ran: the road drip's two sites
-	// sat at 0/300 for days ("roads aren't being built. anywhere."). One
-	// builder in three works ROADS first; the other two keep the eco order.
-	// A road is 300 energy that immediately halves loaded-hauler tick cost,
-	// so the paver pays for itself faster than the extension it deferred.
-	if(buildingsToBuild.length > 0 && (creep.name.charCodeAt(creep.name.length - 1) % 3) === 0) {
+	// THE PAVER. Extension/container sites almost always exist in a growing
+	// room, so the closest-site fallback at the bottom — the only path that
+	// ever picked a road — never ran: the road drip's sites sat at 0/300 for
+	// days ("roads aren't being built. anywhere."). Whenever the room has at
+	// least two builders, exactly ONE (deterministic election: the first name
+	// in sort order) works ROADS first; everyone else keeps the eco order. A
+	// name-hash share was tried first and a three-builder crew hashed to zero
+	// pavers. A road is 300 energy that immediately halves loaded-hauler
+	// tick cost — the paver pays for itself faster than the extension it
+	// deferred. A lone builder stays on eco.
+	if(buildingsToBuild.length > 0 && isDesignatedPaver(creep)) {
 		const roadSites = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_ROAD;});
 		if(roadSites.length > 0) {
 			creep.memory.suicide = false;
