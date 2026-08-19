@@ -126,14 +126,20 @@ describe("PlanV2 migration safety", () => {
   });
 
   describe("broke-align does not keep sweeping a bankless room", () => {
-    it("disarms an align pass when the hub is already gone", () => {
+    it("HOLDS an align pass when the hub is gone — and never tombstones it", () => {
       // After force-hub retired the storages, every later align tick deleted
-      // source containers (the only income). Disarm, don't keep sweeping.
-      assert.include(SRC, 'by: "broke-align"');
+      // source containers (the only income). The first fix DISARMED — a
+      // tombstone nothing re-arms, i.e. a gate the room can never escape
+      // (docs/STARVATION-TRAPS.md): W3N3 and W1N2 sat armed-off after losing
+      // their storages. The guard now holds the pass and keeps the arm; the
+      // moment a storage stands again, alignment resumes by itself.
+      assert.include(SRC, "broke-align");
       assert.match(
         SRC,
         /if \(!wantHub && !room\.storage && room\.find\(FIND_MY_SPAWNS\)\.length > 0\)/,
       );
+      assert.notInclude(SRC, 'by: "broke-align"',
+        "the broke guard must hold, not write a disarmed tombstone");
     });
 
     it("never insta-deletes source-adjacent containers", () => {

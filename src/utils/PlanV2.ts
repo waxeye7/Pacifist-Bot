@@ -2585,14 +2585,19 @@ function runMigration(
      * not touch the three structures a room cannot function without.
      */
     const wantHub = !!arm.hub;
-    // Align already ran and the bank is gone. Further insta passes only
-    // delete source containers / leftover income, which is how a forced
-    // migrate kept a four-room empire broke after the hubs were already
-    // down. Hub-mode still means "I know, keep going."
+    // Align with no storage standing: HOLD, do not sweep. Further insta
+    // passes on a bankless room only delete leftover income, which is how a
+    // forced migrate kept a four-room empire broke after the hubs were
+    // already down. This used to write a "disarmed" TOMBSTONE — a gate the
+    // room could never escape (nothing re-arms a tombstoned room), which is
+    // the docs/STARVATION-TRAPS.md shape exactly: two VPS rooms sat armed-off
+    // forever after losing their storages. Now the arm STAYS and the pass
+    // simply skips; the moment placement re-sites the storage and it stands,
+    // alignment resumes on its own. Hub-mode still means "I know, keep going."
     if (!wantHub && !room.storage && room.find(FIND_MY_SPAWNS).length > 0) {
-      (room.memory as any).planMigration = {
-        mode: "disarmed", since: Game.time, by: "broke-align",
-      };
+      // migrateStatus verdict comes from the arm, so leave a visible note
+      // instead of lying ACTIVE while holding (the 9f44d7b lesson).
+      noteOnce(room, "broke-align", "align HOLDS (by: broke-align guard): no storage — resumes when the bank stands again");
       return;
     }
     /*
