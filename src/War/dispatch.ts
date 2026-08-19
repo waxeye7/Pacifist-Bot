@@ -289,11 +289,46 @@ function sendWarScout(): boolean {
  */
 const DISPATCH_EVERY = 10;
 
+/**
+ * Default per-room bank the empire must hold before OFFENSIVE dispatch runs.
+ * Override with Memory.war.minBank. Owner: "we are maybe doing too much war
+ * before the own rooms are in a good energy state" — this is that, as a gate:
+ * every owned RCL4+ room needs a standing storage with at least this much in
+ * it, no spawn rescue in flight, and a healthy bucket. Defence (reinforce,
+ * towers, guards already alive) is untouched — this only stops NEW offence.
+ */
+export const WAR_MIN_BANK = 20000;
+
+/** Why offence may not start right now — "" when it may. Exported for tests. */
+export function warEconomyBlocked(): string {
+  const M: any = Memory as any;
+  if (M.spawnRescue || M._spawnEmergency) return "spawn rescue in flight";
+  if (Game.cpu.bucket < 5000) return "bucket " + Game.cpu.bucket + " < 5000";
+  const min = M.war && typeof M.war.minBank === "number" ? M.war.minBank : WAR_MIN_BANK;
+  for (const rn in Game.rooms) {
+    const r: any = Game.rooms[rn];
+    if (!r.controller || !r.controller.my || r.controller.level < 4) continue;
+    const bank = r.storage && r.storage.my ? r.storage.store[RESOURCE_ENERGY] || 0 : 0;
+    if (bank < min) return rn + " bank " + bank + " < " + min;
+  }
+  return "";
+}
+
+let lastEcoLog = 0;
+
 export function runDispatch(): void {
   const mem = (Memory as any).war;
   if (mem && mem.dispatch === false) return;
   // Stagger off 0: tick 0 already carries the heaviest scheduled work in the bot.
   if (Game.time % DISPATCH_EVERY !== 3) return;
+  const ecoBlocked = warEconomyBlocked();
+  if (ecoBlocked) {
+    if (Game.time - lastEcoLog >= 1000) {
+      lastEcoLog = Game.time;
+      console.log("[war] offence holds — " + ecoBlocked + " (Memory.war.minBank to tune)");
+    }
+    return;
+  }
 
   dropHotTowerCcks();
 

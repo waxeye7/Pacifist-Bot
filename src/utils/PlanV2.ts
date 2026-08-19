@@ -1559,6 +1559,13 @@ function conductorsForRcl(plan: PackedPlan, lvl: number): number[] {
 // sits after the labs (both RCL8, but the labs feed boosts that keep the room
 // alive); the observer is dead last — it is the one structure nothing depends
 // on.
+// LAB SITS AHEAD OF ROAD, for exactly the reason rampart does (above): the
+// road "budget" from RCL4 is the ENTIRE array (median 81 tiles), the loop
+// breaks when the site budget is spent, so labs at the old index NEVER saw a
+// slot until every planned road existed — live W1N1 (RCL8, 168k bank) sat
+// with unfinished labs behind its road backlog, and every RCL6 room showed
+// labs 0/10. Labs are 3-10 sites ONCE and they feed the boosts the whole
+// defence doctrine runs on; the roads they delay are covered by ROAD_DRIP.
 const PLACE_ORDER = [
   "spawn",
   "storage",
@@ -1568,12 +1575,23 @@ const PLACE_ORDER = [
   "terminal",
   "link",
   "rampart",
-  "road",
   "lab",
+  "road",
   "nuker",
   "extractor",
   "observer",
 ];
+
+/**
+ * Roads always trickle: up to this many road SITES may stand regardless of
+ * the shared class budget. Containers + extensions eat the whole budget for
+ * thousands of ticks in a rebuilding room (E36N57: 8/8 slots, zero road
+ * sites; E37N59 at RCL6 with a 1k bank: budget 2, "roads aren't being built
+ * anywhere"), and a road is 300 energy that immediately halves loaded hauler
+ * tick-cost on that tile. Two sites is a drip, not a flood — the broke-bank
+ * strip keeps exactly this many too, so the two never fight.
+ */
+const ROAD_DRIP = 2;
 
 /**
  * ---------------------------------------------------------------------------
@@ -2843,12 +2861,20 @@ export function placeFromPlanV2(room: Room): void {
   const coreIncomplete =
     !spawnless && !nakedShell && coreBuildoutIncomplete(lvl, structures);
   if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete)) {
+    let dripKept = 0;
     for (const s of sites) {
       if (s.structureType === STRUCTURE_SPAWN) continue;
       if (s.structureType === STRUCTURE_STORAGE) continue;
       if (s.structureType === STRUCTURE_LINK || s.structureType === STRUCTURE_CONTAINER) continue;
       if (s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_EXTENSION) continue;
       if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
+        continue;
+      }
+      // The road drip survives the strip (see ROAD_DRIP): 2x300e of haul
+      // efficiency is not the "site flood" this strip exists to stop, and
+      // removing what the drip just placed would churn a site per pass.
+      if (s.structureType === STRUCTURE_ROAD && dripKept < ROAD_DRIP) {
+        dripKept++;
         continue;
       }
       s.remove();
@@ -2901,6 +2927,30 @@ export function placeFromPlanV2(room: Room): void {
   const alignArm = (room.memory as any).planMigration;
   if (!spawnless || (alignArm && alignArm.force)) {
     runMigration(room, plan, lvl, structures, have);
+  }
+
+  // THE ROAD DRIP — before the budget gate, because the budget is exactly
+  // what starves roads: containers+extensions hold all 8 slots at RCL4-5 and
+  // the broke clamp leaves 0-2 at RCL6+, so entire rebuild eras passed with
+  // zero road sites in any room. Up to ROAD_DRIP road sites stand at all
+  // times (staged order, so arterials first); the broke strip above keeps the
+  // same number, so place-and-strip cannot churn.
+  if (lvl >= 3 && !spawnless && !nakedShell) {
+    let roadSitesNow = 0;
+    for (const s of sites) if (s.structureType === STRUCTURE_ROAD) roadSitesNow++;
+    let drip = ROAD_DRIP - roadSitesNow;
+    if (drip > 0) {
+      const stagedRoads = roadsForRcl(plan, plannedTilesFor(plan, "road", lvl, room), lvl);
+      const placedRoad = have["road"] || {};
+      for (const p of stagedRoads) {
+        if (drip <= 0) break;
+        if (placedRoad[p]) continue;
+        if (room.createConstructionSite(p % 50, Math.floor(p / 50), STRUCTURE_ROAD) === OK) {
+          placedRoad[p] = true;
+          drip--;
+        }
+      }
+    }
   }
 
   if (budget <= 0) return;
