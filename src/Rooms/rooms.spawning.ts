@@ -3371,6 +3371,12 @@ function emergencyFillerRescue(room, spawn): boolean {
             // rooms sitting between 100 and 149 forever.
             if(room.energyAvailable >= 300) {
                 body = [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE]; // 300 energy
+            } else if(spawnLadderEnabled()) {
+                // Below 300 the LADDER owns the floor, and it spends MINERS
+                // FIRST. This rung buying a [C,M] at 100 was the VPS death
+                // loop: energy could never reach the 150 the queued miner
+                // cost, so the room bought income-less haulers forever.
+                body = null;
             } else if(room.energyAvailable >= 150) {
                 body = [CARRY, CARRY, MOVE]; // 150 energy
                 console.log(`Using ultra small emergency body in ${room.name}, energy: ${room.energyAvailable}`);
@@ -3496,7 +3502,9 @@ function spawnFirstInLine(room, spawn) {
             if(spawnAttempt == -6) {
 
                 let storage = Game.getObjectById(room.memory.Structures?.storage);
-                if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 1000 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
+                // With the ladder on, sub-300 bootstrap is ITS job (miners
+                // first — see the VPS death loop in emergencyFillerRescue).
+                if(!spawnLadderEnabled() && room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 1000 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
                     let body = [MOVE,CARRY];
                     if(room.controller.level === 7 && room.energyAvailable >= 200)
                         body.push(CARRY,CARRY)

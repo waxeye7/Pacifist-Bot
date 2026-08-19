@@ -590,7 +590,16 @@ function RunCreepManager(name) {
         }
 
         if(creep.memory.role == undefined) {
-            console.log("i am undefined", name)
+            // A NEWBORN with no memory yet is not a zombie: opts.memory lands at
+            // intent resolution, and on the VPS engine the first run can beat
+            // it. Suiciding here turned every such race into a dead creep and
+            // 300 wasted energy. Give the young a grace life; only a creep
+            // that has been memoryless for a while is truly orphaned.
+            if (creep.spawning || (creep.ticksToLive || 0) > 1400) {
+                logAlways("[death?] role-undefined newborn " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name + " — grace, no suicide");
+                return;
+            }
+            logAlways("[death] role-undefined suicide " + name + " ttl=" + creep.ticksToLive + " @" + creep.room.name);
             creep.suicide();
             return;
         }

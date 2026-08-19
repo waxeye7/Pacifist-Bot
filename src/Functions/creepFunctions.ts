@@ -1,3 +1,4 @@
+import { logAlways } from "utils/Logger";
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 import { plannedLinkTile } from "utils/PlanV2";
@@ -2355,6 +2356,13 @@ function _spawnQueueHasSweeper(room:any): boolean {
 }
 
 Creep.prototype.recycle = function recycle() {
+    // Every recycle prints ONCE: the 2026-08-19 VPS collapse was newborns
+    // dying invisibly (verbose-gated logs + 30-tick tombstones). Cheap, and
+    // it makes "who killed my creep" a console grep instead of a manhunt.
+    if(!this.memory._recLogged) {
+        this.memory._recLogged = 1;
+        logAlways("[death] recycle " + this.name + " role=" + this.memory.role + " ttl=" + this.ticksToLive + " @" + this.room.name + " " + this.pos.x + "," + this.pos.y);
+    }
     if(this.memory.homeRoom && this.memory.homeRoom !== this.room.name) {
         return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
     }
