@@ -330,12 +330,15 @@ function makeApi(opts) {
       const c = objs.find((o) => o.type === "controller");
       const spawns = objs.filter((o) => o.type === "spawn");
       const creeps = objs.filter((o) => o.type === "creep");
+      const ext = objs.filter((o) => o.type === "extension").length;
       return {
         room,
         exists: !!c,
         level: c ? c.level || 0 : 0,
         user: c && c.user ? String(c.user) : null,
         progress: c && typeof c.progress === "number" ? c.progress : null,
+        ext,
+        cap: 300 + ext * 50,
         spawns: spawns.length,
         creeps: creeps.length,
       };
@@ -1158,7 +1161,7 @@ rooms.forEach(function (r) {
   var foreign = db["rooms.objects"].find({room: r, user: {$nin: allowed.concat([null])}}).toArray()
     .filter(function (o) { return o.user; });
   if (foreign.length) { out.push({room: r, skipped: "owned by a non-benchmark user"}); return; }
-  var del = db["rooms.objects"].deleteMany({room: r, user: {$in: allowed}});
+  var del = db["rooms.objects"].deleteMany({room: r, user: {$in: allowed}, type: {$ne: "controller"}});
   var ctrl = db["rooms.objects"].updateOne({room: r, type: "controller"},
     {$set: {level: 0, progress: 0, progressTotal: 0},
      $unset: {user: "", downgradeTime: "", ticksToDowngrade: "", reservation: "", sign: "",
@@ -1407,7 +1410,15 @@ async function modeWatch(opts, flags) {
     for (const e of live) {
       const obs = levels.get(e.room);
       if (!obs) continue;
-      e.lastSeen = { tick, level: obs.level, spawns: obs.spawns ?? null, creeps: obs.creeps ?? null };
+      e.lastSeen = {
+        tick,
+        level: obs.level,
+        progress: obs.progress ?? null,
+        ext: obs.ext ?? null,
+        cap: obs.cap ?? null,
+        spawns: obs.spawns ?? null,
+        creeps: obs.creeps ?? null,
+      };
       if (typeof e.seedTick !== "number") continue;
       for (const m of milestones) {
         if (obs.level < m) continue;
@@ -1450,7 +1461,9 @@ async function modeWatch(opts, flags) {
 
     const remaining = live.filter((e) => !done(e));
     const elapsedTicks = firstSeed === null ? null : tick - firstSeed;
-    if (changed || ledger.watch.polls % 20 === 0) saveLedger(file, ledger);
+    // Every poll. A 20-poll batch lost the first RCL3 when the disk filled
+    // mid-write; lastTick/lastSeen must survive a crash.
+    saveLedger(file, ledger);
 
     if (!remaining.length) {
       exitReason = "all-reached-target";

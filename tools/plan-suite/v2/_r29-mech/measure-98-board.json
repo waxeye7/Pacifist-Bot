@@ -1,0 +1,1004 @@
+[
+  {
+    "room": "E11S1",
+    "ms": 569,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 7,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 3,
+      "reserved": 7,
+      "byRound": [
+        3,
+        3,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 6,
+      "rounds": 2,
+      "reserved": 6,
+      "byRound": [
+        3,
+        3
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 1,
+    "extrasClass": {
+      "empty": 1
+    },
+    "laneClass": {
+      "road": 6
+    },
+    "extras": [
+      "32,46"
+    ],
+    "laneReserved": [
+      "18,27",
+      "19,28",
+      "19,29",
+      "24,28",
+      "25,27",
+      "25,29"
+    ]
+  },
+  {
+    "room": "E11S2",
+    "ms": 1289,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 21,
+      "rounds": 7,
+      "ext": 60,
+      "shallow": 1,
+      "reserved": 21,
+      "byRound": [
+        5,
+        1,
+        3,
+        2,
+        2,
+        7,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 20,
+      "rounds": 6,
+      "reserved": 20,
+      "byRound": [
+        5,
+        1,
+        3,
+        2,
+        2,
+        7
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 1,
+    "extrasClass": {
+      "empty": 1
+    },
+    "laneClass": {
+      "empty": 13,
+      "road": 7
+    },
+    "extras": [
+      "36,12"
+    ],
+    "laneReserved": [
+      "22,13",
+      "23,11",
+      "24,12",
+      "25,12",
+      "25,13",
+      "26,11",
+      "26,14",
+      "27,15",
+      "30,15",
+      "31,14",
+      "32,13",
+      "33,12",
+      "34,11",
+      "38,13",
+      "39,14",
+      "40,14",
+      "41,14",
+      "41,15",
+      "42,13",
+      "42,16"
+    ]
+  },
+  {
+    "room": "E13S3",
+    "ms": 748,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 20,
+      "rounds": 5,
+      "ext": 60,
+      "shallow": 2,
+      "reserved": 20,
+      "byRound": [
+        2,
+        4,
+        3,
+        3,
+        8
+      ]
+    },
+    "lane": {
+      "tiles": 9,
+      "rounds": 3,
+      "reserved": 9,
+      "byRound": [
+        2,
+        4,
+        3
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 11,
+    "extrasClass": {
+      "ext": 4,
+      "road": 3,
+      "empty": 4
+    },
+    "laneClass": {
+      "empty": 3,
+      "road": 6
+    },
+    "extras": [
+      "28,25",
+      "28,31",
+      "29,27",
+      "29,32",
+      "30,33",
+      "31,23",
+      "31,29",
+      "32,22",
+      "32,28",
+      "33,21",
+      "33,27"
+    ],
+    "laneReserved": [
+      "15,26",
+      "16,15",
+      "16,27",
+      "17,16",
+      "18,17",
+      "18,18",
+      "28,15",
+      "29,16",
+      "29,17"
+    ]
+  },
+  {
+    "room": "E17S6",
+    "ms": 1078,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 17,
+      "rounds": 7,
+      "ext": 60,
+      "shallow": 4,
+      "reserved": 17,
+      "byRound": [
+        1,
+        2,
+        1,
+        1,
+        3,
+        4,
+        5
+      ]
+    },
+    "lane": {
+      "tiles": 12,
+      "rounds": 6,
+      "reserved": 12,
+      "byRound": [
+        1,
+        2,
+        1,
+        1,
+        3,
+        4
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 5,
+    "extrasClass": {
+      "empty": 3,
+      "ext": 2
+    },
+    "laneClass": {
+      "empty": 5,
+      "road": 7
+    },
+    "extras": [
+      "17,37",
+      "21,19",
+      "22,18",
+      "23,18",
+      "26,21"
+    ],
+    "laneReserved": [
+      "17,35",
+      "22,16",
+      "23,17",
+      "25,18",
+      "26,17",
+      "27,16",
+      "30,16",
+      "33,40",
+      "35,38",
+      "36,18",
+      "36,39",
+      "37,38"
+    ]
+  },
+  {
+    "room": "E1S6",
+    "ms": 999,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 39,
+      "rounds": 10,
+      "ext": 60,
+      "shallow": 1,
+      "reserved": 39,
+      "byRound": [
+        2,
+        2,
+        3,
+        7,
+        7,
+        7,
+        3,
+        5,
+        2,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 21,
+      "rounds": 5,
+      "reserved": 21,
+      "byRound": [
+        2,
+        2,
+        3,
+        7,
+        7
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 18,
+    "extrasClass": {
+      "empty": 13,
+      "ext": 5
+    },
+    "laneClass": {
+      "road": 13,
+      "empty": 8
+    },
+    "extras": [
+      "10,25",
+      "10,27",
+      "10,33",
+      "11,32",
+      "16,40",
+      "17,33",
+      "17,38",
+      "17,39",
+      "18,34",
+      "18,38",
+      "20,22",
+      "21,21",
+      "22,20",
+      "22,22",
+      "9,24",
+      "9,26",
+      "9,28",
+      "9,34"
+    ],
+    "laneReserved": [
+      "10,31",
+      "13,21",
+      "14,20",
+      "15,26",
+      "16,25",
+      "16,39",
+      "17,40",
+      "18,39",
+      "20,24",
+      "21,25",
+      "21,38",
+      "21,39",
+      "22,24",
+      "22,37",
+      "22,40",
+      "23,36",
+      "24,35",
+      "27,39",
+      "28,34",
+      "29,33",
+      "9,30"
+    ]
+  },
+  {
+    "room": "E9S3",
+    "ms": 755,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 21,
+      "rounds": 4,
+      "ext": 60,
+      "shallow": 1,
+      "reserved": 21,
+      "byRound": [
+        3,
+        7,
+        8,
+        3
+      ]
+    },
+    "lane": {
+      "tiles": 10,
+      "rounds": 2,
+      "reserved": 10,
+      "byRound": [
+        3,
+        7
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 11,
+    "extrasClass": {
+      "empty": 7,
+      "ext": 4
+    },
+    "laneClass": {
+      "empty": 5,
+      "road": 5
+    },
+    "extras": [
+      "29,22",
+      "29,27",
+      "30,21",
+      "30,26",
+      "31,22",
+      "31,25",
+      "32,23",
+      "32,24",
+      "34,35",
+      "35,34",
+      "37,34"
+    ],
+    "laneReserved": [
+      "38,35",
+      "39,34",
+      "39,36",
+      "41,32",
+      "42,31",
+      "42,34",
+      "43,35",
+      "44,36",
+      "45,31",
+      "46,32"
+    ]
+  },
+  {
+    "room": "E9S4",
+    "ms": 744,
+    "boardMoved": false,
+    "shrunk": true,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 13,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 1,
+      "reserved": 13,
+      "byRound": [
+        7,
+        5,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 12,
+      "rounds": 2,
+      "reserved": 12,
+      "byRound": [
+        7,
+        5
+      ]
+    },
+    "prefixEqLane": true,
+    "extrasN": 1,
+    "extrasClass": {
+      "empty": 1
+    },
+    "laneClass": {
+      "empty": 12
+    },
+    "extras": [
+      "15,9"
+    ],
+    "laneReserved": [
+      "14,12",
+      "15,11",
+      "15,18",
+      "16,10",
+      "16,17",
+      "17,10",
+      "17,16",
+      "28,5",
+      "28,6",
+      "29,7",
+      "30,8",
+      "32,8"
+    ]
+  },
+  {
+    "room": "E12S5",
+    "ms": 3020,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 7,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 2,
+      "reserved": 7,
+      "byRound": [
+        2,
+        1,
+        4
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 7,
+    "extrasClass": {
+      "road": 4,
+      "empty": 3
+    },
+    "laneClass": {},
+    "extras": [
+      "10,7",
+      "19,7",
+      "19,8",
+      "20,9",
+      "21,9",
+      "3,8",
+      "4,9"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E13S2",
+    "ms": 226,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 2,
+      "rounds": 1,
+      "ext": 60,
+      "shallow": 6,
+      "reserved": 2,
+      "byRound": [
+        2
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 2,
+    "extrasClass": {
+      "empty": 2
+    },
+    "laneClass": {},
+    "extras": [
+      "24,12",
+      "27,12"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E19S6",
+    "ms": 198,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 8,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 4,
+      "reserved": 8,
+      "byRound": [
+        4,
+        2,
+        2
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 8,
+    "extrasClass": {
+      "empty": 7,
+      "road": 1
+    },
+    "laneClass": {},
+    "extras": [
+      "14,3",
+      "14,4",
+      "3,13",
+      "4,13",
+      "5,12",
+      "6,11",
+      "8,21",
+      "9,20"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E2S3",
+    "ms": 2578,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 8,
+      "rounds": 4,
+      "ext": 60,
+      "shallow": 8,
+      "reserved": 8,
+      "byRound": [
+        3,
+        1,
+        1,
+        3
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 8,
+    "extrasClass": {
+      "road": 4,
+      "ext": 2,
+      "empty": 2
+    },
+    "laneClass": {},
+    "extras": [
+      "36,21",
+      "37,20",
+      "37,24",
+      "38,19",
+      "42,27",
+      "43,26",
+      "43,43",
+      "46,38"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E2S5",
+    "ms": 743,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 6,
+      "rounds": 2,
+      "ext": 58,
+      "shallow": 16,
+      "reserved": 6,
+      "byRound": [
+        5,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 6,
+    "extrasClass": {
+      "empty": 3,
+      "ext": 3
+    },
+    "laneClass": {},
+    "extras": [
+      "27,40",
+      "34,34",
+      "35,35",
+      "36,36",
+      "37,37",
+      "38,38"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E3S7",
+    "ms": 589,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 1,
+      "rounds": 1,
+      "ext": 60,
+      "shallow": 5,
+      "reserved": 1,
+      "byRound": [
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 1,
+    "extrasClass": {
+      "empty": 1
+    },
+    "laneClass": {},
+    "extras": [
+      "23,35"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E7S7",
+    "ms": 584,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 21,
+      "rounds": 7,
+      "ext": 60,
+      "shallow": 2,
+      "reserved": 21,
+      "byRound": [
+        1,
+        2,
+        2,
+        3,
+        5,
+        5,
+        3
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 21,
+    "extrasClass": {
+      "ext": 7,
+      "empty": 9,
+      "road": 5
+    },
+    "laneClass": {},
+    "extras": [
+      "14,17",
+      "15,10",
+      "22,22",
+      "22,24",
+      "23,13",
+      "23,14",
+      "23,21",
+      "23,25",
+      "24,12",
+      "24,13",
+      "25,12",
+      "25,25",
+      "26,19",
+      "26,26",
+      "27,18",
+      "27,19",
+      "27,25",
+      "7,16",
+      "7,18",
+      "8,17",
+      "9,18"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E8S7",
+    "ms": 394,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 12,
+      "rounds": 4,
+      "ext": 60,
+      "shallow": 4,
+      "reserved": 12,
+      "byRound": [
+        2,
+        1,
+        3,
+        6
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 12,
+    "extrasClass": {
+      "empty": 9,
+      "ext": 3
+    },
+    "laneClass": {},
+    "extras": [
+      "12,46",
+      "15,45",
+      "16,45",
+      "17,39",
+      "17,46",
+      "19,40",
+      "20,40",
+      "23,38",
+      "24,37",
+      "25,36",
+      "3,33",
+      "4,34"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E9S9",
+    "ms": 16061,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": true,
+    "ran": true,
+    "fr": {
+      "tiles": 11,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 8,
+      "reserved": 11,
+      "byRound": [
+        9,
+        1,
+        1
+      ]
+    },
+    "lane": {
+      "tiles": 0,
+      "rounds": 0,
+      "reserved": 0,
+      "byRound": []
+    },
+    "prefixEqLane": true,
+    "extrasN": 11,
+    "extrasClass": {
+      "empty": 7,
+      "ext": 4
+    },
+    "laneClass": {},
+    "extras": [
+      "25,19",
+      "25,22",
+      "25,28",
+      "26,27",
+      "27,26",
+      "28,25",
+      "43,21",
+      "44,22",
+      "45,23",
+      "46,24",
+      "46,27"
+    ],
+    "laneReserved": []
+  },
+  {
+    "room": "E12S6",
+    "ms": 4454,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": false,
+    "ran": true,
+    "fr": {
+      "tiles": 7,
+      "rounds": 4,
+      "ext": 60,
+      "shallow": 10,
+      "reserved": 7,
+      "byRound": [
+        1,
+        1,
+        1,
+        4
+      ]
+    },
+    "lane": {
+      "tiles": 7,
+      "rounds": 4,
+      "reserved": 7,
+      "byRound": [
+        1,
+        1,
+        1,
+        4
+      ]
+    },
+    "prefixEqLane": false,
+    "extrasN": 0,
+    "extrasClass": {},
+    "laneClass": {
+      "road": 6,
+      "empty": 1
+    },
+    "extras": [],
+    "laneReserved": [
+      "16,5",
+      "17,6",
+      "18,7",
+      "19,8",
+      "22,7",
+      "24,3",
+      "33,3"
+    ]
+  },
+  {
+    "room": "E11S3",
+    "ms": 81,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": false,
+    "ran": false,
+    "fr": {
+      "tiles": 3,
+      "rounds": 2,
+      "ext": 60,
+      "shallow": 0,
+      "reserved": 3,
+      "byRound": [
+        1,
+        2
+      ]
+    },
+    "lane": {
+      "tiles": 3,
+      "rounds": 2,
+      "reserved": 3,
+      "byRound": [
+        1,
+        2
+      ]
+    },
+    "prefixEqLane": false,
+    "extrasN": 0,
+    "extrasClass": {},
+    "laneClass": {
+      "road": 3
+    },
+    "extras": [],
+    "laneReserved": [
+      "25,40",
+      "31,17",
+      "32,16"
+    ]
+  },
+  {
+    "room": "E2S7",
+    "ms": 57,
+    "boardMoved": false,
+    "shrunk": false,
+    "dropped": false,
+    "ran": false,
+    "fr": {
+      "tiles": 8,
+      "rounds": 3,
+      "ext": 60,
+      "shallow": 0,
+      "reserved": 8,
+      "byRound": [
+        1,
+        3,
+        4
+      ]
+    },
+    "lane": {
+      "tiles": 8,
+      "rounds": 3,
+      "reserved": 8,
+      "byRound": [
+        1,
+        3,
+        4
+      ]
+    },
+    "prefixEqLane": false,
+    "extrasN": 0,
+    "extrasClass": {},
+    "laneClass": {
+      "road": 8
+    },
+    "extras": [],
+    "laneReserved": [
+      "11,16",
+      "11,17",
+      "12,15",
+      "22,30",
+      "23,29",
+      "24,28",
+      "25,27",
+      "3,27"
+    ]
+  }
+]

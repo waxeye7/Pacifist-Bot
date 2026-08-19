@@ -16,6 +16,88 @@ import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2
  * used to abort the whole tick at the top of the rampart clause, so the build
  * and harvest paths below it never ran.
  */
+/**
+ * Pull energy from the room a rescue builder happens to be standing in.
+ *
+ * LOOSE energy first, and from ANY room. Dropped piles, tombstones and ruins
+ * are not anybody's reserve — they decay to nothing whether we take them or
+ * not, so the "leave the last hatchery alone" rule has no claim on them.
+ *
+ * That distinction was missing and it deadlocked the live rescue. E37N58 was
+ * the only room with a spawn, so this function refused to look at it at all —
+ * while 9,560 energy sat DROPPED on its floor, spilled when its storage was
+ * destroyed. E37N59's spawn site needed 3,300 more, its own room was at zero,
+ * and the builders were commuting to empty remote rooms hunting for energy that
+ * was lying one room away the whole time. The site advanced at 0.5/tick.
+ *
+ * STORED energy keeps the original rule: a room with a spawn needs its
+ * extensions to hatch the next creep, and draining them to build somewhere else
+ * is how a rescue eats the thing performing it.
+ */
+function tapRoomEnergy(creep: Creep): boolean {
+    if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) return false;
+
+    const loose: any[] = (creep.room.find(FIND_DROPPED_RESOURCES, {
+        filter: (d: Resource) => d.resourceType === RESOURCE_ENERGY && d.amount >= 25,
+    }) as any[])
+        .concat(creep.room.find(FIND_TOMBSTONES, {
+            filter: (t: Tombstone) => (t.store[RESOURCE_ENERGY] || 0) >= 25,
+        }) as any[])
+        .concat(creep.room.find(FIND_RUINS, {
+            filter: (r: Ruin) => (r.store[RESOURCE_ENERGY] || 0) >= 25,
+        }) as any[]);
+    if (loose.length) {
+        const near = creep.pos.findClosestByRange(loose);
+        if (near) {
+            const got = near.amount !== undefined
+                ? creep.pickup(near)
+                : creep.withdraw(near, RESOURCE_ENERGY);
+            if (got === ERR_NOT_IN_RANGE) creep.MoveCostMatrixRoadPrio(near, 1);
+            return true;
+        }
+    }
+
+    // Stored energy: only where it is not the last hatchery's.
+    if (creep.room.find(FIND_MY_SPAWNS).length) return false;
+    const piles = creep.room.find(FIND_STRUCTURES, {filter: (s: AnyStructure) => {
+        const st = s.structureType;
+        if (st !== STRUCTURE_EXTENSION && st !== STRUCTURE_CONTAINER &&
+            st !== STRUCTURE_LINK && st !== STRUCTURE_TOWER) return false;
+        const store = (s as AnyStoreStructure).store;
+        return !!store && (store[RESOURCE_ENERGY] || 0) > 0;
+    }});
+    if (!piles.length) return false;
+    const near = creep.pos.findInRange(piles, 1)[0];
+    if (near) {
+        creep.withdraw(near, RESOURCE_ENERGY);
+        return true;
+    }
+    const closest = creep.pos.findClosestByRange(piles);
+    if (closest) {
+        creep.MoveCostMatrixRoadPrio(closest, 1);
+        return true;
+    }
+    return false;
+}
+
+/** Carry-only rescue haulers: dump on the spawn tile or into a WORK creep. */
+function dumpAtSpawnSite(creep: Creep, site: ConstructionSite): boolean {
+    if (creep.getActiveBodyparts(WORK) > 0) return false;
+    if ((creep.store[RESOURCE_ENERGY] || 0) === 0) return false;
+    if (!creep.pos.inRangeTo(site, 1)) {
+        creep.MoveCostMatrixRoadPrio(site, 1);
+        return true;
+    }
+    const mates = site.pos.findInRange(FIND_MY_CREEPS, 1).filter((m) =>
+        m.id !== creep.id && m.getActiveBodyparts(WORK) > 0 && m.store.getFreeCapacity() > 0);
+    if (mates.length) {
+        creep.transfer(mates[0], RESOURCE_ENERGY);
+        return true;
+    }
+    creep.drop(RESOURCE_ENERGY);
+    return true;
+}
+
 function coloniseSpawnPos(room: Room): RoomPosition | null {
     const target = Memory.target_colonise;
     if(!target || !target.spawn_pos || room.name !== target.room) return null;
@@ -31,13 +113,19 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     creep.memory.moving = false;
 
     if(creep.room.name != creep.memory.targetRoom && !creep.memory.fill) {
+        // Grab idle energy in spawnless rooms we walk through (E37N59 1850
+        // sitting in extensions while CBs hiked past empty).
+        if (creep.store.getFreeCapacity() > 0 && tapRoomEnergy(creep)) {
+            if (creep.store.getFreeCapacity() === 0) creep.memory.building = true;
+            return;
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
     if(creep.room.name !== creep.memory.targetRoom && creep.memory.fill) {
         if(creep.store.getFreeCapacity() !== 0) {
             let storage = creep.room.storage;
-            if(storage) {
+            if(storage && (storage.store[RESOURCE_ENERGY] || 0) > 0) {
                 let result = creep.withdraw(storage, RESOURCE_ENERGY);
                 if(result == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(storage,1);
@@ -47,10 +135,12 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                     creep.memory.fill = false;
                 }
                 else if(result == ERR_NOT_ENOUGH_RESOURCES) {
-                    // Empty home bank: leave without a full load. Holding
-                    // fill parked the CB at storage and capped the roster.
                     creep.memory.fill = false;
                 }
+            }
+            else if (tapRoomEnergy(creep)) {
+                if (creep.store.getFreeCapacity() === 0) creep.memory.fill = false;
+                return;
             }
             else {
                 creep.memory.fill = false;
@@ -121,8 +211,87 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
         creep.memory.building = true;
     }
+    /*
+     * Spawn rescue: do not wait for a full tank — but ONLY when topping up is
+     * not an option.
+     *
+     * The unconditional version fixed one deadlock and created a worse one. It
+     * was written for E39N58, which sat at 730/15k with three builders holding
+     * 36–98 energy each and nothing to fill from, because `building` only
+     * flipped at getFreeCapacity()==0. Correct there. But in a room that DOES
+     * have energy it makes a builder flip to building after a single harvest
+     * tick: it takes 4 energy, walks to the site, delivers 4, empties, walks
+     * back. The creep spends its whole life commuting with an empty tank.
+     *
+     * Live E36N57, nine builders on a 15k spawn site: its two sources sat at
+     * 2952/3000 and 3000/3000 — barely touched — every builder in the room held
+     * between 0 and 50 energy, and the site gained about 1,000 progress in
+     * ninety minutes. At that rate the rebuild needed eleven hours, with a full
+     * crew standing next to two untouched sources.
+     *
+     * So flip early only when there is genuinely nothing to fill from. With an
+     * active source or a worthwhile dropped pile in the room the builder fills
+     * first, and one full delivery replaces dozens of round trips.
+     */
+    if(!creep.memory.building && creep.store[RESOURCE_ENERGY] > 0 && buildTheSpawnFirst) {
+        const canTopUp = creep.room.find(FIND_SOURCES_ACTIVE).length > 0
+            || creep.room.find(FIND_DROPPED_RESOURCES, {
+                filter: (d: Resource) => d.resourceType === RESOURCE_ENERGY && d.amount >= 50,
+            }).length > 0;
+        if(!canTopUp) creep.memory.building = true;
+    }
+    if(buildTheSpawnFirst && closestTarget && dumpAtSpawnSite(creep, closestTarget)) {
+        return;
+    }
+
     if(creep.memory.building) {
         if(creep.room.controller && creep.room.controller.level !== 8) {
+            // ----------------------------------------------------------
+            // DOWNGRADE RESCUE — outranks spawn-first.
+            //
+            // buildTheSpawnFirst suppresses BOTH upgrade clauses below, and
+            // that is right until the room is about to stop being ours. Live
+            // E39N58: RCL1, no spawn, spawn site at 14,320/15,000 (680 short),
+            // ticksToDowngrade ~2,700 and falling, three ContainerBuilders
+            // inbound — and not one of them would have touched the controller.
+            // The room reverts to unowned, the site and the 14,320 energy in it
+            // go with it, and the whole colonisation is lost 680 energy from
+            // the finish line.
+            //
+            // One upgradeController tick restores CONTROLLER_DOWNGRADE_RESTORE
+            // = 100 ticks, so this is cheap: WORK energy for ~31 ticks buys the
+            // timer back from 5,000 to 8,000. The hysteresis matters — a single
+            // threshold would re-trip every 100 ticks and walk the creep back
+            // and forth between the controller and the spawn site forever.
+            // Latch on below CB_RESCUE_DOWNGRADE, release at CB_RESCUE_RELEASE,
+            // one round trip.
+            //
+            // Only for a controller we own (a CB sent to a remote to build
+            // containers must not start upgrading someone else's room) and only
+            // while carrying energy, which this block already guarantees
+            // (building is cleared at :117 the moment the store empties) — so
+            // the 0-energy pickup path at the bottom of the role is untouched.
+            // ----------------------------------------------------------
+            const CB_RESCUE_DOWNGRADE = 5000;
+            const CB_RESCUE_RELEASE = 8000;
+            let downgradeRescue = false;
+            if(creep.room.controller.my && !creep.room.controller.upgradeBlocked) {
+                const dg = creep.room.controller.ticksToDowngrade;
+                downgradeRescue = creep.memory.dgRescue ? dg < CB_RESCUE_RELEASE : dg < CB_RESCUE_DOWNGRADE;
+            }
+            if(downgradeRescue !== !!creep.memory.dgRescue) {
+                if(downgradeRescue) creep.memory.dgRescue = true;
+                else delete creep.memory.dgRescue;
+            }
+            if(downgradeRescue) {
+                // upgrade OR close the gap — never both, they are the same
+                // WORK action and the build walk below would drag us off.
+                if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                    creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+                }
+                return;
+            }
+
             // opportunistic upgrade on the way past — but not while the spawn
             // site is what we are here for: build() and upgradeController()
             // compete for the same WORK action and the same carried energy.
@@ -186,9 +355,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
 
         if(mySpawns.length == 1) {
-            // argless getFreeCapacity() is null on a spawn (always !== 0),
-            // and the fill move was overwritten by the build walk below
-            if(mySpawns[0].store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            // Only feed a lonely spawn in a NEWBORN colony (RCL<=2 or a spawn
+            // site still open) or when the hatchery is actually dry. RCL4+
+            // with a working spawn used to eat every CB intent forever.
+            const newborn = (creep.room.controller && creep.room.controller.level <= 2)
+                || creep.room.find(FIND_MY_CONSTRUCTION_SITES, {
+                    filter: (s: ConstructionSite) => s.structureType === STRUCTURE_SPAWN,
+                }).length > 0;
+            const spawnDry = (mySpawns[0].store[RESOURCE_ENERGY] || 0) < 50
+                && creep.room.energyAvailable < 100;
+            if((newborn || spawnDry) && mySpawns[0].store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                 if(creep.pos.isNearTo(mySpawns[0])) {
                     creep.transfer(mySpawns[0], RESOURCE_ENERGY);
                 }
@@ -255,6 +431,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
     }
     if(!creep.memory.building) {
+        if (tapRoomEnergy(creep)) return;
         if(creep.room.storage) {
             if(creep.room.storage.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity()) {
                 if(creep.withdraw(creep.room.storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {

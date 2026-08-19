@@ -1,12 +1,27 @@
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
+import { plannedLinkTile } from "utils/PlanV2";
+import {
+    cachedDerived,
+    cachedDropped,
+    cachedHostileCreeps,
+    cachedMyCreeps,
+    cachedMyStructures,
+    cachedRuins,
+    cachedSites,
+    cachedSources,
+    cachedStructures,
+    cachedTombstones,
+    getCachedCostMatrix,
+    terrainBaseMatrix,
+} from "utils/RoomCache";
 
 // declare global required now that this file imports (module scope): a bare
 // `interface Creep` stopped merging with the global type.
 declare global {
 interface Creep {
     Boost: () => boolean | "done";
-    Speak: () => void;
+    tryUnboostAtHome: () => boolean;
     evacuate:any;
     holdForFlee: () => boolean;
     findFillerTarget:any;
@@ -21,7 +36,6 @@ interface Creep {
     harvestEnergy:any;
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:() => boolean;
-    roadlessLocation:(RoomPosition:object) => RoomPosition | null;
     fleeHomeIfInDanger: () => void | string;
     fleeFromMelee: (creep:Creep) => void;
     fleeFromRanged: (creep:Creep) => void;
@@ -99,10 +113,9 @@ const RESERVE_FILL_TTL = 55;
  *
  * utils/Reachability owns the analysis (one flood fill per room per ~50 ticks)
  * and writes room.memory.unreach; the oscillation damper in
- * Managers/RunCreepManager writes room.memory.badFill. This file cannot import
- * either of them — it has no imports on purpose, so that its top-level
- * `interface Creep` still merges with the global one — so it reads the two
- * memory shapes directly. Keep in sync with utils/Reachability.isUndeliverable.
+ * Managers/RunCreepManager writes room.memory.badFill. Neither is imported
+ * here — the two memory shapes are read directly, so keep this in sync with
+ * utils/Reachability.isUndeliverable.
  * ---------------------------------------------------------------------------
  */
 const fillTargetIsDead = (room:any, id:string):boolean => {
@@ -128,11 +141,23 @@ const fillTargetIsDead = (room:any, id:string):boolean => {
 
 /** prune dead/expired/legacy entries, and return the live list. */
 const liveReserveFill = (room:any):any[] => {
-    let list = room.memory.reserveFill;
-    if(!Array.isArray(list)) {
+    if(!Array.isArray(room.memory.reserveFill)) {
         room.memory.reserveFill = [];
         return room.memory.reserveFill;
     }
+    /*
+     * Prune once per room per tick rather than once per asking creep — a
+     * Game.creeps lookup and a memory read per entry, and every filler and
+     * carrier in the room asks (twice, for the look-ahead).
+     *
+     * Safe because every reason the prune drops an entry is a BETWEEN-tick
+     * change (owner gone from Game.creeps, TTL lapsed), and the only thing that
+     * grows the list mid-tick is takeReserveFill — whose entries are stamped
+     * with Game.time and owned by a creep that is demonstrably alive. So a
+     * second prune in the same tick can only ever hand back the same list.
+     */
+    cachedDerived(room, "reserveFillPruned", () => {
+    let list = room.memory.reserveFill;
     let kept:any[] = [];
     for(let entry of list) {
         // bare-id entries from before this change carry neither an owner nor a
@@ -154,6 +179,8 @@ const liveReserveFill = (room:any):any[] => {
     if(kept.length !== list.length) {
         room.memory.reserveFill = kept;
     }
+        return true;
+    });
     return room.memory.reserveFill;
 }
 
@@ -179,15 +206,25 @@ const takeReserveFill = (creep:any, id:string):void => {
     list.push({id: id, creep: creep.name, t: Game.time});
 }
 
-// CREEP PROTOTYPES
-Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
-
-    // speculative/look-ahead callers pass {reserve:false} and claim nothing
-    let reserve = !(opts && opts.reserve === false);
-    let reserveFill = reserveFillIdsOfOthers(this);
-
-
-    if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
+/**
+ * Re-derive room.memory.Structures.controllerLink — the controller depot: a
+ * real LINK from RCL5 up, a non-source CONTAINER below RCL7, a link again
+ * above it.
+ *
+ * Both fill branches in findFillerTarget (ControllerLinkFiller's and filler's)
+ * carried a verbatim copy of this scan, and both run it on EVERY call while
+ * the key is unset — which is the normal state of any room that has no depot
+ * yet. That is two room.find()s plus a findInRange(sources, 1) per container,
+ * per filler, per tick, for an answer that is a pure function of the room.
+ *
+ * Memoised per room per tick, keyed on the CURRENT value of the key so a
+ * mid-tick `controllerLink = false` (the dead-object and RCL7-container arms
+ * below both write one) still forces the rescan it always forced. Two runs
+ * with the same inputs write the same id, so skipping the second is invisible.
+ */
+function _discoverControllerDepot(room:any):void {
+    const key = "ctrlDepotScan:" + (room.memory.Structures.controllerLink || "0");
+    cachedDerived(room, key, () => {
         // A LINK always wins from RCL5 up, whatever the level split below says.
         //
         // The `level < 7` branch searches CONTAINERS ONLY, but links unlock at
@@ -198,19 +235,30 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
         // a full 800 energy through 444+ ticks of zero controller progress.
         // Matches the RCL5+ rung in rooms.spawning.ts:1866-1869.
         let ctrlLink:any = null;
-        if(this.room.controller.level >= 5) {
-            let ctrlLinks = this.room.find(FIND_MY_STRUCTURES, {filter: building =>
-                building.structureType == STRUCTURE_LINK &&
-                building.id !== this.room.memory.Structures.StorageLink &&
-                building.pos.getRangeTo(this.room.controller) <= 3});
-            if(ctrlLinks.length > 0) {
-                ctrlLink = this.room.controller.pos.findClosestByRange(ctrlLinks);
+        const plannedCtrl = plannedLinkTile(room, 2);
+        if (plannedCtrl && room.controller.level >= 5) {
+            const here = room.lookForAt(LOOK_STRUCTURES, plannedCtrl.x, plannedCtrl.y);
+            for (const s of here) {
+                if (s.structureType === STRUCTURE_LINK && (s as StructureLink).my &&
+                    s.id !== room.memory.Structures.StorageLink) {
+                    ctrlLink = s;
+                    break;
+                }
             }
         }
-        if(ctrlLink) {
-            this.room.memory.Structures.controllerLink = ctrlLink.id;
+        if(room.controller.level >= 5 && !ctrlLink) {
+            let ctrlLinks = cachedMyStructures(room).filter((building:any) =>
+                building.structureType == STRUCTURE_LINK &&
+                building.id !== room.memory.Structures.StorageLink &&
+                building.pos.getRangeTo(room.controller) <= 3);
+            if(ctrlLinks.length > 0) {
+                ctrlLink = room.controller.pos.findClosestByRange(ctrlLinks);
+            }
         }
-        else if(this.room.controller && this.room.controller.level < 7) {
+        if(ctrlLink && ctrlLink.id !== room.memory.Structures.StorageLink) {
+            room.memory.Structures.controllerLink = ctrlLink.id;
+        }
+        else if(room.controller.level < 7) {
             /*
              * `getRangeTo(controller) == 3` — EXACTLY three — is what this used
              * to ask for, so a depot the planner put at range 1, 2 or 4 was
@@ -222,26 +270,43 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
              * rooms.spawning.ts use, so all four agree on which structure is the
              * depot.
              */
-            let sources = this.room.find(FIND_SOURCES);
-            let containers = this.room.find(FIND_STRUCTURES, {filter: building =>
+            let sources = cachedSources(room);
+            let containers = cachedStructures(room).filter((building:any) =>
                 building.structureType == STRUCTURE_CONTAINER &&
-                building.id !== this.room.memory.Structures.bin &&
-                building.id !== this.room.memory.Structures.storage &&
-                building.pos.getRangeTo(this.room.controller) <= 4 &&
-                building.pos.findInRange(sources, 1).length == 0});
+                building.id !== room.memory.Structures.bin &&
+                building.id !== room.memory.Structures.storage &&
+                building.pos.getRangeTo(room.controller) <= 4 &&
+                building.pos.findInRange(sources, 1).length == 0);
             if(containers.length > 0) {
-                this.room.memory.Structures.controllerLink = this.room.controller.pos.findClosestByRange(containers).id;
+                room.memory.Structures.controllerLink = room.controller.pos.findClosestByRange(containers).id;
             }
         }
         else {
-            let links = this.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK && building.pos.getRangeTo(this.room.controller) <= 3});
+            let links = cachedMyStructures(room).filter((building:any) =>
+                building.structureType == STRUCTURE_LINK &&
+                building.id !== room.memory.Structures.StorageLink &&
+                building.pos.getRangeTo(room.controller) <= 3);
             if(links.length > 0) {
-                let controllerLink = this.room.controller.pos.findClosestByRange(links);
-                if(controllerLink.pos.getRangeTo(this.room.controller) <= 4)  {
-                    this.room.memory.Structures.controllerLink = controllerLink.id;
+                let controllerLink:any = room.controller.pos.findClosestByRange(links);
+                if(controllerLink.pos.getRangeTo(room.controller) <= 4)  {
+                    room.memory.Structures.controllerLink = controllerLink.id;
                 }
             }
         }
+        return true;
+    });
+}
+
+// CREEP PROTOTYPES
+Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
+
+    // speculative/look-ahead callers pass {reserve:false} and claim nothing
+    let reserve = !(opts && opts.reserve === false);
+    let reserveFill = reserveFillIdsOfOthers(this);
+
+
+    if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
+        _discoverControllerDepot(this.room);
     }
 
     if(this.memory.role == "ControllerLinkFiller" && this.room.controller && this.room.memory.Structures.controllerLink) {
@@ -280,7 +345,23 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     // starved the producer.
     if(this.room.energyAvailable < this.room.energyCapacityAvailable) {
 
-        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id)});
+        /*
+         * Split into a room/tick half and a per-creep half.
+         *
+         * "which spawns and extensions are hungry" cannot change during a tick
+         * — transfer() is an intent and stores only settle between ticks, which
+         * is the whole reason the reservation ledger below exists — so the raw
+         * hungry set is derived once per room per tick and every filler in the
+         * room shares it. Only the two per-creep questions (does someone else
+         * hold a reservation on it, is it blacklisted) still run per creep, in
+         * the same order and with the same short-circuit as before.
+         */
+        const hungryFill:any[] = cachedDerived(this.room, "fillSpawnExt", () =>
+            cachedMyStructures(this.room).filter((building:any) =>
+                (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) &&
+                building.store.getFreeCapacity(RESOURCE_ENERGY) > 0));
+        let spawnAndExtensions = hungryFill.filter((building:any) =>
+            !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id));
         if(spawnAndExtensions.length > 0) {
             let t = this.pos.findClosestByRange(spawnAndExtensions);
             if(reserve) {
@@ -348,7 +429,14 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
 
 
-    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id))});
+    // Unconditional: every findFillerTarget call that got past the rung above
+    // used to run a whole FIND_MY_STRUCTURES filter for this, even in a room
+    // with no towers at all. Room/tick half memoised, per-creep half kept.
+    const hungryTowers:any[] = cachedDerived(this.room, "fillTowers", () =>
+        cachedMyStructures(this.room).filter((building:any) =>
+            building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100));
+    let towers2 = hungryTowers.filter((building:any) =>
+        !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id));
     if(towers2.length > 0) {
         let t = this.pos.findClosestByRange(towers2);
         if(reserve) {
@@ -359,17 +447,6 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
 
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage() || this.room.storage;
-    if(this.room.memory.Structures.factory) {
-        let factory:any = Game.getObjectById(this.room.memory.Structures.factory);
-        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 450000 && storage.store[RESOURCE_BATTERY] < 200 && !reserveFill.includes(factory.id)) {
-            if(reserve) {
-                takeReserveFill(this, factory.id);
-            }
-            this.memory.t = factory.id;
-            return factory;
-        }
-    }
-
     if(this.room.memory.Structures.extraLinks) {
         for(let linkID of this.room.memory.Structures.extraLinks) {
             let extraLink:any = Game.getObjectById(linkID);
@@ -399,46 +476,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
 
 
     if(this.memory.role == "filler" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
-        // Same RCL5+ link precedence as the ControllerLinkFiller branch above:
-        // the `level < 7` container-only search below is blind to links, which
-        // exist from RCL5. See the comment there for the live W2N1 case.
-        let ctrlLinkF:any = null;
-        if(this.room.controller.level >= 5) {
-            let ctrlLinksF = this.room.find(FIND_MY_STRUCTURES, {filter: building =>
-                building.structureType == STRUCTURE_LINK &&
-                building.id !== this.room.memory.Structures.StorageLink &&
-                building.pos.getRangeTo(this.room.controller) <= 3});
-            if(ctrlLinksF.length > 0) {
-                ctrlLinkF = this.room.controller.pos.findClosestByRange(ctrlLinksF);
-            }
-        }
-        if(ctrlLinkF) {
-            this.room.memory.Structures.controllerLink = ctrlLinkF.id;
-        }
-        else if(this.room.controller.level < 7) {
-            // mirror the ControllerLinkFiller discovery above: range <=4
-            // and source containers excluded up front, so this 10k-tick
-            // rewrite cannot pin Structures.controllerLink on a harvest seat
-            let sources = this.room.find(FIND_SOURCES);
-            let containers = this.room.find(FIND_STRUCTURES, {filter: building =>
-                building.structureType == STRUCTURE_CONTAINER &&
-                building.id !== this.room.memory.Structures.bin &&
-                building.id !== this.room.memory.Structures.storage &&
-                building.pos.getRangeTo(this.room.controller) <= 4 &&
-                building.pos.findInRange(sources, 1).length == 0});
-            if(containers.length > 0) {
-                this.room.memory.Structures.controllerLink = this.room.controller.pos.findClosestByRange(containers).id;
-            }
-        }
-        else {
-            let links = this.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK && building.pos.getRangeTo(this.room.controller) <= 3});
-            if(links.length > 0) {
-                let controllerLink = this.room.controller.pos.findClosestByRange(links);
-                if(controllerLink.pos.getRangeTo(this.room.controller) <= 4)  {
-                    this.room.memory.Structures.controllerLink = controllerLink.id;
-                }
-            }
-        }
+        // Same scan as the ControllerLinkFiller branch above — it used to be a
+        // verbatim second copy, which meant a room with no depot paid for it
+        // once per filler as well as once per ControllerLinkFiller.
+        _discoverControllerDepot(this.room);
     }
 
     if(this.memory.role == "filler" && this.room.energyAvailable == this.room.energyCapacityAvailable && this.room.controller && this.room.memory.Structures.controllerLink) {
@@ -465,7 +506,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
                 // since forwardToControllerLink now hands an unconsumed controller
                 // link back to the hub, the two would trade the same energy back
                 // and forth at a 3% link tax per hop. Same test both sides.
-                else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400 && _roomFeedsController(this.room)) {
+                // ...and only while the room can afford the generosity. This rung
+                // spends the BANK on the controller link, so below the reserve it
+                // is undoing the miner-side routing change one carry at a time.
+                else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400 && _roomFeedsController(this.room) && !_bankBelowReserve(this.room)) {
                     if(reserve) {
                         takeReserveFill(this, controllerLink.id);
                     }
@@ -538,7 +582,8 @@ Creep.prototype.evacuate = function evacuate():any {
 // the melee standing next to a mixed invader pack.
 Creep.prototype.holdForFlee = function(): boolean {
     if(!this.memory.fleeing) return false;
-    const hostiles = this.room.find(FIND_HOSTILE_CREEPS);
+    // one hostile scan per room per tick, shared with the flee/avoid matrices
+    const hostiles = cachedHostileCreeps(this.room);
     for(const h of hostiles) {
         const range = this.pos.getRangeTo(h);
         if(h.getActiveBodyparts(RANGED_ATTACK) > 0 && range <= 8) return true;
@@ -626,93 +671,58 @@ Creep.prototype.Boost = function Boost():any {
     return false;
 }
 
+/**
+ * Give the X-tier boosts back before dying. recycle() is the only other place
+ * that unboosts, and Solomon / Squad / FreedomFighter / Dismantler / healer /
+ * Guard never call it, so their boosts are burned every rotation.
+ *
+ * Roles opt in from their at-home / idle branch, once per tick, e.g.
+ *     if(creep.tryUnboostAtHome()) return;
+ * It no-ops unless the creep carries an X boost, is in its home room, and is
+ * retiring (memory.retire, or ticksToLive < 200). Returns true while it is
+ * walking to / working the lab, false once there is nothing left to do.
+ */
+Creep.prototype.tryUnboostAtHome = function tryUnboostAtHome(): boolean {
+    if(!this.memory.retire && !(this.ticksToLive < 200)) return false;
+    if(this.memory.homeRoom && this.memory.homeRoom !== this.room.name) return false;
+    if(!this.room.memory.labs) return false;
+    // unboostCreep hands back HALF the mineral, so only the X tier pays for the
+    // walk and the lab pause.
+    if(!this.body.some((p:any) => p.boost && String(p.boost).charAt(0) === "X")) return false;
 
+    let ids = [];
+    for(let i = 1; i <= 8; i++) {
+        if(this.room.memory.labs["outputLab" + i]) ids.push(this.room.memory.labs["outputLab" + i]);
+    }
+    if(this.room.memory.labs.inputLab1) ids.push(this.room.memory.labs.inputLab1);
+    if(this.room.memory.labs.inputLab2) ids.push(this.room.memory.labs.inputLab2);
+    // ERR_TIRED otherwise — a cooling lab cannot unboost.
+    let labs = ids.map((id:any) => Game.getObjectById(id)).filter((l:any) => l && l.cooldown === 0);
+    if(!labs.length) return false;
+    let lab:any = this.pos.findClosestByRange(labs);
+    if(!lab) return false;
 
-Creep.prototype.Speak = function Speak() {
-    if(this.saying == "AB42") {
-        this.say("BBB4", true);
-        return;
-    }
-    else if(this.saying == "BBB4") {
-        this.say("33472A", true);
-        return;
-    }
-    else if(this.saying == "BB14") {
-        this.say("BBB4", true);
-        return;
-    }
-    else if(this.saying == "My") {
-        this.say("Time", true);
-        return;
-    }
-    else if(this.saying == "Time") {
-        this.say("Has", true);
-        return;
-    }
-    else if(this.saying == "Has") {
-        this.say("Come", true);
-        return;
-    }
-    else if(this.saying == "Come") {
-        this.say("I", true);
-        return;
-    }
-    else if(this.saying == "I") {
-        this.say("Must", true);
-        return;
-    }
-    else if(this.saying == "Must") {
-        this.say("Suicide", true);
-        return;
-    }
-    else if(this.saying == "Knock") {
-        this.say("knock", true);
-    }
-    else if(this.saying == "knock") {
-        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
-        closest.say("Who's", true);
-    }
-    else if(this.saying == "Who's") {
-        this.say("there?", true);
-    }
-    else if(this.saying == "there?") {
-        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
-        closest.say("Hatch", true);
-    }
-    else if(this.saying == "Hatch") {
-        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
-        closest.say("hatch who?", true);
-    }
-    else if(this.saying == "hatch who?") {
-        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
-        closest.say("Bless you!", true);
-    }
-    else if(this.saying == "I Could") {
-        this.say("Use A", true);
-    }
-    else if(this.saying == "Use A") {
-        this.say("Cigarette", true);
-    }
+    // Same bookkeeping as recycle(): an unpaused lab runs its reaction and eats
+    // the returned minerals.
+    if(!this.room.memory.labs.paused) this.room.memory.labs.paused = [];
+    let entry = this.room.memory.labs.paused.filter((p:any) => p.id === lab.id)[0];
+    if(entry) entry.timer = Math.max(entry.timer, 21);
+    else this.room.memory.labs.paused.push({timer: 21, id: lab.id});
 
-    let randomNum = Math.floor(Math.random() * 17004);
-
-    if(randomNum == 0) {
-        this.say("AB42", true);
+    if(!this.pos.isNearTo(lab)) {
+        this.MoveCostMatrixRoadPrio(lab, 1);
+        return true;
     }
-    else if(randomNum == 1) {
-        this.say("BB14", true);
+    let result = lab.unboostCreep(this);
+    if(result === OK) {
+        let done = this.room.memory.labs.paused.filter((p:any) => p.id === lab.id)[0];
+        if(done) done.timer = 1;
+        return false;
     }
-    else if(randomNum == 2 && this.memory.suicide) {
-        this.say("My", true);
-    }
-    else if(randomNum == 3 && this.room.find(FIND_MY_CREEPS).length > 1) {
-        this.say("Knock", true);
-    }
-    else if(randomNum == 4 && (this.memory.role == "upgrader" || this.memory.role == "repair")) {
-        this.say("I Could", true);
-    }
-
+    // ERR_NOT_FOUND: nothing on this body is boosted after all.
+    return result !== ERR_NOT_FOUND;
 }
+
 
 
 Creep.prototype.findSource = function() {
@@ -739,7 +749,9 @@ Creep.prototype.findSource = function() {
 }
 
 Creep.prototype.findSpawn = function() {
-    let spawns = this.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN);}});
+    // room/tick constant — spawns do not appear or move mid-tick
+    const spawns:any[] = cachedDerived(this.room, "mySpawns", () =>
+        cachedMyStructures(this.room).filter((structure:any) => structure.structureType == STRUCTURE_SPAWN));
     if(spawns.length) {
         this.memory.spawn = spawns[0].id;
         return spawns[0]
@@ -747,33 +759,128 @@ Creep.prototype.findSpawn = function() {
 }
 
 
+/*
+ * Roles that must NOT be handed the hub container as a stand-in storage at
+ * RCL4+, because they treat whatever findStorage() returns as the room's
+ * terminal-scale bank and dump non-energy into it with no free-capacity check:
+ *
+ *   EnergyManager  dumps its whole cargo (any resource) and pins it as
+ *                  memory.target; every one of its bank rungs is written
+ *                  against 20k/100k/175k/275k, so a 2k box reads as
+ *                  permanently empty AND permanently un-drainable — its
+ *                  mineral evacuation only fires above 3000, which a 2000-cap
+ *                  container can never reach.
+ *   MineralMiner   `store[mineralType] < 19500` is unconditionally true for a
+ *                  container, so it never falls through to the terminal and
+ *                  cements minerals into the energy hub.
+ *   billtong       transfers every resourceType with no free-capacity test.
+ *   goblin         same, with looted minerals, and no terminal fallback.
+ *
+ * All four only exist in rooms that are long past RCL4, so keeping their old
+ * `undefined` answer costs nothing and keeps the hub an ENERGY hub. Everyone
+ * else — carriers, fillers, builders, repairers, upgraders, sweepers — wants
+ * the box and either goes through withdrawStorage()'s container arm or checks
+ * free capacity itself.
+ */
+const NO_CONTAINER_STANDIN: {[role: string]: boolean} = {
+    EnergyManager: true,
+    MineralMiner: true,
+    billtong: true,
+    goblin: true,
+};
+
 Creep.prototype.findStorage = function() {
-    if(this.room.controller && this.room.controller.level >= 4) {
-        let storage = this.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
-        if(storage.length) {
-            this.memory.storage = storage[0].id;
-            return storage[0];
+    if(this.memory.storage) {
+        const pinned: any = Game.getObjectById(this.memory.storage);
+        if(!pinned || !pinned.pos || pinned.pos.roomName !== this.room.name) {
+            delete this.memory.storage;
+        }
+        // A hub container pinned before the storage existed is a 2k box the
+        // creep would keep using next to a 1M bank. Repoint on sight.
+        else if(pinned.structureType === STRUCTURE_CONTAINER && this.room.storage && this.room.storage.my) {
+            delete this.memory.storage;
         }
     }
-    else if(this.room.controller && this.room.controller.level < 4 && this.room.controller.level != 0) {
-        let spawn:any = Game.getObjectById(this.memory.spawn) || this.findSpawn();
-        if(spawn && spawn.pos.y >= 2) {
-            let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.room.name);
-            let storagePositionStructures = storagePosition.lookFor(LOOK_STRUCTURES);
-            if(storagePositionStructures.length > 0) {
-                for(let building of storagePositionStructures) {
-                    if(building.structureType == STRUCTURE_CONTAINER) {
-                        this.memory.storage = building.id;
-                        return building;
-                    }
+    if(!this.room.controller || this.room.controller.level === 0) return;
+    // See the comment at the bottom of this function: at RCL4+ the answer is
+    // deliberately NON-STICKY, so every caller re-derives it every tick. Both
+    // halves of the derivation are room/tick constants, so they are memoised
+    // per room per tick instead of per creep per tick.
+    const storage:any[] = cachedDerived(this.room, "myStorage", () =>
+        cachedMyStructures(this.room).filter((structure:any) => structure.structureType == STRUCTURE_STORAGE));
+    if(storage.length) {
+        this.memory.storage = storage[0].id;
+        return storage[0];
+    }
+    /*
+     * No STRUCTURE_STORAGE resolves in this room — and that is NOT an
+     * RCL1-3-only state. At RCL4 the storage spends thousands of ticks as a
+     * construction SITE, and at any RCL it can be destroyed; for that whole
+     * window the old `level >= 4` branch returned undefined and the room had
+     * no bulk energy sink at all.
+     *
+     * Live E36N57, storage site 21,28 at 13k/30k: source container 9,6 pinned
+     * 2000/2000 (the miner burning ~5 e/t into the ground), six carriers
+     * driving around full at 400/400 with nowhere to put it, carry.ts falling
+     * through to "drop it next to the spawn" with 100-700 energy rotting on
+     * the floor, and the builders with no hub to drink from so the storage
+     * site crawled at ~2.5 e/t. Every one of those is the same missing sink.
+     *
+     * The hub container IS the sink/source for exactly that window, so hand it
+     * back at any level where the real storage does not exist.
+     * `Room.prototype.findStorage` already behaves this way (it has no RCL
+     * gate at all — no storage means findStorageContainer()); this just stops
+     * the creep-side finder from disagreeing with the room-side one.
+     *
+     * The one thing the container answer must NOT do at RCL4+ is stick. Every
+     * caller is `Game.getObjectById(memory.storage) || creep.findStorage()`,
+     * so a written pin is never re-resolved while the object is alive — and
+     * the hub container OUTLIVES the storage build. Pinning it here would
+     * leave a creep born during the site window delivering into a 2k box for
+     * the rest of its life with a real storage standing next to it (the same
+     * staleness Room.findStorage repoints around). Below RCL4 the pin stays
+     * exactly as it was; at RCL4+ we re-derive, which costs one cached
+     * room.find per calling creep for the few thousand ticks the site exists.
+     */
+    const sticky = this.room.controller.level < 4;
+    if(!sticky && NO_CONTAINER_STANDIN[this.memory.role]) return;
+    let spawn:any = Game.getObjectById(this.memory.spawn) || this.findSpawn();
+    if(spawn && spawn.pos.y >= 2) {
+        // Keyed on the spawn id, not just the room: memory.spawn is per creep,
+        // so in a multi-spawn room two creeps can be asking about two tiles.
+        const box:any = cachedDerived(this.room, "hubBoxAt:" + spawn.id, () => {
+            const storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.room.name);
+            for(const building of storagePosition.lookFor(LOOK_STRUCTURES)) {
+                if(building.structureType == STRUCTURE_CONTAINER) {
+                    return building;
                 }
             }
+            return null;
+        });
+        if(box) {
+            if(sticky) this.memory.storage = box.id;
+            return box;
         }
+    }
+    // spawn.y-2 is only the FIRST hub offset the construction code uses. The
+    // room finder knows the rest of them (and the newer plans do not all put
+    // the hub there), so widen to it rather than giving up.
+    //
+    // It walks eight offsets with a lookFor each and pins Structures.storage on
+    // the way; both the answer and the pin are room/tick constants, so the
+    // first creep to ask pays for it and the rest of the room reuses it.
+    const hubBox:any = cachedDerived(this.room, "hubBox", () => this.room.findStorageContainer());
+    if(hubBox) {
+        if(sticky) this.memory.storage = hubBox.id;
+        return hubBox;
     }
 }
 
 Creep.prototype.findClosestLink = function() {
-    let links = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_LINK}});
+    // object-form filters go through lodash's matcher, which is the slow way to
+    // ask this; the list itself is a room/tick constant, only the pick is not
+    const links:any[] = cachedDerived(this.room, "myLinks", () =>
+        cachedMyStructures(this.room).filter((s:any) => s.structureType == STRUCTURE_LINK));
     if(links.length) {
         let closestLink = this.pos.findClosestByRange(links);
         this.memory.closestLink = closestLink.id;
@@ -867,10 +974,9 @@ function _roomHasEnergyIncome(room: any): boolean {
 /**
  * Is this room running its controller depot — i.e. will anything ever take
  * energy back out of the controller link? See Roles/energyMiner's
- * `roomFeedsController`, which this shares a cache slot with on purpose: this
- * file is deliberately import-free (it declares ambient `interface Creep`
- * merges, and a single `import` would turn it into a module and break them),
- * so the two must agree by construction rather than by discipline.
+ * `roomFeedsController`, which this shares the `room._pacFeedsCtrl` cache slot
+ * with on purpose: the two answers must agree, and a shared slot makes that
+ * true by construction rather than by discipline.
  */
 function _roomFeedsController(room: any): boolean {
     if (room._pacFeedsCtrl !== undefined) return room._pacFeedsCtrl;
@@ -881,6 +987,40 @@ function _roomFeedsController(room: any): boolean {
     return has;
 }
 
+/**
+ * Is the room's bank under the reserve it must hold before it may spend on the
+ * controller? Mirror of `Roles/energyMiner`'s `bankBelowReserve` — duplicated
+ * for the same reason `_roomFeedsController` is (importing a role from here
+ * would be circular), and sharing its `room._pacBankLow` cache slot so the two
+ * answers cannot drift apart.
+ *
+ * The rung this guards moves energy OUT OF STORAGE into the controller link,
+ * so leaving it ungated would drain the very reserve the miner-side change
+ * exists to build.
+ */
+const _CONTROLLER_FEED_RESERVE = 2000;
+const _DOWNGRADE_URGENT = 15000;
+
+function _bankBelowReserve(room: any): boolean {
+    if (room._pacBankLow !== undefined) return room._pacBankLow;
+    const store = room.storage && room.storage.my ? room.storage : null;
+    let low: boolean;
+    if (!store) {
+        low = false;
+    } else {
+        const ctrl = room.controller;
+        if (ctrl && ctrl.my && (ctrl.ticksToDowngrade || Infinity) < _DOWNGRADE_URGENT) {
+            low = false;
+        } else {
+            const bank = (store.store[RESOURCE_ENERGY] || 0)
+                + (room.terminal && room.terminal.my ? (room.terminal.store[RESOURCE_ENERGY] || 0) : 0);
+            low = bank < _CONTROLLER_FEED_RESERVE;
+        }
+    }
+    room._pacBankLow = low;
+    return low;
+}
+
 /** Does the room have anything to build? Cached on the Room object. */
 function _roomHasSites(room: any): boolean {
     if (room._pacSites !== undefined) return room._pacSites;
@@ -889,13 +1029,45 @@ function _roomHasSites(room: any): boolean {
     return has;
 }
 
+/** All live sites are road/rampart — naked-shell work, not labs/nuker/ext. */
+function _roomShellSitesOnly(room: any): boolean {
+    if (room._pacShellOnly !== undefined) return room._pacShellOnly;
+    const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+    if (!sites.length) {
+        room._pacShellOnly = false;
+        return false;
+    }
+    for (let i = 0; i < sites.length; i++) {
+        const t = sites[i].structureType;
+        if (t !== STRUCTURE_ROAD && t !== STRUCTURE_RAMPART) {
+            room._pacShellOnly = false;
+            return false;
+        }
+    }
+    room._pacShellOnly = true;
+    return true;
+}
+
 /** The storage floor this creep must respect, by role and room state. */
 function _storageFloorFor(creep: any): number {
     const role = creep.memory && creep.memory.role;
     if (role === "filler") return 0;
     const room = creep.room;
     if (STORAGE_BUILD_ROLES[role]) {
-        if (_roomHasSites(room) && _roomHasEnergyIncome(room)) return STORAGE_FLOOR_BUILD;
+        if (_roomHasSites(room) && _roomHasEnergyIncome(room)) {
+            const lvl = room.controller && room.controller.level;
+            if (lvl >= 6) {
+                const freeze = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+                const store = room.storage && room.storage.my
+                    ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
+                // Broke + only road/rampart sites: spend the thin bank.
+                // 80k here is why W2N1's 8k sat unused while the token
+                // builder stood 0e next to 5 road sites.
+                if (_roomShellSitesOnly(room) && store < freeze) return STORAGE_FLOOR_BUILD;
+                return freeze;
+            }
+            return STORAGE_FLOOR_BUILD;
+        }
         return STORAGE_FLOOR_DEFAULT;
     }
     if (STORAGE_UPGRADE_ROLES[role]) {
@@ -929,11 +1101,33 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
-        else if(StorageEnergyStore < 300 && Role != "filler" && StructureType == STRUCTURE_CONTAINER) {
-            if(Game.time % 50 == 0) {
-                console.log("Container Storage requires 300 energy to withdraw. Try again later.", this.room.name)
+        else if(StructureType == STRUCTURE_CONTAINER && Role != "filler") {
+            // Hub at spawn.y-2 is findStorage() below RCL4. A 200e box
+            // used to bounce builders (hard 300) so W3N3's two [W,2C,2M]
+            // walked 0e while the depot sites sat at 0. Leave 50.
+            const boxMin = STORAGE_BUILD_ROLES[Role] && _roomHasSites(this.room) ? 50 : 300;
+            if(StorageEnergyStore < boxMin) {
+                if(Game.time % 50 == 0) {
+                    console.log("Container Storage requires", boxMin, "energy to withdraw. Try again later.", this.room.name)
+                }
+                this.acquireEnergyWithContainersAndOrDroppedEnergy();
+                return;
             }
-            this.acquireEnergyWithContainersAndOrDroppedEnergy();
+            // ...and when the box DOES have enough, take it. This branch used
+            // to end here with no else, and the else below is unreachable for
+            // a container, so every non-filler worker under RCL4 (builder,
+            // repair, maintainer, upgrader, buildcontainer,
+            // ControllerLinkFiller) returned undefined next to a full hub:
+            // no withdraw, no move, and every caller only reacts to `== 0`.
+            if(this.pos.isNearTo(storage)) {
+                return this.withdraw(storage, RESOURCE_ENERGY);
+            }
+            if(Role) {
+                this.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            else {
+                this.MoveCostMatrixIgnoreRoads(storage, 1);
+            }
             return;
         }
         else {
@@ -1199,6 +1393,29 @@ function stepOffExit(creep: any): boolean {
     return true;
 }
 
+/** How many exit tiles moveToRoomAvoidEnemyRooms is willing to path-score. */
+const EXIT_CANDIDATES = 5;
+
+/*
+ * Two ROOM-level facts the traveller below reads per creep per tick: does this
+ * foreign room have towers (-> Memory.AvoidRooms), and does it hold a collapsing
+ * invader core (-> Memory.AvoidRoomsTemp). Neither depends on which creep is
+ * asking, and both were a filtered FIND_HOSTILE_STRUCTURES walk EVERY tick for
+ * EVERY creep whose room is not its home room — i.e. both legs of every remote
+ * hauler, every scout, every remote worker, in an RCL8 enemy room where the
+ * hostile-structure list is long.
+ *
+ * Called from exactly where the finds used to be, so the &&-chain around them
+ * short-circuits identically and a room with no controller still never scans.
+ */
+const _hostileTowers = (room:any):any[] =>
+    cachedDerived(room, "hostileTowers", () =>
+        room.find(FIND_HOSTILE_STRUCTURES, {filter: (s:any) => s.structureType === STRUCTURE_TOWER}));
+
+const _hostileCollapsingCores = (room:any):any[] =>
+    cachedDerived(room, "hostileCores", () =>
+        room.find(FIND_HOSTILE_STRUCTURES, {filter: (s:any) => s.structureType === STRUCTURE_INVADER_CORE && s.level > 0}));
+
 Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
     function isValidRoomName(roomName) {
@@ -1218,7 +1435,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
     }
 
     if(this.memory.role === "Guard" && this.memory.targetRoom !== targetRoom) {
-        let hostileCreeps = this.room.find(FIND_HOSTILE_CREEPS);
+        let hostileCreeps = cachedHostileCreeps(this.room);
         let hostileCreepsWithAttack = hostileCreeps.filter(creep => creep.getActiveBodyparts(ATTACK) > 25 || creep.getActiveBodyparts(RANGED_ATTACK) > 25);
         if(hostileCreepsWithAttack.length > 0) {
             let closestHostileCreep = this.pos.findClosestByRange(hostileCreepsWithAttack);
@@ -1230,13 +1447,16 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
     }
 
     if (this.room.name !== this.memory.homeRoom) {
-        if (this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
+        if (this.room.controller && !this.room.controller.my && _hostileTowers(this.room).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
             Memory.AvoidRooms.push(this.room.name);
+            // When we learned it, for whoever ages the list out. The map is
+            // owned elsewhere and may not exist yet — never create it here.
+            if ((Memory as any).AvoidRoomsAt) (Memory as any).AvoidRoomsAt[this.room.name] = Game.time;
         }
 
         else if (isValidRoomName(this.room.name) && (Game.time % 2 === 0 || this.hitsMax <= 4500)) {
 
-            let strongholds = this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_INVADER_CORE && s.level > 0});
+            let strongholds = _hostileCollapsingCores(this.room);
             if(strongholds.length && strongholds[0].effects && strongholds[0].effects.length &&
                 strongholds[0].effects[0].effect === EFFECT_COLLAPSE_TIMER) {
 
@@ -1263,6 +1483,49 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
         this.memory.route.shift();
     }
 
+    /*
+     * A route is computed ONCE and then walked to the end. Everything below
+     * only recomputes it when it is empty, invalid, or aimed at the wrong
+     * target — so a room that turns hostile AFTER the route was picked is
+     * walked into anyway, by every creep already holding that route.
+     *
+     * Live: three ContainerBuilders left E37N58 for E39N58 on a route through
+     * E38N57, an RCL8 with six towers. The first one died, which is the only
+     * way Memory.AvoidRooms ever learns a room (the push above needs one of
+     * ours to be STANDING in it) — and the survivors kept the route they
+     * already had and walked in after it. The list learned; the fleet did not.
+     *
+     * So re-check the held route against what we know now. Recomputing is a
+     * findRoute call, so it must not become a per-tick habit: a hostile hop
+     * that is genuinely the only way through comes straight back out of
+     * findRoute (cost 24, not Infinity), and a naive "drop it" would then
+     * re-path every tick forever. Keying on the SIGNATURE of the offending
+     * hops means we pay exactly one recompute per change in that set — the
+     * unavoidable-room case drops once, gets the same route back, and settles.
+     */
+    if (Game.time % 5 === 0 && this.memory.route && this.memory.route.length > 0) {
+        let offenders = "";
+        for (let i = 0; i < this.memory.route.length; i++) {
+            const hop = this.memory.route[i] && this.memory.route[i].room;
+            // The destination is a deliberate choice, not an accident of
+            // routing — never refuse to path to where we were sent.
+            if (!hop || hop === targetRoom) continue;
+            if ((Memory.AvoidRooms && _.includes(Memory.AvoidRooms, hop, 0)) ||
+                (Memory.AvoidRoomsTemp && Memory.AvoidRoomsTemp[hop])) {
+                offenders += hop + ",";
+            }
+        }
+        if (offenders) {
+            if (this.memory._routeAvoid !== offenders) {
+                this.memory._routeAvoid = offenders;
+                delete this.memory.route;
+            }
+        }
+        else if (this.memory._routeAvoid) {
+            delete this.memory._routeAvoid;
+        }
+    }
+
     if (!this.memory.route || this.memory.route === -2 || this.memory.route && this.memory.route.length === 0 || (this.memory.route.length === 1 && this.memory.route[0].room === this.room.name) || (this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom)) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             // arrow keeps `this` as the creep. A shorthand method binds `this`
@@ -1273,6 +1536,36 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                 }
                 if ((Memory.AvoidRooms && Memory.AvoidRooms.includes(roomName)) || (Memory.AvoidRoomsTemp && Memory.AvoidRoomsTemp[roomName]) && roomName !== targetRoom) {
                     return 24;
+                }
+
+                /*
+                 * AvoidRooms is a list of rooms that have already killed
+                 * something of ours. Intel we gathered by LOOKING is free and
+                 * arrives first: establishMemory() writes
+                 * roomData.has_hostile_structures for every visible room whose
+                 * controller is not ours, and it survives in Memory.rooms once
+                 * vision is gone. That is the only persisted hostility signal
+                 * in the codebase — there is no stored owner name, controller
+                 * level or tower count for foreign rooms — so it is what we
+                 * have.
+                 *
+                 * Deliberately soft (24, same rung as AvoidRooms, never
+                 * Infinity): the flag also trips on invader cores and on
+                 * leftover junk in empty rooms, and a hostile room is
+                 * sometimes the only way through. `controller.my` is checked
+                 * live because we always have vision of rooms we own — that
+                 * covers a room we have since claimed whose old roomData still
+                 * says hostile (E39N58 held a foreign spawn before it was
+                 * ours), which would otherwise tax our own territory forever.
+                 */
+                if (roomName !== targetRoom) {
+                    const seen: any = Game.rooms[roomName];
+                    if (!seen || !seen.controller || !seen.controller.my) {
+                        const intel: any = Memory.rooms && Memory.rooms[roomName];
+                        if (intel && intel.roomData && intel.roomData.has_hostile_structures) {
+                            return 24;
+                        }
+                    }
                 }
 
                 if (this && this.memory) {
@@ -1334,7 +1627,8 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
             const exitPositions = this.room.find(routeData.exit);
             const exitsWithoutWalls = exitPositions.filter(position => {
               const structuresAtExit = position.lookFor(LOOK_STRUCTURES);
-              const creepsHere = position.lookFor(LOOK_CREEPS);
+              // (there used to be a lookFor(LOOK_CREEPS) here whose result was
+              // never read — one wasted look per exit tile, up to 49 of them)
               // skip blocked by walls; prefer emptier tiles later
               return !structuresAtExit.some(structure => structure.structureType === STRUCTURE_WALL);
             });
@@ -1342,11 +1636,23 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
             if (exitsWithoutWalls.length > 0) {
                 // Spread creeps across exit tiles (was: all findClosestByPath + ignoreCreeps → border line)
                 const hash = this.name.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+                // A full exit side is up to 49 tiles and the findPathTo below
+                // is maxOps 500 EACH — ~25k ops per creep per re-pick, for
+                // tiles half a room away that were never going to win on
+                // pathLen*3. Score only the nearest handful; the crowding
+                // penalty still spreads the fleet across those.
+                const candidates = exitsWithoutWalls.length > EXIT_CANDIDATES
+                    ? exitsWithoutWalls
+                        .map((p) => ({ p, d: this.pos.getRangeTo(p) }))
+                        .sort((a, b) => a.d - b.d)
+                        .slice(0, EXIT_CANDIDATES)
+                        .map((e) => e.p)
+                    : exitsWithoutWalls;
                 // score: prefer closer, prefer fewer creeps on tile, slight hash offset for diversity
                 let best = null;
                 let bestScore = Infinity;
-                for (let i = 0; i < exitsWithoutWalls.length; i++) {
-                    const p = exitsWithoutWalls[i];
+                for (let i = 0; i < candidates.length; i++) {
+                    const p = candidates[i];
                     const crowd = p.lookFor(LOOK_CREEPS).length;
                     const dist = this.pos.getRangeTo(p);
                     // path cost without ignoreCreeps so occupied exits look worse
@@ -1358,7 +1664,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                         best = p;
                     }
                 }
-                this.memory.exit = best || exitsWithoutWalls[hash % exitsWithoutWalls.length];
+                this.memory.exit = best || candidates[hash % candidates.length];
             }
         }
         exit = this.memory.exit;
@@ -1406,7 +1712,12 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         this.memory.targetRoom !== this.memory.homeRoom
     ) {
         const home = Game.rooms[this.memory.homeRoom];
-        if (home && home.controller && home.controller.my && home.controller.level < 4) {
+        // Remotes open at RCL3 (cap>=550) / RCL4. The old `< 4` rewrite
+        // yanked every remote miner (and rescue ContainerBuilder that
+        // called harvestEnergy) back home the first empty tick.
+        // ContainerBuilders keep their colony target at any RCL.
+        if (this.memory.role !== "buildcontainer" &&
+            home && home.controller && home.controller.my && home.controller.level < 3) {
             this.memory.targetRoom = this.memory.homeRoom;
             delete this.memory.exit;
             delete this.memory.route;
@@ -1421,7 +1732,12 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
     }
 
     let storedSource:any = Game.getObjectById(this.memory.source);
-    if (!storedSource || (!storedSource.pos.getOpenPositions().length && !this.pos.isNearTo(storedSource) && !this.memory.sourceId)) {
+    // Same three predicates, cheapest first. getOpenPositions() is 8 RoomPosition
+    // allocations, a terrain fetch and up to 8 lookFor(LOOK_CREEPS) — and being
+    // leftmost it ran for every harvesting creep every tick, including the
+    // parked miner sitting on its seat that `isNearTo` rejects in one compare.
+    // All three are side-effect free, so && may be reordered freely.
+    if (!storedSource || (!this.pos.isNearTo(storedSource) && !this.memory.sourceId && !storedSource.pos.getOpenPositions().length)) {
         delete this.memory.source;
         storedSource = this.findSource();
     }
@@ -1450,7 +1766,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
             // then arms this branch for 1-hit chips and steals the battery.
             // Same 300-hit floor as rooms.defence during danger.
             if(this.memory.danger && this.hits + 300 < this.hitsMax) {
-                let HostileCreeps = this.room.find(FIND_HOSTILE_CREEPS);
+                let HostileCreeps = cachedHostileCreeps(this.room);
                 if(HostileCreeps.length > 0) {
                     let closestHostileToCreep = this.pos.findClosestByRange(HostileCreeps);
                     if(closestHostileToCreep && this.pos.getRangeTo(closestHostileToCreep) <= 3) {
@@ -1477,9 +1793,8 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
  * already spoken for and pick a different one. Selection is by DISTANCE,
  * never by amount (amount is the thrash key).
  *
- * NOTE: this file is an ambient script (no import/export — the global
- * `interface Creep` augmentation above depends on that), so the feature
- * flag is read straight off Memory.features instead of utils/Features.
+ * NOTE: the feature flag is read straight off Memory.features rather than
+ * through utils/Features, to keep this hot path free of a module hop.
  * ------------------------------------------------------------------ */
 
 /** Ticks a hauler sticks to a chosen pile before re-evaluating. */
@@ -1608,22 +1923,43 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         if (amt > 0) claims.set(target.id, (claims.get(target.id) || 0) + amt);
     };
 
+    /*
+     * The four candidate pools. Each is the room's raw find narrowed to
+     * "holds energy" — no creep-dependent term in any of them — so they are
+     * derived once per room per tick and shared by every hauler in the room
+     * instead of being re-filtered per creep (and, for the adjacent rungs
+     * below, three times per creep: once per category, every single call,
+     * including the calls that go on to take the locked fast path).
+     *
+     * Reservations are NOT baked in: the pickup ledger stays strictly per
+     * creep, applied over these lists exactly where it was applied before.
+     */
+    const dropsE:any[] = cachedDerived(room, "pickupDrops", () =>
+        cachedDropped(room).filter((r:any) => r.resourceType === RESOURCE_ENERGY && r.amount > 0));
+    const ruinsE:any[] = cachedDerived(room, "pickupRuins", () =>
+        cachedRuins(room).filter((r:any) => r.store[RESOURCE_ENERGY] > 0));
+    const tombsE:any[] = cachedDerived(room, "pickupTombs", () =>
+        cachedTombstones(room).filter((t:any) => t.store[RESOURCE_ENERGY] > 0));
+
+    /** first entry of a source-ordered list within one tile — same pick findInRange made */
+    const adjacent = (list:any[]):any => {
+        for (let i = 0; i < list.length; i++) {
+            const p = list[i].pos;
+            if (Math.abs(p.x - this.pos.x) <= 1 && Math.abs(p.y - this.pos.y) <= 1) return list[i];
+        }
+        return null;
+    };
+
     // 1) Adjacent salvage first (instant tick, free profit, doesn't move us).
     //    Runs in both modes and does NOT disturb an existing lock.
-    const adjDrop = this.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
-        filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount > 0,
-    });
-    if (adjDrop.length) return take(adjDrop[0]);
+    const adjDrop = adjacent(dropsE);
+    if (adjDrop) return take(adjDrop);
 
-    const adjRuin = this.pos.findInRange(FIND_RUINS, 1, {
-        filter: (r) => r.store[RESOURCE_ENERGY] > 0,
-    });
-    if (adjRuin.length) return take(adjRuin[0]);
+    const adjRuin = adjacent(ruinsE);
+    if (adjRuin) return take(adjRuin);
 
-    const adjTomb = this.pos.findInRange(FIND_TOMBSTONES, 1, {
-        filter: (t) => t.store[RESOURCE_ENERGY] > 0,
-    });
-    if (adjTomb.length) return take(adjTomb[0]);
+    const adjTomb = adjacent(tombsE);
+    if (adjTomb) return take(adjTomb);
 
     /*
      * How much energy is worth walking for, scaled to the body.
@@ -1683,17 +2019,13 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         locking ? Math.min(free, unreserved(o)) : Math.min(free, _pickupEnergyOf(o));
 
     const pick = (strict: boolean): any => {
-        const ruins = room.find(FIND_RUINS, {
-            filter: (r) => r.store[RESOURCE_ENERGY] > 0 && hasRoom(r, strict),
-        });
+        const ruins = ruinsE.filter((r:any) => hasRoom(r, strict));
         if (ruins.length) {
             if (!locking) ruins.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
             return this.pos.findClosestByRange(ruins) || ruins[0];
         }
 
-        const tombs = room.find(FIND_TOMBSTONES, {
-            filter: (t) => t.store[RESOURCE_ENERGY] > 0 && hasRoom(t, strict),
-        });
+        const tombs = tombsE.filter((t:any) => hasRoom(t, strict));
         if (tombs.length) {
             if (!locking) tombs.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
             return this.pos.findClosestByRange(tombs) || tombs[0];
@@ -1702,20 +2034,16 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         // Nearby drops first (range 12, amount worth walking), then any pile.
         // The far fallback was `r.amount > 0` — no minimum at all — which is
         // what put 300-capacity carriers on cross-room walks for 1 energy.
-        let drops = room.find(FIND_DROPPED_RESOURCES, {
-            filter: (r) =>
-                r.resourceType === RESOURCE_ENERGY &&
-                r.amount >= nearWorth &&
-                this.pos.getRangeTo(r) <= 12 &&
-                hasRoom(r, strict),
-        });
+        // dropsE is already "energy, amount > 0"; nearWorth/minWorth are both
+        // >= 25, so the narrower amount tests below still decide everything.
+        let drops = dropsE.filter((r:any) =>
+            r.amount >= nearWorth &&
+            this.pos.getRangeTo(r) <= 12 &&
+            hasRoom(r, strict));
         if (!drops.length) {
-            drops = room.find(FIND_DROPPED_RESOURCES, {
-                filter: (r) =>
-                    r.resourceType === RESOURCE_ENERGY &&
-                    r.amount >= minWorth &&
-                    hasRoom(r, strict),
-            });
+            drops = dropsE.filter((r:any) =>
+                r.amount >= minWorth &&
+                hasRoom(r, strict));
         }
         if (drops.length) {
             if (!locking) drops.sort((a, b) => b.amount - a.amount);
@@ -1742,14 +2070,18 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         // findContainers is sticky-one: when that seat is fully claimed,
         // scan the other source containers instead of idling on the floor
         const st = (room.memory && room.memory.Structures) || {};
-        const others = room.find(FIND_STRUCTURES, {filter: (s:any) =>
-            s.structureType == STRUCTURE_CONTAINER &&
-            s.store[RESOURCE_ENERGY] > 0 &&
+        // Structures.bin / storage / controllerLink are read fresh per creep —
+        // findContainers() above can rewrite them mid-tick — so only the
+        // "container with energy in it" half is the shared room/tick list.
+        const containersE:any[] = cachedDerived(room, "pickupContainers", () =>
+            cachedStructures(room).filter((s:any) =>
+                s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 0));
+        const others = containersE.filter((s:any) =>
             s.id !== st.bin &&
             s.id !== st.storage &&
             s.id !== st.controllerLink &&
             (!container || s.id !== container.id) &&
-            hasRoom(s, strict)});
+            hasRoom(s, strict));
         if (others.length) {
             return this.pos.findClosestByRange(others) || others[0];
         }
@@ -1791,59 +2123,6 @@ Creep.prototype.roadCheck = function roadCheck() {
     }
 
 }
-
-Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
-    let nearbyBlocks = this.pos.getNearbyPositions()
-    let blockFound = [];
-    _.forEach(nearbyBlocks, function(block) {
-        if(block.getRangeTo(repairTarget) == 3) {
-            let structures = block.lookFor(LOOK_STRUCTURES);
-            let creeps = block.lookFor(LOOK_CREEPS);
-            if(structures.length == 0 && creeps.length == 0) {
-                blockFound.push(block);
-                return;
-            }
-        }
-    });
-    if(blockFound.length > 0) {
-        let closestBlock = 100;
-        let currentClosest = null;
-        if(this.room.memory.Structures && this.room.memory.Structures.storage) {
-            let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-            for(let block of blockFound) {
-                let range = block.getRangeTo(storage);
-                if(range < closestBlock) {
-                    currentClosest = block;
-                    closestBlock = range;
-                }
-            }
-            return currentClosest;
-        }
-        else {
-            return blockFound[0];
-        }
-    }
-    else if(blockFound.length == 0 && !this.room.memory.danger) {
-        let found;
-        _.forEach(nearbyBlocks, function(block) {
-            if(block.getRangeTo(repairTarget) <= 3) {
-                let structures = block.lookFor(LOOK_STRUCTURES);
-                let creeps = block.lookFor(LOOK_CREEPS);
-                if(structures.length == 0 && creeps.length == 0) {
-                    found = block;
-                    return;
-                }
-            }
-        });
-        if(found != false) {
-            return blockFound;
-        }
-    }
-
-
-    return null;
-}
-
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | string {
     if(this.memory.targetRoom && this.memory.homeRoom && this.memory.targetRoom !== this.memory.homeRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
@@ -1971,7 +2250,11 @@ Creep.prototype.Sweep = function Sweep() {
         if (!sources.length) return "nothing to sweep";
 
         // Drops: at low RCL ignore miner-side piles (miners drop by source on purpose)
-        let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
+        // .slice(): the tail of this function sorts the list IN PLACE, and
+        // room.find() hands back the engine's own per-tick cache — the array
+        // that everything else in this file (and RoomCache) reads. Sorting it
+        // silently reordered every later drop scan in the room this tick.
+        let droppedResources = cachedDropped(this.room).slice();
         if (this.room.controller && this.room.controller.level <= 3) {
             droppedResources = droppedResources.filter((resource) => {
                 const src = resource.pos.findClosestByRange(sources);
@@ -2228,20 +2511,19 @@ Creep.prototype.recycle = function recycle() {
             })[0];
             if(bin) {
                 if(this.pos.isEqualTo(bin)) {
-                    let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
-                    let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
-                    if(StructuresOnSpawnLocation.length > 0) {
-                        for(let building of StructuresOnSpawnLocation) {
-                            if(building.structureType == STRUCTURE_SPAWN) {
-                                let spawn:any = building;
-                                if(spawn) {
-                                    spawn.recycleCreep(this)
-
-                                }
-                            }
-                        }
+                    // findBin is any container within 2 of storage. Stamp-hub
+                    // assumed spawn at bin.y+1; PlanV2 bins almost never have
+                    // that (road/extension = silent no-op, empty = suicide).
+                    let spawns = this.room.find(FIND_MY_SPAWNS);
+                    let next = null;
+                    for(let spawn of spawns) {
+                        if(this.pos.isNearTo(spawn)) { next = spawn; break; }
                     }
-                    else {
+                    if(next) {
+                        next.recycleCreep(this);
+                    } else if(spawns.length) {
+                        this.MoveCostMatrixRoadPrio(spawns[0], 1);
+                    } else {
                         this.suicide();
                     }
                 }
@@ -2418,6 +2700,40 @@ Creep.prototype.fleeFromRanged = function(fleeTarget) {
 };
 
 
+/**
+ * ---------------------------------------------------------------------------
+ * Shove permission.
+ *
+ * The old rule was "never shove a creep whose memory.moving is set", read as
+ * "it is about to walk off that tile by itself". But `moving` means TRYING to
+ * move, not succeeding, and in a head-on jam EVERY creep in the knot is
+ * trying: nobody may shove anybody and the knot is permanent. Live shard3
+ * E37N59 from tick 82,284,073, 250+ ticks on one diagonal road, which starved
+ * the room's spawn:
+ *
+ *   builder @33,28 -> 34,29 | Filler @34,29 -> 33,28 | filler @35,30 -> 34,29
+ *
+ * all three "moving", none shovable, none able to vacate.
+ *
+ * So: a neighbour that is trying to move but has not changed tile for
+ * STILL_SHOVABLE_AFTER ticks is blocked rather than in transit, and blocked
+ * creeps may be shoved. RunCreepManager.preRun keeps that counter (memory
+ * ._still) for every creep it runs; power creeps never get one, so they keep
+ * the old, stricter treatment.
+ * ---------------------------------------------------------------------------
+ */
+const STILL_SHOVABLE_AFTER = 2;
+
+const canShove = (other:any):boolean => {
+    if(!other || !other.my || !other.memory) {
+        return false;
+    }
+    if(!other.memory.moving) {
+        return true;
+    }
+    return (other.memory._still || 0) >= STILL_SHOVABLE_AFTER;
+}
+
 // make walk random direction if certain creep!
 Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction) {
     if(direction == 1) {
@@ -2430,7 +2746,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                     lookCreep.push(powerCreeps[0]);
                 }
             }
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(5);
                 }
@@ -2453,7 +2769,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                     lookCreep.push(powerCreeps[0]);
                 }
             }
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(6);
                 }
@@ -2477,7 +2793,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                 }
             }
 
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(7);
                 }
@@ -2500,7 +2816,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                 }
             }
 
-            if(lookCreep.length > 0 && lookCreep[0].my && lookCreep[0] && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(8);
                 }
@@ -2523,7 +2839,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                     lookCreep.push(powerCreeps[0]);
                 }
             }
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(1);
                 }
@@ -2546,7 +2862,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                     lookCreep.push(powerCreeps[0]);
                 }
             }
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(2);
                 }
@@ -2570,7 +2886,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                 }
             }
 
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(3);
                 }
@@ -2594,7 +2910,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                 }
             }
 
-            if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
+            if(lookCreep.length > 0 && canShove(lookCreep[0])) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(4);
                 }
@@ -2790,9 +3106,108 @@ const movePathFallback = (creep:any, target:any, range:number):void => {
     creep.memory.moving = true;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * Cached path stepping (resyncCachedPath + stepCachedPath)
+ *
+ * Every Move* primitive walks memory.path by taking path[0], move()ing at it
+ * and shift()ing it off. The shift was UNCONDITIONAL, and `move()` returns OK
+ * for an intent that never happens - the tile is taken by another creep, the
+ * shove failed, two creeps swapped into the same square. The head of the path
+ * was then one tile ahead of where the creep actually stands, the drift guard
+ * at the top of every one of these methods measured >1 next tick and threw the
+ * WHOLE path away, and the creep paid another maxOps-1000 search. That is
+ * exactly the situation a jam produces, for every creep in the jam, every
+ * tick: the cost grows with the size of the jam.
+ *
+ * So: only advance on OK, remember the tile we aimed at, and put it back next
+ * tick if the creep is not standing on it. Bounded by PATH_RETRY_MAX - if the
+ * same step is blocked that many ticks running we stop restoring it and let
+ * the drift guard repath, which is what routes around a parked creep.
+ * ---------------------------------------------------------------------------
+ */
+const PATH_RETRY_MAX = 2;
+/**
+ * How long the tile a creep could not step onto keeps steering its repaths
+ * away from itself. Long enough to outlive the repath that follows the last
+ * retry, short enough that a creep parked for one tick is not written off.
+ * RunCreepManager mirrors this constant for its sidestep; neither file exports
+ * to the other.
+ */
+const BLOCKED_FRESH_FOR = 5;
+
+/** Undo last tick's step bookkeeping when the step did not actually happen. */
+const resyncCachedPath = (creep:any):void => {
+    const step = creep.memory.pathStep;
+    if(!step) {
+        return;
+    }
+    const stepTick = creep.memory.pathStepT;
+    delete creep.memory.pathStep;
+    delete creep.memory.pathStepT;
+    // we moved (or the record is stale): nothing to undo
+    if(stepTick !== Game.time - 1 || (creep.pos.x === step.x && creep.pos.y === step.y)) {
+        delete creep.memory.pathRetry;
+        delete creep.memory._blockedBy;
+        return;
+    }
+    const tries = (creep.memory.pathRetry || 0) + 1;
+    if(tries > PATH_RETRY_MAX || !Array.isArray(creep.memory.path)) {
+        delete creep.memory.pathRetry;
+        // Out of retries: the drift guard is about to throw the path away and
+        // search again - and with the blocker still standing there the search
+        // hands back the SAME path through the SAME tile, which is how a jam
+        // outlives every retry budget. Remember the tile so the next search
+        // prices it out (see MoveCostMatrixRoadPrio).
+        creep.memory._blockedBy = {x: step.x, y: step.y, t: Game.time};
+        return;
+    }
+    creep.memory.pathRetry = tries;
+    creep.memory.path.unshift(step);
+}
+
+/** The tile this creep just failed to enter, while that memory is fresh. */
+const freshBlockedTile = (creep:any):any => {
+    const blocked = creep.memory._blockedBy;
+    if(!blocked) {
+        return null;
+    }
+    if(blocked.t < Game.time - BLOCKED_FRESH_FOR) {
+        delete creep.memory._blockedBy;
+        return null;
+    }
+    return blocked;
+}
+
+/** Take one step along memory.path. Advances the path only on a real intent. */
+const stepCachedPath = (creep:any):void => {
+    const path = creep.memory.path;
+    if(!path || path.length == 0) {
+        return;
+    }
+    const pos = path[0];
+    const direction = creep.pos.getDirectionTo(pos);
+    if(creep.move(direction) === OK) {
+        path.shift();
+        creep.memory.pathStep = pos;
+        creep.memory.pathStepT = Game.time;
+    }
+    creep.memory.moving = true;
+}
+
+
+type PacRoomCB = (roomName: string, role?: string|null) => boolean | CostMatrix;
+let roomCallbackRoadPrio: PacRoomCB;
+let roomCallbackRoadPrioFlee: PacRoomCB;
+let roomCallbackIgnoreRoads: PacRoomCB;
+let roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull: PacRoomCB;
+let roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty: PacRoomCB;
+let roomCallbackRoadPrioAvoidEnemyCreepsMuchRam: PacRoomCB;
+let roomCallbackRoadPrioAvoidEnemyCreepsMuch: PacRoomCB;
 
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range, role) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
@@ -2808,12 +3223,26 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             if(!targetPos) {
                 return;
             }
+            // A repath that reproduces the path we are already stuck on is not
+            // a repath. While the tile we could not enter is fresh, price it
+            // out of THIS search - on a clone, so the per-tick matrix every
+            // other creep in the room shares is left exactly as it was.
+            const blocked = freshBlockedTile(this);
+            const localRoom = this.room.name;
             let path = PathFinder.search(
                 this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
-                    roomCallback: (roomName) => costMatrix(roomName, pathRole)
+                    roomCallback: (roomName) => {
+                        const base = costMatrix(roomName, pathRole);
+                        if(!blocked || roomName !== localRoom || !base || base === true) {
+                            return base;
+                        }
+                        const detour = (base as CostMatrix).clone();
+                        detour.set(blocked.x, blocked.y, 255);
+                        return detour;
+                    }
                 }
             );
 
@@ -2829,11 +3258,7 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             this.memory.MoveTargetId = moveKeyOf(target, moveStyle);
         }
 
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
+        stepCachedPath(this);
      }
 
 }
@@ -2845,13 +3270,54 @@ function overlayObj(id:any):any {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * Cost matrix memo
+ *
+ * Every builder below is a pure function of the room: a terrain loop over 2304
+ * tiles, a FIND_STRUCTURES, a FIND_MY_CONSTRUCTION_SITES, a FIND_HOSTILE_CREEPS
+ * (twice, in one of them), a FIND_MY_CREEPS and a 2500-tile border loop. None
+ * of them looks at the creep that is pathing, and nothing in a Screeps tick can
+ * move a creep or a structure while the tick is running, so the answer is the
+ * same for every caller in the same room on the same tick — it was simply
+ * rebuilt from scratch on every repath of every creep, which is exactly the
+ * spike that shows up under danger (four AvoidEnemyCreepsMuch variants, a whole
+ * fleet repathing at once).
+ *
+ * `getCachedCostMatrix` keys the result on room.cache (utils/RoomCache), which
+ * is a fresh object every tick, and honours the same Memory.bench A/B switch
+ * roomCallbackRoadPrio already used. Matrices handed to PathFinder are never
+ * mutated, so one instance is safely shared; a builder that overlays PER-CALLER
+ * data (roomCallbackRoadPrio, whose creep overlay depends on `role`) must
+ * memoise only its static part and clone() before overlaying — see there.
+ * ---------------------------------------------------------------------------
+ */
+const memoMatrix = (key: string, build: (roomName: string) => boolean | CostMatrix) => {
+    return (roomName: string): boolean | CostMatrix => {
+        return getCachedCostMatrix(roomName, key, () => build(roomName) as CostMatrix | false);
+    };
+};
+
+/** true when nothing but road/container shares this rampart's tile. */
+const rampartIsBare = (rampart:any):boolean => {
+    for(const s of rampart.pos.lookFor(LOOK_STRUCTURES)) {
+        if(s.structureType !== STRUCTURE_RAMPART && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
  * One creep overlay for both the cached clone and the first-build path.
  * Cheap vs full used to disagree (RRD 255 / builder-repair / else-7 / role).
  */
 function overlayRoadPrioCreeps(costs: CostMatrix, room: Room, role: string|null): void {
-    const list:any[] = (room.cache && room.cache.myCreeps) ? room.cache.myCreeps : room.find(FIND_MY_CREEPS);
-    const myCreepsNotSpawning = list.filter((c:any) => !c.spawning);
-    myCreepsNotSpawning.forEach(function(creep:any) {
+    const list:any[] = cachedMyCreeps(room);
+    // was: list.filter(...).forEach(...) — one throwaway array per repath per
+    // creep, on a path that already runs once per creep that repaths
+    for(let i = 0; i < list.length; i++) {
+        const creep:any = list[i];
+        if(creep.spawning) continue;
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 61);
         }
@@ -2904,10 +3370,10 @@ function overlayRoadPrioCreeps(costs: CostMatrix, room: Room, role: string|null)
         else {
             costs.set(creep.pos.x, creep.pos.y, 7);
         }
-    });
+    }
 }
 
-const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean | CostMatrix => {
+roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
@@ -2923,28 +3389,11 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
         return costs;
     }
 
-    let costs = new PathFinder.CostMatrix;
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5, "inner");
 
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y <= 48; y++) {
-        for(let x = 1; x <= 48; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
-
-    _.forEach((room.cache && room.cache.structures) ? room.cache.structures : room.find(FIND_STRUCTURES), function(struct:any) {
+    _.forEach(cachedStructures(room), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 3);
         }
@@ -2959,14 +3408,14 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
         }
     });
 
-    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+    cachedSites(room).forEach(function(site) {
         if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
 
     // after roads: a hostile on a road used to be overwritten back to 3
-    (room.cache && room.cache.hostileCreeps ? room.cache.hostileCreeps : room.find(FIND_HOSTILE_CREEPS)).forEach(function(creep) {
+    cachedHostileCreeps(room).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
@@ -2996,11 +3445,18 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
     }
     // rampart sit used to live inside getRangeTo(source)>range, so once
     // adjacent we aborted and never stepped onto the harvest rampart
-    let myRamparts = this.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART});
+    //
+    // Every miner in a room under attack re-derived this from scratch every
+    // tick: a filter over all my structures (a walled base has dozens of
+    // ramparts), a findInRange over the result, and a lookFor per hit. Which
+    // rampart covers a given source is a room/tick constant, so both halves
+    // are memoised — the list for the room, the seat for the target.
+    const myRamparts:any[] = cachedDerived(this.room, "myRamparts", () =>
+        cachedMyStructures(this.room).filter((s:any) => s.structureType == STRUCTURE_RAMPART));
     if(myRamparts.length > 0 && target.pos) {
-        let rampartsInRange = target.pos.findInRange(myRamparts, 1);
-
-        if(rampartsInRange.length > 0) {
+        const seatKey = "harvestSeat:" + (target.id || (target.pos.x + "," + target.pos.y));
+        const seat:any = cachedDerived(this.room, seatKey, () => {
+            let rampartsInRange = target.pos.findInRange(myRamparts, 1);
             for(let rampart of rampartsInRange) {
                 let lookForLink = rampart.pos.lookFor(LOOK_STRUCTURES);
                 let found = false;
@@ -3010,21 +3466,25 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
                     }
                 }
                 if(!found) {
-                    target = rampart;
-                    range = 0;
-                    break;
+                    return rampart;
                 }
             }
+            return null;
+        });
+        if(seat) {
+            target = seat;
+            range = 0;
         }
     }
 
     if(this.pos.getRangeTo(target) > range) {
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target, "safe")) {
-            let costMatrix = roomCallbackSafeToSource;
+            let costMatrix = roomCallbackRoadPrio;
 
             let targetPos = goalPos(this, target);
             if(!targetPos) {
@@ -3052,51 +3512,29 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
             this.memory.MoveTargetId = moveKeyOf(target, "safe");
         }
 
-
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
+        stepCachedPath(this);
      }
 
 }
 
 
-const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
+const buildSafeToSource = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 15, 3, "inner");
 
-    const terrain = new Room.Terrain(roomName);
+    const hostiles = cachedHostileCreeps(room);
 
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 15;
-            }
-            else if(tile == 0){
-                weight = 3;
-            }
-            costs.set(x, y, weight);
-        }
-    }
-
-    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+    hostiles.forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
-    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+    _.forEach(cachedStructures(room), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 2);
         }
@@ -3118,8 +3556,8 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
     });
 
 
-
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    // same list as the 255 pass above — this used to be a second identical find
+    let EnemyCreeps = hostiles;
     for(let eCreep of EnemyCreeps) {
         for(let i=-7; i<=7; i++) {
             for(let o=-7; o<=7; o++) {
@@ -3205,6 +3643,7 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+const roomCallbackSafeToSource = memoMatrix("safeToSource", buildSafeToSource);
 
 
 
@@ -3228,12 +3667,13 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
  */
 Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUpgraderInPosition(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target, "upg")) {
-            let costMatrix:any = roomCallbackRoadPrioUpgraderInPosition;
+            let costMatrix:any = buildRoadPrioUpgraderInPosition;
 
             let targetPos = goalPos(this, target);
             if(!targetPos) {
@@ -3242,8 +3682,11 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
             let path = PathFinder.search(
                 this.pos, {pos:targetPos, range:range},
                 {
+                    // roomCallbackRoadPrioUpgraderInPosition paints the whole
+                    // border 255, so rooms 2 and 3 can never be entered — they
+                    // were pure overhead in every search.
                     maxOps: 1000,
-                    maxRooms: 3,
+                    maxRooms: 1,
                     roomCallback: (roomName) => costMatrix(roomName)
                 }
                 );
@@ -3261,48 +3704,24 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
             this.memory.MoveTargetId = moveKeyOf(target, "upg");
         }
 
-
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-
-        this.move(direction);
-        // SwapPositionWithCreep only shoves neighbours that are not moving;
-        // without this flag an in-position upgrader is shoved mid-step.
-        this.memory.moving = true;
-        this.memory.path.shift();
-        // this.moveByPath(this.memory.path);
+        // stepCachedPath sets memory.moving: SwapPositionWithCreep only shoves
+        // neighbours that are not moving, and without that flag an in-position
+        // upgrader is shoved mid-step.
+        stepCachedPath(this);
      }
 
 }
 
 
-const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | CostMatrix => {
+const buildRoadPrioUpgraderInPosition = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 50;
-            }
-            else if(tile == 0){
-                weight = 10;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 50, 10, "inner");
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
@@ -3333,7 +3752,9 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
     });
 
 
-    _.forEach(room.find(FIND_STRUCTURES, {filter: s => s.id == room.memory.Structures.controllerLink}), function(struct:any) {
+    // memory.Structures is absent in a room we only just gained vision of
+    const ctrlLinkId = room.memory.Structures && room.memory.Structures.controllerLink;
+    _.forEach(ctrlLinkId ? room.find(FIND_STRUCTURES, {filter: s => s.id == ctrlLinkId}) : [], function(struct:any) {
         for(let i = -1; i<=1; i++) {
             for(let o = -1; o<=1; o++) {
                 if(struct.pos.x + i >= 0 && struct.pos.x + i <= 49 && struct.pos.y + o >= 0 && struct.pos.y + o <= 49 && costs.get(struct.pos.x + i, struct.pos.y + o) !== 255) {
@@ -3391,13 +3812,14 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
     return costs;
 }
 
+const roomCallbackRoadPrioUpgraderInPosition = memoMatrix("upgraderInPos", buildRoadPrioUpgraderInPosition);
 
 
 
 
 Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
@@ -3410,9 +3832,11 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
             let path = PathFinder.search(
                 this.pos, {pos:targetPos, range:range},
                 {
+                    // the callback seals the border at 255, so extra rooms are
+                    // unreachable by construction — searching them is waste
                     maxOps: 1000,
-                    maxRooms: 3,
-                    roomCallback: (roomName) => roomCallbackSwampPrio(roomName)
+                    maxRooms: 1,
+                    roomCallback: (roomName) => roomCallbackRoadPrio(roomName)
                 }
                 );
 
@@ -3430,44 +3854,20 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
             this.memory.MoveTargetId = moveKeyOf(target, "swamp");
         }
 
-
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
+        stepCachedPath(this);
     }
 
 }
 
-const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
+const buildSwampPrio = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 2;
-            }
-            else if(tile == 0){
-                weight = 1;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 2, 1, "inner");
 
 
 
@@ -3535,10 +3935,12 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+const roomCallbackSwampPrio = memoMatrix("swampPrio", buildSwampPrio);
+
 
 Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
@@ -3550,8 +3952,10 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             let path = PathFinder.search(
                 this.pos, {pos:targetPos, range:range},
                 {
+                    // the callback seals the border at 255, so extra rooms are
+                    // unreachable by construction — searching them is waste
                     maxOps: 1000,
-                    maxRooms: 3,
+                    maxRooms: 1,
                     roomCallback: (roomName) => roomCallbackIgnoreRoads(roomName)
                 }
                 );
@@ -3568,42 +3972,20 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             this.memory.MoveTargetId = moveKeyOf(target, "ignore");
         }
 
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
+        stepCachedPath(this);
     }
 
 }
 
-const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
+const buildIgnoreRoads = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 10, 2, "inner");
 
 
 
@@ -3673,32 +4055,17 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
-const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
+roomCallbackIgnoreRoads = memoMatrix("ignoreRoads", buildIgnoreRoads);
+
+const buildRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks; border ring stays at
+    // the matrix default (0 = engine terrain cost), as the original loop left it
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5, "inner");
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
@@ -3826,12 +4193,14 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+roomCallbackRoadPrioFlee = memoMatrix("roadPrioFlee", buildRoadPrioFlee);
 
 
 
 
 Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
@@ -3886,43 +4255,19 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
             this.memory.MoveTargetId = moveKeyOf(target, avoidStyle);
         }
 
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
-        // this.moveByPath(this.memory.path);
+        stepCachedPath(this);
      }
 
 }
 
-const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean | CostMatrix => {
+const buildAvoidEnemyCreepsMuchRam = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 254
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 254, 10, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4013,32 +4358,16 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean 
     return costs;
 }
 
-const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | CostMatrix => {
+roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = memoMatrix("avoidMuchRam", buildAvoidEnemyCreepsMuchRam);
+
+const buildAvoidEnemyCreepsMuch = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 10;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 10, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4132,33 +4461,17 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
     return costs;
 }
 
+roomCallbackRoadPrioAvoidEnemyCreepsMuch = memoMatrix("avoidMuch", buildAvoidEnemyCreepsMuch);
 
-const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string): boolean | CostMatrix => {
+
+const buildAvoidEnemyCreepsMuchForCarrierFull = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 30;
-            }
-            else if(tile == 0){
-                weight = 10;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 30, 10);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4259,32 +4572,16 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
     return costs;
 }
 
-const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: string): boolean | CostMatrix => {
+roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = memoMatrix("avoidMuchFull", buildAvoidEnemyCreepsMuchForCarrierFull);
+
+const buildAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 2;
-            }
-            else if(tile == 0){
-                weight = 2;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 2, 2);
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
@@ -4380,9 +4677,15 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
     return costs;
 }
 
+roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = memoMatrix("avoidMuchEmpty", buildAvoidEnemyCreepsMuchForCarrierEmpty);
+
+let roomCallbackAvoidInvaders: (roomName: string) => boolean | CostMatrix;
+let roomCallbackForRangedRampartDefender: (roomName: string) => boolean | CostMatrix;
+let roomCallbackForRampartDefender: (roomName: string) => boolean | CostMatrix;
 
 Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionToRepairRampart(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
+        resyncCachedPath(this);
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
@@ -4427,44 +4730,19 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
             this.memory.MoveTargetId = moveKeyOf(target, rampStyle);
         }
 
-
-
-        let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
-
-        this.move(direction);
-        this.memory.moving = true;
-        this.memory.path.shift();
+        stepCachedPath(this);
     }
 
 }
 
-const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
+const buildAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
     let myCreeps = room.find(FIND_MY_CREEPS);
     for(let creep of myCreeps) {
         if(creep.memory.role === "SpecialCarry") {
@@ -4480,22 +4758,9 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             }
         }
         else if(struct.structureType == STRUCTURE_RAMPART) {
-            let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
-            if(lookForBuildingsHere.length > 1) {
-                let found = false;
-                for(let building of lookForBuildingsHere) {
-                    if(building.structureType !== STRUCTURE_RAMPART && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER) {
-                        found = true;
-                    }
-                }
-                if(!found) {
-                    costs.set(struct.pos.x, struct.pos.y, 4);
-                }
-            }
-            else {
+            if(rampartIsBare(struct)) {
                 costs.set(struct.pos.x, struct.pos.y, 4);
             }
-
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -4505,12 +4770,17 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    let EnemyCreeps = cachedHostileCreeps(room);
     for(let eCreep of EnemyCreeps) {
-        for(let i=-3; i<3; i++) {
-            for(let o=-3; o<3; o++) {
+        // `i<3` made this a 6x6 box hanging off the top-left of the hostile,
+        // not the 7x7 every sibling matrix paints. And, like them, the aura
+        // only ever raises a tile's cost.
+        for(let i=-3; i<=3; i++) {
+            for(let o=-3; o<=3; o++) {
                 if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                    if(costs.get(eCreep.pos.x + i, eCreep.pos.y + o) < 255) {
+                        costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                    }
                 }
             }
         }
@@ -4538,31 +4808,20 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-    let storage:any = Game.getObjectById(Game.rooms[roomName].memory.Structures.storage);
+    // memory.Structures is absent in a room we only just gained vision of
+    let storage:any = room.memory.Structures && Game.getObjectById(room.memory.Structures.storage);
     if(storage) {
-        if(room.name === "E41N58") {
-            for(let i=-27; i<=27; i++) {
-                for(let o=-27; o<=27; o++) {
-                    if(i<=-26 || i >= 26 || o <= -26 || o >= 26) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
-                            costs.set(storage.pos.x + i, storage.pos.y + o, 255);
-                        }
+        // E41N58 used to widen this band to 26/27; that room is not ours any
+        // more, so every room gets the generic band.
+        for(let i=-13; i<=13; i++) {
+            for(let o=-13; o<=13; o++) {
+                if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
+                    if(storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
+                        costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                     }
                 }
             }
         }
-        else {
-            for(let i=-13; i<=13; i++) {
-                for(let o=-13; o<=13; o++) {
-                    if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
-                            costs.set(storage.pos.x + i, storage.pos.y + o, 255);
-                        }
-                    }
-                }
-            }
-        }
-
     }
 
 
@@ -4571,32 +4830,16 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
-const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostMatrix => {
+roomCallbackAvoidInvaders = memoMatrix("avoidInvaders", buildAvoidInvaders);
+
+const buildRangedRampartDefender = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
 
 
 
@@ -4606,18 +4849,13 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
             return;
         }
         else if(struct.structureType == STRUCTURE_RAMPART) {
-            let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
-            if(lookForBuildingsHere.length > 1) {
-                for(let building of lookForBuildingsHere) {
-                    if(building.structureType !== STRUCTURE_RAMPART) {
-                        return;
-                    }
-                }
-            }
-            else {
+            // was: a `return` out of the _.forEach iteratee on the first
+            // non-rampart on the tile, which set NOTHING — so a rampart with
+            // anything at all under it (a road counted!) never became a 4, and
+            // the shell RRD is supposed to man stayed at terrain cost.
+            if(rampartIsBare(struct)) {
                 costs.set(struct.pos.x, struct.pos.y, 4);
             }
-
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -4711,12 +4949,9 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
                 }
             }
         };
-        if(room.name === "E41N58") {
-            paintFrame(26, 27);
-        }
-        else {
-            paintFrame(11, 13);
-        }
+        // E41N58 used to widen this band to 26/27; that room is not ours any
+        // more, so every room gets the generic band.
+        paintFrame(11, 13);
     }
 
 
@@ -4727,32 +4962,17 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
 }
 
 
-const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix => {
+roomCallbackForRangedRampartDefender = memoMatrix("rrd", buildRangedRampartDefender);
+
+
+const buildRampartDefender = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
     }
 
-    let costs = new PathFinder.CostMatrix;
-
-    const terrain = new Room.Terrain(roomName);
-
-    for(let y = 0; y <= 49; y++) {
-        for(let x = 0; x <= 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 25;
-            }
-            else if(tile == 0){
-                weight = 5;
-            }
-            costs.set(x, y, weight);
-        }
-    }
+    // terrain base is immutable and cached across ticks — see terrainBaseMatrix
+    let costs = terrainBaseMatrix(roomName, 255, 25, 5);
 
 
 
@@ -4763,18 +4983,11 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
             }
         }
         else if(struct.structureType == STRUCTURE_RAMPART) {
-            let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
-            if(lookForBuildingsHere.length > 1) {
-                for(let building of lookForBuildingsHere) {
-                    if(building.structureType !== STRUCTURE_RAMPART) {
-                        return
-                    }
-                }
-            }
-            else {
+            // same broken early-return as the RRD matrix had: nothing was set
+            // for any rampart sharing its tile, road included
+            if(rampartIsBare(struct)) {
                 costs.set(struct.pos.x, struct.pos.y, 4);
             }
-
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -4794,34 +5007,17 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
 
     let storage = <StructureStorage> room.storage;
     if(storage) {
-        if(room.name === "E41N58") {
-            for(let i=-27; i<=27; i++) {
-                for(let o=-27; o<=27; o++) {
-                    if(i<=-26 || i >= 26 || o <= -26 || o >= 26) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
-                            costs.set(storage.pos.x + i, storage.pos.y + o, 255);
-                        }
+        // E41N58 used to widen this band to 26/27; that room is not ours any
+        // more, so every room gets the generic band.
+        for(let i=-13; i<=13; i++) {
+            for(let o=-13; o<=13; o++) {
+                if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
+                    if(storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
+                        costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                     }
                 }
             }
         }
-        else {
-            for(let i=-13; i<=13; i++) {
-                for(let o=-13; o<=13; o++) {
-                    if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
-                            costs.set(storage.pos.x + i, storage.pos.y + o, 255);
-                        }
-                    }
-                    // if(i<=-9 || i >= 9 || o <= -9 || o >= 9) {
-                    //     if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
-                    //         costs.set(storage.pos.x + i, storage.pos.y + o, 40);
-                    //     }
-                    // }
-                }
-            }
-        }
-
     }
 
 
@@ -4830,6 +5026,8 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
 
     return costs;
 }
+
+roomCallbackForRampartDefender = memoMatrix("rd", buildRampartDefender);
 
 // CREEP PROTOTYPES
 

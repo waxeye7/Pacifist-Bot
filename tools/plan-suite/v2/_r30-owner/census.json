@@ -1,0 +1,120 @@
+{
+  "md5": "7eed9e2c02f0641ec4fc80b4c8a0b496",
+  "md5Ok": true,
+  "rooms": 172,
+  "missingTerrain": [],
+  "physicals": {
+    "ext": 10320,
+    "extShort": [],
+    "roads": 14100,
+    "ramparts": 8208,
+    "decls": 300,
+    "notes": 236,
+    "noteRecords": 236,
+    "containers": 688,
+    "links": 688,
+    "towers": 1032,
+    "labs": 1720,
+    "spawns": 516,
+    "extractors": 172,
+    "storage": 172,
+    "terminal": 172,
+    "nuker": 172,
+    "observer": 172,
+    "factory": 0,
+    "powerSpawn": 0
+  },
+  "legality": {
+    "leaksLiveN": 0,
+    "leaksLive": [],
+    "leaksCutN": 166,
+    "extractorOutsideBare": [],
+    "shallowEcoBareN": 0,
+    "shallowEcoBare": [],
+    "extNoD4RoadN": 0,
+    "extNoD4Road": [],
+    "stackIllegal": [],
+    "onObject": [],
+    "borderIllegal": [],
+    "cutLeakSitter": [
+      "E15S1",
+      "E5S6"
+    ],
+    "freezeLeakSitter": [],
+    "liveLeakSitter": []
+  },
+  "mineral": {
+    "exact": 172,
+    "lie": []
+  },
+  "rr": {
+    "cross": 231,
+    "seat": 30,
+    "ring": 13,
+    "cover": 0,
+    "unclass": 0,
+    "rooms": 153,
+    "sum": 274,
+    "median": 2,
+    "max": 5
+  },
+  "freeze": {
+    "tiles": 7246,
+    "loose": 0,
+    "looseRooms": [],
+    "sealFail": [],
+    "vsShipDiffRooms": 29
+  },
+  "drift": {
+    "adds": 34,
+    "removes": 46,
+    "adoptN": 27,
+    "remN": 29,
+    "driftN": 29,
+    "adoptRooms": [
+      "E13S3",
+      "E13S4",
+      "E13S5",
+      "E14S9",
+      "E15S4",
+      "E15S5",
+      "E16S2",
+      "E17S2",
+      "E17S5",
+      "E18S6",
+      "E18S8",
+      "E18S9",
+      "E19S8",
+      "E1S2",
+      "E1S6",
+      "E21S2",
+      "E21S8",
+      "E2S1",
+      "E2S5",
+      "E2S6",
+      "E3S6",
+      "E5S7",
+      "E6S3",
+      "E6S4",
+      "E6S5",
+      "E8S7",
+      "E9S8"
+    ],
+    "remOnly": [
+      "E15S1",
+      "E5S6"
+    ],
+    "addPass": {
+      "layer7-reconcileSeal": 34
+    },
+    "remPass": {
+      "layer7-inertPrune": 46
+    },
+    "whyMismatchN": 0,
+    "whyMismatch": [],
+    "addSealOk": 34,
+    "addSealFail": [],
+    "replayFailN": 0,
+    "replayFail": []
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "e11s7": {
+    "veto": 7.67,
+    "labs": 7.67,
+    "towers": 7.33,
+    "hits": [
+      {
+        "path": "meta.misc.mobilityVeto.baseLap",
+        "v": 7.67
+      },
+      {
+        "path": "meta.labs.lapVeto.baseLap",
+        "v": 7.67
+      },
+      {
+        "path": "meta.towers.mobilityVeto.baseLap",
+        "v": 7.33
+      },
+      {
+        "path": "meta.shortfalls[1].repair.tower.baseLap",
+        "v": 7.33
+      }
+    ]
+  },
+  "e11s2": {
+    "veto": 1.56,
+    "labs": 1.56,
+    "towers": 1.56,
+    "hits": [
+      {
+        "path": "meta.misc.mobilityVeto.baseLap",
+        "v": 1.56
+      },
+      {
+        "path": "meta.labs.lapVeto.baseLap",
+        "v": 1.56
+      },
+      {
+        "path": "meta.towers.mobilityVeto.baseLap",
+        "v": 1.56
+      },
+      {
+        "path": "meta.shortfalls[0].repair.tower.baseLap",
+        "v": 1.56
+      }
+    ]
+  },
+  "rows": [
+    {
+      "name": "E11S7 towers.baseLap := 0",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive "
+    },
+    {
+      "name": "E11S7 towers.baseLap += 1",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 8.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-deri"
+    },
+    {
+      "name": "E11S7 towers.baseLap := veto 7.67",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 7.67 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-deri"
+    },
+    {
+      "name": "E11S7 towers+repair.baseLap := 0",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3560 character(s) and then diverge — shipped: \"…on layer 2's board the empty room reads 7.33 over 120 over-target pair(s) and the battery takes it to 7.67 over 125 — and layer 3 …\" vs generated: \"…on layer 2"
+    },
+    {
+      "name": "E11S7 every baseLap := 0 except veto+labs",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3560 character(s) and then diverge — shipped: \"…on layer 2's board the empty room reads 7.33 over 120 over-target pair(s) and the battery takes it to 7.67 over 125 — and layer 3 …\" vs generated: \"…on layer 2"
+    },
+    {
+      "name": "E11S2 every baseLap := 0 except veto+labs",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3309 character(s) and then diverge — shipped: \"…e chasing the number. The tower battery was measured against the lap and does not breach it (1.56 over 4 pair(s) without it, 1.56 …\" vs generated: \"…e chasing "
+    },
+    {
+      "name": "E11S2 every baseLap := 0 including veto+labs",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 6,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3309 character(s) and then diverge — shipped: \"…e chasing the number. The tower battery was measured against the lap and does not breach it (1.56 over 4 pair(s) without it, 1.56 …\" vs generated: \"…e chasing "
+    },
+    {
+      "name": "E11S2 towers+all other baseLap := 0 keep veto+labs",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3309 character(s) and then diverge — shipped: \"…e chasing the number. The tower battery was measured against the lap and does not breach it (1.56 over 4 pair(s) without it, 1.56 …\" vs generated: \"…e chasing "
+    },
+    {
+      "name": "E11S2 towers.baseLap=0 + rewrite every repair.tower.baseLap=0",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 3309 character(s) and then diverge — shipped: \"…e chasing the number. The tower battery was measured against the lap and does not breach it (1.56 over 4 pair(s) without it, 1.56 …\" vs generated: \"…e chasing "
+    }
+  ]
+}

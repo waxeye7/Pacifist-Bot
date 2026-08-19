@@ -1,0 +1,66 @@
+{
+  "attacks": [
+    {
+      "name": "E5S1 mineralWhy 1→99 steps (clause present)",
+      "room": "E5S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 326 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…is room"
+    },
+    {
+      "name": "93 inflate recovers on every copy",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 14,
+      "first": "PLANNER NOTE — `meta.notes[1]` is not the note its own record generates (class sealedFloor). They agree for 988 character(s) and then diverge — shipped: \"…one of which returns 2: extension 30,41=2/2, extension 31,41=2/2, extension 31,44=2/2, extension 32,41=2/2, extension 32,42=2/2, e…\" vs generated"
+    },
+    {
+      "name": "L1 walls.prunedGhosts := pruned (jam identities)",
+      "room": "E2S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "META — the dead-end prune: `pruned` is 11 and its two halves — 11 ghost(s) the film erases and 1 tile(s) laid and deleted inside layer 7 — sum to 12. The fleet summary prints this counter as \"pruned N dead-end road tiles\", and an EVENT counter under a TILE label is criticism 27 in the same printed l"
+    },
+    {
+      "name": "L1 walls.prunedTransient := 0",
+      "room": "E2S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 4,
+      "first": "META — the dead-end prune: `pruned` is 11 and its two halves — 10 ghost(s) the film erases and 0 tile(s) laid and deleted inside layer 7 — sum to 10. The fleet summary prints this counter as \"pruned N dead-end road tiles\", and an EVENT counter under a TILE label is criticism 27 in the same printed l"
+    },
+    {
+      "name": "141e invent a seed on a room that has none",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta carries identifier leaf \"seed\", which is not in the round-27 closed inventory (818 names). A leaf in no class is the 123-name dark region the review walked through"
+    },
+    {
+      "name": "enclosedController flattered",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 541 character(s) and then diverge — shipped: \"… program was placed in it) · controller outside, sources 1/2 inside…\" vs generated: \"… program was placed in it) · controller insi"
+    },
+    {
+      "name": "134a absorb one freeze tile + matching add log",
+      "room": "E13S3",
+      "status": "BITES",
+      "changed": true,
+      "n": 3,
+      "first": "DECLARATION CONTENT — meta.shell.cutAtFreeze is not a MINIMAL sealing set: 2 of its 47 tile(s) (13,34 14,35) can be deleted from it with the exterior flood still failing to reach this room's sitter. It is published as LAYER 2's CUT — a min-cut — and every reading of the enclosure contract is a flood"
+    }
+  ],
+  "roomsWithSeed": 0,
+  "roomsWithSeedField": {
+    "shellSeed": 0,
+    "metaSeed": 0
+  },
+  "nosed": 172
+}

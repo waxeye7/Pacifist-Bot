@@ -1,0 +1,126 @@
+{
+  "skips": [
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "lapVeto",
+    "mobilityRepair",
+    "noAlternative",
+    "paveRetired",
+    "pickedBy",
+    "rescueSpent",
+    "servedExts",
+    "takeTowerSwap",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "uselessCut"
+  ],
+  "results": [
+    {
+      "name": "TWIN-deepBudget-zero-every-copy",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-faceAndSatHeld-zero-every-copy",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\""
+      ]
+    },
+    {
+      "name": "TWIN-floorUngated-zero-every-copy",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-priceProven-zero-every-copy",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on at 2370 EXACTLY, and 1 of those also price out on every instrument th…\". Derived: \"…on at 2370 EXACTLY, and 0 of those also price out on every instrument th…\""
+      ]
+    },
+    {
+      "name": "TWIN-searchedSeats-zero-every-copy",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\"",
+      "nFails": 1,
+      "fails": [
+        "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…earch itself ran on the 99 left after the 2x2 thinning), and swapping on…\". Derived: \"…earch itself ran on the 0 left after the 2x2 thinning), and swapping one…\""
+      ]
+    },
+    {
+      "name": "TWIN-strandedFirst-zero-every-copy",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-unsealed-zero-every-copy",
+      "room": "E12S5",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-worstCase-zero-every-copy",
+      "room": "E12S2",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-worstCaseUngated-zero-every-copy",
+      "room": "E11S9",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-faceAndSatHeld-zero-and-regen-basis",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-priceProven-zero-and-regen-basis",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    },
+    {
+      "name": "TWIN-searchedSeats-zero-and-regen-basis",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass",
+      "nFails": 0,
+      "fails": []
+    }
+  ]
+}

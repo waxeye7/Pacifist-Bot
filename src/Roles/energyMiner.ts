@@ -1,4 +1,60 @@
-import { remoteIsHot } from "Rooms/rooms.remotes";
+import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
+import { isSanctionedRampart } from "utils/PlanV2";
+import { cachedDerived, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
+
+/**
+ * Stable 0..mod-1 offset from a creep name.
+ *
+ * Any `Game.time % N` throttle fires for the WHOLE roster on the same tick,
+ * which turns a saving into a periodic spike. Hashing the name spreads the
+ * re-scans evenly across the N ticks instead. Recomputed rather than cached:
+ * a name is ~20 chars, and a heap map keyed by creep name would grow without
+ * bound over a long global.
+ */
+function nameOffset(name: string, mod: number): number {
+    let h = 0;
+    for(let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+    return h % mod;
+}
+
+/**
+ * The room's controller LINK, or null — memoised per room per tick.
+ *
+ * Both callers below (forwardToControllerLink, and the deposit rung in run())
+ * resolved this the same way and both had the same hole: when the room has NO
+ * link within 3 of the controller the derivation writes nothing back, so
+ * `Game.getObjectById(S.controllerLink)` kept answering null and the room-wide
+ * FIND_MY_STRUCTURES re-ran EVERY tick, PER MINER, for as long as the room
+ * stayed at RCL5/6 without a controller link. Same story below RCL7 where
+ * creepFunctions parks a CONTAINER under the key.
+ *
+ * A per-tick memo is sound because structures cannot appear or move mid-tick;
+ * the object's `store` is still read live by the callers. Keyed on the CURRENT
+ * value of Structures.controllerLink, exactly as creepFunctions'
+ * _discoverControllerDepot is, so a mid-tick rewrite of the key still forces
+ * the rescan it always forced — an unset key is "0" for every caller, which is
+ * precisely the room where the sharing matters.
+ */
+function resolveControllerLink(room: any): any {
+    const S: any = room.memory.Structures || {};
+    return cachedDerived(room, "emCtrlLink:" + (S.controllerLink || "0"), () => {
+        let link: any = Game.getObjectById(S.controllerLink);
+        if(!link || link.structureType !== STRUCTURE_LINK) {
+            link = null;
+            if(room.controller) {
+                const ctrlLinks = _.filter(cachedMyStructures(room), (s: any) =>
+                    s.structureType == STRUCTURE_LINK &&
+                    s.id !== S.StorageLink &&
+                    s.pos.getRangeTo(room.controller) <= 3);
+                if(ctrlLinks.length) {
+                    link = room.controller.pos.findClosestByRange(ctrlLinks);
+                    S.controllerLink = link.id;
+                }
+            }
+        }
+        return link;
+    });
+}
 
 /**
  * A little description of this function
@@ -24,7 +80,7 @@ function linkNetworkDelivers(room, sourceId?):boolean {
     if(rec && Game.time - (rec.t || 0) < 50) {
         return rec.v;
     }
-    const links = room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK});
+    const links = _.filter(cachedMyStructures(room), (s: any) => s.structureType == STRUCTURE_LINK);
     const hub = _.some(links, (l:any) => l.pos.inRangeTo(room.storage.pos, 2));
     let works = false;
     if(hub) {
@@ -53,10 +109,69 @@ function linkNetworkDelivers(room, sourceId?):boolean {
  */
 export function roomFeedsController(room:any):boolean {
     if(room._pacFeedsCtrl !== undefined) return room._pacFeedsCtrl;
-    const has = room.find(FIND_MY_CREEPS, {filter: (c:any) => c.memory &&
-        (c.memory.role === "upgrader" || c.memory.role === "ControllerLinkFiller")}).length > 0;
+    const has = _.some(cachedMyCreeps(room), (c:any) => c.memory &&
+        (c.memory.role === "upgrader" || c.memory.role === "ControllerLinkFiller"));
     room._pacFeedsCtrl = has;
     return has;
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * BANK A MINIMUM RESERVE BEFORE FEEDING THE CONTROLLER.
+ *
+ * The link routing below tries the CONTROLLER link first and only offers what
+ * is left to the hub/storage link. With surplus that is right — upgrading is
+ * what a healthy room should spend on. With no surplus it is a trap, because
+ * there is never anything left: a single-source room earns ~10 energy/tick, the
+ * source link reaches the 400 the controller rung wants every ~40 ticks, sends
+ * it, and the storage rung (which needs 400 STILL in the source link after the
+ * controller has been served) never fires at all.
+ *
+ * VPS W2N1 and W1N2 are both one-source RCL7 rooms and both sat at storage 0
+ * indefinitely while their controller links visibly cycled 0 -> 450 -> 0. A
+ * room in that state has no reserve to repair its ramparts, refill a tower
+ * under attack, or finish the ten extensions it is still missing — and no route
+ * to acquiring one, because every unit of income is spoken for before it gets
+ * to the bank.
+ *
+ * So: while the bank is under RESERVE, the controller rung stands down and the
+ * energy goes to storage instead. This does not stop the room upgrading — the
+ * upgrader draws from storage perfectly well, it just walks instead of standing
+ * at the controller link — it only stops the room upgrading INSTEAD OF eating.
+ * Once the reserve exists, priority returns to the controller exactly as before.
+ *
+ * Rooms with no storage are unaffected (there is no bank to protect), and a
+ * controller genuinely close to downgrading always wins, because losing an RCL
+ * costs far more than the reserve is worth.
+ * ---------------------------------------------------------------------------
+ */
+const CONTROLLER_FEED_RESERVE = 2000;
+/** Downgrade timer under which the controller outranks the reserve. */
+const DOWNGRADE_URGENT = 15000;
+
+export function bankBelowReserve(room:any):boolean {
+    if(room._pacBankLow !== undefined) return room._pacBankLow;
+    const store = room.storage && room.storage.my ? room.storage : null;
+    // No storage means nothing to protect and no hub link worth routing to.
+    let low: boolean;
+    if(!store) {
+        low = false;
+    } else {
+        const ctrl = room.controller;
+        if(ctrl && ctrl.my && (ctrl.ticksToDowngrade || Infinity) < DOWNGRADE_URGENT) {
+            low = false;
+        } else {
+            const bank = (store.store[RESOURCE_ENERGY] || 0)
+                + (room.terminal && room.terminal.my ? (room.terminal.store[RESOURCE_ENERGY] || 0) : 0);
+            low = bank < CONTROLLER_FEED_RESERVE;
+        }
+    }
+    // Cached on the Room object (the engine rebuilds it every tick) and shared
+    // with creepFunctions' `_bankBelowReserve` by slot name, for the same reason
+    // roomFeedsController shares `_pacFeedsCtrl`: the two must agree, and a
+    // shared slot makes that true by construction rather than by discipline.
+    room._pacBankLow = low;
+    return low;
 }
 
 /**
@@ -94,16 +209,8 @@ export function forwardToControllerLink(room:any):void {
     if(!room.controller || !room.memory.Structures) return;
     const S:any = room.memory.Structures;
 
-    let ctrlLink:any = Game.getObjectById(S.controllerLink);
-    if(!ctrlLink || ctrlLink.structureType !== STRUCTURE_LINK) {
-        const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
-            s.structureType == STRUCTURE_LINK &&
-            s.id !== S.StorageLink &&
-            s.pos.getRangeTo(room.controller) <= 3});
-        if(!ctrlLinks.length) return;
-        ctrlLink = room.controller.pos.findClosestByRange(ctrlLinks);
-        S.controllerLink = ctrlLink.id;
-    }
+    const ctrlLink:any = resolveControllerLink(room);
+    if(!ctrlLink) return;
 
     /* ---- the return path -------------------------------------------------
      *
@@ -143,40 +250,71 @@ export function forwardToControllerLink(room:any):void {
         return;
     }
 
+    // Same reserve rule the miner's own routing uses (see bankBelowReserve).
+    // This MUST agree with it: both passes draw from the same source links, so
+    // gating only one would have this pass refill the controller link while the
+    // miner's rung stood down trying to bank — the two pushing energy past each
+    // other, which is precisely what roomFeedsController's header forbids.
+    // Not a drain-back, only a stand-down: the upgrader empties what is already
+    // there and then draws from storage, which by then has something in it.
+    if(bankBelowReserve(room)) return;
+
     // Same bar as the original rung: top it up while it is at or below half.
     if(ctrlLink.store[RESOURCE_ENERGY] > 400) return;
 
     // Source links only — the storage link keeps its own job, exactly as before.
-    const donors = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+    const donors = _.filter(cachedMyStructures(room), (s:any) =>
         s.structureType == STRUCTURE_LINK &&
         s.id !== ctrlLink.id &&
         s.id !== S.StorageLink &&
         s.cooldown == 0 &&
-        s.store[RESOURCE_ENERGY] >= 400});
+        s.store[RESOURCE_ENERGY] >= 400);
     if(!donors.length) return;
     donors.sort((a:any, b:any) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
     const topUp = Math.min(donors[0].store[RESOURCE_ENERGY], ctrlLink.store.getFreeCapacity(RESOURCE_ENERGY));
     if(topUp > 0) donors[0].transferEnergy(ctrlLink, topUp);
 }
 
-/** Spawn / extension / tower / container in range 1 with room for energy. */
+/**
+ * Spawn / extension / tower / container in range 1 with room for energy.
+ *
+ * `pos.findInRange(FIND_*, ...)` is a full room-wide find under the hood, and
+ * this runs on every dump — i.e. roughly every third tick for every CARRY
+ * miner. Walk the per-tick shared structure lists instead and test the cheap
+ * structureType first; the iteration order is the same find order, so the
+ * "first match wins" tie-break is unchanged.
+ */
 function adjacentEnergySink(creep: any): any {
-    const spawnish = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {filter: (s: any) =>
-        (s.structureType == STRUCTURE_SPAWN ||
+    const pos = creep.pos;
+    for(const s of cachedMyStructures(creep.room) as any[]) {
+        if((s.structureType == STRUCTURE_SPAWN ||
             s.structureType == STRUCTURE_EXTENSION ||
             s.structureType == STRUCTURE_TOWER) &&
-        s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-    if(spawnish.length) return spawnish[0];
-    const boxes = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) =>
-        s.structureType == STRUCTURE_CONTAINER &&
-        s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-    return boxes.length ? boxes[0] : null;
+           pos.inRangeTo(s, 1) && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0) return s;
+    }
+    for(const s of cachedStructures(creep.room) as any[]) {
+        if(s.structureType == STRUCTURE_CONTAINER &&
+           pos.inRangeTo(s, 1) && (s as any).store.getFreeCapacity(RESOURCE_ENERGY) > 0) return s;
+    }
+    return null;
 }
 
 function transferAdjacentSink(creep: any): boolean {
     const sink = adjacentEnergySink(creep);
     if(!sink) return false;
     return creep.transfer(sink, RESOURCE_ENERGY) == 0;
+}
+
+/**
+ * Does this room have anything that will pick a dropped pile up? Whole-empire
+ * `Game.creeps` scan, so memoised per room per tick — every dumping miner in
+ * the room asks the identical question and the answer cannot move mid-tick.
+ */
+function roomHasHauler(room: any): boolean {
+    return cachedDerived(room, "emHasHauler", () => _.some(Game.creeps, (c: any) =>
+        (c.memory.role == 'carry' || c.memory.role == 'FakeFiller' || c.memory.role == 'sweeper') &&
+        (c.memory.homeRoom == room.name || c.room.name == room.name) &&
+        !c.spawning));
 }
 
 /**
@@ -191,14 +329,11 @@ function dumpMinerEnergy(creep: any): void {
     const home = !creep.memory.targetRoom || creep.memory.targetRoom == room.name;
     if(home && room.controller && room.controller.level <= 2 &&
         room.energyAvailable < room.energyCapacityAvailable) {
-        const hasHauler = _.some(Game.creeps, (c: any) =>
-            (c.memory.role == 'carry' || c.memory.role == 'FakeFiller' || c.memory.role == 'sweeper') &&
-            (c.memory.homeRoom == room.name || c.room.name == room.name) &&
-            !c.spawning);
+        const hasHauler = roomHasHauler(room);
         if(!hasHauler) {
-            const sink = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {filter: (s: any) =>
+            const sink = creep.pos.findClosestByRange(_.filter(cachedMyStructures(room), (s: any) =>
                 (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION) &&
-                s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+                s.store.getFreeCapacity(RESOURCE_ENERGY) > 0));
             if(sink && creep.pos.getRangeTo(sink) <= 8) {
                 if(creep.pos.isNearTo(sink)) {
                     creep.transfer(sink, RESOURCE_ENERGY);
@@ -226,7 +361,9 @@ const run = function (creep) {
         return;
     }
 
-    if(Game.cpu.bucket < 1000) return;
+    // Do NOT idle miners on a low bucket. Harvest is the only income; turning
+    // it off while CPU is sick is how a room stays sick. Defence/flee above
+    // this line still run. Remotes are already gated by CpuPolicy.
 
     if(creep.holdForFlee()) {
         return;
@@ -264,9 +401,18 @@ const run = function (creep) {
     // capacity test silently does nothing.
     // Remote gone hot: a static 4W/2M miner cannot fight or outrun anything, so
     // walk it home and recycle the body rather than donate it to the attacker.
+    //
+    // Remote CLOSED (remoteRecalled) takes the identical exit. manageRemotes
+    // stops the haul fleet the moment it flips `active = false`, and until this
+    // branch existed nothing told the miner: a CARRY-less [W,W,M,W,W,M] went on
+    // dropping 8 e/t onto the floor of a room no carrier would visit again, for
+    // up to a full 1500-tick life. Recycling refunds part of the body and frees
+    // the seat instead. Deliberately the SAME movement path as the hot case —
+    // moveToRoomAvoidEnemyRooms + recycle at home, no second routine.
     if(creep.memory.targetRoom && creep.memory.homeRoom &&
        creep.memory.targetRoom != creep.memory.homeRoom &&
-       remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)) {
+       (remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom) ||
+        remoteRecalled(creep))) {
         if(creep.room.name !== creep.memory.homeRoom) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
         }
@@ -310,22 +456,42 @@ const run = function (creep) {
             else if(creep.getActiveBodyparts(CARRY) > 0 && creep.store[RESOURCE_ENERGY] > 0) {
                 transferAdjacentSink(creep);
             }
-            if(creep.memory.harvested) {
-                let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
-                let source:any = Game.getObjectById(creep.memory.source);
-                if(!creep.memory.allGood) {
-                    let lookForStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-                    if(lookForStructures.length > 0) {
-                        for(let building of lookForStructures) {
-                            if(building.structureType == STRUCTURE_CONTAINER) {
-                                creep.memory.allGood = true;
-                            }
-                        }
+            /* ---- step onto the source container ---------------------------
+             *
+             * `allGood` means "I am standing on a container" and is never
+             * cleared, so once it is set nothing in this block can change any
+             * decision. It used to sit BELOW the container find, which made a
+             * room-wide FIND_STRUCTURES with a per-structure getRangeTo the
+             * single most expensive thing a seated drop-miner did — every
+             * tick, for the whole 1500-tick life, in the one state where the
+             * answer is already known. Gate the whole block on it.
+             *
+             * While the creep is genuinely NOT on a container (bootstrap, or a
+             * box that has not been built yet) the search still has to run, so
+             * throttle it to one scan per 5 ticks with a name-hash offset —
+             * without the offset the entire miner roster would fire on the
+             * same tick and trade a saving for a spike. The conditions are the
+             * originals, reordered cheapest-first; the outcome is identical.
+             */
+            if(creep.memory.harvested && !creep.memory.allGood) {
+                let lookForStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+                for(let building of lookForStructures) {
+                    if(building.structureType == STRUCTURE_CONTAINER) {
+                        creep.memory.allGood = true;
+                        break;
                     }
                 }
 
-                if(!creep.memory.allGood && containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0 && source && creep.pos.getRangeTo(source) <= 2) {
-                    creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
+                if(!creep.memory.allGood && (Game.time + nameOffset(creep.name, 5)) % 5 == 0) {
+                    let source:any = Game.getObjectById(creep.memory.source);
+                    if(source && creep.pos.getRangeTo(source) <= 2) {
+                        let containerNearby = _.filter(cachedStructures(creep.room), (building: any) =>
+                            building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2);
+                        if(containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) &&
+                           containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0) {
+                            creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
+                        }
+                    }
                 }
             }
         }
@@ -379,7 +545,7 @@ const run = function (creep) {
             if(creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
                     creep.memory.NearbyExtensions = [];
-                    let mystructures = creep.room.find(FIND_MY_STRUCTURES);
+                    let mystructures = cachedMyStructures(creep.room);
                     let buildings = creep.pos.findInRange(mystructures, 1)
                     for(let building of buildings) {
                         if(building.structureType == STRUCTURE_EXTENSION) {
@@ -411,8 +577,8 @@ const run = function (creep) {
             }
 
             if(creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
-                let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
-                let rampartsInRangeOne = creep.pos.findInRange(myRamparts, 1);
+                let myRamparts = _.filter(cachedMyStructures(creep.room), (s: any) => s.structureType == STRUCTURE_RAMPART);
+                let rampartsInRangeOne: any[] = creep.pos.findInRange(myRamparts, 1);
 
                 if(rampartsInRangeOne.length > 0) {
                     rampartsInRangeOne.sort((a,b) => a.hits - b.hits);
@@ -472,7 +638,7 @@ const run = function (creep) {
 
             if(!creep.memory.checkedForSites) {
                 let siteIDs = []
-                let constructionSitesNearCreep = creep.pos.findInRange(creep.room.find(FIND_MY_CONSTRUCTION_SITES), 1);
+                let constructionSitesNearCreep = creep.pos.findInRange(cachedSites(creep.room), 1);
                 if(constructionSitesNearCreep.length > 0) {
                     for(let site of constructionSitesNearCreep) {
                         siteIDs.push(site.id);
@@ -499,12 +665,26 @@ const run = function (creep) {
             let closestLink:any = Game.getObjectById(creep.memory.sourceLink);
             // memory.sourceLink was never written, so this was a room-wide FIND
             // every tick and could lock a hub/controller link within 5 of the creep.
-            if(!closestLink || closestLink.structureType !== STRUCTURE_LINK ||
-               !source || source.pos.getRangeTo(closestLink) >= 5) {
+            //
+            // A NEGATIVE answer is stored as `false`, and getObjectById(false)
+            // is null — so the "no link near this source" case re-ran the same
+            // room-wide find every tick anyway, for the whole life. Retry that
+            // one on a 25-tick timer (links are not built often, and the miner
+            // falls through to dumpMinerEnergy meanwhile, exactly as before);
+            // a positive answer still resolves straight off the cached id.
+            const linkStale = !closestLink || closestLink.structureType !== STRUCTURE_LINK ||
+               !source || source.pos.getRangeTo(closestLink) >= 5;
+            const negThrottled = creep.memory.sourceLink === false &&
+                Game.time - (creep.memory.sourceLinkT || 0) < 25;
+            if(linkStale && !negThrottled) {
                 closestLink = source
-                    ? source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: (s:any) => s.structureType == STRUCTURE_LINK && source.pos.getRangeTo(s) < 5}))
+                    ? source.pos.findClosestByRange(_.filter(cachedMyStructures(creep.room), (s:any) => s.structureType == STRUCTURE_LINK && source.pos.getRangeTo(s) < 5))
                     : null;
                 creep.memory.sourceLink = closestLink ? closestLink.id : false;
+                creep.memory.sourceLinkT = Game.time;
+            }
+            else if(linkStale) {
+                closestLink = null;
             }
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
@@ -534,7 +714,7 @@ const run = function (creep) {
                 }
             }
             if(!creep.memory.checkAmIOnRampart) {
-                let rampartsInRange3 = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(creep) <= 2});
+                let rampartsInRange3 = _.filter(cachedMyStructures(creep.room), (s: any) => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(creep) <= 2);
                 if(rampartsInRange3.length == 0) {
                     creep.memory.checkAmIOnRampart = true;
                 }
@@ -567,7 +747,8 @@ const run = function (creep) {
                     }
                 }
                 let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
-                if(!found && storage && closestLink.pos.getRangeTo(storage) > 7) {
+                if(!found && storage && closestLink.pos.getRangeTo(storage) > 7 &&
+                    isSanctionedRampart(creep.room, closestLink.pos)) {
                     closestLink.pos.createConstructionSite(STRUCTURE_RAMPART);
                 }
                 creep.memory.checkedForRampart = true;
@@ -592,21 +773,13 @@ const run = function (creep) {
              *
              * So resolve a LINK here, from the room, and repair the key when the
              * cache is pointing at something that is not one.
+             *
+             * Shared with forwardToControllerLink() and memoised per room per
+             * tick — identical derivation, and the room with NO controller link
+             * (which writes nothing back, so the find repeated forever) is the
+             * one that used to pay for it on every miner on every tick.
              */
-            let closestLinkToController:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
-            if((!closestLinkToController || closestLinkToController.structureType !== STRUCTURE_LINK) && creep.room.controller) {
-                const ctrlLinks = creep.room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
-                    s.structureType == STRUCTURE_LINK &&
-                    s.id !== creep.room.memory.Structures.StorageLink &&
-                    s.pos.getRangeTo(creep.room.controller) <= 3});
-                if(ctrlLinks.length > 0) {
-                    closestLinkToController = creep.room.controller.pos.findClosestByRange(ctrlLinks);
-                    creep.room.memory.Structures.controllerLink = closestLinkToController.id;
-                }
-                else {
-                    closestLinkToController = null;
-                }
-            }
+            const closestLinkToController:any = resolveControllerLink(creep.room);
             let extraLink = null;
             if(creep.room.memory.Structures.extraLinks && creep.room.memory.Structures.extraLinks.length > 0) {
                 for(let linkID of creep.room.memory.Structures.extraLinks) {
@@ -647,7 +820,7 @@ const run = function (creep) {
             // nothing). Controller/extra used to sit in front of the hub send
             // in an if/else, so a failed controller send never drained to storage.
             let forwarded = false;
-            if(roomFeedsController(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
+            if(roomFeedsController(creep.room) && !bankBelowReserve(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 const send = Math.min(closestLink.store[RESOURCE_ENERGY], closestLinkToController.store.getFreeCapacity(RESOURCE_ENERGY));
                 if(send > 0 && closestLink.transferEnergy(closestLinkToController, send) == 0) {
                     forwarded = true;

@@ -72,6 +72,18 @@ interface RStatEntry {
 /** heap-only: last tick's energy per creep name, and the roster for spawn/death detection */
 let lastEnergy: { [name: string]: number } = {};
 let lastRoster: { [name: string]: string } = {}; // name -> "home|remote"
+/**
+ * False until the first pass of this global has filled `lastRoster`.
+ *
+ * The roster is heap-only and a global reset happens several times a day, so
+ * on the pass right after one EVERY live remote creep is "a name we have never
+ * seen before" and used to be charged its full body cost to spE a second (and
+ * third, and fourth) time. `dead` is computed from the same empty roster and
+ * so was NOT inflated to match, which is where readings like
+ * `sp 34 / dead 5 / spE 15100` came from — spend that never happened, against a
+ * delivery figure that did. The first pass now only seeds; it charges nothing.
+ */
+let seeded = false;
 
 const BODY_COST: { [p: string]: number } = {
   move: 50,
@@ -113,6 +125,25 @@ function bodyCost(creep: Creep): number {
   return c;
 }
 
+/**
+ * Is this creep demonstrably newly born, rather than merely newly SEEN?
+ *
+ * Belt to the `seeded` brace: the roster can also be lost mid-life by an
+ * rstats reset, and a creep that walks into a remote key later in its life
+ * (targetRoom reassigned) is not a spawn either. Full TTL is the one signal
+ * that does not depend on heap state surviving.
+ */
+function isNewborn(creep: Creep): boolean {
+  if (creep.spawning) return true;
+  const ttl = creep.ticksToLive;
+  if (ttl === undefined) return true; // still in the spawn
+  let max: number = CREEP_LIFE_TIME;
+  for (const p of creep.body) {
+    if (p.type === CLAIM) { max = CREEP_CLAIM_LIFE_TIME; break; }
+  }
+  return ttl >= max - 3;
+}
+
 /** roles that are part of a remote operation */
 function remoteKeyFor(creep: Creep): string | null {
   const m: any = creep.memory;
@@ -134,20 +165,26 @@ export function sampleRemoteStats(): void {
 
   const seen: { [name: string]: string } = {};
   const nextEnergy: { [name: string]: number } = {};
+  /** "home|remote" keys some creep is working THIS tick — see the room pass below */
+  const targeted: { [key: string]: boolean } = {};
 
   for (const name in Game.creeps) {
     const creep = Game.creeps[name];
     const key = remoteKeyFor(creep);
     if (!key) continue;
     seen[name] = key;
+    targeted[key] = true;
 
     const e = entry(key);
     const mem: any = creep.memory;
     const energy = creep.store[RESOURCE_ENERGY] || 0;
     nextEnergy[name] = energy;
 
-    // spawn detection: a name we have never seen before
-    if (lastRoster[name] === undefined) {
+    // Spawn detection. "A name we have never seen before" is not enough on its
+    // own — see `seeded` and isNewborn(): the roster is heap-only, so without
+    // both guards every global reset re-charged the full body cost of every
+    // live remote creep.
+    if (seeded && lastRoster[name] === undefined && isNewborn(creep)) {
       e.sp++;
       e.spE += bodyCost(creep);
     }
@@ -196,6 +233,7 @@ export function sampleRemoteStats(): void {
 
   lastEnergy = nextEnergy;
   lastRoster = seen;
+  seeded = true;
 
   // Per-remote room sampling — only for rooms we can see, every 5 ticks to keep
   // the find() calls cheap.
@@ -207,7 +245,13 @@ export function sampleRemoteStats(): void {
     if (!res) continue;
     for (const remote in res) {
       if (remote === home) continue;
-      if (!res[remote] || !res[remote].active) continue;
+      if (!res[remote]) continue;
+      // Sample a remote that is active OR that some creep is still working.
+      // Gating on `active` alone made the drop/container/reservation columns go
+      // silent the instant manageRemotes closed a remote — which is exactly the
+      // window worth measuring, because the miners keep mining there for up to
+      // a full life after the close and the energy they pile up is the loss.
+      if (!res[remote].active && !targeted[home + "|" + remote]) continue;
       const rr = Game.rooms[remote];
       if (!rr) continue;
       const e = entry(home + "|" + remote);
@@ -247,7 +291,16 @@ export function sampleRemoteStats(): void {
       e.road = roads;
       e.roadHp = hpMax > 0 ? Math.round((hp / hpMax) * 100) : 0;
 
-      if (rr.find(FIND_HOSTILE_CREEPS).length > 0) e.danger += 5;
+      // An invader core is danger too — markRemoteHot() abandons a remote for
+      // one just as it does for a creep wave, and a core outlives the wave, so
+      // counting only FIND_HOSTILE_CREEPS reported `danger 0` for remotes that
+      // were closed for threat all window.
+      if (rr.find(FIND_HOSTILE_CREEPS).length > 0 ||
+          rr.find(FIND_HOSTILE_STRUCTURES, {
+            filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
+          }).length > 0) {
+        e.danger += 5;
+      }
     }
   }
 }
@@ -260,6 +313,7 @@ export function installRemoteStatsCommand(): void {
       m.rstats = { start: Game.time, t: Game.time, r: {} };
       lastEnergy = {};
       lastRoster = {};
+      seeded = false; // the next pass re-seeds; it must not bill the fleet again
       return "rstats reset at " + Game.time;
     }
     if (!m.rstats) return "no rstats yet";

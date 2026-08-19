@@ -113,11 +113,14 @@ function giveToNeighbour(creep): boolean {
  * @param {Creep} creep
  **/
 
+import { stompForeignSite } from "utils/ForeignSites";
+
  const run = function (creep) {
     creep.memory.moving = false;
 	if(creep.evacuate()) {
 		return;
 	}
+    if (stompForeignSite(creep)) return;
     if(creep.memory.suicide == true) {
         creep.recycle();
         return;

@@ -1,0 +1,1303 @@
+{
+  "schemaVersion": 1,
+  "runId": "run-2026-08-16T11-51-57Z",
+  "createdAt": "2026-08-16T11:51:57.462Z",
+  "updatedAt": "2026-08-16T13:05:53.958Z",
+  "label": "cycle-22-cheap0",
+  "note": "leftover-5 + 5W; dest-cheap only if 0 miners; haul-pave cargo",
+  "targetRcl": 4,
+  "milestones": [
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "tickBudget": 40000,
+  "swap": true,
+  "api": "http://127.0.0.1:23456",
+  "benchmarks": {
+    "path": "docs/BENCHMARK-ROOMS.json",
+    "setHash": "1f90aub",
+    "generatedAt": "2026-08-01T16:15:28.000Z",
+    "provisional": false
+  },
+  "users": {
+    "control": "pacifist-race",
+    "candidate": "pacifist"
+  },
+  "userIds": {
+    "control": "pacifist-race",
+    "candidate": "pacifist1"
+  },
+  "build": {
+    "git": {
+      "head": "e36e0a6ae9805c74acdc63063f7b659138834546",
+      "branch": "HEAD",
+      "dirty": true,
+      "dirtyFiles": 386
+    }
+  },
+  "preflightProblems": [],
+  "entries": [
+    {
+      "slot": "B1",
+      "band": "hard",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E5S3",
+      "profile": {
+        "hardness": 0.6143,
+        "srcStepsSum": 47,
+        "ctrlSteps": 2,
+        "anchorDt": 3,
+        "anchorSpace": 3,
+        "minSourceFree": 2,
+        "swampPct": 0.0184,
+        "openPct": 0.4019,
+        "terrainHash": "evajnp"
+      },
+      "seedTick": 5013788,
+      "seededAt": "2026-08-16T11:52:02.684Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B1",
+      "band": "hard",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E9S1",
+      "profile": {
+        "hardness": 0.6307,
+        "srcStepsSum": 44,
+        "ctrlSteps": 5,
+        "anchorDt": 3,
+        "anchorSpace": 4,
+        "minSourceFree": 1,
+        "swampPct": 0,
+        "openPct": 0.4566,
+        "terrainHash": "r99c6d"
+      },
+      "seedTick": 5013764,
+      "seededAt": "2026-08-16T11:52:00.191Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B2",
+      "band": "hard",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E12S3",
+      "profile": {
+        "hardness": 0.6415,
+        "srcStepsSum": 32,
+        "ctrlSteps": 20,
+        "anchorDt": 3,
+        "anchorSpace": 3,
+        "minSourceFree": 1,
+        "swampPct": 0.0397,
+        "openPct": 0.4596,
+        "terrainHash": "1pt83q"
+      },
+      "seedTick": 5013832,
+      "seededAt": "2026-08-16T11:52:07.596Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B2",
+      "band": "hard",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E13S9",
+      "profile": {
+        "hardness": 0.2031,
+        "srcStepsSum": 21,
+        "ctrlSteps": 20,
+        "anchorDt": 3,
+        "anchorSpace": 3,
+        "minSourceFree": 1,
+        "swampPct": 0.0218,
+        "openPct": 0.477,
+        "terrainHash": "1vprupy"
+      },
+      "seedTick": 5013805,
+      "seededAt": "2026-08-16T11:52:05.590Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B3",
+      "band": "hard",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E18S9",
+      "profile": {
+        "hardness": 0.3575,
+        "srcStepsSum": 39,
+        "ctrlSteps": 6,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 1,
+        "swampPct": 0.0874,
+        "openPct": 0.7248,
+        "terrainHash": "jx2m12"
+      },
+      "seedTick": 5013872,
+      "seededAt": "2026-08-16T11:52:12.077Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B3",
+      "band": "hard",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E8S5",
+      "profile": {
+        "hardness": 0.3489,
+        "srcStepsSum": 38,
+        "ctrlSteps": 10,
+        "anchorDt": 3,
+        "anchorSpace": 7,
+        "minSourceFree": 1,
+        "swampPct": 0.0045,
+        "openPct": 0.7743,
+        "terrainHash": "1q6new4"
+      },
+      "seedTick": 5013852,
+      "seededAt": "2026-08-16T11:52:09.907Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    },
+    {
+      "slot": "B4",
+      "band": "median",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E11S6",
+      "profile": {
+        "hardness": -0.1109,
+        "srcStepsSum": 24,
+        "ctrlSteps": 14,
+        "anchorDt": 3,
+        "anchorSpace": 4,
+        "minSourceFree": 2,
+        "swampPct": 0.1187,
+        "openPct": 0.8303,
+        "terrainHash": "143139j"
+      },
+      "seedTick": 5014276,
+      "seededAt": "2026-08-16T11:52:54.145Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015679,
+          "priorTick": 5015523,
+          "elapsed": 1403,
+          "uncertaintyTicks": 156
+        },
+        "3": {
+          "tick": 5028024,
+          "priorTick": 5027839,
+          "elapsed": 13748,
+          "uncertaintyTicks": 185
+        },
+        "4": {
+          "tick": 5043014,
+          "priorTick": 5042862,
+          "elapsed": 28738,
+          "uncertaintyTicks": 152
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E11S6 already contains 1 user-owned object(s): creep@49,3 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 104187,
+        "ext": 20,
+        "cap": 1300,
+        "spawns": 1,
+        "creeps": 15
+      }
+    },
+    {
+      "slot": "B4",
+      "band": "median",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E8S3",
+      "profile": {
+        "hardness": -0.1173,
+        "srcStepsSum": 22,
+        "ctrlSteps": 14,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 1,
+        "swampPct": 0.1036,
+        "openPct": 0.8464,
+        "terrainHash": "1ij97t1"
+      },
+      "seedTick": 5014249,
+      "seededAt": "2026-08-16T11:52:51.958Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015985,
+          "priorTick": 5015822,
+          "elapsed": 1736,
+          "uncertaintyTicks": 163
+        },
+        "3": {
+          "tick": 5029062,
+          "priorTick": 5028892,
+          "elapsed": 14813,
+          "uncertaintyTicks": 170
+        },
+        "4": {
+          "tick": 5043166,
+          "priorTick": 5043014,
+          "elapsed": 28917,
+          "uncertaintyTicks": 152
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E8S3 already contains 2 user-owned object(s): creep@0,35, creep@0,34 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 133796,
+        "ext": 18,
+        "cap": 1200,
+        "spawns": 1,
+        "creeps": 21
+      }
+    },
+    {
+      "slot": "B5",
+      "band": "median",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E16S9",
+      "profile": {
+        "hardness": 0.0382,
+        "srcStepsSum": 32,
+        "ctrlSteps": 6,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 3,
+        "swampPct": 0.0224,
+        "openPct": 0.4644,
+        "terrainHash": "1qabnes"
+      },
+      "seedTick": 5014312,
+      "seededAt": "2026-08-16T11:52:59.508Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015523,
+          "priorTick": 5015361,
+          "elapsed": 1211,
+          "uncertaintyTicks": 162
+        },
+        "3": {
+          "tick": 5026532,
+          "priorTick": 5026346,
+          "elapsed": 12220,
+          "uncertaintyTicks": 186
+        },
+        "4": {
+          "tick": 5050864,
+          "priorTick": 5050722,
+          "elapsed": 36552,
+          "uncertaintyTicks": 142
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E16S9 already contains 1 user-owned object(s): creep@0,12 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 42993,
+        "ext": 5,
+        "cap": 550,
+        "spawns": 1,
+        "creeps": 22
+      }
+    },
+    {
+      "slot": "B5",
+      "band": "median",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E4S7",
+      "profile": {
+        "hardness": 0.0188,
+        "srcStepsSum": 30,
+        "ctrlSteps": 3,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 2,
+        "swampPct": 0.06,
+        "openPct": 0.4197,
+        "terrainHash": "1hbuzxh"
+      },
+      "seedTick": 5014295,
+      "seededAt": "2026-08-16T11:52:56.552Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015523,
+          "priorTick": 5015361,
+          "elapsed": 1228,
+          "uncertaintyTicks": 162
+        },
+        "3": {
+          "tick": 5028024,
+          "priorTick": 5027839,
+          "elapsed": 13729,
+          "uncertaintyTicks": 185
+        },
+        "4": {
+          "tick": 5038118,
+          "priorTick": 5037973,
+          "elapsed": 23823,
+          "uncertaintyTicks": 145
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E4S7 already contains 1 user-owned object(s): creep@0,44 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 178149,
+        "ext": 20,
+        "cap": 1300,
+        "spawns": 1,
+        "creeps": 20
+      }
+    },
+    {
+      "slot": "B6",
+      "band": "median",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E18S5",
+      "profile": {
+        "hardness": -0.1734,
+        "srcStepsSum": 14,
+        "ctrlSteps": 25,
+        "anchorDt": 3,
+        "anchorSpace": 4,
+        "minSourceFree": 3,
+        "swampPct": 0.0096,
+        "openPct": 0.5877,
+        "terrainHash": "1skku5g"
+      },
+      "seedTick": 5014362,
+      "seededAt": "2026-08-16T11:53:04.177Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015523,
+          "priorTick": 5015361,
+          "elapsed": 1161,
+          "uncertaintyTicks": 162
+        },
+        "3": {
+          "tick": 5028718,
+          "priorTick": 5028543,
+          "elapsed": 14356,
+          "uncertaintyTicks": 175
+        },
+        "4": {
+          "tick": 5047498,
+          "priorTick": 5047363,
+          "elapsed": 33136,
+          "uncertaintyTicks": 135
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E18S5 already contains 1 user-owned object(s): creep@49,38 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 61313,
+        "ext": 8,
+        "cap": 700,
+        "spawns": 1,
+        "creeps": 21
+      }
+    },
+    {
+      "slot": "B6",
+      "band": "median",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E6S1",
+      "profile": {
+        "hardness": -0.0271,
+        "srcStepsSum": 14,
+        "ctrlSteps": 23,
+        "anchorDt": 3,
+        "anchorSpace": 6,
+        "minSourceFree": 1,
+        "swampPct": 0,
+        "openPct": 0.5378,
+        "terrainHash": "41dj44"
+      },
+      "seedTick": 5014338,
+      "seededAt": "2026-08-16T11:53:02.026Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015679,
+          "priorTick": 5015523,
+          "elapsed": 1341,
+          "uncertaintyTicks": 156
+        },
+        "3": {
+          "tick": 5029510,
+          "priorTick": 5029369,
+          "elapsed": 15172,
+          "uncertaintyTicks": 141
+        },
+        "4": {
+          "tick": 5042705,
+          "priorTick": 5042559,
+          "elapsed": 28367,
+          "uncertaintyTicks": 146
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E6S1 already contains 1 user-owned object(s): creep@49,27 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 99430,
+        "ext": 20,
+        "cap": 1300,
+        "spawns": 1,
+        "creeps": 19
+      }
+    },
+    {
+      "slot": "B7",
+      "band": "easy",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E12S1",
+      "profile": {
+        "hardness": -0.2213,
+        "srcStepsSum": 16,
+        "ctrlSteps": 21,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 2,
+        "swampPct": 0,
+        "openPct": 0.7266,
+        "terrainHash": "hv2hus"
+      },
+      "seedTick": 5014407,
+      "seededAt": "2026-08-16T11:53:10.015Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015523,
+          "priorTick": 5015361,
+          "elapsed": 1116,
+          "uncertaintyTicks": 162
+        },
+        "3": {
+          "tick": 5045359,
+          "priorTick": 5045215,
+          "elapsed": 30952,
+          "uncertaintyTicks": 144
+        }
+      },
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 3
+      },
+      "seedError": "ERROR: E12S1 already contains 1 user-owned object(s): creep@49,6 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 3,
+        "progress": 51196,
+        "ext": 5,
+        "cap": 550,
+        "spawns": 1,
+        "creeps": 14
+      }
+    },
+    {
+      "slot": "B7",
+      "band": "easy",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E3S5",
+      "profile": {
+        "hardness": -0.2196,
+        "srcStepsSum": 18,
+        "ctrlSteps": 18,
+        "anchorDt": 3,
+        "anchorSpace": 5,
+        "minSourceFree": 2,
+        "swampPct": 0.0115,
+        "openPct": 0.717,
+        "terrainHash": "co6ufa"
+      },
+      "seedTick": 5014385,
+      "seededAt": "2026-08-16T11:53:06.875Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015985,
+          "priorTick": 5015822,
+          "elapsed": 1600,
+          "uncertaintyTicks": 163
+        },
+        "3": {
+          "tick": 5028363,
+          "priorTick": 5028188,
+          "elapsed": 13978,
+          "uncertaintyTicks": 175
+        },
+        "4": {
+          "tick": 5046801,
+          "priorTick": 5046715,
+          "elapsed": 32416,
+          "uncertaintyTicks": 86
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E3S5 already contains 1 user-owned object(s): creep@16,0 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 54443,
+        "ext": 20,
+        "cap": 1300,
+        "spawns": 1,
+        "creeps": 21
+      }
+    },
+    {
+      "slot": "B8",
+      "band": "easy",
+      "side": "candidate",
+      "user": "pacifist",
+      "room": "E13S7",
+      "profile": {
+        "hardness": -0.975,
+        "srcStepsSum": 5,
+        "ctrlSteps": 10,
+        "anchorDt": 3,
+        "anchorSpace": 4,
+        "minSourceFree": 2,
+        "swampPct": 0.0846,
+        "openPct": 0.8416,
+        "terrainHash": "gudezo"
+      },
+      "seedTick": 5014434,
+      "seededAt": "2026-08-16T11:53:12.719Z",
+      "seedOk": true,
+      "milestones": {
+        "2": {
+          "tick": 5015523,
+          "priorTick": 5015361,
+          "elapsed": 1089,
+          "uncertaintyTicks": 162
+        },
+        "3": {
+          "tick": 5032819,
+          "priorTick": 5032674,
+          "elapsed": 18385,
+          "uncertaintyTicks": 145
+        },
+        "4": {
+          "tick": 5044503,
+          "priorTick": 5044360,
+          "elapsed": 30069,
+          "uncertaintyTicks": 143
+        }
+      },
+      "final": {
+        "reason": "reached-target",
+        "tick": 5053808,
+        "level": 4
+      },
+      "seedError": "ERROR: E13S7 already contains 1 user-owned object(s): creep@0,42 — refusing (not idempotent-safe)",
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 4,
+        "progress": 74197,
+        "ext": 20,
+        "cap": 1300,
+        "spawns": 1,
+        "creeps": 19
+      }
+    },
+    {
+      "slot": "B8",
+      "band": "easy",
+      "side": "control",
+      "user": "pacifist-race",
+      "room": "E21S4",
+      "profile": {
+        "hardness": -1.0991,
+        "srcStepsSum": 8,
+        "ctrlSteps": 9,
+        "anchorDt": 3,
+        "anchorSpace": 4,
+        "minSourceFree": 4,
+        "swampPct": 0.0118,
+        "openPct": 0.8103,
+        "terrainHash": "1cludjb"
+      },
+      "seedTick": 5013986,
+      "seededAt": "2026-08-16T11:52:24.433Z",
+      "seedOk": true,
+      "milestones": {},
+      "final": {
+        "reason": "censored",
+        "cause": "tick-budget",
+        "tick": 5053808,
+        "level": 0
+      },
+      "lastSeen": {
+        "tick": 5053808,
+        "level": 0,
+        "progress": 0,
+        "ext": 0,
+        "cap": 300,
+        "spawns": 0,
+        "creeps": 0
+      }
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-08-16T11:52:00.191Z",
+      "tick": 5013764,
+      "type": "seed",
+      "slot": "B1",
+      "side": "control",
+      "room": "E9S1",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:02.684Z",
+      "tick": 5013788,
+      "type": "seed",
+      "slot": "B1",
+      "side": "candidate",
+      "room": "E5S3",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:05.590Z",
+      "tick": 5013805,
+      "type": "seed",
+      "slot": "B2",
+      "side": "control",
+      "room": "E13S9",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:07.596Z",
+      "tick": 5013832,
+      "type": "seed",
+      "slot": "B2",
+      "side": "candidate",
+      "room": "E12S3",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:09.907Z",
+      "tick": 5013852,
+      "type": "seed",
+      "slot": "B3",
+      "side": "control",
+      "room": "E8S5",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:12.077Z",
+      "tick": 5013872,
+      "type": "seed",
+      "slot": "B3",
+      "side": "candidate",
+      "room": "E18S9",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:13.527Z",
+      "tick": 5013895,
+      "type": "seed-failed",
+      "slot": "B4",
+      "side": "control",
+      "room": "E8S3",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:14.667Z",
+      "tick": 5013905,
+      "type": "seed-failed",
+      "slot": "B4",
+      "side": "candidate",
+      "room": "E11S6",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:15.935Z",
+      "tick": 5013916,
+      "type": "seed-failed",
+      "slot": "B5",
+      "side": "control",
+      "room": "E4S7",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:17.433Z",
+      "tick": 5013928,
+      "type": "seed-failed",
+      "slot": "B5",
+      "side": "candidate",
+      "room": "E16S9",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:18.635Z",
+      "tick": 5013941,
+      "type": "seed-failed",
+      "slot": "B6",
+      "side": "control",
+      "room": "E6S1",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:19.774Z",
+      "tick": 5013952,
+      "type": "seed-failed",
+      "slot": "B6",
+      "side": "candidate",
+      "room": "E18S5",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:20.835Z",
+      "tick": 5013963,
+      "type": "seed-failed",
+      "slot": "B7",
+      "side": "control",
+      "room": "E3S5",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:22.164Z",
+      "tick": 5013973,
+      "type": "seed-failed",
+      "slot": "B7",
+      "side": "candidate",
+      "room": "E12S1",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:24.433Z",
+      "tick": 5013986,
+      "type": "seed",
+      "slot": "B8",
+      "side": "control",
+      "room": "E21S4",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:25.713Z",
+      "tick": 5014004,
+      "type": "seed-failed",
+      "slot": "B8",
+      "side": "candidate",
+      "room": "E13S7",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:51.959Z",
+      "tick": 5014249,
+      "type": "seed",
+      "slot": "B4",
+      "side": "control",
+      "room": "E8S3",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:54.146Z",
+      "tick": 5014276,
+      "type": "seed",
+      "slot": "B4",
+      "side": "candidate",
+      "room": "E11S6",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:52:56.552Z",
+      "tick": 5014295,
+      "type": "seed",
+      "slot": "B5",
+      "side": "control",
+      "room": "E4S7",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:52:59.509Z",
+      "tick": 5014312,
+      "type": "seed",
+      "slot": "B5",
+      "side": "candidate",
+      "room": "E16S9",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:53:02.026Z",
+      "tick": 5014338,
+      "type": "seed",
+      "slot": "B6",
+      "side": "control",
+      "room": "E6S1",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:53:04.177Z",
+      "tick": 5014362,
+      "type": "seed",
+      "slot": "B6",
+      "side": "candidate",
+      "room": "E18S5",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:53:06.875Z",
+      "tick": 5014385,
+      "type": "seed",
+      "slot": "B7",
+      "side": "control",
+      "room": "E3S5",
+      "user": "pacifist-race"
+    },
+    {
+      "at": "2026-08-16T11:53:10.015Z",
+      "tick": 5014407,
+      "type": "seed",
+      "slot": "B7",
+      "side": "candidate",
+      "room": "E12S1",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:53:12.719Z",
+      "tick": 5014434,
+      "type": "seed",
+      "slot": "B8",
+      "side": "candidate",
+      "room": "E13S7",
+      "user": "pacifist"
+    },
+    {
+      "at": "2026-08-16T11:54:42.833Z",
+      "tick": 5015523,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "candidate",
+      "room": "E16S9",
+      "level": 2,
+      "elapsed": 1211
+    },
+    {
+      "at": "2026-08-16T11:54:42.834Z",
+      "tick": 5015523,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "control",
+      "room": "E4S7",
+      "level": 2,
+      "elapsed": 1228
+    },
+    {
+      "at": "2026-08-16T11:54:42.834Z",
+      "tick": 5015523,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "candidate",
+      "room": "E18S5",
+      "level": 2,
+      "elapsed": 1161
+    },
+    {
+      "at": "2026-08-16T11:54:42.834Z",
+      "tick": 5015523,
+      "type": "rcl",
+      "slot": "B7",
+      "side": "candidate",
+      "room": "E12S1",
+      "level": 2,
+      "elapsed": 1116
+    },
+    {
+      "at": "2026-08-16T11:54:42.834Z",
+      "tick": 5015523,
+      "type": "rcl",
+      "slot": "B8",
+      "side": "candidate",
+      "room": "E13S7",
+      "level": 2,
+      "elapsed": 1089
+    },
+    {
+      "at": "2026-08-16T11:54:57.908Z",
+      "tick": 5015679,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "candidate",
+      "room": "E11S6",
+      "level": 2,
+      "elapsed": 1403
+    },
+    {
+      "at": "2026-08-16T11:54:57.908Z",
+      "tick": 5015679,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "control",
+      "room": "E6S1",
+      "level": 2,
+      "elapsed": 1341
+    },
+    {
+      "at": "2026-08-16T11:55:28.010Z",
+      "tick": 5015985,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "control",
+      "room": "E8S3",
+      "level": 2,
+      "elapsed": 1736
+    },
+    {
+      "at": "2026-08-16T11:55:28.011Z",
+      "tick": 5015985,
+      "type": "rcl",
+      "slot": "B7",
+      "side": "control",
+      "room": "E3S5",
+      "level": 2,
+      "elapsed": 1600
+    },
+    {
+      "at": "2026-08-16T12:12:47.133Z",
+      "tick": 5026532,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "candidate",
+      "room": "E16S9",
+      "level": 3,
+      "elapsed": 12220
+    },
+    {
+      "at": "2026-08-16T12:14:47.412Z",
+      "tick": 5028024,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "candidate",
+      "room": "E11S6",
+      "level": 3,
+      "elapsed": 13748
+    },
+    {
+      "at": "2026-08-16T12:14:47.412Z",
+      "tick": 5028024,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "control",
+      "room": "E4S7",
+      "level": 3,
+      "elapsed": 13729
+    },
+    {
+      "at": "2026-08-16T12:15:17.505Z",
+      "tick": 5028363,
+      "type": "rcl",
+      "slot": "B7",
+      "side": "control",
+      "room": "E3S5",
+      "level": 3,
+      "elapsed": 13978
+    },
+    {
+      "at": "2026-08-16T12:15:47.595Z",
+      "tick": 5028718,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "candidate",
+      "room": "E18S5",
+      "level": 3,
+      "elapsed": 14356
+    },
+    {
+      "at": "2026-08-16T12:16:17.677Z",
+      "tick": 5029062,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "control",
+      "room": "E8S3",
+      "level": 3,
+      "elapsed": 14813
+    },
+    {
+      "at": "2026-08-16T12:17:03.145Z",
+      "tick": 5029510,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "control",
+      "room": "E6S1",
+      "level": 3,
+      "elapsed": 15172
+    },
+    {
+      "at": "2026-08-16T12:23:09.129Z",
+      "tick": 5032819,
+      "type": "rcl",
+      "slot": "B8",
+      "side": "candidate",
+      "room": "E13S7",
+      "level": 3,
+      "elapsed": 18385
+    },
+    {
+      "at": "2026-08-16T12:32:56.075Z",
+      "tick": 5038118,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "control",
+      "room": "E4S7",
+      "level": 4,
+      "elapsed": 23823
+    },
+    {
+      "at": "2026-08-16T12:42:18.951Z",
+      "tick": 5042705,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "control",
+      "room": "E6S1",
+      "level": 4,
+      "elapsed": 28367
+    },
+    {
+      "at": "2026-08-16T12:42:49.036Z",
+      "tick": 5043014,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "candidate",
+      "room": "E11S6",
+      "level": 4,
+      "elapsed": 28738
+    },
+    {
+      "at": "2026-08-16T12:43:04.089Z",
+      "tick": 5043166,
+      "type": "rcl",
+      "slot": "B4",
+      "side": "control",
+      "room": "E8S3",
+      "level": 4,
+      "elapsed": 28917
+    },
+    {
+      "at": "2026-08-16T12:45:19.369Z",
+      "tick": 5044503,
+      "type": "rcl",
+      "slot": "B8",
+      "side": "candidate",
+      "room": "E13S7",
+      "level": 4,
+      "elapsed": 30069
+    },
+    {
+      "at": "2026-08-16T12:46:49.689Z",
+      "tick": 5045359,
+      "type": "rcl",
+      "slot": "B7",
+      "side": "candidate",
+      "room": "E12S1",
+      "level": 3,
+      "elapsed": 30952
+    },
+    {
+      "at": "2026-08-16T12:49:36.097Z",
+      "tick": 5046801,
+      "type": "rcl",
+      "slot": "B7",
+      "side": "control",
+      "room": "E3S5",
+      "level": 4,
+      "elapsed": 32416
+    },
+    {
+      "at": "2026-08-16T12:51:06.439Z",
+      "tick": 5047498,
+      "type": "rcl",
+      "slot": "B6",
+      "side": "candidate",
+      "room": "E18S5",
+      "level": 4,
+      "elapsed": 33136
+    },
+    {
+      "at": "2026-08-16T12:59:22.071Z",
+      "tick": 5050864,
+      "type": "rcl",
+      "slot": "B5",
+      "side": "candidate",
+      "room": "E16S9",
+      "level": 4,
+      "elapsed": 36552
+    },
+    {
+      "at": "2026-08-16T13:05:53.958Z",
+      "tick": 5053808,
+      "type": "watch-end",
+      "reason": "tick-budget"
+    }
+  ],
+  "watch": {
+    "polls": 287,
+    "startedAt": "2026-08-16T11:53:27.525Z",
+    "endedAt": "2026-08-16T13:05:53.958Z",
+    "exitReason": "tick-budget",
+    "lastTick": 5053808,
+    "maxPollLagTicks": 205
+  }
+}

@@ -1,0 +1,397 @@
+{
+  "md5": "c2e6039a7ac5816c1c6c40161685354a",
+  "md5Ok": true,
+  "rooms": 172,
+  "missingTerrain": [],
+  "sample": [
+    {
+      "room": "E18S7",
+      "h": 778406
+    },
+    {
+      "room": "E6S2",
+      "h": 54698231
+    },
+    {
+      "room": "E6S3",
+      "h": 113713646
+    },
+    {
+      "room": "E21S3",
+      "h": 148954485
+    },
+    {
+      "room": "E14S7",
+      "h": 181070856
+    }
+  ],
+  "physicals": {
+    "extensions": 10320,
+    "extShort": [],
+    "roads": 14100,
+    "roadsMedian": 81,
+    "roadsMin": 53,
+    "roadsMax": 124,
+    "ramparts": 8208,
+    "containers": 688,
+    "links": 688,
+    "towers": 1032,
+    "labs": 1720,
+    "spawns": 516,
+    "extractors": 172,
+    "storage": 172,
+    "terminal": 172,
+    "nuker": 172,
+    "observer": 172,
+    "factory": 0,
+    "powerSpawn": 0,
+    "declarations": 300,
+    "notes": 236,
+    "noteRecords": 236
+  },
+  "legality": {
+    "leaks": 0,
+    "leakRooms": [],
+    "extractorOutsideBare": 0,
+    "shallowEcoBare": 0,
+    "extNoD4Road": 0,
+    "stackIllegal": 0,
+    "onObject": 0,
+    "borderIllegal": 0
+  },
+  "roadRampart": {
+    "total": 274,
+    "crossing": 231,
+    "seat": 30,
+    "ring": 13,
+    "cover": 0,
+    "unclassified": 0,
+    "rooms": 153,
+    "median": 2,
+    "max": 5
+  },
+  "roadKind": {
+    "spur": 370,
+    "swampPave": 82,
+    "reflow": 21,
+    "stitch": 4,
+    "alongCutMoved": 11,
+    "conductBridge": 3
+  },
+  "clumpHist": {
+    "0": 12,
+    "1": 14,
+    "2": 53,
+    "3": 60,
+    "4": 30,
+    "5": 3,
+    "other": 0
+  },
+  "cutAtFreeze": {
+    "tiles": 7246,
+    "loose": 0,
+    "looseRooms": [],
+    "sealFail": [],
+    "differRooms": 29,
+    "adds": 34,
+    "removes": 46,
+    "adoptRooms": 27,
+    "driftRooms": 29
+  },
+  "mineralWhy": {
+    "n": 172,
+    "exactOfficial": 172,
+    "lieRooms": []
+  },
+  "seed": {
+    "hasSeed": 0,
+    "noSeed": 172,
+    "missingN": 172,
+    "missing": [
+      "E11S1",
+      "E11S2",
+      "E11S3",
+      "E11S4",
+      "E11S5",
+      "E11S6",
+      "E11S7",
+      "E11S8",
+      "E11S9",
+      "E12S1",
+      "E12S2",
+      "E12S3",
+      "E12S4",
+      "E12S5",
+      "E12S6",
+      "E12S7",
+      "E12S8",
+      "E12S9",
+      "E13S1",
+      "E13S2",
+      "E13S3",
+      "E13S4",
+      "E13S5",
+      "E13S6",
+      "E13S7",
+      "E13S8",
+      "E13S9",
+      "E14S1",
+      "E14S2",
+      "E14S3",
+      "E14S4",
+      "E14S5",
+      "E14S6",
+      "E14S7",
+      "E14S8",
+      "E14S9",
+      "E15S1",
+      "E15S2",
+      "E15S3",
+      "E15S4",
+      "E15S5",
+      "E15S6",
+      "E15S7",
+      "E15S8",
+      "E15S9",
+      "E16S1",
+      "E16S2",
+      "E16S3",
+      "E16S4",
+      "E16S5",
+      "E16S6",
+      "E16S7",
+      "E16S8",
+      "E16S9",
+      "E17S1",
+      "E17S2",
+      "E17S3",
+      "E17S4",
+      "E17S5",
+      "E17S6",
+      "E17S7",
+      "E17S8",
+      "E17S9",
+      "E18S1",
+      "E18S2",
+      "E18S3",
+      "E18S4",
+      "E18S5",
+      "E18S6",
+      "E18S7",
+      "E18S8",
+      "E18S9",
+      "E19S1",
+      "E19S2",
+      "E19S3",
+      "E19S4",
+      "E19S5",
+      "E19S6",
+      "E19S7",
+      "E19S8",
+      "E19S9",
+      "E1S1",
+      "E1S2",
+      "E1S3",
+      "E1S4",
+      "E1S5",
+      "E1S6",
+      "E1S7",
+      "E1S8",
+      "E1S9",
+      "E21S1",
+      "E21S2",
+      "E21S3",
+      "E21S4",
+      "E21S5",
+      "E21S6",
+      "E21S7",
+      "E21S8",
+      "E21S9",
+      "E2S1",
+      "E2S2",
+      "E2S3",
+      "E2S4",
+      "E2S5",
+      "E2S6",
+      "E2S7",
+      "E2S8",
+      "E2S9",
+      "E3S1",
+      "E3S2",
+      "E3S3",
+      "E3S4",
+      "E3S5",
+      "E3S6",
+      "E3S7",
+      "E3S8",
+      "E3S9",
+      "E4S1",
+      "E4S2",
+      "E4S3",
+      "E4S4",
+      "E4S5",
+      "E4S6",
+      "E4S7",
+      "E4S8",
+      "E4S9",
+      "E5S1",
+      "E5S2",
+      "E5S3",
+      "E5S4",
+      "E5S5",
+      "E5S6",
+      "E5S7",
+      "E5S8",
+      "E5S9",
+      "E6S1",
+      "E6S2",
+      "E6S3",
+      "E6S4",
+      "E6S5",
+      "E6S6",
+      "E6S7",
+      "E6S8",
+      "E6S9",
+      "E7S1",
+      "E7S2",
+      "E7S3",
+      "E7S4",
+      "E7S5",
+      "E7S6",
+      "E7S7",
+      "E7S8",
+      "E7S9",
+      "E8S1",
+      "E8S2",
+      "E8S3",
+      "E8S4",
+      "E8S5",
+      "E8S6",
+      "E8S7",
+      "E8S8",
+      "E8S9",
+      "E9S1",
+      "E9S2",
+      "E9S3",
+      "E9S4",
+      "E9S5",
+      "E9S6",
+      "E9S7",
+      "E9S8",
+      "E9S9",
+      "W0S5"
+    ],
+    "fields": {
+      "seedScore": 172,
+      "seedSkip": 172,
+      "seedPool": 172
+    }
+  },
+  "fullRun": {
+    "n": 172,
+    "ran": 17,
+    "shrunk": 7,
+    "dropped": 9,
+    "plain": 156
+  },
+  "ladders": {
+    "n": 57,
+    "withEsc": 54,
+    "withCut": 57,
+    "noCut": 0
+  },
+  "taken": [
+    {
+      "room": "E11S7",
+      "fixed": 0,
+      "recovers": []
+    },
+    {
+      "room": "E15S6",
+      "fixed": 4,
+      "recovers": [
+        "lab@34,31=2/2",
+        "lab@35,31=2/2",
+        "lab@33,29=1/1",
+        "lab@33,30=1/1"
+      ]
+    },
+    {
+      "room": "E18S3",
+      "fixed": 1,
+      "recovers": [
+        "tower@17,40=4/4"
+      ]
+    },
+    {
+      "room": "E19S2",
+      "fixed": 5,
+      "recovers": [
+        "nuker@28,31=7/7",
+        "tower@28,32=7/7",
+        "lab@25,27=1/1",
+        "lab@26,27=1/1",
+        "lab@26,28=1/1"
+      ]
+    },
+    {
+      "room": "E2S1",
+      "fixed": 0,
+      "recovers": []
+    },
+    {
+      "room": "E4S6",
+      "fixed": 4,
+      "recovers": [
+        "tower@9,18=1/1",
+        "tower@11,16=1/1",
+        "spawn@11,17=1/1",
+        "tower@11,18=1/1"
+      ]
+    },
+    {
+      "room": "E5S5",
+      "fixed": 0,
+      "recovers": []
+    },
+    {
+      "room": "E7S2",
+      "fixed": 0,
+      "recovers": []
+    },
+    {
+      "room": "E7S5",
+      "fixed": 3,
+      "recovers": [
+        "lab@15,11=1/1",
+        "lab@15,12=1/1",
+        "lab@16,12=1/1"
+      ]
+    },
+    {
+      "room": "E8S2",
+      "fixed": 4,
+      "recovers": [
+        "lab@37,23=5/5",
+        "lab@37,24=5/5",
+        "lab@38,24=5/5",
+        "lab@38,25=5/5"
+      ]
+    },
+    {
+      "room": "E9S1",
+      "fixed": 0,
+      "recovers": []
+    },
+    {
+      "room": "E9S9",
+      "fixed": 4,
+      "recovers": [
+        "lab@33,15=7/7",
+        "lab@34,15=7/7",
+        "tower@35,19=7/7",
+        "spawn@35,20=7/7"
+      ]
+    }
+  ]
+}

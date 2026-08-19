@@ -25,6 +25,7 @@
  * whole bot.
  */
 import { logAlways } from "utils/Logger";
+import { requestSegments } from "utils/Segments";
 
 const INDEX_SEGMENT = 89;
 /** Steps stay on screen this long after the last one lands. */
@@ -166,9 +167,11 @@ function stop(reason?: string): void {
   if (reason) logAlways(`animPlan: ${reason}`);
 }
 
-/** Segments requested this tick only become readable next tick. */
+/** Segments requested this tick only become readable next tick.
+ *  Goes through utils/Segments so the request UNIONS with adoption (88), the
+ *  error segment (10) and AutoExpand's pack segments instead of replacing them. */
 function request(segments: number[]): void {
-  RawMemory.setActiveSegments(segments.slice(0, 10));
+  requestSegments(segments);
 }
 
 function readIndex(s: PlanAnimState): boolean {
@@ -411,6 +414,12 @@ export function animPlan(roomName: string, speed: number = 1, loop: boolean = tr
     h.room = undefined;
     h.data = undefined;
   }
+  // Deliberate HARD REPLACE, not requestSegments(): arming the animator needs a
+  // clean slate, because playback then wants 89 plus up to 10 data segments and
+  // the engine cap is 10 active total. Unioning here would let unrelated
+  // long-lived readers (error 10, intel 30, expansion 86) crowd the animation
+  // out. Operator-triggered and one tick only; War/intel tolerates the eviction
+  // and recovers its slot on the next tick.
   RawMemory.setActiveSegments([INDEX_SEGMENT]);
   const msg = `animPlan ${roomName} armed (speed ${Memory.planAnim.speed}, loop ${
     Memory.planAnim.loop ? "on" : "off"

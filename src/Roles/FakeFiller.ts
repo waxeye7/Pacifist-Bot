@@ -73,8 +73,14 @@ const run = function (creep) {
 
         if(lock) {
             if(creep.pos.isNearTo(lock)) {
-                creep.transfer(lock, RESOURCE_ENERGY)
-
+                creep.transfer(lock, RESOURCE_ENERGY);
+                // store[] is still the pre-intent snapshot, so wait-until-empty
+                // never saw 0 this tick. Flip and walk now.
+                creep.memory.full = false;
+                creep.memory.role = "carry";
+                if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+                    creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+                }
             }
             else {
                 creep.MoveCostMatrixRoadPrio(lock, 1);
@@ -88,6 +94,11 @@ const run = function (creep) {
             if(storage && storage.store.getFreeCapacity() == 0)  {
                 if(creep.pos.isNearTo(storage)) {
                     creep.drop(RESOURCE_ENERGY);
+                    creep.memory.full = false;
+                    creep.memory.role = "carry";
+                    if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+                        creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+                    }
                 }
                 else {
                     creep.MoveCostMatrixRoadPrio(storage, 1)

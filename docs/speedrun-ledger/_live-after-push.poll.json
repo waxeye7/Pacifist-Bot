@@ -1,0 +1,1154 @@
+{
+  "polled": "2026-08-16T04:06:20.753Z",
+  "dest": "main",
+  "host": "https://screeps.com:443",
+  "shard": "shard3",
+  "time1": {
+    "ok": 1,
+    "time": 82281155
+  },
+  "me": {
+    "status": 200,
+    "ok": 1,
+    "_id": "62f89e0d84c31c184db79629",
+    "username": "PacifistBot",
+    "gcl": 356572430,
+    "cpu": 20,
+    "cpuShard": {
+      "shard3": 20
+    },
+    "money": 762255.1800000925,
+    "credits": 0
+  },
+  "userRooms": {
+    "ok": 1,
+    "shards": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [
+        "E37N59",
+        "E37N58",
+        "E36N57",
+        "E35N59",
+        "E36N58",
+        "E37N57",
+        "E39N58"
+      ],
+      "shardX": []
+    },
+    "reservations": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [],
+      "shardX": []
+    }
+  },
+  "branches": {
+    "ok": 1,
+    "list": [
+      {
+        "_id": "633636eeb8805ccb56276dfb",
+        "branch": "The_One_To_Never_Delete",
+        "activeSim": false,
+        "activeWorld": false
+      },
+      {
+        "_id": "63f2d2919531d8adb2463833",
+        "branch": "main",
+        "activeWorld": true,
+        "activeSim": false
+      },
+      {
+        "_id": "63f2d5ec0a409850ed3e3c58",
+        "branch": "default",
+        "activeWorld": false,
+        "activeSim": false
+      },
+      {
+        "_id": "62fc029eb8805ccb56d1fcb3",
+        "branch": "tutorial-1",
+        "activeSim": true,
+        "activeWorld": false
+      }
+    ]
+  },
+  "code": {
+    "status": 200,
+    "ok": 1,
+    "branch": "main",
+    "moduleBytes": 2027232,
+    "sha256": "554fa2074947fe9ded8312f29944529ed9373803cfa756ac03dd6e6d2cb2fd29",
+    "needles": {
+      "maybeSpawnColonyBuilder": true,
+      "finishableSpawnSiteRoom": true,
+      "roomLooksSpawnlessOwned": true,
+      "CLAIMED_SPAWNLESS": true,
+      "spawnlessOwned": true,
+      "isShellNaked": true,
+      "nakedShell": true,
+      "Do not prefer target_colonise": false,
+      "Never trust target_colonise": true,
+      "E35N59 Enrique": true
+    }
+  },
+  "memoryStatus": 200,
+  "memoryOk": 1,
+  "memory": {
+    "target_colonise": {},
+    "features": {
+      "disablePower": true,
+      "speedrun": true,
+      "dynamicLayout": true,
+      "placeFromPlan": false,
+      "minCutWalls": true,
+      "squareWalls": false,
+      "pickupLock": true,
+      "sourceMaps": false
+    },
+    "CanClaimRemote": 5,
+    "packAdopt": {
+      "room": "E37N57",
+      "since": 82281150,
+      "scan": 2
+    },
+    "CPU": {
+      "hundredTickAvg": {
+        "data": [
+          "11.54",
+          "11.13",
+          "10.97",
+          "11.64",
+          "17.51",
+          "12.73",
+          "12.86",
+          "12.33",
+          "13.47",
+          "12.02",
+          "12.86",
+          "15.84",
+          "12.41",
+          "12.93",
+          "11.29",
+          "14.41",
+          "13.78",
+          "12.68",
+          "14.34",
+          "15.06",
+          "12.37",
+          "11.83",
+          "12.66",
+          "10.95",
+          "14.75",
+          "11.21",
+          "12.74",
+          "11.94",
+          "12.47",
+          "12.47",
+          "12.51",
+          "15.11",
+          "11.53",
+          "10.91",
+          "13.80",
+          "12.29",
+          "11.32",
+          "14.14",
+          "13.37",
+          "13.79",
+          "11.37",
+          "11.08",
+          "10.85",
+          "12.55",
+          "14.32",
+          "11.21",
+          "11.82",
+          "10.63",
+          "11.71",
+          "15.68",
+          "14.99",
+          "15.79",
+          "12.60",
+          "14.27",
+          "13.39",
+          "13.70"
+        ],
+        "avg": 11.9327
+      },
+      "fiveHundredTickAvg": {
+        "data": [
+          11.9327
+        ],
+        "avg": 12.580020000000001
+      },
+      "reduce": false,
+      "lastTick": "13.70",
+      "limit": 20,
+      "bucket": 10000
+    },
+    "verbose": false
+  },
+  "cbAndClaimers": [
+    {
+      "name": "ContainerBuilder-15196730-E37N59",
+      "role": "buildcontainer",
+      "targetRoom": "E36N58",
+      "homeRoom": "E37N59",
+      "fill": false
+    },
+    {
+      "name": "ContainerBuilder-15211547-E37N59",
+      "role": "buildcontainer",
+      "targetRoom": "E37N57",
+      "homeRoom": "E37N59",
+      "fill": false
+    },
+    {
+      "name": "ContainerBuilder-62420685-E37N59",
+      "role": "buildcontainer",
+      "targetRoom": "E37N57",
+      "homeRoom": "E37N59",
+      "fill": false
+    }
+  ],
+  "creepCount": 46,
+  "roomMem": {
+    "E36N58": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82278357,
+      "speedrun": {
+        "active": true,
+        "rcl": 2,
+        "rclTimes": {
+          "1": 82263208,
+          "2": 82280370
+        },
+        "lastRcl": 2,
+        "startTick": 82263208
+      },
+      "Structures": {
+        "spawn": "6a812873fd880befd41b3a47",
+        "towers": []
+      }
+    },
+    "E37N57": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82278139,
+      "speedrun": {
+        "active": true,
+        "rcl": 1,
+        "rclTimes": {
+          "1": 82262999
+        },
+        "lastRcl": 1,
+        "startTick": 82262999
+      },
+      "Structures": {
+        "towers": []
+      }
+    },
+    "E36N57": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82279732,
+      "speedrun": {
+        "active": true,
+        "rcl": 3,
+        "rclTimes": {
+          "1": 82240379,
+          "2": 82250791,
+          "3": 82267108
+        },
+        "lastRcl": 3,
+        "startTick": 82240379
+      },
+      "Structures": {
+        "spawn": "6a7f7ae6a88d21048ad514e6",
+        "storage": "6a7fc301e5d415448d31932d",
+        "towers": [
+          "6a8077f9f3d07d285ab7ff95"
+        ]
+      }
+    },
+    "E35N59": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82279007,
+      "speedrun": {
+        "active": true,
+        "rcl": 2,
+        "rclTimes": {
+          "1": 82272935,
+          "2": 82273534
+        },
+        "lastRcl": 2,
+        "startTick": 82272935
+      },
+      "Structures": {
+        "towers": []
+      }
+    },
+    "E39N58": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82278707,
+      "speedrun": {
+        "active": true,
+        "rcl": 1,
+        "rclTimes": {
+          "1": 82251460,
+          "2": 82251952
+        },
+        "lastRcl": 1,
+        "startTick": 82251460
+      },
+      "Structures": {
+        "towers": []
+      }
+    },
+    "E37N59": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": {
+        "v": 1
+      },
+      "planPackMiss": 82248282,
+      "speedrun": {
+        "active": true,
+        "rcl": 4,
+        "rclTimes": {
+          "2": 81885252,
+          "3": 81902882,
+          "4": 81944083,
+          "5": 82015354,
+          "6": 82143253
+        },
+        "lastRcl": 6,
+        "startTick": 81885252
+      },
+      "Structures": {
+        "spawn": "6a6a9fe4a61dc0001206b9ac",
+        "storage": "6a6e8451fec09b54349aa6d3",
+        "towers": [
+          "6a7f7048a02e0732aeb9222e",
+          "6a7f7fadb6c5fa475425dbe8"
+        ]
+      }
+    },
+    "E37N58": {
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "planV2": null,
+      "planPackMiss": 82280239,
+      "speedrun": {
+        "active": true,
+        "rcl": 4,
+        "rclTimes": {
+          "1": 82237862,
+          "2": 82239321,
+          "3": 82251006,
+          "4": 82262510
+        },
+        "lastRcl": 4,
+        "startTick": 82237862
+      },
+      "Structures": {
+        "spawn": "6a7ed7494b120edfebbf0dc6",
+        "storage": "6a80ce14f57d27e1790c665d",
+        "towers": [
+          "6a7f9278aebed645a87d8d9d"
+        ]
+      }
+    },
+    "E36N59": {
+      "planV2": null,
+      "Structures": null
+    }
+  },
+  "droppedStillInMem": [
+    "E36N59"
+  ],
+  "time2": {
+    "ok": 1,
+    "time": 82281157
+  },
+  "rooms": {
+    "E36N58": {
+      "name": "E36N58",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 2,
+      "progress": 2428,
+      "downgradeTime": 82291156,
+      "dg": 9999,
+      "safeMode": null,
+      "safeModeAvailable": 1,
+      "safeModeCooldown": null,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn3",
+          "x": 42,
+          "y": 6,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 279,
+          "spawning": {
+            "name": "Builder-22659416-E36N58",
+            "needTime": 12,
+            "spawnTime": 82281163
+          }
+        }
+      ],
+      "mySites": 6,
+      "foreignSites": 0,
+      "siteTypes": {
+        "extension": [
+          {
+            "x": 38,
+            "y": 2,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 38,
+            "y": 4,
+            "p": 160,
+            "tot": 3000
+          },
+          {
+            "x": 40,
+            "y": 2,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 42,
+            "y": 2,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 42,
+            "y": 8,
+            "p": 40,
+            "tot": 3000
+          }
+        ],
+        "container": [
+          {
+            "x": 42,
+            "y": 4,
+            "p": 40,
+            "tot": 5000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 9,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "ContainerBuilder-15196730-E37N59",
+        "Carrier-73837062-E36N58",
+        "Upgrader-111361-E36N58",
+        "Upgrader-8399671-E36N58",
+        "Upgrader-82055624-E36N58",
+        "Upgrader-24248306-E36N58",
+        "EnergyMiner-62600150-E36N58",
+        "Builder-26897509-E36N58",
+        "Builder-22659416-E36N58"
+      ],
+      "roles": {
+        "ContainerBuilder": 1,
+        "Carrier": 1,
+        "Upgrader": 4,
+        "EnergyMiner": 1,
+        "Builder": 2
+      },
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 1,
+      "hostiles": []
+    },
+    "E37N57": {
+      "name": "E37N57",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 1,
+      "progress": 0,
+      "progressTotal": 0,
+      "downgradeTime": 82282999,
+      "dg": 1842,
+      "safeMode": null,
+      "safeModeAvailable": 0,
+      "safeModeCooldown": null,
+      "reservation": null,
+      "spawnCount": 0,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 1,
+      "foreignSites": 0,
+      "siteTypes": {
+        "spawn": [
+          {
+            "name": "Spawn6",
+            "x": 26,
+            "y": 29,
+            "p": 4400,
+            "tot": 15000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 2,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "ContainerBuilder-15211547-E37N59",
+        "ContainerBuilder-62420685-E37N59"
+      ],
+      "roles": {
+        "ContainerBuilder": 2
+      },
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 0,
+      "hostiles": []
+    },
+    "E36N57": {
+      "name": "E36N57",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 3,
+      "progress": 125188,
+      "downgradeTime": 82301157,
+      "dg": 20000,
+      "safeMode": 82270833,
+      "safeModeAvailable": 1,
+      "safeModeCooldown": 82300833,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn5",
+          "x": 21,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 7,
+      "foreignSites": 0,
+      "siteTypes": {
+        "road": [
+          {
+            "x": 15,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 15,
+            "y": 21,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 21,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 17,
+            "y": 19,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 17,
+            "y": 21,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 16,
+            "y": 18,
+            "p": 0,
+            "tot": 300
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 16,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Upgrader-45715780-E36N57",
+        "Repair-63066474-E36N57",
+        "Upgrader-66507681-E36N57",
+        "Upgrader-62166032-E36N57",
+        "Carrier-64075878-E36N57",
+        "Carrier-79792758-E36N57",
+        "Carrier-15845804-E36N57",
+        "Carrier-56956523-E36N57",
+        "Carrier-48823755-E36N57",
+        "Upgrader-44471104-E36N57",
+        "Carrier-75645526-E36N57",
+        "EnergyMiner-3496600-E36N57",
+        "Carrier-16335660-E36N57",
+        "Carrier-37467340-E36N57",
+        "EnergyMiner-62912147-E36N57",
+        "filler-78753068-E36N57"
+      ],
+      "roles": {
+        "Upgrader": 4,
+        "Repair": 1,
+        "Carrier": 8,
+        "EnergyMiner": 2,
+        "filler": 1
+      },
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 10,
+      "extE": 500,
+      "towers": 1,
+      "towerE": [
+        1000
+      ],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 5,
+      "hostiles": []
+    },
+    "E35N59": {
+      "name": "E35N59",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 2,
+      "progress": 1000,
+      "progressTotal": 0,
+      "downgradeTime": 82288313,
+      "dg": 7156,
+      "safeMode": null,
+      "safeModeAvailable": 1,
+      "safeModeCooldown": null,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 1,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 25,
+          "y": 10,
+          "user": "68da3f7d7b34b70012d9c41e",
+          "mine": false,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 0,
+      "foreignSites": 0,
+      "siteTypes": {},
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 532,
+      "containers": 0,
+      "hostiles": []
+    },
+    "E39N58": {
+      "name": "E39N58",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 1,
+      "progress": 2460,
+      "progressTotal": 0,
+      "downgradeTime": 82290950,
+      "dg": 9793,
+      "safeMode": null,
+      "safeModeAvailable": 0,
+      "safeModeCooldown": 82330948,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 1,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 32,
+          "y": 17,
+          "user": "68662bcb27d90f00122a8c7a",
+          "mine": false,
+          "energy": 250,
+          "spawning": null
+        }
+      ],
+      "mySites": 0,
+      "foreignSites": 16,
+      "siteTypes": {},
+      "foreignSiteTypes": {
+        "extension": 5,
+        "road": 11
+      },
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 0,
+      "hostiles": []
+    },
+    "E37N59": {
+      "name": "E37N59",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 6,
+      "progress": 236886,
+      "progressTotal": 0,
+      "downgradeTime": 82401111,
+      "dg": 119954,
+      "safeMode": 81901441,
+      "safeModeAvailable": 5,
+      "safeModeCooldown": null,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn1",
+          "x": 21,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": null
+        }
+      ],
+      "mySites": 3,
+      "foreignSites": 0,
+      "siteTypes": {
+        "extension": [
+          {
+            "x": 29,
+            "y": 25,
+            "p": 500,
+            "tot": 3000
+          },
+          {
+            "x": 43,
+            "y": 33,
+            "p": 0,
+            "tot": 3000
+          },
+          {
+            "x": 36,
+            "y": 37,
+            "p": 0,
+            "tot": 3000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 10,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Builder-47016263-E37N59",
+        "filler-18315789-E37N59",
+        "Filler-19650388-E37N59",
+        "EnergyManager-62594218-E37N59",
+        "Builder-37883998-E37N59",
+        "Upgrader-45871334-E37N59",
+        "Sweeper-69988265-E37N59",
+        "Builder-4241302-E37N59",
+        "EnergyMiner-29661615-E37N59",
+        "EnergyMiner-57002976-E37N59"
+      ],
+      "roles": {
+        "Builder": 3,
+        "filler": 1,
+        "Filler": 1,
+        "EnergyManager": 1,
+        "Upgrader": 1,
+        "Sweeper": 1,
+        "EnergyMiner": 2
+      },
+      "storageE": 29887,
+      "storageExists": true,
+      "storageMine": true,
+      "terminalE": 200,
+      "ext": 37,
+      "extE": 1500,
+      "towers": 2,
+      "towerE": [
+        190,
+        360
+      ],
+      "roads": 120,
+      "ramparts": 77,
+      "walls": 0,
+      "containers": 4,
+      "hostiles": []
+    },
+    "E37N58": {
+      "name": "E37N58",
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 4,
+      "progress": 122836,
+      "progressTotal": 0,
+      "downgradeTime": 82321157,
+      "dg": 40000,
+      "safeMode": null,
+      "safeModeAvailable": 3,
+      "safeModeCooldown": 79924442,
+      "reservation": null,
+      "spawnCount": 1,
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn4",
+          "x": 24,
+          "y": 15,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "energy": 300,
+          "spawning": {
+            "name": "Sweeper-46036942-E37N58",
+            "needTime": 18,
+            "spawnTime": 82281171
+          }
+        }
+      ],
+      "mySites": 6,
+      "foreignSites": 0,
+      "siteTypes": {
+        "road": [
+          {
+            "x": 33,
+            "y": 8,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 34,
+            "y": 7,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 35,
+            "y": 6,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 36,
+            "y": 5,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 25,
+            "y": 12,
+            "p": 0,
+            "tot": 300
+          },
+          {
+            "x": 23,
+            "y": 14,
+            "p": 0,
+            "tot": 300
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 9,
+      "foreignCreeps": 0,
+      "creepNames": [
+        "Upgrader-27473007-E37N58",
+        "EnergyMiner-20068148-E37N58",
+        "filler-15184079-E37N58",
+        "Filler-51568979-E37N58",
+        "Carrier-55719470-E37N58",
+        "Carrier-48289145-E37N58",
+        "RampartErector-1181749-E37N58",
+        "EnergyMiner-15122562-E37N58",
+        "Sweeper-46036942-E37N58"
+      ],
+      "roles": {
+        "Upgrader": 1,
+        "EnergyMiner": 2,
+        "filler": 1,
+        "Filler": 1,
+        "Carrier": 2,
+        "RampartErector": 1,
+        "Sweeper": 1
+      },
+      "storageE": 3822,
+      "storageExists": true,
+      "storageMine": true,
+      "terminalE": null,
+      "ext": 20,
+      "extE": 1000,
+      "towers": 1,
+      "towerE": [
+        990
+      ],
+      "roads": 34,
+      "ramparts": 17,
+      "walls": 0,
+      "containers": 5,
+      "hostiles": []
+    },
+    "E36N59": {
+      "name": "E36N59",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "progressTotal": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "safeModeAvailable": 0,
+      "safeModeCooldown": 82327033,
+      "reservation": null,
+      "spawnCount": 0,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 1,
+      "foreignSites": 0,
+      "siteTypes": {
+        "spawn": [
+          {
+            "name": "Spawn2",
+            "x": 19,
+            "y": 7,
+            "p": 3500,
+            "tot": 15000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 0,
+      "hostiles": []
+    },
+    "E38N59": {
+      "name": "E38N59",
+      "ownerId": null,
+      "ownerName": null,
+      "mine": false,
+      "rcl": 0,
+      "progress": 0,
+      "downgradeTime": null,
+      "dg": null,
+      "safeMode": null,
+      "safeModeAvailable": 0,
+      "safeModeCooldown": 82327563,
+      "reservation": null,
+      "spawnCount": 0,
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 1,
+      "foreignSites": 0,
+      "siteTypes": {
+        "spawn": [
+          {
+            "name": "Spawn7",
+            "x": 20,
+            "y": 20,
+            "p": 0,
+            "tot": 15000
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "creeps": 0,
+      "foreignCreeps": 0,
+      "creepNames": [],
+      "roles": {},
+      "storageE": null,
+      "storageExists": false,
+      "storageMine": false,
+      "terminalE": null,
+      "ext": 0,
+      "extE": 0,
+      "towers": 0,
+      "towerE": [],
+      "roads": 0,
+      "ramparts": 0,
+      "walls": 0,
+      "containers": 0,
+      "hostiles": []
+    }
+  },
+  "seg86": {
+    "status": 200,
+    "ok": 1,
+    "targets": [
+      {
+        "room": "E37N58",
+        "score": 107,
+        "spawnPos": {
+          "x": 24,
+          "y": 15
+        }
+      },
+      {
+        "room": "E36N57",
+        "score": 103,
+        "spawnPos": {
+          "x": 21,
+          "y": 27
+        }
+      },
+      {
+        "room": "E39N58",
+        "score": 85,
+        "spawnPos": {
+          "x": 23,
+          "y": 27
+        }
+      },
+      {
+        "room": "E35N59",
+        "score": 83,
+        "spawnPos": {
+          "x": 28,
+          "y": 20
+        }
+      },
+      {
+        "room": "E38N56",
+        "score": 74,
+        "spawnPos": {
+          "x": 39,
+          "y": 26
+        }
+      },
+      {
+        "room": "E34N57",
+        "score": 73,
+        "spawnPos": {
+          "x": 21,
+          "y": 26
+        }
+      },
+      {
+        "room": "E39N56",
+        "score": 47,
+        "spawnPos": {
+          "x": 26,
+          "y": 37
+        }
+      }
+    ]
+  }
+}

@@ -25,6 +25,9 @@ screeps.json
 /tools/plan-suite/out/
 /tools/plan-suite/out-v2/
 
+# Generated speedrun film (rebuilt by tools/server/race-dash.mjs)
+/docs/speedrun-ledger/dashboard/
+
 # Numerous always-ignore extensions
 *.diff
 *.err
@@ -96,3 +99,6 @@ $RECYCLE.BIN/
 *.lnk
 tools/plan-suite/package/
 tools/plan-suite/*.tgz
+
+# Syncthing marker
+.stfolder/

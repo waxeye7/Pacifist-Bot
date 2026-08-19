@@ -1,0 +1,5 @@
+feat(planner): round-29 tenth pass - drop the unread reserved suffix
+
+Criticism 98 residue: a D8 neighbor of the kept prefix (E11S1 19,27) still invented a longer walk. Shrink fullRun.reserved is now the kept prefix, not the refused tail. Appending a real floor tile bites. Discarded complete cuts that leak the sitter bite.
+
+0 structure boards. Artifact md5 8e5d6725885bd3f3731379bedf408326. validate 172/172. mutate 1311/1311. numeral-audit 0 WRONG.

@@ -1,0 +1,2153 @@
+{
+  "polled": "2026-08-16T10:05:34.281Z",
+  "dest": "main",
+  "host": "https://screeps.com:443",
+  "shard": "shard3",
+  "time1": {
+    "ok": 1,
+    "time": 82287050
+  },
+  "me": {
+    "status": 200,
+    "ok": 1,
+    "_id": "62f89e0d84c31c184db79629",
+    "username": "PacifistBot",
+    "gcl": 356659959,
+    "cpu": 20
+  },
+  "userRooms": {
+    "ok": 1,
+    "shards": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [
+        "E37N59",
+        "E36N57",
+        "E37N58",
+        "E35N59",
+        "E37N57",
+        "E39N58"
+      ],
+      "shardX": []
+    },
+    "reservations": {
+      "shard0": [],
+      "shard1": [],
+      "shard2": [],
+      "shard3": [],
+      "shardX": []
+    }
+  },
+  "memory": {
+    "autoExpand": null,
+    "target_colonise": {}
+  },
+  "cbAndClaimers": [
+    {
+      "name": "ContainerBuilder-6146803-E37N59",
+      "role": "buildcontainer",
+      "targetRoom": "E39N58",
+      "homeRoom": "E37N59",
+      "fill": false,
+      "building": true
+    }
+  ],
+  "rooms": {
+    "E36N57": {
+      "name": "E36N57",
+      "n": 65,
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 4,
+      "progress": 5404,
+      "downgradeTime": 82327052,
+      "dg": 39999,
+      "safeMode": 82270833,
+      "sma": 2,
+      "ctrl": {
+        "x": 36,
+        "y": 24,
+        "user": "62f89e0d84c31c184db79629",
+        "level": 4,
+        "p": 5404,
+        "dg": 82327052,
+        "sma": 2,
+        "sm": 82270833,
+        "ticks": 39999
+      },
+      "mySpawnCount": 1,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [
+        {
+          "name": "Spawn5",
+          "x": 21,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "who": "PacifistBot",
+          "mine": true,
+          "e": 300,
+          "spawning": null,
+          "hits": 5000
+        }
+      ],
+      "mySites": 17,
+      "mySitesList": [
+        {
+          "st": "road",
+          "x": 15,
+          "y": 19,
+          "p": 0,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a80699c788ccdf1a1bbc483"
+        },
+        {
+          "st": "road",
+          "x": 16,
+          "y": 19,
+          "p": 0,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a806aa5b6c5fa518b2618d2"
+        },
+        {
+          "st": "road",
+          "x": 16,
+          "y": 21,
+          "p": 0,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a806aa5b6c5fac9b12618d3"
+        },
+        {
+          "st": "road",
+          "x": 17,
+          "y": 19,
+          "p": 0,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a806aa5b6c5fa5bb62618d4"
+        },
+        {
+          "st": "road",
+          "x": 17,
+          "y": 21,
+          "p": 0,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a806aa5b6c5faf26e2618d6"
+        },
+        {
+          "st": "road",
+          "x": 16,
+          "y": 18,
+          "p": 150,
+          "pt": 300,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a806aa5b6c5fa3d922618d8"
+        },
+        {
+          "st": "storage",
+          "x": 21,
+          "y": 28,
+          "p": 10540,
+          "pt": 30000,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a814cf2f3d07d10deb833f2"
+        },
+        {
+          "st": "rampart",
+          "x": 21,
+          "y": 27,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a814cf2f3d07d5fc5b833fa"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 20,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc719247dec7"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 21,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc3f2a47dec8"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 22,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bca08e47dec9"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 23,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc541f47deca"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 24,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bcfbd347decb"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 32,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc82f047decc"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 33,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc6c9047decd"
+        },
+        {
+          "st": "rampart",
+          "x": 13,
+          "y": 34,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a817c666597bc67ed47dece"
+        },
+        {
+          "st": "rampart",
+          "x": 30,
+          "y": 28,
+          "p": 0,
+          "pt": 1,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a818adbeaf9506dd31475c9"
+        }
+      ],
+      "foreignSites": 0,
+      "siteTypes": {
+        "road": [
+          {
+            "st": "road",
+            "x": 15,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a80699c788ccdf1a1bbc483"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa518b2618d2"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 21,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fac9b12618d3"
+          },
+          {
+            "st": "road",
+            "x": 17,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa5bb62618d4"
+          },
+          {
+            "st": "road",
+            "x": 17,
+            "y": 21,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5faf26e2618d6"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 18,
+            "p": 150,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa3d922618d8"
+          }
+        ],
+        "storage": [
+          {
+            "st": "storage",
+            "x": 21,
+            "y": 28,
+            "p": 10540,
+            "pt": 30000,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814cf2f3d07d10deb833f2"
+          }
+        ],
+        "rampart": [
+          {
+            "st": "rampart",
+            "x": 21,
+            "y": 27,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814cf2f3d07d5fc5b833fa"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 20,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc719247dec7"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 21,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc3f2a47dec8"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 22,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bca08e47dec9"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 23,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc541f47deca"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 24,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bcfbd347decb"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 32,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc82f047decc"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 33,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc6c9047decd"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 34,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc67ed47dece"
+          },
+          {
+            "st": "rampart",
+            "x": 30,
+            "y": 28,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a818adbeaf9506dd31475c9"
+          }
+        ]
+      },
+      "foreignSiteTypes": {},
+      "mySpawnSites": [],
+      "extSites": [],
+      "extSiteCount": 0,
+      "creeps": 17,
+      "creepsLive": [
+        {
+          "name": "Carrier-59790437-E36N57",
+          "x": 15,
+          "y": 16,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 400,
+          "fat": 0,
+          "age": 82287121,
+          "ttl": 68,
+          "hits": 1200,
+          "body": "ccccccccmmmm",
+          "bodyPretty": "[8C4M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Carrier-21497470-E36N57",
+          "x": 15,
+          "y": 21,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 400,
+          "fat": 0,
+          "age": 82287199,
+          "ttl": 146,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "bodyPretty": "[8C5M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Upgrader-32675077-E36N57",
+          "x": 38,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 14,
+          "cap": 50,
+          "fat": 0,
+          "age": 82287237,
+          "ttl": 184,
+          "hits": 600,
+          "body": "wwwwcm",
+          "bodyPretty": "[4W1C1M]",
+          "acts": {
+            "upgradeController": {
+              "x": 36,
+              "y": 24
+            }
+          },
+          "spawning": false
+        },
+        {
+          "name": "Upgrader-38682313-E36N57",
+          "x": 39,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 50,
+          "fat": 2,
+          "age": 82287275,
+          "ttl": 222,
+          "hits": 600,
+          "body": "wwwwcm",
+          "bodyPretty": "[4W1C1M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "EnergyMiner-30029351-E36N57",
+          "x": 6,
+          "y": 43,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 0,
+          "fat": 0,
+          "age": 82287537,
+          "ttl": 484,
+          "hits": 800,
+          "body": "wwwwwmmm",
+          "bodyPretty": "[5W3M]",
+          "acts": {
+            "harvest": {
+              "x": 7,
+              "y": 42
+            }
+          },
+          "spawning": false
+        },
+        {
+          "name": "Carrier-10826631-E36N57",
+          "x": 9,
+          "y": 4,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 400,
+          "cap": 400,
+          "fat": 0,
+          "age": 82287601,
+          "ttl": 548,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "bodyPretty": "[8C5M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Builder-6248718-E36N57",
+          "x": 15,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 100,
+          "fat": 0,
+          "age": 82287781,
+          "ttl": 728,
+          "hits": 500,
+          "body": "wccmm",
+          "bodyPretty": "[1W2C2M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Builder-30394344-E36N57",
+          "x": 10,
+          "y": 3,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 100,
+          "fat": 0,
+          "age": 82287896,
+          "ttl": 843,
+          "hits": 500,
+          "body": "wccmm",
+          "bodyPretty": "[1W2C2M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "RampartErector-4378530-E36N57",
+          "x": 21,
+          "y": 31,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 150,
+          "cap": 150,
+          "fat": 0,
+          "age": 82287952,
+          "ttl": 899,
+          "hits": 900,
+          "body": "wcmwcmwcm",
+          "bodyPretty": "[3W3C3M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Sweeper-17514083-E36N57",
+          "x": 20,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 200,
+          "fat": 0,
+          "age": 82287970,
+          "ttl": 917,
+          "hits": 600,
+          "body": "ccccmm",
+          "bodyPretty": "[4C2M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Upgrader-59653918-E36N57",
+          "x": 38,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 50,
+          "fat": 0,
+          "age": 82288008,
+          "ttl": 955,
+          "hits": 600,
+          "body": "wwwwcm",
+          "bodyPretty": "[4W1C1M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Builder-55546079-E36N57",
+          "x": 6,
+          "y": 37,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 100,
+          "cap": 100,
+          "fat": 0,
+          "age": 82288043,
+          "ttl": 990,
+          "hits": 500,
+          "body": "wccmm",
+          "bodyPretty": "[1W2C2M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Carrier-62570658-E36N57",
+          "x": 15,
+          "y": 4,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 279,
+          "cap": 400,
+          "fat": 0,
+          "age": 82288142,
+          "ttl": 1089,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "bodyPretty": "[8C5M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Upgrader-64281033-E36N57",
+          "x": 39,
+          "y": 27,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 10,
+          "cap": 50,
+          "fat": 0,
+          "age": 82288180,
+          "ttl": 1127,
+          "hits": 600,
+          "body": "wwwwcm",
+          "bodyPretty": "[4W1C1M]",
+          "acts": {
+            "upgradeController": {
+              "x": 36,
+              "y": 24
+            }
+          },
+          "spawning": false
+        },
+        {
+          "name": "Carrier-54220335-E36N57",
+          "x": 3,
+          "y": 41,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 400,
+          "cap": 400,
+          "fat": 0,
+          "age": 82288259,
+          "ttl": 1206,
+          "hits": 1300,
+          "body": "ccccccccmmmmm",
+          "bodyPretty": "[8C5M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "Upgrader-3848256-E36N57",
+          "x": 28,
+          "y": 30,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 50,
+          "fat": 2,
+          "age": 82288453,
+          "ttl": 1400,
+          "hits": 600,
+          "body": "wwwwcm",
+          "bodyPretty": "[4W1C1M]",
+          "acts": {},
+          "spawning": false
+        },
+        {
+          "name": "EnergyMiner-39999755-E36N57",
+          "x": 21,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 0,
+          "cap": 0,
+          "fat": 0,
+          "age": 82288537,
+          "ttl": 1484,
+          "hits": 800,
+          "body": "wwwwwmmm",
+          "bodyPretty": "[5W3M]",
+          "acts": {},
+          "spawning": false
+        }
+      ],
+      "foreignCreeps": 0,
+      "foreignCreepsLive": [],
+      "roles": {
+        "Carrier": 5,
+        "Upgrader": 5,
+        "EnergyMiner": 2,
+        "Builder": 3,
+        "RampartErector": 1,
+        "Sweeper": 1
+      },
+      "ext": 10,
+      "towers": 1,
+      "towerE": [
+        865
+      ],
+      "containers": 4,
+      "boxes": [
+        {
+          "x": 16,
+          "y": 20,
+          "e": 0,
+          "hits": 185000
+        },
+        {
+          "x": 38,
+          "y": 27,
+          "e": 0,
+          "hits": 181700
+        },
+        {
+          "x": 9,
+          "y": 6,
+          "e": 1600,
+          "hits": 182600
+        },
+        {
+          "x": 6,
+          "y": 43,
+          "e": 2000,
+          "hits": 185000
+        }
+      ],
+      "storageE": null,
+      "storageExists": false,
+      "storageMy": false,
+      "storage": null,
+      "sources": [
+        {
+          "id": "5bbcaf089099fc012e63a033",
+          "x": 10,
+          "y": 7,
+          "e": 540,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf089099fc012e63a035",
+          "x": 7,
+          "y": 42,
+          "e": 2650,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "walls": 0
+    },
+    "E39N58": {
+      "name": "E39N58",
+      "n": 22,
+      "ownerId": "62f89e0d84c31c184db79629",
+      "ownerName": "PacifistBot",
+      "mine": true,
+      "rcl": 1,
+      "progress": 2460,
+      "progressTotal": 0,
+      "downgradeTime": 82290950,
+      "dg": 3897,
+      "safeMode": null,
+      "sma": 0,
+      "ctrl": {
+        "x": 19,
+        "y": 38,
+        "user": "62f89e0d84c31c184db79629",
+        "level": 1,
+        "p": 2460,
+        "pt": 0,
+        "dg": 82290950,
+        "sma": 0,
+        "sm": null,
+        "ticks": 3897
+      },
+      "mySpawnCount": 0,
+      "foreignSpawnCount": 0,
+      "leftoverSpawnCount": 0,
+      "spawns": [],
+      "mySites": 1,
+      "mySitesList": [
+        {
+          "name": "Spawn3",
+          "st": "spawn",
+          "x": 22,
+          "y": 29,
+          "p": 11520,
+          "pt": 15000,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a814eb4dde82e292eeed149"
+        }
+      ],
+      "foreignSites": 16,
+      "siteTypes": {
+        "spawn": [
+          {
+            "name": "Spawn3",
+            "st": "spawn",
+            "x": 22,
+            "y": 29,
+            "p": 11520,
+            "pt": 15000,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814eb4dde82e292eeed149"
+          }
+        ]
+      },
+      "foreignSiteTypes": {
+        "extension": 5,
+        "road": 11
+      },
+      "mySpawnSites": [
+        {
+          "name": "Spawn3",
+          "st": "spawn",
+          "x": 22,
+          "y": 29,
+          "p": 11520,
+          "pt": 15000,
+          "user": "62f89e0d84c31c184db79629",
+          "id": "6a814eb4dde82e292eeed149"
+        }
+      ],
+      "extSites": [],
+      "extSiteCount": 0,
+      "creeps": 1,
+      "creepsLive": [
+        {
+          "name": "ContainerBuilder-6146803-E37N59",
+          "x": 11,
+          "y": 34,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 400,
+          "cap": 400,
+          "fat": 0,
+          "age": 82287840,
+          "ttl": 787,
+          "hits": 2400,
+          "body": "wcmwcmwcmwcmwcmwcmwcmwcm",
+          "bodyPretty": "[8W8C8M]",
+          "acts": {},
+          "spawning": false
+        }
+      ],
+      "foreignCreeps": 0,
+      "foreignCreepsLive": [],
+      "roles": {
+        "ContainerBuilder": 1
+      },
+      "ext": 0,
+      "towers": 0,
+      "towerE": [],
+      "containers": 0,
+      "boxes": [],
+      "storageE": null,
+      "storageExists": false,
+      "storageMy": false,
+      "storage": null,
+      "sources": [
+        {
+          "id": "5bbcaf3a9099fc012e63a595",
+          "x": 22,
+          "y": 7,
+          "e": 3000,
+          "ec": 3000,
+          "regen": 300
+        },
+        {
+          "id": "5bbcaf3a9099fc012e63a597",
+          "x": 3,
+          "y": 41,
+          "e": 1960,
+          "ec": 3000,
+          "regen": 300
+        }
+      ],
+      "walls": 0
+    }
+  },
+  "follow": {
+    "rooms": {
+      "E39N58": {
+        "name": "E39N58",
+        "n": 22,
+        "ownerId": "62f89e0d84c31c184db79629",
+        "ownerName": "PacifistBot",
+        "mine": true,
+        "rcl": 1,
+        "progress": 2460,
+        "progressTotal": 0,
+        "downgradeTime": 82290950,
+        "dg": 3894,
+        "safeMode": null,
+        "sma": 0,
+        "ctrl": {
+          "x": 19,
+          "y": 38,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 1,
+          "p": 2460,
+          "pt": 0,
+          "dg": 82290950,
+          "sma": 0,
+          "sm": null,
+          "ticks": 3894
+        },
+        "mySpawnCount": 0,
+        "foreignSpawnCount": 0,
+        "leftoverSpawnCount": 0,
+        "spawns": [],
+        "mySites": 1,
+        "mySitesList": [
+          {
+            "name": "Spawn3",
+            "st": "spawn",
+            "x": 22,
+            "y": 29,
+            "p": 11520,
+            "pt": 15000,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814eb4dde82e292eeed149"
+          }
+        ],
+        "foreignSites": 16,
+        "siteTypes": {
+          "spawn": [
+            {
+              "name": "Spawn3",
+              "st": "spawn",
+              "x": 22,
+              "y": 29,
+              "p": 11520,
+              "pt": 15000,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a814eb4dde82e292eeed149"
+            }
+          ]
+        },
+        "foreignSiteTypes": {
+          "extension": 5,
+          "road": 11
+        },
+        "mySpawnSites": [
+          {
+            "name": "Spawn3",
+            "st": "spawn",
+            "x": 22,
+            "y": 29,
+            "p": 11520,
+            "pt": 15000,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814eb4dde82e292eeed149"
+          }
+        ],
+        "extSites": [],
+        "extSiteCount": 0,
+        "creeps": 1,
+        "creepsLive": [
+          {
+            "name": "ContainerBuilder-6146803-E37N59",
+            "x": 11,
+            "y": 34,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 400,
+            "cap": 400,
+            "fat": 0,
+            "age": 82287840,
+            "ttl": 784,
+            "hits": 2400,
+            "body": "wcmwcmwcmwcmwcmwcmwcmwcm",
+            "bodyPretty": "[8W8C8M]",
+            "acts": {},
+            "spawning": false
+          }
+        ],
+        "foreignCreeps": 0,
+        "foreignCreepsLive": [],
+        "roles": {
+          "ContainerBuilder": 1
+        },
+        "ext": 0,
+        "towers": 0,
+        "towerE": [],
+        "containers": 0,
+        "boxes": [],
+        "storageE": null,
+        "storageExists": false,
+        "storageMy": false,
+        "storage": null,
+        "sources": [
+          {
+            "id": "5bbcaf3a9099fc012e63a595",
+            "x": 22,
+            "y": 7,
+            "e": 3000,
+            "ec": 3000,
+            "regen": 300
+          },
+          {
+            "id": "5bbcaf3a9099fc012e63a597",
+            "x": 3,
+            "y": 41,
+            "e": 1960,
+            "ec": 3000,
+            "regen": 300
+          }
+        ],
+        "walls": 0
+      },
+      "E36N57": {
+        "name": "E36N57",
+        "n": 65,
+        "ownerId": "62f89e0d84c31c184db79629",
+        "ownerName": "PacifistBot",
+        "mine": true,
+        "rcl": 4,
+        "progress": 5428,
+        "downgradeTime": 82327056,
+        "dg": 39999,
+        "safeMode": 82270833,
+        "sma": 2,
+        "ctrl": {
+          "x": 36,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 4,
+          "p": 5428,
+          "dg": 82327056,
+          "sma": 2,
+          "sm": 82270833,
+          "ticks": 39999
+        },
+        "mySpawnCount": 1,
+        "foreignSpawnCount": 0,
+        "leftoverSpawnCount": 0,
+        "spawns": [
+          {
+            "name": "Spawn5",
+            "x": 21,
+            "y": 27,
+            "user": "62f89e0d84c31c184db79629",
+            "who": "PacifistBot",
+            "mine": true,
+            "e": 300,
+            "spawning": null,
+            "hits": 5000
+          }
+        ],
+        "mySites": 17,
+        "mySitesList": [
+          {
+            "st": "road",
+            "x": 15,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a80699c788ccdf1a1bbc483"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa518b2618d2"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 21,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fac9b12618d3"
+          },
+          {
+            "st": "road",
+            "x": 17,
+            "y": 19,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa5bb62618d4"
+          },
+          {
+            "st": "road",
+            "x": 17,
+            "y": 21,
+            "p": 0,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5faf26e2618d6"
+          },
+          {
+            "st": "road",
+            "x": 16,
+            "y": 18,
+            "p": 150,
+            "pt": 300,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a806aa5b6c5fa3d922618d8"
+          },
+          {
+            "st": "storage",
+            "x": 21,
+            "y": 28,
+            "p": 10540,
+            "pt": 30000,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814cf2f3d07d10deb833f2"
+          },
+          {
+            "st": "rampart",
+            "x": 21,
+            "y": 27,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a814cf2f3d07d5fc5b833fa"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 20,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc719247dec7"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 21,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc3f2a47dec8"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 22,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bca08e47dec9"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 23,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc541f47deca"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 24,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bcfbd347decb"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 32,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc82f047decc"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 33,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc6c9047decd"
+          },
+          {
+            "st": "rampart",
+            "x": 13,
+            "y": 34,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a817c666597bc67ed47dece"
+          },
+          {
+            "st": "rampart",
+            "x": 30,
+            "y": 28,
+            "p": 0,
+            "pt": 1,
+            "user": "62f89e0d84c31c184db79629",
+            "id": "6a818adbeaf9506dd31475c9"
+          }
+        ],
+        "foreignSites": 0,
+        "siteTypes": {
+          "road": [
+            {
+              "st": "road",
+              "x": 15,
+              "y": 19,
+              "p": 0,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a80699c788ccdf1a1bbc483"
+            },
+            {
+              "st": "road",
+              "x": 16,
+              "y": 19,
+              "p": 0,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a806aa5b6c5fa518b2618d2"
+            },
+            {
+              "st": "road",
+              "x": 16,
+              "y": 21,
+              "p": 0,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a806aa5b6c5fac9b12618d3"
+            },
+            {
+              "st": "road",
+              "x": 17,
+              "y": 19,
+              "p": 0,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a806aa5b6c5fa5bb62618d4"
+            },
+            {
+              "st": "road",
+              "x": 17,
+              "y": 21,
+              "p": 0,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a806aa5b6c5faf26e2618d6"
+            },
+            {
+              "st": "road",
+              "x": 16,
+              "y": 18,
+              "p": 150,
+              "pt": 300,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a806aa5b6c5fa3d922618d8"
+            }
+          ],
+          "storage": [
+            {
+              "st": "storage",
+              "x": 21,
+              "y": 28,
+              "p": 10540,
+              "pt": 30000,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a814cf2f3d07d10deb833f2"
+            }
+          ],
+          "rampart": [
+            {
+              "st": "rampart",
+              "x": 21,
+              "y": 27,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a814cf2f3d07d5fc5b833fa"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 20,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc719247dec7"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 21,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc3f2a47dec8"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 22,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bca08e47dec9"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 23,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc541f47deca"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 24,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bcfbd347decb"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 32,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc82f047decc"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 33,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc6c9047decd"
+            },
+            {
+              "st": "rampart",
+              "x": 13,
+              "y": 34,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a817c666597bc67ed47dece"
+            },
+            {
+              "st": "rampart",
+              "x": 30,
+              "y": 28,
+              "p": 0,
+              "pt": 1,
+              "user": "62f89e0d84c31c184db79629",
+              "id": "6a818adbeaf9506dd31475c9"
+            }
+          ]
+        },
+        "foreignSiteTypes": {},
+        "mySpawnSites": [],
+        "extSites": [],
+        "extSiteCount": 0,
+        "creeps": 17,
+        "creepsLive": [
+          {
+            "name": "Carrier-59790437-E36N57",
+            "x": 15,
+            "y": 13,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 400,
+            "fat": 0,
+            "age": 82287121,
+            "ttl": 64,
+            "hits": 1200,
+            "body": "ccccccccmmmm",
+            "bodyPretty": "[8C4M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Carrier-21497470-E36N57",
+            "x": 14,
+            "y": 19,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 400,
+            "fat": 0,
+            "age": 82287199,
+            "ttl": 142,
+            "hits": 1300,
+            "body": "ccccccccmmmmm",
+            "bodyPretty": "[8C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-32675077-E36N57",
+            "x": 39,
+            "y": 28,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 50,
+            "fat": 6,
+            "age": 82287237,
+            "ttl": 180,
+            "hits": 600,
+            "body": "wwwwcm",
+            "bodyPretty": "[4W1C1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-38682313-E36N57",
+            "x": 40,
+            "y": 27,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 50,
+            "fat": 6,
+            "age": 82287275,
+            "ttl": 218,
+            "hits": 600,
+            "body": "wwwwcm",
+            "bodyPretty": "[4W1C1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyMiner-30029351-E36N57",
+            "x": 6,
+            "y": 43,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 0,
+            "fat": 0,
+            "age": 82287537,
+            "ttl": 480,
+            "hits": 800,
+            "body": "wwwwwmmm",
+            "bodyPretty": "[5W3M]",
+            "acts": {
+              "harvest": {
+                "x": 7,
+                "y": 42
+              }
+            },
+            "spawning": false
+          },
+          {
+            "name": "Carrier-10826631-E36N57",
+            "x": 9,
+            "y": 4,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 400,
+            "cap": 400,
+            "fat": 0,
+            "age": 82287601,
+            "ttl": 544,
+            "hits": 1300,
+            "body": "ccccccccmmmmm",
+            "bodyPretty": "[8C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Builder-6248718-E36N57",
+            "x": 12,
+            "y": 23,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 100,
+            "fat": 0,
+            "age": 82287781,
+            "ttl": 724,
+            "hits": 500,
+            "body": "wccmm",
+            "bodyPretty": "[1W2C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Builder-30394344-E36N57",
+            "x": 9,
+            "y": 5,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 100,
+            "cap": 100,
+            "fat": 0,
+            "age": 82287896,
+            "ttl": 839,
+            "hits": 500,
+            "body": "wccmm",
+            "bodyPretty": "[1W2C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "RampartErector-4378530-E36N57",
+            "x": 24,
+            "y": 30,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 150,
+            "cap": 150,
+            "fat": 6,
+            "age": 82287952,
+            "ttl": 895,
+            "hits": 900,
+            "body": "wcmwcmwcm",
+            "bodyPretty": "[3W3C3M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Sweeper-17514083-E36N57",
+            "x": 20,
+            "y": 26,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82287970,
+            "ttl": 913,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-59653918-E36N57",
+            "x": 39,
+            "y": 25,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 50,
+            "fat": 2,
+            "age": 82288008,
+            "ttl": 951,
+            "hits": 600,
+            "body": "wwwwcm",
+            "bodyPretty": "[4W1C1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Builder-55546079-E36N57",
+            "x": 6,
+            "y": 35,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 100,
+            "cap": 100,
+            "fat": 0,
+            "age": 82288043,
+            "ttl": 986,
+            "hits": 500,
+            "body": "wccmm",
+            "bodyPretty": "[1W2C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Carrier-62570658-E36N57",
+            "x": 15,
+            "y": 4,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 279,
+            "cap": 400,
+            "fat": 2,
+            "age": 82288142,
+            "ttl": 1085,
+            "hits": 1300,
+            "body": "ccccccccmmmmm",
+            "bodyPretty": "[8C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-64281033-E36N57",
+            "x": 40,
+            "y": 26,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 50,
+            "fat": 4,
+            "age": 82288180,
+            "ttl": 1123,
+            "hits": 600,
+            "body": "wwwwcm",
+            "bodyPretty": "[4W1C1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Carrier-54220335-E36N57",
+            "x": 3,
+            "y": 41,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 400,
+            "cap": 400,
+            "fat": 0,
+            "age": 82288259,
+            "ttl": 1202,
+            "hits": 1300,
+            "body": "ccccccccmmmmm",
+            "bodyPretty": "[8C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-3848256-E36N57",
+            "x": 28,
+            "y": 31,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 50,
+            "fat": 6,
+            "age": 82288453,
+            "ttl": 1396,
+            "hits": 600,
+            "body": "wwwwcm",
+            "bodyPretty": "[4W1C1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyMiner-39999755-E36N57",
+            "x": 21,
+            "y": 26,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 0,
+            "fat": 0,
+            "age": 82288537,
+            "ttl": 1480,
+            "hits": 800,
+            "body": "wwwwwmmm",
+            "bodyPretty": "[5W3M]",
+            "acts": {},
+            "spawning": false
+          }
+        ],
+        "foreignCreeps": 0,
+        "foreignCreepsLive": [],
+        "roles": {
+          "Carrier": 5,
+          "Upgrader": 5,
+          "EnergyMiner": 2,
+          "Builder": 3,
+          "RampartErector": 1,
+          "Sweeper": 1
+        },
+        "ext": 10,
+        "towers": 1,
+        "towerE": [
+          855
+        ],
+        "containers": 4,
+        "boxes": [
+          {
+            "x": 16,
+            "y": 20,
+            "e": 0,
+            "hits": 185000
+          },
+          {
+            "x": 38,
+            "y": 27,
+            "e": 0,
+            "hits": 181700
+          },
+          {
+            "x": 9,
+            "y": 6,
+            "e": 1500,
+            "hits": 182600
+          },
+          {
+            "x": 6,
+            "y": 43,
+            "e": 2000,
+            "hits": 185000
+          }
+        ],
+        "storageE": null,
+        "storageExists": false,
+        "storageMy": false,
+        "storage": null,
+        "sources": [
+          {
+            "id": "5bbcaf089099fc012e63a033",
+            "x": 10,
+            "y": 7,
+            "e": 540,
+            "ec": 3000,
+            "regen": 300
+          },
+          {
+            "id": "5bbcaf089099fc012e63a035",
+            "x": 7,
+            "y": 42,
+            "e": 2600,
+            "ec": 3000,
+            "regen": 300
+          }
+        ],
+        "walls": 0
+      },
+      "E37N59": {
+        "name": "E37N59",
+        "n": 271,
+        "ownerId": "62f89e0d84c31c184db79629",
+        "ownerName": "PacifistBot",
+        "mine": true,
+        "rcl": 6,
+        "progress": 269832,
+        "progressTotal": 0,
+        "downgradeTime": 82407057,
+        "dg": 120000,
+        "safeMode": 81901441,
+        "sma": 5,
+        "ctrl": {
+          "x": 44,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "level": 6,
+          "p": 269832,
+          "pt": 0,
+          "dg": 82407057,
+          "sma": 5,
+          "sm": 81901441,
+          "ticks": 120000
+        },
+        "mySpawnCount": 1,
+        "foreignSpawnCount": 0,
+        "leftoverSpawnCount": 0,
+        "spawns": [
+          {
+            "name": "Spawn1",
+            "x": 21,
+            "y": 24,
+            "user": "62f89e0d84c31c184db79629",
+            "who": "PacifistBot",
+            "mine": true,
+            "e": 0,
+            "spawning": {
+              "name": "ControllerLinkFiller-46125726-E37N59",
+              "needTime": 72,
+              "spawnTime": 82287114
+            },
+            "hits": 5000
+          }
+        ],
+        "mySites": 0,
+        "mySitesList": [],
+        "foreignSites": 0,
+        "siteTypes": {},
+        "foreignSiteTypes": {},
+        "mySpawnSites": [],
+        "extSites": [],
+        "extSiteCount": 0,
+        "creeps": 16,
+        "creepsLive": [
+          {
+            "name": "Builder-25305635-E37N59",
+            "x": 22,
+            "y": 24,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 500,
+            "cap": 500,
+            "fat": 0,
+            "age": 82287090,
+            "ttl": 33,
+            "hits": 2500,
+            "body": "wwccmwwccmwwccmwwccmwwccm",
+            "bodyPretty": "[10W10C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Upgrader-55639061-E37N59",
+            "x": 41,
+            "y": 30,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 6,
+            "cap": 150,
+            "fat": 0,
+            "age": 82287144,
+            "ttl": 87,
+            "hits": 1800,
+            "body": "wwwwcmwwwwcmwwwwcm",
+            "bodyPretty": "[12W3C3M]",
+            "acts": {
+              "upgradeController": {
+                "x": 44,
+                "y": 29
+              }
+            },
+            "spawning": false
+          },
+          {
+            "name": "MineralMiner-53378412-E37N59",
+            "x": 35,
+            "y": 36,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 500,
+            "fat": 0,
+            "age": 82287219,
+            "ttl": 162,
+            "hits": 2500,
+            "body": "wwccmwwccmwwccmwwccmwwccm",
+            "bodyPretty": "[10W10C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Sweeper-58256932-E37N59",
+            "x": 22,
+            "y": 23,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82287237,
+            "ttl": 180,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "MineralMiner-48850371-E37N59",
+            "x": 35,
+            "y": 34,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 500,
+            "fat": 0,
+            "age": 82287312,
+            "ttl": 255,
+            "hits": 2500,
+            "body": "wwccmwwccmwwccmwwccmwwccm",
+            "bodyPretty": "[10W10C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Sweeper-62518201-E37N59",
+            "x": 28,
+            "y": 22,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82287330,
+            "ttl": 273,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyMiner-15948495-E37N59",
+            "x": 26,
+            "y": 42,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 250,
+            "fat": 0,
+            "age": 82287393,
+            "ttl": 336,
+            "hits": 2000,
+            "body": "wwwwwwwwccccmmmmwwcm",
+            "bodyPretty": "[10W5C5M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyMiner-58110244-E37N59",
+            "x": 10,
+            "y": 21,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 140,
+            "cap": 250,
+            "fat": 0,
+            "age": 82287453,
+            "ttl": 396,
+            "hits": 2000,
+            "body": "wwwwwwwwccccmmmmwwcm",
+            "bodyPretty": "[10W5C5M]",
+            "acts": {
+              "harvest": {
+                "x": 9,
+                "y": 20
+              }
+            },
+            "spawning": false
+          },
+          {
+            "name": "Filler-45777308-E37N59",
+            "x": 24,
+            "y": 22,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82287928,
+            "ttl": 871,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyManager-21243694-E37N59",
+            "x": 20,
+            "y": 21,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82288018,
+            "ttl": 961,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Filler-62387049-E37N59",
+            "x": 22,
+            "y": 22,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 200,
+            "cap": 200,
+            "fat": 0,
+            "age": 82288071,
+            "ttl": 1014,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Filler-10904447-E37N59",
+            "x": 34,
+            "y": 28,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 200,
+            "fat": 0,
+            "age": 82288284,
+            "ttl": 1227,
+            "hits": 600,
+            "body": "ccccmm",
+            "bodyPretty": "[4C2M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "ControllerLinkFiller-26462475-E37N59",
+            "x": 28,
+            "y": 23,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 800,
+            "cap": 800,
+            "fat": 0,
+            "age": 82288361,
+            "ttl": 1304,
+            "hits": 2400,
+            "body": "ccmccmccmccmccmccmccmccm",
+            "bodyPretty": "[16C8M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "Carrier-41399447-E37N59",
+            "x": 36,
+            "y": 31,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 650,
+            "fat": 0,
+            "age": 82288530,
+            "ttl": 1473,
+            "hits": 2600,
+            "body": "cccccccccccccmmmmmmmmmmmmm",
+            "bodyPretty": "[13C13M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "EnergyMiner-19275514-E37N59",
+            "x": 21,
+            "y": 21,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 0,
+            "fat": 0,
+            "age": 82288539,
+            "ttl": 1482,
+            "hits": 300,
+            "body": "wwm",
+            "bodyPretty": "[2W1M]",
+            "acts": {},
+            "spawning": false
+          },
+          {
+            "name": "ControllerLinkFiller-46125726-E37N59",
+            "x": 21,
+            "y": 24,
+            "user": "62f89e0d84c31c184db79629",
+            "e": 0,
+            "cap": 800,
+            "fat": 0,
+            "age": null,
+            "ttl": null,
+            "hits": 2400,
+            "body": "ccmccmccmccmccmccmccmccm",
+            "bodyPretty": "[16C8M]",
+            "acts": {},
+            "spawning": true
+          }
+        ],
+        "foreignCreeps": 0,
+        "foreignCreepsLive": [],
+        "roles": {
+          "Builder": 1,
+          "Upgrader": 1,
+          "MineralMiner": 2,
+          "Sweeper": 2,
+          "EnergyMiner": 3,
+          "Filler": 3,
+          "EnergyManager": 1,
+          "ControllerLinkFiller": 2,
+          "Carrier": 1
+        },
+        "ext": 37,
+        "towers": 2,
+        "towerE": [
+          190,
+          730
+        ],
+        "containers": 4,
+        "boxes": [
+          {
+            "x": 10,
+            "y": 21,
+            "e": 40,
+            "hits": 159800
+          },
+          {
+            "x": 41,
+            "y": 31,
+            "e": 1568,
+            "hits": 116200
+          },
+          {
+            "x": 28,
+            "y": 42,
+            "e": 0,
+            "hits": 22900
+          },
+          {
+            "x": 35,
+            "y": 36,
+            "e": 0,
+            "hits": 159600
+          }
+        ],
+        "storageE": 10524,
+        "storageExists": true,
+        "storageMy": true,
+        "storage": {
+          "x": 21,
+          "y": 22,
+          "user": "62f89e0d84c31c184db79629",
+          "e": 10524,
+          "hits": 10000
+        },
+        "sources": [
+          {
+            "id": "5bbcaf189099fc012e63a27c",
+            "x": 9,
+            "y": 20,
+            "e": 860,
+            "ec": 3000,
+            "regen": 300
+          },
+          {
+            "id": "5bbcaf189099fc012e63a27e",
+            "x": 27,
+            "y": 41,
+            "e": 0,
+            "ec": 3000,
+            "regen": 300
+          }
+        ],
+        "walls": 0
+      }
+    },
+    "time": 82287057
+  },
+  "time2": {
+    "ok": 1,
+    "time": 82287053
+  },
+  "owned": [
+    "E37N59",
+    "E36N57",
+    "E37N58",
+    "E35N59",
+    "E37N57",
+    "E39N58"
+  ]
+}

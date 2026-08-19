@@ -1,0 +1,803 @@
+{
+  "presenceNames": [
+    "baseCut",
+    "baseOverGated",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "corridorFallback",
+    "corridorPlaced",
+    "deepBudget",
+    "deepExhausted",
+    "deepReach",
+    "digRoads",
+    "faceAndSatHeld",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "freeLeft",
+    "haulCost",
+    "hubDistCap",
+    "inertPromoted",
+    "lapCeilingFloor",
+    "lapVeto",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "mineralApproachAtReservation",
+    "mineralSeatAtReservation",
+    "mobilityRepair",
+    "noAlternative",
+    "parkCap",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "radii",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "shallowNow",
+    "shallowRamparts",
+    "strandedFirst",
+    "stubCap",
+    "stubExhausted",
+    "takeTowerSwap",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derivedNames": [
+    "arrayPartner",
+    "battlementFloor",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "center",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "fillerTiles",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralBubble",
+    "mineralContainer",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "priceyWall",
+    "protectRadius",
+    "rcl5Pair",
+    "refillDistsUnblocked",
+    "roadsEaten",
+    "servedFree",
+    "shallowCost",
+    "shallowRefused",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "stitchTiles",
+    "stitched",
+    "stubRoads",
+    "swampPaved",
+    "towerOnly"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 33,
+  "flippedEvents": 3401,
+  "flipped2": {
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "corridorFallback": 4,
+    "shallowRamparts": 1
+  },
+  "flipped2Kinds": 31,
+  "flipped2Events": 3226,
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "fleetSkip": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "flippedP12": {
+    "towerOnly": 172,
+    "stubRoads": 172,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "roadsEaten": 1
+  },
+  "fleetP12": {
+    "label": "p12-five-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 39 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 8. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 47 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 8. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 34 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 27 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 6. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 49 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 9. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 58 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 6. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 47 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 8. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 56 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.walls.stitched is 0 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass",
+          "meta.walls.stitchTiles is 0 and laidByKind.stitch is 1. It is that laid count, not a comment — zeroing it while the book still names the tiles used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 52 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 8. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 47 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 7. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 51 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 6. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 38 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 8. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 47 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 6. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 39 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.towers.nukeWindow.towerOnly is 0 and the fullest 5x5 over spawn/storage/terminal/tower is 6. It is layer 3's own window on the shipped kit, not a comment — flattening it used to pass",
+          "meta.extensions.stubRoads is 0 and this room's roadLayer has 55 layer-6 tag(s), including tags whose tiles the prune later deleted. It is that event count, not a comment — zeroing it while the tags still name the roads used to pass"
+        ]
+      }
+    ]
+  },
+  "flippedP13": {
+    "minDmgPicked": 172,
+    "mineralContainer": 172,
+    "servedFree": 171
+  },
+  "fleetP13": {
+    "label": "p13-three-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 750. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 630. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 840. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 750. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 750. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 480. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 660. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 900. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 900. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 780. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 690. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 720. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.misc.mineralContainer is 0 and this room has 1 container(s) chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass",
+          "meta.towers.rcl5Pair.minDmgPicked is 0 and towers[0]+towers[1] cover the freeze cut's weakest tile at 660. It is that pair's min on the freeze wall, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "flippedSt2": {
+    "stitched": 172
+  },
+  "fleetSt2": {
+    "label": "p13-stitched-set-2",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 1. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.walls.stitched is 2 and laidByKind.stitch is 0. It is 1 iff the stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. Setting it to any other integer used to pass"
+        ]
+      }
+    ]
+  },
+  "flippedP14": {
+    "battlementGap": 172,
+    "battlementGapTiles": 172,
+    "arrayPartner": 172,
+    "picked": 172,
+    "minDmgArray": 172,
+    "fillerTiles": 172,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "shallowRefused": 3,
+    "shallowCost": 1
+  },
+  "fleetP14": {
+    "label": "p14-named-forged",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.shell.battlementGap is 1 and pickBattlements on the shipped cut leaves 0 uncovered. It is that uncovered count, not a comment — flattening it used to pass",
+          "meta.shell.battlementGapTiles is [1,1] and pickBattlements uncovers []. The roster is that walk, not a free list — planting a tile used to pass"
+        ]
+      }
+    ]
+  },
+  "p14Names": [
+    "arrayPartner",
+    "picked",
+    "minDmgArray",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "fillerTiles",
+    "shallowCost",
+    "shallowRefused"
+  ],
+  "ms": 89243
+}

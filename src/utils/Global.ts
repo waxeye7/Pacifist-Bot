@@ -22,8 +22,7 @@ declare global {
       features?: {
         disablePower?: boolean;
         speedrun?: boolean;
-        dynamicLayout?: boolean;
-        placeFromPlan?: boolean;
+        /** min-cut vs the legacy square ring — read by rooms.construction */
         minCutWalls?: boolean;
         squareWalls?: boolean;
         /** Hauler pickup target lock + reservation ledger (default ON) */
@@ -65,6 +64,15 @@ declare global {
         skipHighRcl?: boolean;
       };
       AvoidRooms: any;
+      /**
+       * Per-entry age stamps for the FLAT `AvoidRooms` array — room name to the
+       * Game.time it was last observed towered. Separate from AvoidRoomsTemp,
+       * which is a countdown decremented every tick by a different mechanism
+       * and is read independently in the routeCallback. Entries here expire
+       * individually (Misc/decrementTempBadRooms) instead of the whole array
+       * being wiped every 20,000 ticks.
+       */
+      AvoidRoomsAt?: { [roomName: string]: number };
       AvoidRoomsTemp: { [key: string]: number };
       /** console: Memory.debugReserver = true — traces remote reserver gating */
       debugReserver?: boolean;
@@ -87,6 +95,42 @@ declare global {
       terrainDataInitialized: boolean;
       lastProcessedCoord: { x: number; y: number; };
       roomStatuses: any;
+      /**
+       * Which commune owns which remote. Empire-level arbitration for
+       * manageRemotes, which otherwise only ever compares a room's exits
+       * against its OWN memory and so lets two neighbours staff the same
+       * remote. See Rooms/rooms.remotes.
+       */
+      remoteOwner?: { [remoteRoom: string]: { home: string; t: number } };
+      /**
+       * War machine control — see docs/AGGRESSION-DOCTRINE.md and src/War/.
+       * The intel TABLE itself lives in RawMemory segment 30, not here: a few
+       * hundred room records in Memory would be a per-tick serialise tax.
+       * Console: war() warTargets() warWhy(room) warTune(k,v) warAllies([...])
+       */
+      war?: {
+        /** Kill switch — warOff() / warOn(). */
+        off?: boolean;
+        /**
+         * Players we will not attack. Defaults to the three usernames
+         * hardcoded in Rooms/rooms.observe.ts. Set to [] to make the
+         * doctrine literal (everyone is an enemy).
+         */
+        allies?: string[];
+        /** Scoring overrides — see War/score.ts DEFAULT_TUNING. */
+        tune?: { [key: string]: number };
+        /** Distant rooms suggest SKELETON. Display-only until throttle. */
+        footing?: boolean;
+        /** When true, SKELETON rooms skip market/observe/build/remotes. */
+        throttle?: boolean;
+        /** Set false to freeze offence (intel still records). Default on. */
+        dispatch?: boolean;
+        /** Last assigned mode + tick, for hysteresis. */
+        mode?: { [roomName: string]: { m: string; t: number } };
+        /** Last 40 dispatches — overnight autopsy. */
+        diary?: { t: number; k: string; r: string; h: string; w: string }[];
+        stats?: { n?: number; started?: number; [kit: string]: number };
+      };
     }
 
     // console helpers (see utils/Commands.ts, Logger, CpuPolicy)
@@ -116,6 +160,8 @@ declare global {
     }
     interface DistressSignals {
         reinforce_me?:string;
+        /** Game.time we last sent a reinforcing Guard. */
+        sent?: number;
     }
 
     interface RoomMemory {
@@ -130,10 +176,27 @@ declare global {
           lastRcl?: number;
           [key: string]: any;
         };
+        /** Last visible controller.level — spawn rescue ranking when dark. */
+        lastRcl?: number;
+        /** Last visible energyCapacityAvailable — same ranking. */
+        lastEnergyCapacity?: number;
         /** Dynamic layout cache — see utils/BasePlan.ts */
         basePlan?: any;
-        /** Adopted v2 plan (packed coords) — see utils/PlanV2.ts */
-        planV2?: { v: number; h?: string; s?: number; t: { [structureType: string]: number[] } };
+        /**
+         * Adopted v2 plan (packed coords) — see utils/PlanV2.ts PackedPlan.
+         * v  payload schema (PLAN_PAYLOAD_VERSION), h  plan hash,
+         * s  last syncPlanV2Memory tick, t  packed tiles per structure type,
+         * rs road staging (RCL per t.road tile, same order/length),
+         * si packed sitter/refill anchor tile.
+         */
+        planV2?: {
+          v: number;
+          h?: string;
+          s?: number;
+          t: { [structureType: string]: number[] };
+          rs?: number[];
+          si?: number;
+        };
         construction?: { rampartLocations?: any; [key: string]: any };
         /**
          * Structures with NO walkable D8 approach — see utils/Reachability.
@@ -153,7 +216,7 @@ declare global {
         planSpawnReady?: number;
         /** id of a legacy storage/terminal waiting to be drained before retirement */
         planDrain?: string;
-        defence?: { towerShotsInRow?: number; perimeter?: any; [key: string]: any };
+        defence?: { perimeter?: any; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;
@@ -172,12 +235,10 @@ declare global {
         bin: any;
         in_position: boolean;
         labs: any;
-        attack_target: any;
         request_unboost: boolean;
         AvoidRooms: Array<string>;
         Energy_Spent_First: Array<string>;
         spawning_squad: object;
-        factory:any;
         NukeRepair:boolean;
         Structures:any;
         resources:any;
@@ -224,6 +285,11 @@ declare global {
         pickup?: { id: string; t: number; amt: number; q?: number };
         /** recent packed positions, newest last — oscillation damper */
         _ph?: number[];
+        /** War lookout — walk, paint intel, die. Must not score remotes. */
+        warScout?: boolean;
+        /** Neighbor haul into a wrecked room (empty towers / no civilians). */
+        emergencyFeed?: string;
+        seen?: number;
         /** room name the _ph history belongs to */
         _phr?: string;
         /** tick the damper last fired, so it does not fire every tick */

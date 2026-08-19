@@ -1,0 +1,189 @@
+{
+  "addRoom": "E13S3",
+  "pruneRoom": "E11S6",
+  "slackSeal": "E11S1",
+  "slackPrune": "E11S1",
+  "swapPrune": "E11S6",
+  "radRoom": "E11S1",
+  "otherRadius": 8,
+  "baseCutRoom": "E11S1",
+  "takenRoom": "E11S1",
+  "shrinkable": "E11S3",
+  "fatRung": "E11S2",
+  "pruneCaption": "E11S2",
+  "attacks": [
+    {
+      "name": "cutPasses.sealCritical += 999 (r28 M1)",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal names 1043 seal-critical tile(s) over 47 rampart(s) · layer7b-reconcileSeal names 1043 seal-critical tile(s) over 47 rampart(s). Each marker is one invocation's own count o"
+    },
+    {
+      "name": "cutPasses.ramparts := 0 on prune markers (r28 M1)",
+      "room": "E11S6",
+      "status": "BITES",
+      "n": 1,
+      "first": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune deleted 1 of 0 rampart(s). Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side"
+    },
+    {
+      "name": "cutPasses.kind rewritten to reviewer",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-inertPrune is kind \"reviewer\" and that pass is a inertPrune · layer7-reconcileSeal is kind \"reviewer\" and that pass is a reconcileSeal · layer7b-inertPrune is kind \"reviewer\" and that pa"
+    },
+    {
+      "name": "swap rampartsDeleted between prune markers (sum preserved)",
+      "room": "E11S6",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.sealCritical += 1 within [adds, rampN]",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.sealCritical := adds (lower bound)",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.sealCritical := rampN (upper bound)",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutPasses.prune ramparts inflated +8 (deleted held)",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutDrift.why append false clause (control, should bite)",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 3,
+      "first": "DECLARATION CONTENT — meta.shell.cutDrift carries 6 entr(y/ies) that are not a move this room's two passes made: [0] 13,34 remove states a reason the producer's own generator does not produce for (remove, layer7-inertPrune) — they agree for 491 character(s), then shipped \"… and t"
+    },
+    {
+      "name": "E2S5 mineralWhy 1→99 steps",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "E5S1 mineralWhy append THE WALL IS FREE",
+      "room": "E5S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 563 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172"
+    },
+    {
+      "name": "E5S3 mineralWhy swap with E5S1",
+      "room": "E5S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 34 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172."
+    },
+    {
+      "name": "E11S1 mineralWhy invert suffix keep seat",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 375 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172"
+    },
+    {
+      "name": "nukerHubDist := 1",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta.misc.nukerHubDist is 1 and the layer-5 hub walk to the shipped nuker at 25,42 is 2. It is a walk, not a chebyshev, and it is not a comment"
+    },
+    {
+      "name": "protectRadius := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta.shell.protectRadius is 0 and the negotiation radii are 6,7,8,9,10,11,12,13,14. Zero is not a radius this room was allowed to try"
+    },
+    {
+      "name": "protectRadius flipped to another legal enum",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "baseCut += 1 (keep priceyWall consistent)",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "n": 0
+    },
+    {
+      "name": "cutAdopted planted first rampart",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta.shell.cutAdopted names 1 tile(s) (13,43) that cutDrift does not adopt. The list is empty in this fleet (layer-7b overwrite); a planted rampart tile is not an adoption"
+    },
+    {
+      "name": "battlement count+tiles zeroed together",
+      "room": "E13S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta.shell.battlementUnreachable is 0 / [] and the interior walk from the sitter misses 1 cut tile(s) [14,35]. The count and the roster are one walk, not two leaves that agree"
+    },
+    {
+      "name": "towerSwapOffer face 999/999",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 251 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/1"
+    },
+    {
+      "name": "shippedShellDmg.min := 9999 alone",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 1,
+      "first": "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: min 9999 vs 2250. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free"
+    },
+    {
+      "name": "88 fatter discarded-rung mobility 0.5 + regen",
+      "room": "E11S2",
+      "status": "BITES",
+      "n": 4,
+      "first": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5673 character(s) and then diverge — shipped: \"…mparts · rung 3 (needDeep+85): mobility 2.5, 50 ramparts. No rung this room composed measured a materially shorter lap:"
+    },
+    {
+      "name": "93 invent holder on taken room",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 7,
+      "first": "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":31,"
+    },
+    {
+      "name": "93 inflate recovers on existing holder",
+      "room": "E11S1",
+      "status": "BITES",
+      "n": 14,
+      "first": "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":31,\"y\":42},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":31,\"y\":42},{\"x\":31,\"y\":43}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":31,"
+    },
+    {
+      "name": "98 invent shrink on a plain room (stated)",
+      "room": "E11S3",
+      "status": "BITES",
+      "n": 1,
+      "first": "this room publishes a SHRINK and its cap-10 walk was free (ext=60, shallow=0, tiles=3). That is the invent direction of criticism 98 — a priced refusal of a search that never ran"
+    },
+    {
+      "name": "98 forge fullRun then invent shrink (residue)",
+      "room": "E11S3",
+      "status": "ESCAPE",
+      "n": 0
+    }
+  ]
+}

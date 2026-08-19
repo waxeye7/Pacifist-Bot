@@ -1,0 +1,991 @@
+{
+  "rooms": {
+    "E15S8": {
+      "room": "E15S8",
+      "sealed": [
+        {
+          "k": "28,31",
+          "d": 6,
+          "deep": true
+        },
+        {
+          "k": "29,31",
+          "d": 7,
+          "deep": true
+        }
+      ],
+      "sealedN": 2,
+      "sealedDeep": 2,
+      "pubSealed": {
+        "tiles": 2,
+        "deep": 2,
+        "ourFault": 2,
+        "shallowStructs": 0,
+        "named": [
+          {
+            "x": 28,
+            "y": 31
+          },
+          {
+            "x": 29,
+            "y": 31
+          }
+        ],
+        "depthSafe": 4,
+        "pockets": [
+          {
+            "at": {
+              "x": 28,
+              "y": 31
+            },
+            "tiles": 2,
+            "deep": 2,
+            "named": [
+              {
+                "x": 28,
+                "y": 31
+              },
+              {
+                "x": 29,
+                "y": 31
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 27,
+                "y": 30,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 28,
+                "y": 30,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 29,
+                "y": 30,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 30,
+                "y": 30,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 30,
+                "y": 31,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 30,
+                "y": 32,
+                "recovers": 2,
+                "recoversDeep": 2
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 27,
+              "y": 30,
+              "recovers": 2,
+              "recoversDeep": 2
+            }
+          }
+        ],
+        "pocketCount": 1,
+        "singleStructureTiles": 2,
+        "singleStructureDeep": 2,
+        "counterfactualBasis": "ON THIS ROOM: 2 sealed tile(s) in 1 pocket(s) — 28,31: 2 tile(s), 2 deep, 6 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 27,30, worth 2 tile(s) (2 deep). Summed over the best single holder of each pocket that is 2 tile(s) (2 deep), under the 2 tile(s) the whole mass is responsible for. pockets are the D8-connected components of the sealed set. For each pocket, every structure of ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. Only D8-adjacent structures are candidates and that is not an approximation — removing one structure makes exactly one tile walkable, so a structure that touches no tile of this pocket cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.",
+        "basis": "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave the wall and re-enter it. deep = depth >= 4 and inside the 2..47 buildable band; ourFault = the same flood with only room objects blocking reaches the tile."
+      },
+      "redundant": [],
+      "loadBearingN": 19,
+      "cutN": 19,
+      "paved": [],
+      "roadRamp": [
+        "38,33"
+      ],
+      "spawnSeps": [
+        67,
+        101,
+        169
+      ],
+      "spawnPos": [
+        "24,25",
+        "24,21",
+        "29,25"
+      ],
+      "hub": "27,23",
+      "twCheb": [
+        1,
+        3,
+        2,
+        2,
+        3,
+        4
+      ],
+      "ext": 60
+    },
+    "E21S7": {
+      "room": "E21S7",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 67,
+      "cutN": 67,
+      "paved": [],
+      "roadRamp": [
+        "27,30",
+        "9,28"
+      ],
+      "spawnSeps": [
+        83,
+        67,
+        150
+      ],
+      "spawnPos": [
+        "12,16",
+        "16,16",
+        "12,20"
+      ],
+      "hub": "15,18",
+      "twCheb": [
+        1,
+        2,
+        2,
+        3,
+        3,
+        4
+      ],
+      "ext": 60
+    },
+    "E3S4": {
+      "room": "E3S4",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 23,
+      "cutN": 23,
+      "paved": [],
+      "roadRamp": [
+        "16,39"
+      ],
+      "spawnSeps": [
+        108,
+        103,
+        149
+      ],
+      "spawnPos": [
+        "25,33",
+        "25,36",
+        "30,34"
+      ],
+      "hub": "26,35",
+      "twCheb": [
+        2,
+        3,
+        2,
+        3,
+        4,
+        4
+      ],
+      "ext": 60
+    },
+    "E2S7": {
+      "room": "E2S7",
+      "sealed": [
+        {
+          "k": "18,31",
+          "d": 9,
+          "deep": true
+        }
+      ],
+      "sealedN": 1,
+      "sealedDeep": 1,
+      "pubSealed": {
+        "tiles": 1,
+        "deep": 1,
+        "ourFault": 1,
+        "shallowStructs": 0,
+        "named": [
+          {
+            "x": 18,
+            "y": 31
+          }
+        ],
+        "depthSafe": 4,
+        "pockets": [
+          {
+            "at": {
+              "x": 18,
+              "y": 31
+            },
+            "tiles": 1,
+            "deep": 1,
+            "named": [
+              {
+                "x": 18,
+                "y": 31
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 17,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 18,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 19,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 19,
+                "y": 31,
+                "recovers": 1,
+                "recoversDeep": 1
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 17,
+              "y": 30,
+              "recovers": 1,
+              "recoversDeep": 1
+            }
+          }
+        ],
+        "pocketCount": 1,
+        "singleStructureTiles": 1,
+        "singleStructureDeep": 1,
+        "counterfactualBasis": "ON THIS ROOM: 1 sealed tile(s) in 1 pocket(s) — 18,31: 1 tile(s), 1 deep, 4 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 17,30, worth 1 tile(s) (1 deep). Summed over the best single holder of each pocket that is 1 tile(s) (1 deep), under the 1 tile(s) the whole mass is responsible for. pockets are the D8-connected components of the sealed set. For each pocket, every structure of ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. Only D8-adjacent structures are candidates and that is not an approximation — removing one structure makes exactly one tile walkable, so a structure that touches no tile of this pocket cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.",
+        "basis": "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave the wall and re-enter it. deep = depth >= 4 and inside the 2..47 buildable band; ourFault = the same flood with only room objects blocking reaches the tile."
+      },
+      "redundant": [],
+      "loadBearingN": 18,
+      "cutN": 18,
+      "paved": [],
+      "roadRamp": [
+        "2,17"
+      ],
+      "spawnSeps": [
+        135,
+        90,
+        135
+      ],
+      "spawnPos": [
+        "12,25",
+        "16,27",
+        "12,29"
+      ],
+      "hub": "14,27",
+      "twCheb": [
+        1,
+        5,
+        2,
+        3,
+        3,
+        4
+      ],
+      "ext": 60
+    },
+    "E1S4": {
+      "room": "E1S4",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 26,
+      "cutN": 26,
+      "paved": [],
+      "roadRamp": [
+        "44,10",
+        "26,30"
+      ],
+      "spawnSeps": [
+        135,
+        75,
+        150
+      ],
+      "spawnPos": [
+        "38,20",
+        "33,20",
+        "37,24"
+      ],
+      "hub": "35,21",
+      "twCheb": [
+        1,
+        7,
+        2,
+        3,
+        3,
+        4
+      ],
+      "ext": 60
+    },
+    "E12S1": {
+      "room": "E12S1",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 37,
+      "cutN": 37,
+      "paved": [],
+      "roadRamp": [
+        "14,29"
+      ],
+      "spawnSeps": [
+        83,
+        150,
+        67
+      ],
+      "spawnPos": [
+        "27,16",
+        "23,16",
+        "23,20"
+      ],
+      "hub": "26,18",
+      "twCheb": [
+        1,
+        3,
+        2,
+        2,
+        3,
+        3
+      ],
+      "ext": 60
+    },
+    "E15S4": {
+      "room": "E15S4",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 29,
+      "cutN": 29,
+      "paved": [],
+      "roadRamp": [],
+      "spawnSeps": [
+        162,
+        82,
+        80
+      ],
+      "spawnPos": [
+        "25,20",
+        "23,23",
+        "28,24"
+      ],
+      "hub": "24,21",
+      "twCheb": [
+        1,
+        2,
+        3,
+        3,
+        8,
+        9
+      ],
+      "ext": 60
+    },
+    "E11S1": {
+      "room": "E11S1",
+      "sealed": [
+        {
+          "k": "26,32",
+          "d": 7,
+          "deep": true
+        },
+        {
+          "k": "31,42",
+          "d": 6,
+          "deep": true
+        },
+        {
+          "k": "31,43",
+          "d": 5,
+          "deep": true
+        }
+      ],
+      "sealedN": 3,
+      "sealedDeep": 3,
+      "pubSealed": {
+        "tiles": 3,
+        "deep": 3,
+        "ourFault": 3,
+        "shallowStructs": 0,
+        "named": [
+          {
+            "x": 26,
+            "y": 32
+          },
+          {
+            "x": 31,
+            "y": 42
+          },
+          {
+            "x": 31,
+            "y": 43
+          }
+        ],
+        "depthSafe": 4,
+        "pockets": [
+          {
+            "at": {
+              "x": 31,
+              "y": 42
+            },
+            "tiles": 2,
+            "deep": 2,
+            "named": [
+              {
+                "x": 31,
+                "y": 42
+              },
+              {
+                "x": 31,
+                "y": 43
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 30,
+                "y": 41,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 31,
+                "y": 41,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 31,
+                "y": 44,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 32,
+                "y": 41,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 32,
+                "y": 42,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 32,
+                "y": 43,
+                "recovers": 2,
+                "recoversDeep": 2
+              },
+              {
+                "type": "extension",
+                "x": 32,
+                "y": 44,
+                "recovers": 2,
+                "recoversDeep": 2
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 30,
+              "y": 41,
+              "recovers": 2,
+              "recoversDeep": 2
+            }
+          },
+          {
+            "at": {
+              "x": 26,
+              "y": 32
+            },
+            "tiles": 1,
+            "deep": 1,
+            "named": [
+              {
+                "x": 26,
+                "y": 32
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 25,
+                "y": 31,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "lab",
+                "x": 25,
+                "y": 32,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "lab",
+                "x": 25,
+                "y": 33,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 26,
+                "y": 31,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "lab",
+                "x": 26,
+                "y": 33,
+                "recovers": 1,
+                "recoversDeep": 1
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 25,
+              "y": 31,
+              "recovers": 1,
+              "recoversDeep": 1
+            }
+          }
+        ],
+        "pocketCount": 2,
+        "singleStructureTiles": 3,
+        "singleStructureDeep": 3,
+        "counterfactualBasis": "ON THIS ROOM: 3 sealed tile(s) in 2 pocket(s) — 31,42: 2 tile(s), 2 deep, 7 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 30,41, worth 2 tile(s) (2 deep); 26,32: 1 tile(s), 1 deep, 5 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 25,31, worth 1 tile(s) (1 deep). Summed over the best single holder of each pocket that is 3 tile(s) (3 deep), under the 3 tile(s) the whole mass is responsible for. pockets are the D8-connected components of the sealed set. For each pocket, every structure of ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. Only D8-adjacent structures are candidates and that is not an approximation — removing one structure makes exactly one tile walkable, so a structure that touches no tile of this pocket cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.",
+        "basis": "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave the wall and re-enter it. deep = depth >= 4 and inside the 2..47 buildable band; ourFault = the same flood with only room objects blocking reaches the tile."
+      },
+      "redundant": [],
+      "loadBearingN": 32,
+      "cutN": 32,
+      "paved": [],
+      "roadRamp": [
+        "13,43",
+        "38,39"
+      ],
+      "spawnSeps": [
+        63,
+        117,
+        180
+      ],
+      "spawnPos": [
+        "26,41",
+        "24,43",
+        "24,38"
+      ],
+      "hub": "24,40",
+      "twCheb": [
+        1,
+        3,
+        2,
+        3,
+        4,
+        4
+      ],
+      "ext": 60
+    },
+    "E12S7": {
+      "room": "E12S7",
+      "sealed": [
+        {
+          "k": "17,31",
+          "d": 8,
+          "deep": true
+        }
+      ],
+      "sealedN": 1,
+      "sealedDeep": 1,
+      "pubSealed": {
+        "tiles": 1,
+        "deep": 1,
+        "ourFault": 1,
+        "shallowStructs": 0,
+        "named": [
+          {
+            "x": 17,
+            "y": 31
+          }
+        ],
+        "depthSafe": 4,
+        "pockets": [
+          {
+            "at": {
+              "x": 17,
+              "y": 31
+            },
+            "tiles": 1,
+            "deep": 1,
+            "named": [
+              {
+                "x": 17,
+                "y": 31
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 16,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 17,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 18,
+                "y": 30,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 18,
+                "y": 31,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 18,
+                "y": 32,
+                "recovers": 1,
+                "recoversDeep": 1
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 16,
+              "y": 30,
+              "recovers": 1,
+              "recoversDeep": 1
+            }
+          }
+        ],
+        "pocketCount": 1,
+        "singleStructureTiles": 1,
+        "singleStructureDeep": 1,
+        "counterfactualBasis": "ON THIS ROOM: 1 sealed tile(s) in 1 pocket(s) — 17,31: 1 tile(s), 1 deep, 5 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 16,30, worth 1 tile(s) (1 deep). Summed over the best single holder of each pocket that is 1 tile(s) (1 deep), under the 1 tile(s) the whole mass is responsible for. pockets are the D8-connected components of the sealed set. For each pocket, every structure of ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. Only D8-adjacent structures are candidates and that is not an approximation — removing one structure makes exactly one tile walkable, so a structure that touches no tile of this pocket cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.",
+        "basis": "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave the wall and re-enter it. deep = depth >= 4 and inside the 2..47 buildable band; ourFault = the same flood with only room objects blocking reaches the tile."
+      },
+      "redundant": [
+        "22,19",
+        "23,19",
+        "23,20",
+        "23,21",
+        "23,22"
+      ],
+      "loadBearingN": 30,
+      "cutN": 35,
+      "paved": [
+        "23,23",
+        "24,24"
+      ],
+      "roadRamp": [
+        "34,40",
+        "24,24",
+        "23,23"
+      ],
+      "spawnSeps": [
+        150,
+        101,
+        108
+      ],
+      "spawnPos": [
+        "20,34",
+        "24,38",
+        "25,34"
+      ],
+      "hub": "23,36",
+      "twCheb": [
+        3,
+        3,
+        3,
+        2,
+        5,
+        8
+      ],
+      "ext": 60
+    },
+    "E12S6": {
+      "room": "E12S6",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 33,
+      "cutN": 33,
+      "paved": [],
+      "roadRamp": [
+        "17,19",
+        "41,7"
+      ],
+      "spawnSeps": [
+        72,
+        135,
+        63
+      ],
+      "spawnPos": [
+        "27,12",
+        "26,8",
+        "30,8"
+      ],
+      "hub": "29,11",
+      "twCheb": [
+        1,
+        4,
+        2,
+        3,
+        7,
+        9
+      ],
+      "ext": 60
+    },
+    "E7S5": {
+      "room": "E7S5",
+      "sealed": [],
+      "sealedN": 0,
+      "sealedDeep": 0,
+      "redundant": [],
+      "loadBearingN": 14,
+      "cutN": 14,
+      "paved": [],
+      "roadRamp": [
+        "27,20",
+        "23,26"
+      ],
+      "spawnSeps": [
+        135,
+        76,
+        149
+      ],
+      "spawnPos": [
+        "19,19",
+        "21,15",
+        "15,18"
+      ],
+      "hub": "19,17",
+      "twCheb": [
+        1,
+        3,
+        2,
+        3,
+        4,
+        5
+      ],
+      "ext": 60
+    },
+    "E9S2": {
+      "room": "E9S2",
+      "sealed": [
+        {
+          "k": "36,10",
+          "d": 9,
+          "deep": true
+        }
+      ],
+      "sealedN": 1,
+      "sealedDeep": 1,
+      "pubSealed": {
+        "tiles": 1,
+        "deep": 1,
+        "ourFault": 1,
+        "shallowStructs": 15,
+        "named": [
+          {
+            "x": 36,
+            "y": 10
+          }
+        ],
+        "depthSafe": 4,
+        "pockets": [
+          {
+            "at": {
+              "x": 36,
+              "y": 10
+            },
+            "tiles": 1,
+            "deep": 1,
+            "named": [
+              {
+                "x": 36,
+                "y": 10
+              }
+            ],
+            "holders": [
+              {
+                "type": "extension",
+                "x": 35,
+                "y": 9,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 35,
+                "y": 10,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 35,
+                "y": 11,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "spawn",
+                "x": 36,
+                "y": 11,
+                "recovers": 1,
+                "recoversDeep": 1
+              },
+              {
+                "type": "extension",
+                "x": 37,
+                "y": 11,
+                "recovers": 1,
+                "recoversDeep": 1
+              }
+            ],
+            "best": {
+              "type": "extension",
+              "x": 35,
+              "y": 9,
+              "recovers": 1,
+              "recoversDeep": 1
+            }
+          }
+        ],
+        "pocketCount": 1,
+        "singleStructureTiles": 1,
+        "singleStructureDeep": 1,
+        "counterfactualBasis": "ON THIS ROOM: 1 sealed tile(s) in 1 pocket(s) — 36,10: 1 tile(s), 1 deep, 5 structure(s) of ours D8 of it recover any of it and the best single one is the extension at 35,9, worth 1 tile(s) (1 deep). Summed over the best single holder of each pocket that is 1 tile(s) (1 deep), under the 1 tile(s) the whole mass is responsible for. pockets are the D8-connected components of the sealed set. For each pocket, every structure of ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. Only D8-adjacent structures are candidates and that is not an approximation — removing one structure makes exactly one tile walkable, so a structure that touches no tile of this pocket cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.",
+        "basis": "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave the wall and re-enter it. deep = depth >= 4 and inside the 2..47 buildable band; ourFault = the same flood with only room objects blocking reaches the tile."
+      },
+      "redundant": [
+        "22,25",
+        "22,26",
+        "31,2",
+        "35,2",
+        "36,2",
+        "42,24",
+        "47,24"
+      ],
+      "loadBearingN": 14,
+      "cutN": 21,
+      "paved": [],
+      "roadRamp": [
+        "40,24"
+      ],
+      "spawnSeps": [
+        45,
+        135,
+        180
+      ],
+      "spawnPos": [
+        "36,11",
+        "38,13",
+        "32,13"
+      ],
+      "hub": "34,13",
+      "twCheb": [
+        1,
+        2,
+        2,
+        4,
+        2,
+        4
+      ],
+      "ext": 60
+    }
+  },
+  "e7pair": {
+    "27,19": true,
+    "29,18": true
+  },
+  "notes": {
+    "E15S8": {
+      "missing": true
+    },
+    "E21S7": {
+      "missing": true
+    },
+    "E3S4": {
+      "missing": true
+    },
+    "E2S7": {
+      "missing": true
+    },
+    "E1S4": {
+      "missing": true
+    },
+    "E12S1": {
+      "missing": true
+    },
+    "E15S4": {
+      "missing": true
+    },
+    "E11S1": {
+      "missing": true
+    },
+    "E12S7": {
+      "missing": true
+    },
+    "E12S6": {
+      "missing": true
+    },
+    "E7S5": {
+      "missing": true
+    },
+    "E9S2": {
+      "missing": true
+    }
+  }
+}

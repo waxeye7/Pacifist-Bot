@@ -8,10 +8,12 @@ diminishing returns.* Do not rush it. Do not declare it done early.
 
 ## Mission
 
-Drive the **average time (game ticks) from spawn placement to RCL4** down as far
-as it will physically go, then do the same **to RCL6**. Each milestone runs its
-own full campaign of hypothesis → implement → A/B benchmark → keep-or-revert
-cycles, and only closes at a strict diminishing-returns bar.
+Drive the **average time (game ticks) from spawn placement to RCL8** down as far
+as it will physically go. **RCL2 / RCL3 / RCL4 are the fast loop** — many A/Bs
+per day — not the destination. A keep that wins RCL3 by skipping a structure
+RCL8 still needs (extensions, storage, 1300 cap) is a revert. Delay-then-build
+is legal; never-build is not. Each milestone runs hypothesis → implement → A/B
+→ keep-or-revert, and only closes at a strict diminishing-returns bar.
 
 ## Termination bar (per milestone — this is what "ages" means)
 

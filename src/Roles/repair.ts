@@ -3,6 +3,8 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
+import { isSanctionedRampart } from "utils/PlanV2";
+import { stompForeignSite } from "utils/ForeignSites";
 
 const STEP_DX = [0, 0, 1, 1, 1, 0, -1, -1, -1];
 const STEP_DY = [0, -1, -1, 0, 1, 1, 1, 0, -1];
@@ -53,10 +55,10 @@ function findLocked(creep, storage) {
         // }
         // else {
             if(creep.room.name === "E41N58") {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
             else {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
 
         // }
@@ -186,6 +188,7 @@ function findLocked(creep, storage) {
     if(creep.evacuate()) {
 		return;
 	}
+    if (!creep.store.getUsedCapacity() && stompForeignSite(creep)) return;
 
     if(creep.holdForFlee()) {
         return;
@@ -258,8 +261,11 @@ function findLocked(creep, storage) {
     // on each TRANSITION (both directions) and left alone in between, so each
     // role still gets to keep a lock while it is the one driving.
     // ------------------------------------------------------------------
+    // "no bank" = no real STRUCTURE_STORAGE: findStorage() now returns the
+    // 2k hub container at RCL4 while the storage is a site, and that is
+    // exactly the room this delegation was written for.
     const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
-        !storage && creep.room.find(FIND_MY_CREEPS).length < 8;
+        (!storage || storage.structureType !== STRUCTURE_STORAGE) && creep.room.find(FIND_MY_CREEPS).length < 8;
     const helpBuild = skeletonCrewNoBank && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0;
     const mem: any = creep.memory;
     if(helpBuild !== !!mem.helpBuild) {

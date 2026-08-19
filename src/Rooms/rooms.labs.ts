@@ -235,7 +235,7 @@ function assignDynamicLabs(room, storage, LabsInRoom) {
  *
  * Now each slot also has `owners: { [creepName]: { amount, t } }`. `use` is
  * live claimants; `amount` is aggregate STILL-TO-DELIVER (EM decrements it
- * on withdraw). consume must not subtract rec.amount from that field.
+ * on withdraw, so a removal unwinds only what is left over the other owners).
  * The janitor refunds a slot only for owners that are neither live nor queued.
  */
 
@@ -320,7 +320,9 @@ export function chargeBoostSlot(room, labKey: string, amount: number, ownerName:
         return false;
     }
     if(slot.owners[ownerName]) {
-        slot.amount = Math.max(0, (slot.amount || 0) - (slot.owners[ownerName].amount || 0));
+        // re-queue is a removal + a re-add: unwind only the share EM has not
+        // hauled yet, otherwise the replace eats a sibling's still-to-deliver.
+        unwindUndelivered(slot, ownerName);
         slot.use = Math.max(0, (slot.use || 0) - 1);
     }
     slot.owners[ownerName] = {amount: amount, t: Game.time};
@@ -350,11 +352,28 @@ function clearLab8ReserveIfIdle(room, slot) {
 
 const consumeSkipLogged = {};
 
-function unwindUndelivered(slot, recAmount) {
-    // amount is still-to-deliver. Bound the refund so a late death cannot
-    // zero a sibling's remaining haul.
-    const left = slot.amount || 0;
-    slot.amount = left - Math.min(recAmount || 0, left);
+// EM decrements the shared slot.amount on withdraw but never the per-owner
+// rec.amount, so the ledger cannot see WHOSE share was hauled. Refund at most
+// what is left after every remaining owner's full charge is still covered: an
+// already-hauled share then unwinds 0 (no double-subtract), and the reserve a
+// sibling's delivery leaves behind is freed when the last owner goes.
+// Call BEFORE deleting the owner.
+function unwindUndelivered(slot, ownerName) {
+    const owners = (slot && slot.owners) || {};
+    const rec = owners[ownerName];
+    if(!rec) return;
+    let others = 0;
+    for(const name in owners) {
+        if(name !== ownerName) others += owners[name].amount || 0;
+    }
+    const back = Math.min(rec.amount || 0, (slot.amount || 0) - others);
+    if(back > 0) slot.amount = (slot.amount || 0) - back;
+}
+
+// No owner and no live claimant means nobody is entitled to the rest, so drop
+// it: a stranded amount>0 blocks the janitor's delete and the reaction gate.
+function clearIfUnowned(slot) {
+    if(slotOwnerCount(slot) === 0 && (slot.use || 0) <= 0) slot.amount = 0;
 }
 
 /** Drop one owner's claim on one slot (boost success, give-up, or wrong mineral). */
@@ -363,8 +382,8 @@ export function consumeBoostOwner(room, labKey: string, ownerName: string): void
     if(!boost || !labKey) return;
     const slot = boost[labKey];
     if(!slot) return;
-    // EM already decremented amount on withdraw. Subtracting rec.amount
-    // here zeros siblings on a shared slot (quad lab2, ram+signifer).
+    // EM already decremented amount on withdraw, so a delivered-and-consumed
+    // share unwinds 0; a give-up / wrong-mineral drop still frees its reserve.
     // Id-remap: labKeyForId can point at a slot this creep never owned —
     // decrementing that use is theft.
     if(!slot.owners || !ownerName || !slot.owners[ownerName]) {
@@ -377,8 +396,10 @@ export function consumeBoostOwner(room, labKey: string, ownerName: string): void
         }
         return;
     }
+    unwindUndelivered(slot, ownerName);
     delete slot.owners[ownerName];
     if((slot.use || 0) > 0) slot.use -= 1;
+    clearIfUnowned(slot);
     if(labKey === "lab8") clearLab8ReserveIfIdle(room, slot);
 }
 
@@ -389,10 +410,10 @@ export function refundBoostOwner(room, ownerName: string): void {
     for(const key in boost) {
         const slot = boost[key];
         if(!slot || !slot.owners || !slot.owners[ownerName]) continue;
-        const rec = slot.owners[ownerName];
-        unwindUndelivered(slot, rec.amount);
+        unwindUndelivered(slot, ownerName);
         slot.use = Math.max(0, (slot.use || 0) - 1);
         delete slot.owners[ownerName];
+        clearIfUnowned(slot);
         if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
     }
 }
@@ -422,10 +443,10 @@ export function janitorBoostLedger(room): void {
             if(slot.owners) {
                 for(const name in slot.owners) {
                     if(Game.creeps[name] || spawnListHasName(room, name)) continue;
-                    const rec = slot.owners[name];
-                    unwindUndelivered(slot, rec.amount);
+                    unwindUndelivered(slot, name);
                     slot.use = Math.max(0, (slot.use || 0) - 1);
                     delete slot.owners[name];
+                    clearIfUnowned(slot);
                     if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
                 }
             }
@@ -450,6 +471,16 @@ export function janitorBoostLedger(room): void {
     // lab8reserved is a sibling flag, not a slot field — clear it even when
     // boost.lab8 is already gone.
     clearLab8ReserveIfIdle(room, boost && boost.lab8);
+}
+
+/** Combined storage+terminal stock of one resource.
+ *  Market buys land in the TERMINAL, so a storage-only read under-counts a
+ *  boost that was just bought and gates the spawn that paid for it. */
+export function storeOf(room, res): number {
+    if(!room) return 0;
+    const storage: any = (room.memory && room.memory.Structures && Game.getObjectById(room.memory.Structures.storage)) || room.storage;
+    const terminal: any = room.terminal;
+    return ((storage && storage.store[res]) || 0) + ((terminal && terminal.store[res]) || 0);
 }
 
 function labs(room) {
@@ -554,7 +585,6 @@ function labs(room) {
         }
 
         let terminal = room.terminal;
-        const storeOf = (res) => (storage && storage.store[res] || 0) + (terminal.store[res] || 0);
 
         if((storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
             storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) &&
@@ -564,30 +594,10 @@ function labs(room) {
                 currentOutput = RESOURCE_HYDROXIDE;
             }
 
-        // chain to get catalyzed lemergium acid
-
-        else if((storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_LEMERGIUM_HYDRIDE ||
-            storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] < 3000 && currentOutput == RESOURCE_LEMERGIUM_HYDRIDE) &&
-            terminal.store[RESOURCE_LEMERGIUM] + storage.store[RESOURCE_LEMERGIUM] >= 1000 && terminal.store[RESOURCE_HYDROGEN] + storage.store[RESOURCE_HYDROGEN] >= 1000) {
-                lab1Input = RESOURCE_LEMERGIUM
-                lab2Input = RESOURCE_HYDROGEN;
-                currentOutput = RESOURCE_LEMERGIUM_HYDRIDE;
-            }
-
-        else if((storage && storage.store[RESOURCE_LEMERGIUM_ACID] < 1000 && currentOutput != RESOURCE_LEMERGIUM_ACID ||
-            storage && storage.store[RESOURCE_LEMERGIUM_ACID] < 3000 && currentOutput == RESOURCE_LEMERGIUM_ACID) &&
-            terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_LEMERGIUM_HYDRIDE] + storage.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 1000) {
-                lab1Input = RESOURCE_HYDROXIDE
-                lab2Input = RESOURCE_LEMERGIUM_HYDRIDE;
-                currentOutput = RESOURCE_LEMERGIUM_ACID;
-            }
-
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 10000 &&
-            terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_LEMERGIUM_ACID] + storage.store[RESOURCE_LEMERGIUM_ACID] >= 1000) {
-                lab1Input = RESOURCE_CATALYST;
-                lab2Input = RESOURCE_LEMERGIUM_ACID;
-                currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
-            }
+        // First pass runs COMBAT T3 first: XUH2O, XZHO2, XLHO2, XGHO2, XKHO2.
+        // The XLH2O (repair) chain used to sit here, ahead of all of them, and
+        // it is the only non-combat rung that did — it now sits after XKHO2,
+        // next to the other non-combat rung (XKH2O carry).
 
         // chain to get catalyzed utrium acid
 
@@ -707,7 +717,9 @@ function labs(room) {
                 currentOutput = RESOURCE_GHODIUM_ALKALIDE;
             }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 3000 &&
+        // 10000 like every other T3 first pass. 3000 was a third of the others
+        // and TOUGH is the boost the combat pairs need most.
+        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 10000 &&
             terminal.store[RESOURCE_GHODIUM_ALKALIDE] + storage.store[RESOURCE_GHODIUM_ALKALIDE] >= 1000 && terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000) {
                 lab1Input = RESOURCE_GHODIUM_ALKALIDE;
                 lab2Input = RESOURCE_CATALYST;
@@ -739,6 +751,32 @@ function labs(room) {
                 currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
             }
 
+        // chain to get catalyzed lemergium acid (XLH2O = REPAIR, non-combat:
+        // moved down here from the top of the first pass)
+
+        else if((storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_LEMERGIUM_HYDRIDE ||
+            storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] < 3000 && currentOutput == RESOURCE_LEMERGIUM_HYDRIDE) &&
+            terminal.store[RESOURCE_LEMERGIUM] + storage.store[RESOURCE_LEMERGIUM] >= 1000 && terminal.store[RESOURCE_HYDROGEN] + storage.store[RESOURCE_HYDROGEN] >= 1000) {
+                lab1Input = RESOURCE_LEMERGIUM
+                lab2Input = RESOURCE_HYDROGEN;
+                currentOutput = RESOURCE_LEMERGIUM_HYDRIDE;
+            }
+
+        else if((storage && storage.store[RESOURCE_LEMERGIUM_ACID] < 1000 && currentOutput != RESOURCE_LEMERGIUM_ACID ||
+            storage && storage.store[RESOURCE_LEMERGIUM_ACID] < 3000 && currentOutput == RESOURCE_LEMERGIUM_ACID) &&
+            terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_LEMERGIUM_HYDRIDE] + storage.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 1000) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_LEMERGIUM_HYDRIDE;
+                currentOutput = RESOURCE_LEMERGIUM_ACID;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 10000 &&
+            terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_LEMERGIUM_ACID] + storage.store[RESOURCE_LEMERGIUM_ACID] >= 1000) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_LEMERGIUM_ACID;
+                currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
+            }
+
 
 
 
@@ -764,8 +802,8 @@ function labs(room) {
         // Combined store: EM dumps KA to the terminal and market sells it, so
         // a storage-only <1000 guard kept producing KA forever and never
         // reached the XKH2O rung.
-        else if((storage && storeOf(RESOURCE_KEANIUM_ACID) < 1000 && currentOutput != RESOURCE_KEANIUM_ACID ||
-            storage && storeOf(RESOURCE_KEANIUM_ACID) < 3000 && currentOutput == RESOURCE_KEANIUM_ACID) &&
+        else if((storage && storeOf(room, RESOURCE_KEANIUM_ACID) < 1000 && currentOutput != RESOURCE_KEANIUM_ACID ||
+            storage && storeOf(room, RESOURCE_KEANIUM_ACID) < 3000 && currentOutput == RESOURCE_KEANIUM_ACID) &&
             terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_KEANIUM_HYDRIDE] + storage.store[RESOURCE_KEANIUM_HYDRIDE] >= 1000) {
                 lab1Input = RESOURCE_HYDROXIDE
                 lab2Input = RESOURCE_KEANIUM_HYDRIDE;
@@ -1052,102 +1090,30 @@ function labs(room) {
     if(Game.cpu.bucket > 4500) {
         // Lab stores are restricted: argless getFreeCapacity() is null, so
         // `!= 0` was always true and runReaction fired into a full output lab.
-        if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && room.memory.labs.status.boost.lab1.use == 0 && (!room.memory.labs.status.boost.lab1.amount || room.memory.labs.status.boost.lab1.amount == 0)) {
-                    const pausedLab1 = room.memory.labs.paused?.find((lab) => lab.id === outputLab1.id && lab.timer > 0);
-                    (pausedLab1 && pausedLab1.timer--) ? undefined : outputLab1.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost|| !room.memory.labs.status.boost.lab1) {
-                    const pausedLab1 = room.memory.labs.paused?.find((lab) => lab.id === outputLab1.id && lab.timer > 0);
-                    (pausedLab1 && pausedLab1.timer--) ? undefined : outputLab1.runReaction(inputLab1, inputLab2);
-                }
+        let outputLabs = [outputLab1, outputLab2, outputLab3, outputLab4, outputLab5, outputLab6, outputLab7, outputLab8];
+        let boost = room.memory.labs.status.boost;
+        for(let i = 1; i <= 8; i++) {
+            let outputLab = outputLabs[i - 1];
+            if(!outputLab || outputLab.cooldown != 0 || !(outputLab.store.getFreeCapacity(currentOutput) > 0)) {
+                continue;
             }
-        }
-        if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && room.memory.labs.status.boost.lab2.use == 0 && (!room.memory.labs.status.boost.lab2.amount || room.memory.labs.status.boost.lab2.amount == 0)) {
-                    const pausedLab2 = room.memory.labs.paused?.find((lab) => lab.id === outputLab2.id && lab.timer > 0);
-                    (pausedLab2 && pausedLab2.timer--) ? undefined : outputLab2.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab2) {
-                    const pausedLab2 = room.memory.labs.paused?.find((lab) => lab.id === outputLab2.id && lab.timer > 0);
-                    (pausedLab2 && pausedLab2.timer--) ? undefined : outputLab2.runReaction(inputLab1, inputLab2);
-                }
+            if(!inputLab1 || !(inputLab1.store[lab1Input] >= 5) || !inputLab2 || !(inputLab2.store[lab2Input] >= 5)) {
+                continue;
             }
-        }
-        if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab3 && room.memory.labs.status.boost.lab3.use == 0 && (!room.memory.labs.status.boost.lab3.amount || room.memory.labs.status.boost.lab3.amount == 0)) {
-                    const pausedLab3 = room.memory.labs.paused?.find((lab) => lab.id === outputLab3.id && lab.timer > 0);
-                    (pausedLab3 && pausedLab3.timer--) ? undefined : outputLab3.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab3) {
-                    const pausedLab3 = room.memory.labs.paused?.find((lab) => lab.id === outputLab3.id && lab.timer > 0);
-                    (pausedLab3 && pausedLab3.timer--) ? undefined : outputLab3.runReaction(inputLab1, inputLab2);
-                }
+            // A missing slot is free. A present slot is free only with no live
+            // claimant and nothing left to deliver. lab5 used to spell this
+            // `!use` (so a slot with use undefined counted as free); every
+            // writer stores a number there, so it now matches the other seven.
+            let slot = boost && boost["lab" + i];
+            if(slot && !(slot.use == 0 && (!slot.amount || slot.amount == 0))) {
+                continue;
             }
-        }
-        if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab4 && room.memory.labs.status.boost.lab4.use == 0 && (!room.memory.labs.status.boost.lab4.amount || room.memory.labs.status.boost.lab4.amount == 0)) {
-                    const pausedLab4 = room.memory.labs.paused?.find((lab) => lab.id === outputLab4.id && lab.timer > 0);
-                    (pausedLab4 && pausedLab4.timer--) ? undefined : outputLab4.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab4) {
-                    const pausedLab4 = room.memory.labs.paused?.find((lab) => lab.id === outputLab4.id && lab.timer > 0);
-                    (pausedLab4 && pausedLab4.timer--) ? undefined : outputLab4.runReaction(inputLab1, inputLab2);
-                }
+            let paused = room.memory.labs.paused?.find((lab) => lab.id === outputLab.id && lab.timer > 0);
+            if(paused) {
+                paused.timer--;
             }
-        }
-        if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab5 && !room.memory.labs.status.boost.lab5.use && (!room.memory.labs.status.boost.lab5.amount || room.memory.labs.status.boost.lab5.amount == 0)) {
-                    const pausedLab5 = room.memory.labs.paused?.find((lab) => lab.id === outputLab5.id && lab.timer > 0);
-                    (pausedLab5 && pausedLab5.timer--) ? undefined : outputLab5.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab5) {
-                    const pausedLab5 = room.memory.labs.paused?.find((lab) => lab.id === outputLab5.id && lab.timer > 0);
-                    (pausedLab5 && pausedLab5.timer--) ? undefined : outputLab5.runReaction(inputLab1, inputLab2);
-                }
-            }
-        }
-        if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab6 && room.memory.labs.status.boost.lab6.use == 0 && (!room.memory.labs.status.boost.lab6.amount || room.memory.labs.status.boost.lab6.amount == 0)) {
-                    const pausedLab6 = room.memory.labs.paused?.find((lab) => lab.id === outputLab6.id && lab.timer > 0);
-                    (pausedLab6 && pausedLab6.timer--) ? undefined : outputLab6.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab6) {
-                    const pausedLab6 = room.memory.labs.paused?.find((lab) => lab.id === outputLab6.id && lab.timer > 0);
-                    (pausedLab6 && pausedLab6.timer--) ? undefined : outputLab6.runReaction(inputLab1, inputLab2);
-                }
-            }
-        }
-        if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab7 && room.memory.labs.status.boost.lab7.use == 0 && (!room.memory.labs.status.boost.lab7.amount || room.memory.labs.status.boost.lab7.amount == 0)) {
-                    const pausedLab7 = room.memory.labs.paused?.find((lab) => lab.id === outputLab7.id && lab.timer > 0);
-                    (pausedLab7 && pausedLab7.timer--) ? undefined : outputLab7.runReaction(inputLab1, inputLab2);
-
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab7) {
-                    const pausedLab7 = room.memory.labs.paused?.find((lab) => lab.id === outputLab7.id && lab.timer > 0);
-                    (pausedLab7 && pausedLab7.timer--) ? undefined : outputLab7.runReaction(inputLab1, inputLab2);
-
-                }
-            }
-        }
-        if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity(currentOutput) > 0) {
-            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab8 && room.memory.labs.status.boost.lab8.use == 0 && (!room.memory.labs.status.boost.lab8.amount || room.memory.labs.status.boost.lab8.amount == 0)) {
-                    const pausedLab8 = room.memory.labs.paused?.find((lab) => lab.id === outputLab8.id && lab.timer > 0);
-                    (pausedLab8 && pausedLab8.timer--) ? undefined : outputLab8.runReaction(inputLab1, inputLab2);
-                }
-                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab8) {
-                    const pausedLab8 = room.memory.labs.paused?.find((lab) => lab.id === outputLab8.id && lab.timer > 0);
-                    (pausedLab8 && pausedLab8.timer--) ? undefined : outputLab8.runReaction(inputLab1, inputLab2);
-                }
+            else {
+                outputLab.runReaction(inputLab1, inputLab2);
             }
         }
     }

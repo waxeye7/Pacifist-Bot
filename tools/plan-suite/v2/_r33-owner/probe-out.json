@@ -1,0 +1,61 @@
+{
+  "E11S1_unmodified": "ESCAPE",
+  "E11S1_shrink": {
+    "wanted": 7,
+    "tiles": 6,
+    "reserved": [
+      "18,27",
+      "19,28",
+      "19,29",
+      "24,28",
+      "25,27",
+      "25,29"
+    ],
+    "lane": [
+      "18,27",
+      "19,28",
+      "19,29",
+      "24,28",
+      "25,27",
+      "25,29"
+    ],
+    "byRound": [
+      [
+        "18,27",
+        "19,28",
+        "19,29"
+      ],
+      [
+        "24,28",
+        "25,27",
+        "25,29"
+      ]
+    ],
+    "to": 2,
+    "used": 3,
+    "ext": 60,
+    "shallow": 3
+  },
+  "E11S1_append_19_27_fullRun_only_wanted_eq_tiles": "BITES",
+  "E11S1_append_19_27_both_lists_wanted_plus_1": "ESCAPE",
+  "E11S1_wanted_plus_1": "ESCAPE",
+  "E11S1_prefix_swap_18_27_to_19_27": "ESCAPE",
+  "E11S2_facts": {
+    "bonus": 85,
+    "has209": true,
+    "has2933": true,
+    "origLap": 2.5,
+    "origComplete": true,
+    "leakSit": true,
+    "leakLap": 0,
+    "sealSit": false,
+    "sealLap": 2.5
+  },
+  "E11S2_leaky_20_9_to_19_9_complete_true": "BITES",
+  "E11S2_leaky_plus_complete_false_regen": "BITES",
+  "E11S2_sealing_29_33_to_28_34": "ESCAPE",
+  "E11S1_protectRadius_12_to_6": "ESCAPE",
+  "E11S1_baseCut_plus_1": "ESCAPE",
+  "E11S1_seedScore_0": "ESCAPE",
+  "E11S1_seedScore_plus_999": "ESCAPE"
+}

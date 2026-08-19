@@ -1,7 +1,8 @@
-import { getBasePlan, placeFromBasePlan, visualizeBasePlan } from "utils/BasePlan";
+import { getBasePlan, placeFromBasePlan, visualizeBasePlan, haulRoadTiles, haulRoadsIncomplete } from "utils/BasePlan";
 import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
-import { placeFromPlanV2 } from "utils/PlanV2";
+import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
+import { logAlways } from "utils/Logger";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
 function vizCircle(roomName: string, x: number, y: number, style: any) {
@@ -304,8 +305,20 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
     if (structure == STRUCTURE_EXTENSION) {
+        // Checkerboard used to fire createConstructionSite until the engine
+        // refused (10 at RCL3). Race rooms have no planV2, so leftover-5
+        // only holds if this path uses the same take as placeFromPlanV2.
+        const extLvl = (room.controller && room.controller.level) || 0;
+        const extEngine = ((CONTROLLER_STRUCTURES as any)[STRUCTURE_EXTENSION] || {})[extLvl] || 0;
+        const extTake = extensionTake(extLvl, extEngine, room);
+        const extHave =
+            room.find(FIND_MY_STRUCTURES, { filter: (s) => s.structureType == STRUCTURE_EXTENSION }).length +
+            room.find(FIND_MY_CONSTRUCTION_SITES, { filter: (s) => s.structureType == STRUCTURE_EXTENSION }).length;
+        if (extHave >= extTake) return 0;
+        let extLeft = extTake - extHave;
         let rampartsInRoomRange10FromStorage = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(anchor) >= 8 && s.pos.getRangeTo(anchor) <= 10;});
         _.forEach(neighbors, function(block) {
+            if (extLeft <= 0) return;
             if(block.x < 1 || block.x > 48 || block.y < 1 || block.y > 48) {
                 return;
             }
@@ -382,8 +395,12 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_ROAD) {
                 if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
-                    constructionSitesPlaced ++;
+                    if (extLeft <= 0) return;
                     let result = blockSpot.createConstructionSite(structure);
+                    if (result == OK) {
+                        constructionSitesPlaced ++;
+                        extLeft--;
+                    }
                     // if(result == 0) {
                     // if(result !== -8 && result !== -14) {
                         // lookForExistingStructures[0].destroy();
@@ -400,8 +417,12 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
             if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
-                constructionSitesPlaced ++;
-                blockSpot.createConstructionSite(structure);
+                if (extLeft <= 0) return;
+                const placed = blockSpot.createConstructionSite(structure);
+                if (placed == OK) {
+                    constructionSitesPlaced ++;
+                    extLeft--;
+                }
                 return;
             }
         });
@@ -620,10 +641,66 @@ function ensureSpawnFirst(room): void {
         }
         return;
     }
-    const res = room.createConstructionSite(tile.x, tile.y, STRUCTURE_SPAWN);
+    const planned = plannedSpawnTile(room);
+    const x = planned ? planned.x : tile.x;
+    const y = planned ? planned.y : tile.y;
+    clearPlanSpawnTile(room, x, y);
+    const res = room.createConstructionSite(x, y, STRUCTURE_SPAWN);
     if (res !== OK && res !== ERR_FULL) {
-        console.log(`${room.name}: SPAWN FIRST — spawn site ${tile.x},${tile.y} err ${res}`);
+        console.log(`${room.name}: SPAWN FIRST — spawn site ${x},${y} err ${res}`);
     }
+}
+
+/**
+ * Legacy rooms never get planV2's controller bin. The 4W park only pays once a
+ * live container sits range ≤4 of the controller and not on a source. Site one
+ * at RCL3 (prefer chebyshev 3, plains, nearer the spawn). No source boxes.
+ * RCL2 far-ctrl (slam-5 + Cheby>10) reverted — dest cargo on cycle-19;
+ * next isolated seed must not site a depot on the 45k.
+ */
+function siteLegacyControllerDepot(room, spawn) {
+    const ctrl = room.controller;
+    if (!ctrl) return;
+    if (ctrl.level !== 3) return;
+    const sources = room.find(FIND_SOURCES);
+    const isDepot = function (pos) {
+        return pos.getRangeTo(ctrl) <= 4 && pos.findInRange(sources, 1).length === 0;
+    };
+    const standing = room.find(FIND_STRUCTURES, {
+        filter: (s: any) => s.structureType == STRUCTURE_CONTAINER && isDepot(s.pos),
+    });
+    if (standing.length) return;
+    const queued = room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: (s: any) => s.structureType == STRUCTURE_CONTAINER && isDepot(s.pos),
+    });
+    if (queued.length) return;
+
+    let best = null;
+    let bestScore = -Infinity;
+    for (let dx = -4; dx <= 4; dx++) {
+        for (let dy = -4; dy <= 4; dy++) {
+            const cheb = Math.max(Math.abs(dx), Math.abs(dy));
+            if (cheb < 2 || cheb > 4) continue;
+            const x = ctrl.pos.x + dx;
+            const y = ctrl.pos.y + dy;
+            if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+            const pos = new RoomPosition(x, y, room.name);
+            if (!isDepot(pos)) continue;
+            const terrain = pos.lookFor(LOOK_TERRAIN)[0];
+            if (terrain === "wall") continue;
+            const structs = pos.lookFor(LOOK_STRUCTURES);
+            if (structs.some((s) => s.structureType != STRUCTURE_ROAD && s.structureType != STRUCTURE_RAMPART)) continue;
+            if (pos.lookFor(LOOK_CONSTRUCTION_SITES).length) continue;
+            let score = cheb === 3 ? 30 : cheb === 2 ? 12 : 6;
+            if (terrain !== "swamp") score += 20;
+            if (spawn) score -= pos.getRangeTo(spawn);
+            if (score > bestScore) {
+                bestScore = score;
+                best = pos;
+            }
+        }
+    }
+    if (best) room.createConstructionSite(best.x, best.y, STRUCTURE_CONTAINER);
 }
 
 function construction(room) {
@@ -635,7 +712,8 @@ function construction(room) {
     }
 
     // v2-planned rooms build ONLY from the adopted plan — legacy stamps,
-    // basePlan and perimeter logic must never touch them
+    // basePlan and perimeter logic must never touch them. A far live spawn
+    // is a hub-migrate job, not a reason to throw the pack away.
     if (room.memory.planV2) {
         placeFromPlanV2(room);
         return;
@@ -649,6 +727,13 @@ function construction(room) {
     if (room.controller && room.controller.my && room.find(FIND_MY_SPAWNS).length == 0) {
         ensureSpawnFirst(room);
         return;
+    }
+
+    relocateStrayTowers(room);
+
+    // Leftover sites from a stripped/mismatched bunker (E37N59 x=47 roads).
+    for (const s of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (s.pos.x <= 1 || s.pos.x >= 47 || s.pos.y <= 1 || s.pos.y >= 47) s.remove();
     }
 
     // ONE ROAD OWNER AT A TIME — see the note above pathBuilder. placeFromBasePlan
@@ -668,9 +753,8 @@ function construction(room) {
         const young = room.controller.level < 4 || !hasStorage;
         if (young) {
             placeFromBasePlan(room, 8);
-            // placeFromBasePlan only queues roads from RCL3 (see BasePlan.ts) —
-            // below that nobody is paving and the legacy lines are gated on
-            // RCL3 anyway, so the flag can safely track the whole young window.
+            // placeFromBasePlan paves the haul line after slam-5 (RCL2+).
+            // Legacy pathBuilder stands down for the whole young window.
             basePlanRoadsActive = true;
         }
         if (Memory.verbose || Memory.showPlan) {
@@ -694,6 +778,14 @@ function construction(room) {
         const sites = room.find(FIND_MY_CONSTRUCTION_SITES, {
             filter: (s) => s.structureType == STRUCTURE_ROAD,
         });
+        const haulKeys = new Set<string>();
+        if (bp) {
+            for (const t of haulRoadTiles(room, bp)) haulKeys.add(`${t.x},${t.y}`);
+            const n = bp.arterialN || 0;
+            for (const t of ((bp.structures && bp.structures.road) || []).slice(0, n)) {
+                haulKeys.add(`${t.x},${t.y}`);
+            }
+        }
         for (const site of sites) {
             // edge tiles (pathing to remotes) or far from spawn
             const onEdge = site.pos.x <= 1 || site.pos.x >= 48 || site.pos.y <= 1 || site.pos.y >= 48;
@@ -701,8 +793,42 @@ function construction(room) {
             const spawn: any = Game.getObjectById(room.memory.Structures && room.memory.Structures.spawn);
             if (spawn && site.pos.getRangeTo(spawn) > 12) far = true;
             const onShell = shellTiles.has(`${site.pos.x},${site.pos.y}`);
+            const haul = haulKeys.has(`${site.pos.x},${site.pos.y}`);
+            // RCL2 pave stole the 45k (E16S9 L3 31858 / 62 roads). Drop
+            // leftover road sites so builders stand down until RCL3.
+            if (room.controller.level < 3) {
+                site.remove();
+                continue;
+            }
+            // Cycle-17: far>12 deleted the hub→ctrl line (E12S3 spawn→ctrl 14).
+            if (haul) continue;
             if (onEdge || far || onShell) site.remove();
+            else if (haulKeys.size) site.remove();
         }
+        // Source boxes wait until the haul line is standing — 5k each
+        // vs 300e/road. Keep the hub tile and the controller depot.
+        if (room.controller.level === 3 && room.energyCapacityAvailable >= 550 && haulRoadsIncomplete(room, bp)) {
+            const sources = room.find(FIND_SOURCES);
+            for (const site of room.find(FIND_MY_CONSTRUCTION_SITES, {
+                filter: (s) => s.structureType == STRUCTURE_CONTAINER,
+            })) {
+                const nearSource = sources.some((s) => site.pos.getRangeTo(s) <= 1);
+                const depot = site.pos.getRangeTo(room.controller) <= 4 && !nearSource;
+                const hubTile = bp && bp.hub && site.pos.x === bp.hub.x && site.pos.y === bp.hub.y;
+                if (nearSource && !depot && !hubTile) site.remove();
+            }
+        }
+    }
+
+    // leftover-5 at L4: take stays 5 until storage STANDS. Pre-queued
+    // ext sites (E13S7 15, live E36N57 10) hog builders off the 30k box.
+    // Strip them; they re-site after room.storage.my.
+    if (room.controller && room.controller.my && room.controller.level === 4
+        && !(room.storage && room.storage.my)) {
+        const extSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
+            filter: (s) => s.structureType === STRUCTURE_EXTENSION,
+        });
+        for (const site of extSites) site.remove();
     }
 
     // Perimeter always from basePlan (min-cut) — square shell removed
@@ -1101,6 +1227,7 @@ function construction(room) {
                 }
             }
         }
+        if (spawn) siteLegacyControllerDepot(room, spawn);
         // spawn.y-2 is the legacy storage seat. legacySpawnTile allows y>=1,
         // so y-2 can be -1 and RoomPosition throws.
         let storageLocation = safePos(spawn.pos.x, spawn.pos.y -2, room.name);
@@ -1134,6 +1261,14 @@ function construction(room) {
         if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
             if(storage) {
+                // Nearest source first (chebyshev to hub / storage). Still gated
+                // level >= 3. Does not site a source at RCL2.
+                const origin = storage.pos;
+                sources = sources.slice().sort((a, b) => {
+                    const da = Math.max(Math.abs(a.pos.x - origin.x), Math.abs(a.pos.y - origin.y));
+                    const db = Math.max(Math.abs(b.pos.x - origin.x), Math.abs(b.pos.y - origin.y));
+                    return da - db;
+                });
                 let container1;
                 if(sources.length > 0) {
                     // Re-pathing every pass moves the seat when the matrix
@@ -1192,7 +1327,7 @@ function construction(room) {
 
                 let mySpawns = room.find(FIND_MY_SPAWNS);
 
-                if(linkLocation && room.controller.level <= 6 && room.controller.level >= 2) {
+                if(linkLocation && room.controller.level <= 6 && room.controller.level >= 3) {
                     // Path flip sites a second controller depot; keep one
                     // within 3 that is not a source container.
                     const nearbyCtrlBox = room.controller.pos.findInRange(FIND_STRUCTURES, 3, {
@@ -1262,21 +1397,6 @@ function construction(room) {
                     }
 
 
-                    if(storage) {
-                        let FactoryPosition = new RoomPosition(storage.pos.x + 2, storage.pos.y + 2, room.name);
-                        vizCircle(room.name, FactoryPosition.x, FactoryPosition.y, {fill: 'transparent', radius: .75, stroke: 'blue'});
-                        let listOfFactoryPositions = [];
-                        listOfFactoryPositions.push(FactoryPosition);
-
-
-                        DestroyAndBuild(room, listOfFactoryPositions, STRUCTURE_FACTORY);
-
-                        // let lookforfactorypositionstructures = FactoryPosition.lookFor(LOOK_STRUCTURES)
-                        // if(lookforfactorypositionstructures.length == 1 && lookforfactorypositionstructures[0].structureType == STRUCTURE_FACTORY) {
-                        //     FactoryPosition.createConstructionSite(STRUCTURE_RAMPART);
-                        // }
-                    }
-
                 }
 
                 if(room.controller.level == 8 && mySpawns.length == 2) {
@@ -1345,7 +1465,7 @@ function construction(room) {
 
 
 
-                if(room.controller.level < 6 && container1) {
+                if(room.controller.level >= 3 && room.controller.level < 6 && container1 && !haulRoadsIncomplete(room)) {
                     const already1 = sources.length > 0 && (
                         sources[0].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0 ||
                         sources[0].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0
@@ -1355,7 +1475,7 @@ function construction(room) {
                     }
                 }
 
-                if(room.controller.level < 6 && container2) {
+                if(room.controller.level >= 3 && room.controller.level < 6 && container2 && !haulRoadsIncomplete(room)) {
                     const already2 = sources.length > 1 && (
                         sources[1].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0 ||
                         sources[1].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0
@@ -1645,81 +1765,27 @@ function construction(room) {
         }
         if(room.controller.level >= 3) {
             if(storage) {
-                let storageX = storage.pos.x;
-                let storageY = storage.pos.y;
-                let tower_raw_locations = [
-                    [storageX + -5,storageY + -7],
-                    [storageX + -3,storageY + -7],
-                    [storageX + -1,storageY + -7],
-                    [storageX + 1,storageY + -7],
-                    [storageX + 3,storageY + -7],
-                    [storageX + 5,storageY + -7],
-                    [storageX + -7,storageY + -5],
-                    [storageX + -7,storageY + -3],
-                    [storageX + -7,storageY + -1],
-                    [storageX + -7,storageY + 5],
-                    [storageX + -5,storageY + 7],
-                    [storageX + -3,storageY + 7],
-                    [storageX + -1,storageY + 7],
-                    [storageX + 1,storageY + 7],
-                    [storageX + 3,storageY + 7],
-                    [storageX + 5,storageY + 7],
-                    [storageX + 7,storageY + 5],
-                    [storageX + 7,storageY + 3],
-                    [storageX + 7,storageY + 1],
-                    [storageX + 7,storageY + -1],
-                    [storageX + 7,storageY + -3],
-                    [storageX + 7,storageY + -5],
-                    [storageX + 0,storageY + 7],
-                    [storageX + 7,storageY + 0],
-                    [storageX + 0,storageY + -7],
-                    [storageX + 4,storageY + 7],
-                    [storageX + -4,storageY + 7],
-                    [storageX + 7,storageY + 4],
-                    [storageX + 7,storageY + -4],
-                    [storageX + 4,storageY + -7],
-                    [storageX + -4,storageY + -7],
-                    [storageX + -7,storageY + 4],
-                    [storageX + -7,storageY + -4]
+                // Hub ring, not the old range-7 "on the mincut wall" ring.
+                // Live E36N57 sat a tower on a border rampart at 18,20 (8 from
+                // storage) because that list preferred tiles next to the shell.
+                const hub = storage.pos;
+                const towerOff = [
+                    [2, 0], [-2, 0], [0, 2], [0, -2],
+                    [2, 2], [-2, -2], [2, -2], [-2, 2],
+                    [1, 2], [-1, 2], [2, 1], [-2, 1],
                 ];
-                let tower_locations_to_filter = [];
-                for(let raw_location of tower_raw_locations) {
-                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
-                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
-                    }
+                const towerCandidates = [];
+                const sources = room.find(FIND_SOURCES);
+                for (const off of towerOff) {
+                    const x = hub.x + off[0];
+                    const y = hub.y + off[1];
+                    if (x < 2 || x > 47 || y < 2 || y > 47) continue;
+                    const pos = new RoomPosition(x, y, room.name);
+                    if (pos.lookFor(LOOK_TERRAIN)[0] === "wall") continue;
+                    if (sources.some((s) => pos.getRangeTo(s) <= 1)) continue;
+                    towerCandidates.push(pos);
                 }
-                let tower_locations_to_shuffle = [];
-                // Exact range==3 missed min-cut shells; the !storage else sat
-                // inside if(storage) and never ran. Relax to <=4 and fall back
-                // to the raw ring-7 list when nothing matches.
-                let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
-                if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
-                    for(let location of tower_locations_to_filter) {
-                        let closestRampart = location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve);
-                        if(!closestRampart) continue;
-                        let closestRampartToLocation = location.getRangeTo(closestRampart);
-                        if(closestRampartToLocation <= 4) {
-                            tower_locations_to_shuffle.push(location);
-                        }
-                    }
-                }
-
-                const shuffle = arr => {
-                    for (let i = arr.length - 1; i > 0; i--) {
-                      const j = Math.floor(Math.random() * (i + 1));
-                      const temp = arr[i];
-                      arr[i] = arr[j];
-                      arr[j] = temp;
-                    }
-                    return arr;
-                }
-                let towerCandidates = tower_locations_to_shuffle.length > 0
-                    ? shuffle(tower_locations_to_shuffle)
-                    : tower_locations_to_filter;
-                console.log(towerCandidates);
-
                 BuildIfICan(towerCandidates, STRUCTURE_TOWER);
-
             }
         }
     }
@@ -1748,6 +1814,28 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
     }
 }
 
+/** One off-hub tower per pass, only in peacetime, only if we can rebuild. */
+function relocateStrayTowers(room) {
+    if (!room.controller || !room.controller.my) return;
+    if (room.memory.danger || room.find(FIND_HOSTILE_CREEPS).length) return;
+    const hub: any = room.storage || room.find(FIND_MY_SPAWNS)[0];
+    if (!hub) return;
+    const towers = room.find(FIND_MY_STRUCTURES, {
+        filter: (s) => s.structureType === STRUCTURE_TOWER,
+    });
+    for (const t of towers) {
+        const range = t.pos.getRangeTo(hub);
+        if (range <= 6) continue;
+        const bank = room.storage && room.storage.my ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+        if (bank < 8000) continue;
+        logAlways(
+            `construction ${room.name}: destroying off-hub tower@${t.pos.x},${t.pos.y} (range ${range} from hub)`,
+        );
+        t.destroy();
+        return;
+    }
+}
+
 function BuildIfICan(LocationsList, StructureType:string) {
     let ramparts;
     if(LocationsList.length > 0) {
@@ -1762,7 +1850,9 @@ function BuildIfICan(LocationsList, StructureType:string) {
             continue;
         }
 
-        if(ramparts && ramparts.length > 0) {
+        // Towers live on the hub. The old "must be within 4 of a wall rampart"
+        // filter is what parked them on the mincut / room border.
+        if(StructureType !== STRUCTURE_TOWER && ramparts && ramparts.length > 0) {
             if(location.getRangeTo(location.findClosestByRange(ramparts)) > 4) {
                 continue;
             }
@@ -2435,8 +2525,15 @@ function planRoadSet(room): { [packed: number]: boolean } | null {
  * path across the base. Plan road tiles cost 1, everything else is expensive
  * but passable (the path can still cross a gap — we simply won't pave it).
  */
-function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix {
+function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix | undefined {
     if (!planRoads || roomName !== homeRoom.name) {
+        // No vision: makeStructuresCostMatrixModifiedTest returns `false`, and
+        // `false` tells PathFinder the room is IMPASSABLE. Every path to a
+        // remote we cannot currently see therefore came back incomplete, which
+        // is half of why pathLength never landed. `undefined` means "use plain
+        // terrain costs" — exactly the right answer for a room whose
+        // structures we cannot enumerate.
+        if (!Game.rooms[roomName]) return undefined;
         return makeStructuresCostMatrixModifiedTest(roomName);
     }
     const costs = new PathFinder.CostMatrix();
@@ -2539,9 +2636,113 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
     }
 }
 
-function Build_Remote_Roads(room) {
+/** how often ONE remote gets a full road/container pass while we can see it */
+const REMOTE_ROAD_PASS_EVERY = 500;
+/** how often we re-derive pathLength for a remote we canNOT currently see */
+const REMOTE_PATH_PASS_EVERY = 500;
+
+interface RemoteRoadCtx {
+    /** path origin — the home storage */
+    storage: any;
+    /** home-room plan road tiles, or null for an unplanned room */
+    planRoads: { [packed: number]: boolean } | null;
+    /** shared site budget for this pass; null when we are only measuring */
+    clipBudget: { homeSites: number, remoteSites: { [roomName: string]: number } } | null;
+    /** false => compute pathLength only, place nothing */
+    allowSites: boolean;
+}
+
+/**
+ * One remote room's sources: measure the haul, then (optionally) pave it.
+ *
+ * Split out of Build_Remote_Roads so the per-remote cadence in
+ * Remote_Roads_Tick can run exactly one remote per tick, and so the
+ * measure-only half can run with no vision at all.
+ */
+function buildRemote(room, targetRoomName: string, data: any, ctx: RemoteRoadCtx): void {
+    _.forEach(data.energy, function(values: any, sourceId: any) {
+        if(!values) return;
+
+        const source: any = Game.getObjectById(sourceId);
+        // Stamp coordinates whenever vision happens to be here (the remote
+        // miner stands on the source, so this is nearly free and keeps
+        // pre-existing memory entries — written before scout.ts recorded
+        // x/y — self-healing).
+        if(source && source.pos) {
+            values.x = source.pos.x;
+            values.y = source.pos.y;
+        }
+        // Without vision AND without a remembered position there is nothing
+        // to path at. scout.ts records x/y, so this only bites once.
+        if(typeof values.x !== "number" || typeof values.y !== "number") return;
+
+        const goalPos = source && source.pos
+            ? source.pos
+            : new RoomPosition(values.x, values.y, targetRoomName);
+
+        const pathFromStorageToRemoteSource = PathFinder.search(
+            ctx.storage.pos,
+            {pos: goalPos, range: 1},
+            {
+                plainCost: 1,
+                swampCost: 3,
+                roomCallback: (roomName) => remoteRoadCostMatrix(roomName, room, ctx.planRoads),
+                maxRooms: 16,  // Allow cross-room pathing
+                maxOps: 10000
+            }
+        );
+
+        if(pathFromStorageToRemoteSource.incomplete) {
+            console.log(`Could not find path to remote source in ${targetRoomName}`);
+            return;
+        }
+
+        // Carrier body sizing (rooms.spawning) and remote SCORING
+        // (rooms.remotes: `if (!isFinite(best)) continue`) both read this and
+        // nothing else. It is the single most important thing this function
+        // produces, so it is written before any of the site-placement gates
+        // below can bail.
+        values.pathLength = pathFromStorageToRemoteSource.path.length;
+
+        // Measure-only pass (no vision, or the global site cap is full).
+        if(!ctx.allowSites || !ctx.clipBudget) return;
+
+        const containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
+        if(!containerSpot || !Game.rooms[containerSpot.roomName]) {
+            console.log(`No visibility in container room ${containerSpot?.roomName}`);
+            return;
+        }
+        // A source sitting at x/y 1 or 48 puts the last path tile ON the room
+        // border, and createConstructionSite refuses border tiles - silently,
+        // every single pass, forever. Skip only the box; the roads below and the
+        // pathLength above are still worth the pass.
+        if(containerSpot.x < 1 || containerSpot.x > 48 || containerSpot.y < 1 || containerSpot.y > 48) {
+            console.log(`Remote container spot ${containerSpot.x},${containerSpot.y} in ${containerSpot.roomName} is a border tile - no container, roads only`);
+        }
+        else {
+            const containerSiteResult = Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
+            if(containerSiteResult !== OK && containerSiteResult !== ERR_FULL && containerSiteResult !== ERR_INVALID_TARGET) {
+                console.log(`Remote container site ${containerSpot.x},${containerSpot.y} in ${containerSpot.roomName} failed: ${containerSiteResult}`);
+            }
+        }
+        console.log(`Building road from ${room.name} storage to remote source in ${targetRoomName} (${values.pathLength} tiles)`);
+        if(ctx.planRoads) {
+            placeClippedRemoteRoads(room, pathFromStorageToRemoteSource.path, ctx.planRoads, ctx.clipBudget);
+        } else {
+            pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
+        }
+    });
+}
+
+/**
+ * @param onlyRemote restrict the pass to one remote room (the per-tick
+ *        cadence does this). Omitted => every active remote, ignoring the
+ *        roadPass/pathPass stamps — that is what `global.buildRemoteRoads()`
+ *        wants from the console.
+ */
+function Build_Remote_Roads(room, onlyRemote?: string) {
     // Early RCL / no remotes: do not lay road sites to room edges
-    if (!room.controller || room.controller.level < 4) return;
+    if (!room || !room.controller || room.controller.level < 4) return;
     if(room.memory.danger) {
         return;
     }
@@ -2553,17 +2754,27 @@ function Build_Remote_Roads(room) {
     // not per room. A remote line is 50-80 tiles, so paving two remotes ate
     // the whole allowance and left placeFromPlanV2 with zero slots in both
     // communes. Remote roads are the lowest-priority builder there is.
-    if (Object.keys(Game.constructionSites).length >= GLOBAL_SITE_CEILING) {
-        return;
-    }
+    //
+    // This used to be a hard `return`, which meant a busy build queue also
+    // suppressed pathLength — and pathLength is what SCORES the remote. Now it
+    // only downgrades the pass to measure-only.
+    const allowSites = Object.keys(Game.constructionSites).length < GLOBAL_SITE_CEILING;
 
     // v2-planned rooms are handled with a clipped placer instead of
     // pathBuilder: pathBuilder paves the WHOLE path, which drops up to 12
     // in-room road sites and starves placeFromPlanV2's 4-site budget.
+    // Computed even for measure-only passes: it changes the in-room leg of the
+    // path (plan roads cost 1), so leaving it out would make the two kinds of
+    // pass disagree about pathLength.
     const planRoads = planRoadSet(room);
-    const clipBudget = {
-        homeSites: room.find(FIND_MY_CONSTRUCTION_SITES).length,
-        remoteSites: {} as { [roomName: string]: number }
+    const ctx: RemoteRoadCtx = {
+        storage,
+        planRoads,
+        clipBudget: allowSites ? {
+            homeSites: room.find(FIND_MY_CONSTRUCTION_SITES).length,
+            remoteSites: {} as { [roomName: string]: number }
+        } : null,
+        allowSites
     };
 
     let resourceData = _.get(room.memory, ['resources']);
@@ -2571,50 +2782,72 @@ function Build_Remote_Roads(room) {
     _.forEach(resourceData, function(data, targetRoomName){
         // We want to build roads to remote rooms, not the current room
         if(room.name === targetRoomName) return;
+        if(onlyRemote && targetRoomName !== onlyRemote) return;
         // ...and only to remotes we actually decided to mine
         if(!data || !data.active || !data.energy) return;
 
-        _.forEach(data.energy, function(values, sourceId:any) {
-            let source:any = Game.getObjectById(sourceId);
-            // Check if we have visibility of the source
-            if(source == null || !storage) {
-                return;
-            }
-            let pathFromStorageToRemoteSource = PathFinder.search(
-                storage.pos,
-                {pos:source.pos, range:1},
-                {
-                    plainCost: 1,
-                    swampCost: 3,
-                    roomCallback: (roomName) => remoteRoadCostMatrix(roomName, room, planRoads),
-                    maxRooms: 16,  // Allow cross-room pathing
-                    maxOps: 10000
-                }
-            );
-
-            if(pathFromStorageToRemoteSource.incomplete) {
-                console.log(`Could not find path to remote source in ${targetRoomName}`);
-                return;
-            }
-
-            let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
-            // carrier body sizing reads this; it is the only place it is
-            // computed for a remote source
-            values.pathLength = pathFromStorageToRemoteSource.path.length;
-
-            if(!containerSpot || !Game.rooms[containerSpot.roomName]) {
-                console.log(`No visibility in container room ${containerSpot?.roomName}`);
-                return;
-            }
-            Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
-            console.log(`Building road from ${room.name} storage to remote source in ${targetRoomName} (${values.pathLength} tiles)`);
-            if (planRoads) {
-                placeClippedRemoteRoads(room, pathFromStorageToRemoteSource.path, planRoads, clipBudget);
-            } else {
-                pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
-            }
-        });
+        buildRemote(room, targetRoomName as string, data, ctx);
     });
+}
+
+/**
+ * Per-remote, vision-triggered cadence. Call every tick.
+ *
+ * The old trigger was `Game.time % 500 === 0` for the whole ROOM, while the
+ * body needed `Game.getObjectById(sourceId)` to resolve — i.e. it only did
+ * anything if one of our creeps happened to be standing in that remote on that
+ * exact 1-in-500 tick. The two almost never coincided, so live memory showed
+ * every remote at `roads 0, cont 0` with no pathLength at all: unscored,
+ * unclaimed, unpaved, forever.
+ *
+ * Cheap enough for every tick — a for-in over room.memory.resources with early
+ * continues, no find() and no PathFinder unless a remote is actually due. At
+ * most ONE remote per room per tick does PathFinder work, so three remotes
+ * gaining vision on the same tick spread across three ticks.
+ */
+function Remote_Roads_Tick(room): void {
+    if (!room.controller || room.controller.level < 4) return;
+    if (room.memory.danger) return;
+    const resources: any = room.memory.resources;
+    if (!resources) return;
+
+    // Fallback candidate: a remote we cannot see, whose distance we still do
+    // not know. Only used if no visible remote is due this tick.
+    let measureOnly: string | null = null;
+
+    for (const targetRoomName in resources) {
+        if (targetRoomName === room.name) continue;
+        const data = resources[targetRoomName];
+        if (!data || !data.active || !data.energy) continue;
+
+        if (Game.rooms[targetRoomName]) {
+            if (Game.time - (data.roadPass || 0) <= REMOTE_ROAD_PASS_EVERY) continue;
+            // Stamp first: a pass that bails inside (no storage, incomplete
+            // path) must not retry every tick.
+            data.roadPass = Game.time;
+            Build_Remote_Roads(room, targetRoomName);
+            return; // one remote per room per tick
+        }
+
+        if (measureOnly) continue;
+        if (Game.time - (data.pathPass || 0) <= REMOTE_PATH_PASS_EVERY) continue;
+        for (const id in data.energy) {
+            const v = data.energy[id];
+            // Known position, unknown distance => worth a blind path.
+            if (v && v.pathLength == null && typeof v.x === "number" && typeof v.y === "number") {
+                measureOnly = targetRoomName;
+                break;
+            }
+        }
+    }
+
+    if (measureOnly) {
+        resources[measureOnly].pathPass = Game.time;
+        // No vision on the remote => the container-spot guard inside
+        // buildRemote returns before anything is placed. This is the
+        // measure-only path.
+        Build_Remote_Roads(room, measureOnly);
+    }
 }
 
 function Situational_Building(room) {
@@ -2647,7 +2880,7 @@ function Situational_Building(room) {
 }
 
 
-export { Build_Remote_Roads, Situational_Building };
+export { Build_Remote_Roads, Remote_Roads_Tick, Situational_Building };
 
 export default construction;
 

@@ -30,6 +30,11 @@ export interface SpeedrunState {
    * and spawn will not queue remote miners/carriers/reservists.
    */
   disableRemotes?: boolean;
+  /**
+   * Local test only. Skip RCL6+ owned rooms (and their creeps) so the
+   * tick isn't eaten by an 8-room RCL8 empire sitting next to a race.
+   */
+  skipHighRcl?: boolean;
 }
 
 /** Clock fields on room.memory.speedrun (reuses the existing policy object). */
@@ -141,6 +146,61 @@ export function remotesDisabled(): boolean {
   return !!(Memory.speedrun && Memory.speedrun.disableRemotes);
 }
 
+/**
+ * RCL2 remotes do not pay. RCL3 only after slam-5 (550e). Shared with
+ * manageRemotes — applySpeedrunSpawnHints used to close every RCL<=3 remote
+ * every tick (features.speedrun defaults ON), so slam-5 opens were gone
+ * before spawn and manageRemotes logged OPEN / wiped closedAt every 25t.
+ */
+export function remotesRclLocked(room: Room): boolean {
+  const lvl = room.controller && room.controller.level;
+  return !lvl || lvl < 3 || (lvl === 3 && room.energyCapacityAvailable < 550);
+}
+
+/** RCL6+ rooms (and their creeps) are no-ops. Local hyperspeed only. */
+export function skipHighRclEnabled(): boolean {
+  if (!(Memory.speedrun && Memory.speedrun.skipHighRcl)) return false;
+  // A 20-CPU MMO bot cannot no-op every RCL6+ room. The flag is a local
+  // tick-speed cheat; on shard3 it is a silent total blackout.
+  if ((Game.cpu.limit || 20) <= 30) return false;
+  return true;
+}
+
+export function skipHighRclRoom(room?: Room): boolean {
+  if (!skipHighRclEnabled() || !room || !room.controller || !room.controller.my) return false;
+  return room.controller.level >= 6;
+}
+
+export function skipHighRclCreep(creep: Creep): boolean {
+  if (!skipHighRclEnabled()) return false;
+  const here = creep.room;
+  if (here.controller && here.controller.my && here.controller.level >= 6) return true;
+  const home = creep.memory && creep.memory.homeRoom && Game.rooms[creep.memory.homeRoom];
+  if (home && home.controller && home.controller.my && home.controller.level >= 6) return true;
+  return false;
+}
+
+export function enableSkipHighRcl(): string {
+  if ((Game.cpu.limit || 20) <= 30) {
+    const msg = "skipHighRcl refused — cpu.limit<=30 (live MMO). Local private server only.";
+    logAlways(msg);
+    return msg;
+  }
+  const s = ensure();
+  s.skipHighRcl = true;
+  const msg = "skipHighRcl ON — RCL6+ rooms and their creeps do not run (local tick speed)";
+  logAlways(msg);
+  return msg;
+}
+
+export function disableSkipHighRcl(): string {
+  const s = ensure();
+  s.skipHighRcl = false;
+  const msg = "skipHighRcl OFF — all owned rooms run";
+  logAlways(msg);
+  return msg;
+}
+
 function closeOwnedRemotes(): void {
   for (const name in Game.rooms) {
     const room = Game.rooms[name];
@@ -172,6 +232,7 @@ export function enableRemotes(): string {
 
 export function resetSpeedrun(roomName?: string): string {
   const keepOff = remotesDisabled();
+  const keepSkip = skipHighRclEnabled();
   Memory.speedrun = {
     startTick: Game.time,
     rclTimes: {},
@@ -179,6 +240,7 @@ export function resetSpeedrun(roomName?: string): string {
     roomName: roomName || undefined,
   };
   if (keepOff) Memory.speedrun.disableRemotes = true;
+  if (keepSkip) Memory.speedrun.skipHighRcl = true;
   if (roomName) {
     resetRoomClockByName(roomName);
   } else {
@@ -261,10 +323,11 @@ export function applySpeedrunSpawnHints(room: Room): void {
   if (!room.controller || !room.controller.my) return;
   const rcl = room.controller.level;
 
-  // Close remotes before spawn (hints run first). RCL1–3 always; any RCL
-  // when Memory.speedrun.disableRemotes is set. manageRemotes also closes
-  // every tick on that flag so already-open remotes cannot stay active.
-  if ((rcl <= 3 || remotesDisabled()) && room.memory.resources) {
+  // Close remotes before spawn (hints run first). Same RCL/slam-5 gate as
+  // manageRemotes; any RCL when Memory.speedrun.disableRemotes is set.
+  // manageRemotes also closes every tick on that flag so already-open
+  // remotes cannot stay active.
+  if ((remotesRclLocked(room) || remotesDisabled()) && room.memory.resources) {
     for (const rn of Object.keys(room.memory.resources)) {
       if (rn !== room.name && room.memory.resources[rn]) {
         room.memory.resources[rn].active = false;

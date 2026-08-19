@@ -1,0 +1,492 @@
+/**
+ * Fleet-wide remaining META_DARK presence flips.
+ * checkRoom only. Does not write the artifact. Round 39.
+ */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { META_DARK } from "../r27-gates.mjs";
+import { checkRoomLazy, loadPlans, loadRooms, realFails } from "./common.mjs";
+
+const DIR = path.dirname(fileURLToPath(import.meta.url));
+const { plans } = loadPlans();
+const { byRoom } = loadRooms();
+
+const PRESENCE = Object.entries(META_DARK).filter(([, v]) => v.klass === "presence").map(([k]) => k);
+const DERIVED = Object.entries(META_DARK).filter(([, v]) => v.klass === "derived").map(([k]) => k);
+
+function walkFlip(obj, flipped, skip = new Set()) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkFlip(el, flipped, skip);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (PRESENCE.includes(k) && !skip.has(k)) {
+      if (typeof v === "number" && v !== 0) {
+        obj[k] = 0;
+        flipped[k] = (flipped[k] || 0) + 1;
+      } else if (typeof v === "boolean" && v === true) {
+        obj[k] = false;
+        flipped[k] = (flipped[k] || 0) + 1;
+      } else if (Array.isArray(v) && v.length) {
+        obj[k] = [];
+        flipped[k] = (flipped[k] || 0) + 1;
+      }
+    } else if (v && typeof v === "object") {
+      walkFlip(v, flipped, skip);
+    }
+  }
+}
+
+async function summarize(label, list) {
+  const checkRoom = await checkRoomLazy();
+  let pass = 0;
+  let fail = 0;
+  let declared = 0;
+  const firstFails = [];
+  for (const p of list) {
+    if (!p || !p.room || p.error) continue;
+    const d = byRoom.get(p.room);
+    if (!d) {
+      fail++;
+      firstFails.push({ room: p.room, fails: ["no terrain"] });
+      continue;
+    }
+    const res = checkRoom(p, d.terrain, d.objects, null);
+    const fails = realFails(res);
+    declared += res.declared || 0;
+    if (fails.length) {
+      fail++;
+      if (firstFails.length < 16) firstFails.push({ room: p.room, fails: fails.slice(0, 2) });
+    } else pass++;
+  }
+  return { label, pass, fail, declared, firstFails };
+}
+
+const t0 = Date.now();
+const checkRoom = await checkRoomLazy();
+void checkRoom;
+
+const baseline = await summarize("baseline", plans);
+
+const mutated = JSON.parse(JSON.stringify(plans));
+const flipped = {};
+for (const p of mutated) if (p && p.meta) walkFlip(p.meta, flipped);
+const fleet = await summarize("presence-zero", mutated);
+
+const mutated2 = JSON.parse(JSON.stringify(plans));
+const flipped2 = {};
+for (const p of mutated2) if (p && p.meta) walkFlip(p.meta, flipped2, new Set(["baseCut", "shallowNow"]));
+const fleetSkip = await summarize("presence-zero-except-baseCut-shallowNow", mutated2);
+
+const P12 = ["stitched", "stitchTiles", "roadsEaten", "towerOnly", "stubRoads"];
+function walkZeroNames(obj, names, flipped) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkZeroNames(el, names, flipped);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (names.includes(k)) {
+      if (typeof v === "number" && v !== 0) {
+        obj[k] = 0;
+        flipped[k] = (flipped[k] || 0) + 1;
+      } else if (typeof v === "boolean" && v === true) {
+        obj[k] = false;
+        flipped[k] = (flipped[k] || 0) + 1;
+      } else if (Array.isArray(v) && v.length) {
+        obj[k] = [];
+        flipped[k] = (flipped[k] || 0) + 1;
+      }
+    } else if (v && typeof v === "object") {
+      walkZeroNames(v, names, flipped);
+    }
+  }
+}
+const mutatedP12 = JSON.parse(JSON.stringify(plans));
+const flippedP12 = {};
+for (const p of mutatedP12) if (p && p.meta) walkZeroNames(p.meta, P12, flippedP12);
+const fleetP12 = await summarize("p12-five-zeroed", mutatedP12);
+
+const P13 = ["mineralContainer", "minDmgPicked", "servedFree"];
+const mutatedP13 = JSON.parse(JSON.stringify(plans));
+const flippedP13 = {};
+for (const p of mutatedP13) if (p && p.meta) walkZeroNames(p.meta, P13, flippedP13);
+const fleetP13 = await summarize("p13-three-zeroed", mutatedP13);
+
+function walkSetStitched2(obj, flipped) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkSetStitched2(el, flipped);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "stitched" && typeof v === "number" && v !== 2) {
+      obj[k] = 2;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (v && typeof v === "object") {
+      walkSetStitched2(v, flipped);
+    }
+  }
+}
+const mutatedSt2 = JSON.parse(JSON.stringify(plans));
+const flippedSt2 = {};
+for (const p of mutatedSt2) if (p && p.meta) walkSetStitched2(p.meta, flippedSt2);
+const fleetSt2 = await summarize("p13-stitched-set-2", mutatedSt2);
+
+const P14 = [
+  "arrayPartner",
+  "picked",
+  "minDmgArray",
+  "battlementGap",
+  "battlementGapTiles",
+  "boundHeld",
+  "boundLap",
+  "fillerTiles",
+  "shallowCost",
+  "shallowRefused",
+];
+function walkP14(obj, flipped) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkP14(el, flipped);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "arrayPartner" && v && typeof v === "object" && Number.isInteger(v.x)) {
+      obj[k] = { x: 1, y: 1 };
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "picked" && v && typeof v === "object" && Number.isInteger(v.x) && obj.minDmgPicked != null) {
+      obj[k] = { x: 1, y: 1 };
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "minDmgArray" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "battlementGap" && typeof v === "number" && v === 0) {
+      obj[k] = 1;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "battlementGapTiles" && Array.isArray(v)) {
+      obj[k] = [{ x: 1, y: 1 }];
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "boundHeld" && v === true) {
+      obj[k] = false;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "boundLap" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "fillerTiles" && typeof v === "number" && v !== 1) {
+      obj[k] = 1;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "shallowCost" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "shallowRefused" && Array.isArray(v) && v.length) {
+      obj[k] = [];
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (v && typeof v === "object") {
+      walkP14(v, flipped);
+    }
+  }
+}
+const mutatedP14 = JSON.parse(JSON.stringify(plans));
+const flippedP14 = {};
+for (const p of mutatedP14) if (p && p.meta) walkP14(p.meta, flippedP14);
+const fleetP14 = await summarize("p14-named-forged", mutatedP14);
+
+const P15 = [
+  "floorGated",
+  "floorOver",
+  "floorOverGated",
+  "freeDin",
+  "massAdds",
+  "maxDist",
+  "deepReach",
+  "stubCap",
+  "mineralSeatAtReservation",
+  "mineralApproachAtReservation",
+];
+function walkP15(obj, flipped) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkP15(el, flipped);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "floorGated" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "floorOver" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "floorOverGated" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "freeDin" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "massAdds" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "maxDist" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "deepReach" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "stubCap" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "mineralSeatAtReservation" && v && typeof v === "object" && Number.isInteger(v.x)) {
+      obj[k] = { x: 1, y: 1 };
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (k === "mineralApproachAtReservation" && v && typeof v === "object" && Number.isInteger(v.x)) {
+      obj[k] = { x: 1, y: 1 };
+      flipped[k] = (flipped[k] || 0) + 1;
+    } else if (v && typeof v === "object") {
+      walkP15(v, flipped);
+    }
+  }
+}
+const mutatedP15 = JSON.parse(JSON.stringify(plans));
+const flippedP15 = {};
+for (const p of mutatedP15) if (p && p.meta) walkP15(p.meta, flippedP15);
+const fleetP15 = await summarize("p15-named-forged", mutatedP15);
+
+const mutatedSeed = JSON.parse(JSON.stringify(plans));
+let seedZeroed = 0;
+for (const p of mutatedSeed) {
+  if (p && typeof p.meta?.seedScore === "number" && p.meta.seedScore !== 0) {
+    p.meta.seedScore = 0;
+    seedZeroed++;
+  }
+}
+const fleetSeed = await summarize("seedScore-zeroed", mutatedSeed);
+
+const mutatedCap = JSON.parse(JSON.stringify(plans));
+let capOff = 0;
+for (const p of mutatedCap) {
+  if (typeof p.meta?.extensions?.hubDistCap === "number") {
+    p.meta.extensions.hubDistCap = 17;
+    capOff++;
+  }
+}
+const fleetCapOff = await summarize("p16-hubDistCap-17", mutatedCap);
+
+const mutatedCapEnum = JSON.parse(JSON.stringify(plans));
+let capEnum = 0;
+for (const p of mutatedCapEnum) {
+  if (p.meta?.extensions?.hubDistCap === 16) {
+    p.meta.extensions.hubDistCap = 19;
+    capEnum++;
+  }
+}
+const fleetCapEnum = await summarize("p16-hubDistCap-16-to-19", mutatedCapEnum);
+
+const mutatedLap = JSON.parse(JSON.stringify(plans));
+let lapZeroed = 0;
+function walkLapZero(obj) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkLapZero(el);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "lapCeilingFloor" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      lapZeroed++;
+    } else if (v && typeof v === "object") walkLapZero(v);
+  }
+}
+for (const p of mutatedLap) if (p && p.meta) walkLapZero(p.meta);
+const fleetLap = await summarize("p16-lapCeilingFloor-zeroed", mutatedLap);
+
+const mutatedCorr = JSON.parse(JSON.stringify(plans));
+let corrZeroed = 0;
+for (const p of mutatedCorr) {
+  if ((p.meta?.extensions?.corridorPlaced || 0) === 60 && (p.meta?.extensions?.corridorFallback || 0) === 0) {
+    p.meta.extensions.corridorPlaced = 0;
+    corrZeroed++;
+  }
+}
+const fleetCorr = await summarize("p16-corridorPlaced-zeroed", mutatedCorr);
+
+const mutated3 = JSON.parse(JSON.stringify(plans));
+const flipped3 = {};
+for (const p of mutated3) if (p && p.meta) walkFlip(p.meta, flipped3, new Set(["baseCut", "shallowNow", "hubDistCap"]));
+const fleetSkipHub = await summarize("presence-zero-except-baseCut-shallowNow-hubDistCap", mutated3);
+
+const mutatedStub43 = JSON.parse(JSON.stringify(plans));
+let stub43n = 0;
+for (const p of mutatedStub43) {
+  if (p.meta?.extensions?.stubCap === 43) {
+    p.meta.extensions.stubCap = 51;
+    stub43n++;
+  }
+}
+const fleetStub43 = await summarize("p17-stubCap-43-to-51", mutatedStub43);
+
+const mutatedStub51 = JSON.parse(JSON.stringify(plans));
+let stub51n = 0;
+for (const p of mutatedStub51) {
+  if (p.meta?.extensions?.stubCap === 51) {
+    p.meta.extensions.stubCap = 43;
+    stub51n++;
+  }
+}
+const fleetStub51 = await summarize("p17-stubCap-51-to-43", mutatedStub51);
+
+const mutatedFu = JSON.parse(JSON.stringify(plans));
+let fuZeroed = 0;
+function walkFuZero(obj) {
+  if (!obj || typeof obj !== "object") return;
+  if (Array.isArray(obj)) {
+    for (const el of obj) walkFuZero(el);
+    return;
+  }
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "floorUngated" && typeof v === "number" && v !== 0) {
+      obj[k] = 0;
+      fuZeroed++;
+    } else if (v && typeof v === "object") walkFuZero(v);
+  }
+}
+for (const p of mutatedFu) if (p && p.meta) walkFuZero(p.meta);
+const fleetFu = await summarize("p17-floorUngated-zeroed", mutatedFu);
+
+const mutatedRad = JSON.parse(JSON.stringify(plans));
+let radN = 0;
+for (const p of mutatedRad) {
+  if (Array.isArray(p.meta?.composeOpts?.radii) && p.meta.composeOpts.radii.length) {
+    p.meta.composeOpts.radii = [1, 2, 3];
+    radN++;
+  } else if (p.meta?.composeOpts && !p.meta.composeOpts.radii && typeof p.meta.composeOpts.needDeepBonus === "number") {
+    p.meta.composeOpts.radii = [1, 2, 3];
+    radN++;
+  }
+}
+const fleetRad = await summarize("p17-radii-rewritten", mutatedRad);
+
+const mutatedPark = JSON.parse(JSON.stringify(plans));
+let parkN = 0;
+for (const p of mutatedPark) {
+  if (typeof p.meta?.composeOpts?.parkCap === "number" && p.meta.composeOpts.parkCap !== 0) {
+    p.meta.composeOpts.parkCap = 0;
+    parkN++;
+  }
+}
+const fleetPark = await summarize("p17-parkCap-zeroed", mutatedPark);
+
+const mutatedSwap = JSON.parse(JSON.stringify(plans));
+let swapN = 0;
+for (const p of mutatedSwap) {
+  if (p.meta?.composeOpts?.takeTowerSwap?.to && Number.isInteger(p.meta.composeOpts.takeTowerSwap.to.x)) {
+    p.meta.composeOpts.takeTowerSwap.to = { x: 1, y: 1 };
+    swapN++;
+  }
+}
+const fleetSwap = await summarize("p17-takeTowerSwap-to-moved", mutatedSwap);
+
+const out = {
+  presenceNames: PRESENCE,
+  derivedNames: DERIVED,
+  flipped,
+  flippedKinds: Object.keys(flipped).length,
+  flippedEvents: Object.values(flipped).reduce((a, b) => a + b, 0),
+  flipped2,
+  flipped2Kinds: Object.keys(flipped2).length,
+  flipped2Events: Object.values(flipped2).reduce((a, b) => a + b, 0),
+  baseline,
+  fleet,
+  fleetSkip,
+  flippedP12,
+  fleetP12,
+  flippedP13,
+  fleetP13,
+  flippedSt2,
+  fleetSt2,
+  flippedP14,
+  fleetP14,
+  p14Names: P14,
+  flippedP15,
+  fleetP15,
+  p15Names: P15,
+  seedZeroed,
+  fleetSeed,
+  capOff,
+  fleetCapOff,
+  capEnum,
+  fleetCapEnum,
+  lapZeroed,
+  fleetLap,
+  corrZeroed,
+  fleetCorr,
+  flipped3,
+  flipped3Kinds: Object.keys(flipped3).length,
+  flipped3Events: Object.values(flipped3).reduce((a, b) => a + b, 0),
+  fleetSkipHub,
+  stub43n,
+  fleetStub43,
+  stub51n,
+  fleetStub51,
+  fuZeroed,
+  fleetFu,
+  radN,
+  fleetRad,
+  parkN,
+  fleetPark,
+  swapN,
+  fleetSwap,
+  ms: Date.now() - t0,
+};
+fs.writeFileSync(path.join(DIR, "presence.json"), JSON.stringify(out, null, 2));
+console.log(JSON.stringify({
+  presenceN: PRESENCE.length,
+  derivedN: DERIVED.length,
+  derived: DERIVED,
+  flippedKinds: out.flippedKinds,
+  flippedEvents: out.flippedEvents,
+  flipped,
+  flipped2Kinds: out.flipped2Kinds,
+  flipped2Events: out.flipped2Events,
+  flipped2,
+  baseline: { pass: baseline.pass, fail: baseline.fail, declared: baseline.declared, first: baseline.firstFails.slice(0, 4) },
+  fleet: { pass: fleet.pass, fail: fleet.fail, first: fleet.firstFails.slice(0, 8) },
+  fleetSkip: { pass: fleetSkip.pass, fail: fleetSkip.fail, first: fleetSkip.firstFails.slice(0, 8) },
+  flippedP12,
+  fleetP12: { pass: fleetP12.pass, fail: fleetP12.fail, first: fleetP12.firstFails.slice(0, 8) },
+  flippedP13,
+  fleetP13: { pass: fleetP13.pass, fail: fleetP13.fail, first: fleetP13.firstFails.slice(0, 8) },
+  flippedSt2,
+  fleetSt2: { pass: fleetSt2.pass, fail: fleetSt2.fail, first: fleetSt2.firstFails.slice(0, 8) },
+  flippedP14,
+  fleetP14: { pass: fleetP14.pass, fail: fleetP14.fail, first: fleetP14.firstFails.slice(0, 8) },
+  flippedP15,
+  fleetP15: { pass: fleetP15.pass, fail: fleetP15.fail, first: fleetP15.firstFails.slice(0, 8) },
+  seedZeroed,
+  fleetSeed: { pass: fleetSeed.pass, fail: fleetSeed.fail, first: fleetSeed.firstFails.slice(0, 8) },
+  capOff,
+  fleetCapOff: { pass: fleetCapOff.pass, fail: fleetCapOff.fail, first: fleetCapOff.firstFails.slice(0, 4) },
+  capEnum,
+  fleetCapEnum: { pass: fleetCapEnum.pass, fail: fleetCapEnum.fail, first: fleetCapEnum.firstFails.slice(0, 4) },
+  lapZeroed,
+  fleetLap: { pass: fleetLap.pass, fail: fleetLap.fail, first: fleetLap.firstFails.slice(0, 4) },
+  corrZeroed,
+  fleetCorr: { pass: fleetCorr.pass, fail: fleetCorr.fail, first: fleetCorr.firstFails.slice(0, 4) },
+  flipped3Kinds: out.flipped3Kinds,
+  flipped3Events: out.flipped3Events,
+  fleetSkipHub: { pass: fleetSkipHub.pass, fail: fleetSkipHub.fail, first: fleetSkipHub.firstFails.slice(0, 4) },
+  stub43n,
+  fleetStub43: { pass: fleetStub43.pass, fail: fleetStub43.fail, first: fleetStub43.firstFails.slice(0, 4) },
+  stub51n,
+  fleetStub51: { pass: fleetStub51.pass, fail: fleetStub51.fail, first: fleetStub51.firstFails.slice(0, 4) },
+  fuZeroed,
+  fleetFu: { pass: fleetFu.pass, fail: fleetFu.fail, first: fleetFu.firstFails.slice(0, 4) },
+  radN,
+  fleetRad: { pass: fleetRad.pass, fail: fleetRad.fail, first: fleetRad.firstFails.slice(0, 4) },
+  parkN,
+  fleetPark: { pass: fleetPark.pass, fail: fleetPark.fail, first: fleetPark.firstFails.slice(0, 4) },
+  swapN,
+  fleetSwap: { pass: fleetSwap.pass, fail: fleetSwap.fail, first: fleetSwap.firstFails.slice(0, 4) },
+  ms: out.ms,
+}, null, 2));

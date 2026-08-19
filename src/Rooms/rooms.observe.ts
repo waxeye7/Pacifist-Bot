@@ -1,3 +1,32 @@
+import { recordRoomIfStale } from "War/intel";
+import { isAlly, scoutQueue } from "War/score";
+import { logAlways } from "utils/Logger";
+
+/** Throttle for the intel-capture error line — at most one per 100 ticks. */
+let lastIntelErrorTick = -1;
+
+// Same-tick de-dupe so 8 observers do not all stare at the closest stale room.
+let aimTick = -1;
+let aimedThisTick: { [name: string]: boolean } = Object.create(null);
+
+/** First stale/unseen room in this observer's existing box, or null. */
+function pickScoutTarget(box: string[]): string | null {
+    if (aimTick !== Game.time) {
+        aimTick = Game.time;
+        aimedThisTick = Object.create(null);
+    }
+    const inBox: { [n: string]: boolean } = Object.create(null);
+    for (let i = 0; i < box.length; i++) inBox[box[i]] = true;
+    const q = scoutQueue(1000);
+    for (let i = 0; i < q.length; i++) {
+        const n = q[i];
+        if (!inBox[n] || aimedThisTick[n]) continue;
+        aimedThisTick[n] = true;
+        return n;
+    }
+    return null;
+}
+
 /** True when a claimer is already committed to `adj` (live or queued, any home). */
 function claimTargetBusy(adj: string): boolean {
     if (Memory.target_colonise && Memory.target_colonise.room === adj) return true;
@@ -20,44 +49,16 @@ function claimTargetBusy(adj: string): boolean {
     return false;
 }
 
-/** True when a combat wave is already live or queued for this target. */
-function observeWaveInFlight(homeRoom: any, targetRoom: string): boolean {
-    for (const name in Game.creeps) {
-        const c = Game.creeps[name];
-        if (!c || !c.memory || c.memory.targetRoom !== targetRoom) continue;
-        const role = c.memory.role;
-        if (
-            role === "Guard" ||
-            role === "CCK" ||
-            role === "CCKparty" ||
-            role === "Solomon" ||
-            role === "ram" ||
-            role === "signifer" ||
-            role === "mosquito" ||
-            (typeof role === "string" && role.indexOf("SquadCreep") === 0)
-        ) {
-            return true;
-        }
-    }
-    const cmds = Memory.commandsToExecute;
-    if (cmds) {
-        for (const cmd of cmds) {
-            if (cmd && cmd.targetRoom === targetRoom) return true;
-        }
-    }
-    const list = homeRoom.memory && homeRoom.memory.spawn_list;
-    if (list) {
-        for (let i = 0; i < list.length; i++) {
-            const mem = list[i] && list[i].memory;
-            if (mem && mem.targetRoom === targetRoom) return true;
-        }
-    }
-    return false;
-}
-
 function observe(room) {
-    let interval = 64;
-    let twoTimesInterval = interval*2
+    // One observeRoom per cycle over a ~100 room list, so the sweep takes
+    // interval * RoomsToSee.length ticks. observeRoom itself is free and the
+    // processing pass below is bucket-gated, so 8 is the default instead of 64.
+    // Memory.observeEvery = 64 restores the old cadence.
+    const configured = (Memory as any).observeEvery;
+    let interval = typeof configured === "number" && configured >= 2 ? Math.floor(configured) : 8;
+    // The power/deposit sweep keeps its own (much slower) cadence so that
+    // speeding up the intel sweep doesn't multiply highway scanning too.
+    let twoTimesInterval = 128;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
     if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 8000) {
         if(!room.memory.observe) {
@@ -186,28 +187,70 @@ function observe(room) {
 
 
             let chosenRoom = RoomsToSee[room.memory.observe.lastObserved]
-            observer.observeRoom(chosenRoom);
+            // Same box as the sweep — we do not expand what this observer
+            // is allowed to look at. We only reorder: stale/unseen closest
+            // first. When the scout queue is empty the old round-robin runs.
+            try {
+                const aimed = pickScoutTarget(RoomsToSee);
+                if (aimed) chosenRoom = aimed;
+            } catch (e) { /* never break the observer for intel */ }
+            const observeResult = observer.observeRoom(chosenRoom);
 
-
-            console.log("seeing", chosenRoom)
-
-
+            // Always advance the sweep, but only claim vision when the call took.
+            // A failed observeRoom used to leave lastRoomObserved pointing at the
+            // previous room, and the next tick processed that stale data as fresh.
             room.memory.observe.lastObserved += 1;
-            room.memory.observe.lastRoomObserved = chosenRoom;
+
+            if(observeResult === OK) {
+                // 8x the cadence would be 8x this line, so it follows setVerbose now
+                if(Memory.verbose) console.log("seeing", chosenRoom)
+                room.memory.observe.lastRoomObserved = chosenRoom;
+                room.memory.observe.lastRoomObservedTick = Game.time;
+            }
+            else {
+                console.log("observeRoom failed for", chosenRoom, observeResult)
+            }
 
         }
 
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
-            if(areRoomsNormalToThisRoom(room.name, adj)) {
+            // Capture what the observer just painted, BEFORE any of the "should
+            // we act on it" gates. This vision is free — it exists for exactly
+            // this tick and was previously discarded whole.
+            //
+            // Deliberately above areRoomsNormalToThisRoom(): that guard is a
+            // findRoute walk that fails if ANY room on the path home is
+            // novice/respawn, which says nothing about whether the observed
+            // room is worth remembering. Remembering is not attacking.
+            //
+            // recordRoomIfStale (not recordRoom) because this gate is on an
+            // ABSOLUTE clock — every RCL8 room reaches it on the same tick, so
+            // an unbudgeted call here means N fresh find(FIND_STRUCTURES)
+            // sweeps land on one tick. The shared budget in War/intel caps it.
+            // See docs/AGGRESSION-DOCTRINE.md 4.1.
+            if (adj && Game.rooms[adj]) {
+                try {
+                    recordRoomIfStale(Game.rooms[adj]);
+                } catch (e) {
+                    // Intel must never break the observer — but it must not fail
+                    // SILENTLY either, or a systematic throw burns CPU here every
+                    // few ticks forever with an empty DB and no signal at all.
+                    if (Game.time - lastIntelErrorTick >= 100) {
+                        lastIntelErrorTick = Game.time;
+                        logAlways("[intel] recordRoom failed for", adj, "-", (e && e.stack) || e);
+                    }
+                }
+            }
+            // only act on intel we actually asked for last tick
+            if(adj && room.memory.observe.lastRoomObservedTick === Game.time - 1 && areRoomsNormalToThisRoom(room.name, adj)) {
                 if (
                   Game.rooms[adj] &&
                   room.name !== adj &&
                   Game.rooms[adj].controller &&
                   !Game.rooms[adj].controller.my &&
-                  Game.rooms[adj].controller.owner?.username !== "An1via" &&
-                  Game.rooms[adj].controller.owner?.username !== "nanachi" &&
-                  Game.rooms[adj].controller.owner?.username !== "nekey975" &&
+                  !isAlly(Game.rooms[adj].controller.owner && Game.rooms[adj].controller.owner.username) &&
+                  !isAlly(Game.rooms[adj].controller.reservation && Game.rooms[adj].controller.reservation.username) &&
                   Game.map.getRoomStatus(adj).status == "normal"
                 ) {
                   let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {
@@ -226,11 +269,17 @@ function observe(room) {
                   if (Game.rooms[adj].controller.level == 0) {
                     openControllerPositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
 
-                    // remove this room name from avoidrooms
-                    if (!Memory.AvoidRooms) {
-                      Memory.AvoidRooms = [];
+                    // RCL0 leftover towers must stay on AvoidRooms. The old
+                    // drop here undid creepFunctions the next observe pass.
+                    const rcl0Towered = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+                    }).length > 0;
+                    if (!rcl0Towered) {
+                      if (!Memory.AvoidRooms) {
+                        Memory.AvoidRooms = [];
+                      }
+                      Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
                     }
-                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
 
 
                     if (
@@ -239,7 +288,7 @@ function observe(room) {
                       buildings.length > 0 &&
                       !Game.rooms[adj].controller.reservation
                     ) {
-                      if (Memory.CanClaimRemote >= 1 && !claimTargetBusy(adj)) {
+                      if (Memory.CanClaimRemote >= 1 && !claimTargetBusy(adj) && Game.rooms[adj].find(FIND_SOURCES).length >= 2) {
                         let canReachController = true;
 
                         let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
@@ -396,7 +445,8 @@ function observe(room) {
                       openControllerPositions.length == 0 &&
                       !Game.rooms[adj].controller.reservation &&
                       Memory.CanClaimRemote >= 1 &&
-                      !claimTargetBusy(adj)
+                      !claimTargetBusy(adj) &&
+                      Game.rooms[adj].find(FIND_SOURCES).length >= 2
                     ) {
                       let found = false;
 
@@ -473,564 +523,28 @@ function observe(room) {
                         console.log("Adding DismantleControllerWalls to Spawn List: " + newName);
                       }
                     }
-                  } else if (Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode && !observeWaveInFlight(room, adj)) {
-                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                    if (hostileSpawns.length > 0 && hostileCreeps.length > 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-
-                      Memory.commandsToExecute.push({
-                        delay: 5000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileCreeps.length && !hostileSpawns.length) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 50,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    }
-                  } else if (
-                    (Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) &&
-                    !Game.rooms[adj].controller.safeMode &&
-                    !observeWaveInFlight(room, adj)
-                  ) {
-                    let controllerFreePositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreeps().length;
-                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                    // Charge is not a presence test: an empty tower still
-                    // refills and would otherwise draw a melee Guard.
-                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER
-                    });
-                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
-                      // if(controllerFreePositions > 1 && room.storage && room.storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 2000 && room.storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 3000 && room.storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 1000 && room.storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 2000) {
-                      //     global.spawn_hunting_party(room.name, adj, controllerFreePositions)
-                      // }
-                      // else {
-                      Memory.commandsToExecute.push({
-                        delay: 1,
-                        bucketNeeded: 7000,
-                        formation: "RangedQuad",
-                        homeRoom: room.name,
-                        Boosted: false,
-                        targetRoom: adj
-                      });
-                      Memory.commandsToExecute.push({
-                        delay: 500,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                      // }
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0 && hostileTowers.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
-                      let armedHostileCreeps = hostileCreeps.filter(
-                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
-                      );
-                      if (!armedHostileCreeps.length) {
-                        global.SGD(room.name, adj, [
-                          MOVE,
-                          MOVE,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          MOVE,
-                          MOVE,
-                          MOVE
-                        ]);
-                      } else {
-                        global.SD(room.name, adj, false);
-                      }
-
-                      Memory.commandsToExecute.push({
-                        delay: 200,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    }
-                  } else if (Game.rooms[adj].controller.level == 5 && !Game.rooms[adj].controller.safeMode && !observeWaveInFlight(room, adj)) {
-                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER
-                    });
-                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
-                      global.SD(room.name, adj, true);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (
-                      Game.rooms[adj].controller.level == 5 &&
-                      hostileCreeps.length &&
-                      !hostileSpawns.length &&
-                      !hostileTowers.length
-                    ) {
-                      let armedHostileCreeps = hostileCreeps.filter(
-                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
-                      );
-                      if (!armedHostileCreeps.length) {
-                        global.SGD(room.name, adj, [
-                          MOVE,
-                          MOVE,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          MOVE,
-                          MOVE,
-                          MOVE
-                        ]);
-                      } else {
-                        global.SD(room.name, adj, false);
-                      }
-
-                      Memory.commandsToExecute.push({
-                        delay: 200,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    }
-                  }
-                  //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
-                  else if (
-                    (Game.rooms[adj].controller.level == 6 || Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
-                    !Game.rooms[adj].controller.safeMode &&
-                    !observeWaveInFlight(room, adj)
-                  ) {
-                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER
-                    });
-                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
-                      if (Game.cpu.bucket >= 8000) {
-                        // At high CPU, randomly choose between all formations
-                        let rand = Math.random();
-                        if (rand < 0.25) {
-                            global.SDB(room.name, adj, true);
-                        } else if (rand < 0.5) {
-                            global.SQR(room.name, adj, true);
-                        } else if (rand < 0.75) {
-                            // SS third arg is backupTR (a room name), not a boost
-                            // flag; `true` made Solomon pathfind to room "true".
-                            global.SS(room.name, adj);
-                        } else {
-                            global.SQM(room.name, adj, true);
-                        }
-                      } else if (Game.cpu.bucket >= 5000) {
-                        // At lower CPU, randomly choose between lighter formations
-                        if (Math.random() < 0.5) {
-                            global.SDB(room.name, adj, true);
-                        } else {
-                            global.SS(room.name, adj);
-                        }
-                      } else {
-                        // Boosted-only arms left this empty below 5k bucket,
-                        // so a charged tower room got no response at all.
-                        Memory.commandsToExecute.push({
-                          delay: 1,
-                          bucketNeeded: 7000,
-                          formation: "RangedQuad",
-                          homeRoom: room.name,
-                          Boosted: false,
-                          targetRoom: adj
-                        });
-                        Memory.commandsToExecute.push({
-                          delay: 500,
-                          bucketNeeded: 8000,
-                          formation: "CCK",
-                          homeRoom: room.name,
-                          targetRoom: adj
-                        });
-                      }
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
-                      global.SGD(room.name, adj, [
-                        MOVE,
-                        MOVE,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        ATTACK,
-                        MOVE,
-                        MOVE,
-                        MOVE
-                      ]);
-                      Memory.commandsToExecute.push({
-                        delay: 1000,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    } else if (hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
-                      // RCL3-5 have this leftover-creep cleanup; without it
-                      // a dead RCL6-8 spawn left armed creeps unanswered.
-                      let armedHostileCreeps = hostileCreeps.filter(
-                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
-                      );
-                      if (!armedHostileCreeps.length) {
-                        global.SGD(room.name, adj, [
-                          MOVE,
-                          MOVE,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          MOVE,
-                          MOVE,
-                          MOVE
-                        ]);
-                      } else {
-                        global.SD(room.name, adj, false);
-                      }
-                      Memory.commandsToExecute.push({
-                        delay: 200,
-                        bucketNeeded: 8000,
-                        formation: "CCK",
-                        homeRoom: room.name,
-                        targetRoom: adj
-                      });
-                    }
+                  } else {
+                    // Offence used to live here: a 500-line RCL/tower/Math.random()
+                    // tree that fired SGD/SD/SQR/SS the tick the observer painted.
+                    // War/dispatch now owns that from intel (same primitives, no coin flip).
+                    // This file still does claim/dismantle for unowned RCL0 rooms above.
                   }
                 }
                 else {
-                  // Observe is %64==0, this process tick is %64==1. Without
+                  // Observe is %interval==0, this process tick is %interval==1. Without
                   // vision we used to drop adj from AvoidRooms, so towered
                   // rooms became walkable after a missed observe.
                   if (Game.rooms[adj]) {
-                    if(!Memory.AvoidRooms) {
-                      Memory.AvoidRooms = [];
-                    }
+                    const stillTowered = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+                    }).length > 0;
+                    if (!stillTowered) {
+                      if(!Memory.AvoidRooms) {
+                        Memory.AvoidRooms = [];
+                      }
 
-                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+                      Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+                    }
                   }
                 }
             }
@@ -1152,7 +666,9 @@ function observe(room) {
 
             let RoomsToSee = room.memory.observe.listOfRoomsForPower
 
-            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2) {
+            // never fire two observeRoom intents in the same tick when a custom
+            // Memory.observeEvery lines the two sweeps up
+            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2 && Game.time % interval !== 0) {
                 if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
                     room.memory.observe.lastRoomObservedForPowerIndex = 0
                 }

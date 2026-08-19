@@ -2,7 +2,8 @@
 // the closest hungry structure — and this picker locks onto it for the
 // creep's whole life. See utils/Reachability.
 import { isUndeliverable } from "utils/Reachability";
-import { remoteIsHot } from "Rooms/rooms.remotes";
+import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
+import { stompForeignSite } from "utils/ForeignSites";
 
 /** Drop a lock that is gone, full, or undeliverable — same as FakeFiller. */
 function lockStillOpen(creep) {
@@ -26,13 +27,23 @@ function findLocked(creep) {
         return terminal;
     }
 
-    if(creep.room.energyCapacityAvailable /1.5 < creep.room.energyAvailable) {
-        let towers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200)});
-        if(towers.length > 0) {
-            let closestTower = creep.pos.findClosestByRange(towers);
-            creep.memory.locked = closestTower.id;
-            return closestTower;
-        }
+    // A nearly-dry tower comes before the extension network, unconditionally.
+    //
+    // This used to be gated on `energyCapacityAvailable / 1.5 < energyAvailable`
+    // — i.e. only top a tower up once the room is already about two-thirds
+    // full — which is exactly backwards: the room that most needs a working
+    // tower is the poor one, and a poor room never clears that gate, so its
+    // towers stay on zero indefinitely. Live shard3 E37N59 ran at RCL6 with
+    // both towers on 4 and 0 of 1000 against 922 of 2150 available.
+    //
+    // The cost of removing the gate is bounded and one-off: a tower below 200
+    // takes at most 200 energy and then stops asking. See TOWER_FLOOR in
+    // Roles/filler.ts, which is the same rule on the other fill path.
+    let towers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200)});
+    if(towers.length > 0) {
+        let closestTower = creep.pos.findClosestByRange(towers);
+        creep.memory.locked = closestTower.id;
+        return closestTower;
     }
 
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !isUndeliverable(creep.room, building.id)});
@@ -49,6 +60,56 @@ function findLocked(creep) {
         return closestTower;
     }
     creep.memory.locked = false;
+    return false;
+}
+
+/**
+ * Store is a start-of-tick snapshot. A withdraw/drop/transfer this tick does
+ * not change creep.store until the next tick, but move is a different intent
+ * and always lands. After collect → walk dest; after deliver → walk source.
+ */
+function walkToDropoff(creep) {
+    if (creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+    }
+    const storage: any = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    if (storage && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        if (!creep.pos.isNearTo(storage)) creep.MoveCostMatrixRoadPrio(storage, 1);
+        return;
+    }
+    const spawn: any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
+    if (spawn && !creep.pos.isNearTo(spawn)) creep.MoveCostMatrixRoadPrio(spawn, 1);
+}
+
+function walkToSource(creep) {
+    if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+    }
+    const pile: any = creep.memory.pickup && Game.getObjectById(creep.memory.pickup.id);
+    if (pile && !creep.pos.isNearTo(pile)) {
+        creep.MoveCostMatrixSwampPrio(pile, 1);
+        return;
+    }
+    const src: any = creep.memory.sourceId && Game.getObjectById(creep.memory.sourceId);
+    if (src && !creep.pos.isNearTo(src)) creep.MoveCostMatrixSwampPrio(src, 1);
+}
+
+function deliverIfNear(creep): boolean {
+    const storage: any = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    if (storage && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && creep.pos.isNearTo(storage)) {
+        return creep.transfer(storage, RESOURCE_ENERGY) === OK;
+    }
+    if (!lockStillOpen(creep)) findLocked(creep);
+    if (creep.memory.locked) {
+        const t: any = Game.getObjectById(creep.memory.locked);
+        if (t && creep.pos.isNearTo(t) && t.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            return creep.transfer(t, RESOURCE_ENERGY) === OK;
+        }
+    }
+    const spawn: any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
+    if (spawn && creep.pos.isNearTo(spawn)) {
+        return creep.drop(RESOURCE_ENERGY) === OK;
+    }
     return false;
 }
 
@@ -121,6 +182,31 @@ function controllerDepot(creep: any): any {
     return depot;
 }
 
+/**
+ * Is every tower at or above the depot floor? One answer per room per tick.
+ *
+ * Split out of baseIsFed() because depotSink()'s RCL3 arm asks the SAME
+ * question again a few lines later, and baseIsFed() cannot answer it from its
+ * cache: when the extensions are hungry it short-circuits to false without
+ * ever looking at a tower. So on the RCL3 climb — the state this whole depot
+ * path exists for — every loaded carrier in the room paid a second
+ * FIND_MY_STRUCTURES walk every tick for an answer the room already had.
+ */
+let _towerTick = -1;
+let _towerCache: {[roomName: string]: boolean} = {};
+function towersFed(room: any): boolean {
+    if(_towerTick !== Game.time) {
+        _towerTick = Game.time;
+        _towerCache = {};
+    }
+    if(_towerCache[room.name] === undefined) {
+        _towerCache[room.name] = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
+            b.structureType == STRUCTURE_TOWER &&
+            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length == 0;
+    }
+    return _towerCache[room.name];
+}
+
 /** is every higher-priority sink in the room already fed? one answer per tick. */
 let _fedTick = -1;
 let _fedCache: {[roomName: string]: boolean} = {};
@@ -143,9 +229,7 @@ function baseIsFed(room: any): boolean {
     }
     // Then the towers.
     if(fed) {
-        fed = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
-            b.structureType == STRUCTURE_TOWER &&
-            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length == 0;
+        fed = towersFed(room);
     }
     _fedCache[room.name] = fed;
     return fed;
@@ -171,9 +255,7 @@ function depotSink(creep: any): any {
         // goes up. RCL2 has no depot; RCL4 keeps the old full-fed rule.
         if(ctrl.level !== 3) return null;
         if(room.energyAvailable < Math.min(550, room.energyCapacityAvailable)) return null;
-        if(room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
-            b.structureType == STRUCTURE_TOWER &&
-            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length > 0) return null;
+        if(!towersFed(room)) return null;
     }
     return depot;
 }
@@ -191,6 +273,7 @@ function depotSink(creep: any): any {
         creep.recycle();
         return;
     }
+    if (!creep.store.getUsedCapacity() && stompForeignSite(creep)) return;
     // timeOut is only a hard abort while still IN the flagged remote.
     // After the exit the helper still returns "timeOut" for 25t with no
     // work move — a full hauler sat just inside home instead of unloading.
@@ -219,6 +302,29 @@ function depotSink(creep: any): any {
         creep.memory.full = false;
     }
 
+    // Neighbor-spawned rescue: load at the healthy room, then walk to the
+    // wrecked one. Without this the carry walks home empty (homeRoom is dest).
+    if (creep.memory.emergencyFeed && !creep.memory.full) {
+        const dest = creep.memory.emergencyFeed;
+        const donor = creep.memory.homeRoom;
+        if (creep.room.name === dest && donor && donor !== dest) {
+            // Dumped. Walk back to the donor for another load — homeRoom
+            // used to be dest, so they acquired energy in the wreck forever.
+            return creep.moveToRoomAvoidEnemyRooms(donor);
+        }
+        if (creep.room.name !== dest) {
+            const stor = creep.room.storage;
+            if (stor && stor.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() > 0) {
+                if (creep.withdraw(stor, RESOURCE_ENERGY) === ERR_NOT_IN_RANGE) {
+                    creep.moveTo(stor);
+                    return;
+                }
+            }
+            if (creep.store[RESOURCE_ENERGY] > 0) creep.memory.full = true;
+            return creep.moveToRoomAvoidEnemyRooms(dest);
+        }
+    }
+
     // Exact equality is a one-tick window and is skipped by earlier returns;
     // the hauler then fills at the remote and dies on the way home. Recycle
     // once remaining life no longer covers the round trip.
@@ -238,8 +344,9 @@ function depotSink(creep: any): any {
         const depot = depotSink(creep);
         if(depot) {
             if(creep.pos.isNearTo(depot)) {
-                if(creep.transfer(depot, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                if(creep.transfer(depot, RESOURCE_ENERGY) == 0) {
                     creep.memory.full = false;
+                    walkToSource(creep);
                 }
             }
             else {
@@ -250,13 +357,24 @@ function depotSink(creep: any): any {
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         if(storage) {
+            if (deliverIfNear(creep)) {
+                creep.memory.full = false;
+                walkToSource(creep);
+                return;
+            }
             creep.MoveCostMatrixRoadPrio(storage, 1);
             creep.memory.role = "FakeFiller";
             return;
         }
         else {
             let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
-            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+            // `storage` is the one resolved just above and is FALSY here — that
+            // is the only way this branch is reached. It used to be resolved a
+            // second time into a shadowing local, which is a second full
+            // Creep.findStorage() every tick: two FIND_MY_STRUCTURES walks, a
+            // lookFor and Room.findStorageContainer()'s eight-tile ring, all to
+            // re-derive the same `undefined`. The shadow is gone; every reader
+            // below sees the identical value it saw before.
             let bin;
             if(storage && creep.room.memory.Structures) {
                 bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
@@ -274,8 +392,9 @@ function depotSink(creep: any): any {
 
             if(storage && storage.store.getFreeCapacity() !== 0) {
                 if(creep.pos.isNearTo(storage)) {
-                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
                         creep.memory.full = false;
+                        walkToSource(creep);
                     }
                 }
                 else {
@@ -284,8 +403,9 @@ function depotSink(creep: any): any {
             }
             else if(bin && bin.store.getFreeCapacity() != 0) {
                 if(creep.pos.isNearTo(bin)) {
-                    if(creep.transfer(bin, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    if(creep.transfer(bin, RESOURCE_ENERGY) == 0) {
                         creep.memory.full = false;
+                        walkToSource(creep);
                     }
                 }
                 else {
@@ -299,7 +419,10 @@ function depotSink(creep: any): any {
                     if(!target) {
                         if(spawn) {
                             if(creep.pos.isNearTo(spawn) && creep.room.controller.level > 1) {
-                                creep.drop(RESOURCE_ENERGY);
+                                if (creep.drop(RESOURCE_ENERGY) === OK) {
+                                    creep.memory.full = false;
+                                    walkToSource(creep);
+                                }
                             }
                             else {
                                 creep.MoveCostMatrixRoadPrio(spawn, 1)
@@ -315,7 +438,10 @@ function depotSink(creep: any): any {
                     if(!target) {
                         if(spawn) {
                             if(creep.pos.isNearTo(spawn)) {
-                                creep.drop(RESOURCE_ENERGY);
+                                if (creep.drop(RESOURCE_ENERGY) === OK) {
+                                    creep.memory.full = false;
+                                    walkToSource(creep);
+                                }
                             }
                             else {
                                 creep.MoveCostMatrixRoadPrio(spawn, 1)
@@ -325,16 +451,9 @@ function depotSink(creep: any): any {
                     }
 
                     if(creep.pos.isNearTo(target)) {
-                        creep.transfer(target, RESOURCE_ENERGY);
-                        if(creep.store[RESOURCE_ENERGY] == 0) {
+                        if (creep.transfer(target, RESOURCE_ENERGY) === OK) {
                             creep.memory.full = false;
-                        }
-                        else {
-                            findLocked(creep);
-                            let target = Game.getObjectById(creep.memory.locked);
-                            if(!creep.pos.isNearTo(target)) {
-                                creep.MoveCostMatrixRoadPrio(target, 1)
-                            }
+                            walkToSource(creep);
                         }
                     }
                     else {
@@ -355,7 +474,7 @@ function depotSink(creep: any): any {
             creep.memory.targetRoom !== creep.memory.homeRoom
         ) {
             const home = Game.rooms[creep.memory.homeRoom];
-            if (home && home.controller && home.controller.my && home.controller.level < 4) {
+            if (home && home.controller && home.controller.my && home.controller.level < 3) {
                 creep.memory.targetRoom = creep.memory.homeRoom;
                 delete creep.memory.exit;
                 delete creep.memory.route;
@@ -369,95 +488,68 @@ function depotSink(creep: any): any {
         // walking back into it. The spawner already refuses to make new carriers
         // for a hot remote; without this the ones already alive keep commuting
         // into the room that is killing them.
-        if (
+        //
+        // A CLOSED remote (remoteRecalled) does NOT get the same treatment, and
+        // sharing this branch with it was a bug. The re-home above is permanent:
+        // the remote name is gone from targetRoom, so remoteRecalled can never
+        // un-latch the creep when manageRemotes re-opens the entry (which it does
+        // routinely — cap juggling, score churn, a bucket dip), and `sourceId` is
+        // gone too, so the body stops counting in liveCarriersForSource and the
+        // room spawns a REPLACEMENT for a carrier that is still alive. One
+        // transient close permanently doubles the haul fleet.
+        //
+        // A recall therefore mutates nothing at all: walk home, work home-side,
+        // and pick the remote straight back up when the flag lifts. Same exit as
+        // the miner takes (Roles/energyMiner), minus the recycle — a carrier is
+        // useful at home, a static 4W miner is not.
+        //
+        // Note where this sits — inside `if(!creep.memory.full)` — so a loaded
+        // carrier finishes the delivery it is already carrying first.
+        const remoteTrip = !!(
             creep.memory.targetRoom &&
             creep.memory.homeRoom &&
-            creep.memory.targetRoom !== creep.memory.homeRoom &&
-            remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)
-        ) {
+            creep.memory.targetRoom !== creep.memory.homeRoom
+        );
+        let recalledHome = false;
+        if (remoteTrip && remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)) {
             creep.memory.targetRoom = creep.memory.homeRoom;
             delete creep.memory.exit;
             delete creep.memory.route;
             delete creep.memory.sourceId;
             delete creep.memory.pathLength;
         }
-        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+        else if (remoteTrip && remoteRecalled(creep)) {
+            if (creep.room.name !== creep.memory.homeRoom) {
+                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
+            recalledHome = true;
+        }
+        // ...and the walk-out has to know about the recall too, or the two
+        // fight: the recall says go home, this says go to the remote, and the
+        // carrier oscillates on the exit tile.
+        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name && !recalledHome) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
-        let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
-        if(result == 0 && creep.store.getFreeCapacity() == 0) {
-            let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
-            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-            if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-                if(creep.memory.storage) {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
-                    // return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
-                }
-                else {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
-                }
-            }
-
-            if(storage) {
-                if(creep.pos.isNearTo(storage)) {
-                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                        creep.memory.full = false;
-                    }
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(storage, 1)
-                }
-            }
-            else {
-                if(!lockStillOpen(creep)) {
-                    let target = findLocked(creep);
-
-                    if(!target) {
-                        if(spawn) {
-                            if(creep.pos.isNearTo(spawn)) {
-                                creep.drop(RESOURCE_ENERGY);
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(spawn, 1)
-                            }
-                            return;
-                        }
-                    }
-                }
-
-                if(creep.memory.locked) {
-                    let target = Game.getObjectById(creep.memory.locked);
-
-                    if(!target) {
-                        if(spawn) {
-                            if(creep.pos.isNearTo(spawn)) {
-                                creep.drop(RESOURCE_ENERGY);
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(spawn, 1)
-                            }
-                            return;
-                        }
-                    }
-
-                    if(creep.pos.isNearTo(target)) {
-                        creep.transfer(target, RESOURCE_ENERGY);
-                        if(creep.store[RESOURCE_ENERGY] == 0) {
-                            creep.memory.full = false;
-                        }
-                        else {
-                            findLocked(creep);
-                            let target = Game.getObjectById(creep.memory.locked);
-                            if(!creep.pos.isNearTo(target)) {
-                                creep.MoveCostMatrixRoadPrio(target, 1)
-                            }
-                        }
-                    }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(target, 1)
-                    }
-                }
-            }
+        const startedFree = creep.store.getFreeCapacity();
+        const startedEnergy = creep.store[RESOURCE_ENERGY] || 0;
+        // CARRY intents see start-of-tick store. Drop/transfer the energy we
+        // already hold, withdraw/pickup into free space, then move. All three
+        // land in one tick when the creep is in range.
+        let delivered = false;
+        if (startedEnergy > 0 && deliverIfNear(creep)) {
+            creep.memory.full = false;
+            delivered = true;
+        }
+        let result = OK;
+        if (startedFree > 0) {
+            result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        }
+        if (result == 0) {
+            const took = (creep.memory.pickup && creep.memory.pickup.amt) || 0;
+            if (startedFree <= took || took >= 50) creep.memory.full = true;
+            walkToDropoff(creep);
+        } else if (delivered) {
+            walkToSource(creep);
         }
     }
 

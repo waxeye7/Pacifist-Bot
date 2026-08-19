@@ -20,10 +20,46 @@ import { planSitter } from "utils/PlanV2";
  *
  * This function ignores reservations entirely and is the delivery guarantee:
  * while anything in the room still wants energy, a carrying filler has
- * somewhere to go. Priority is the one the room actually needs - spawn and
- * extensions first (they are what blocks spawning), then any tower below half.
+ * somewhere to go. Priority is a NEARLY-dry tower, then spawn and extensions
+ * (they are what blocks spawning), then any tower below half.
  */
+
+/**
+ * Energy a tower is topped up to before the extension network gets anything.
+ *
+ * Towers used to be strictly last: they were only offered as a target once
+ * EVERY spawn and extension in the room was full. In a room that is spending
+ * everything it earns that never happens, so the towers simply stay at zero —
+ * live shard3 E37N59 sat at RCL6 with both towers on 4 and 0 of 1000 while 24
+ * of its 37 extensions were empty and a container 10 tiles away held 2000.
+ *
+ * A dry tower is not a slow room, it is an undefended one, and this bot has
+ * already been through that exact failure: see offerEmergencyFeed, written
+ * after a 50-part Invader parked on E37N59's spawn with the towers on empty.
+ *
+ * 200 is one tower shot at close range plus change — enough to make an
+ * opportunist reconsider and to buy the time the defence roles need. It is a
+ * floor, not a fill: above it towers go back to being last in line, so the
+ * spawn queue still gets essentially all of the room's throughput.
+ */
+export const TOWER_FLOOR = 200;
+
 function fillNeed(creep, excludeId?, spawnOnly?) {
+    // A tower under the floor outranks the extension network. Only when the
+    // caller has asked for spawn/extension targets specifically (spawnOnly)
+    // does this step aside, since that path exists to unblock spawning.
+    if(!spawnOnly) {
+        const dryTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+            s.structureType == STRUCTURE_TOWER
+            && s.id !== excludeId
+            && s.store[RESOURCE_ENERGY] < TOWER_FLOOR
+            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            && !isUndeliverable(creep.room, s.id)});
+        if(dryTowers.length) {
+            return creep.pos.findClosestByRange(dryTowers);
+        }
+    }
+
     // isUndeliverable(): an extension with no walkable approach is hungry
     // FOREVER, which makes it permanently the nearest hungry structure to a
     // filler standing in the hub. Without this filter the whole fill layer
@@ -92,7 +128,27 @@ const APPROACH_GIVE_UP = 50;
 /** Same TTL/refresh as creepFunctions.liveReserveFill — do not blanket-wipe. */
 const RESERVE_FILL_TTL = 55;
 
+/**
+ * Once per room per tick, not once per filler per tick.
+ *
+ * Every filler (and ControllerLinkFiller) called this at the top of its own
+ * run(), so a 4-filler room walked and rewrote the reservation list four
+ * times a tick for one answer. Re-running it inside the same tick cannot
+ * change anything: Game.creeps does not gain or lose members mid-tick, and
+ * entries takeReserveFill() adds later in the tick carry t == Game.time, so
+ * the TTL arm keeps them either way.
+ */
+let _pruneTick = -1;
+let _pruned: {[roomName: string]: boolean} = {};
+
 export function pruneReserveFill(room) {
+    if(_pruneTick !== Game.time) {
+        _pruneTick = Game.time;
+        _pruned = {};
+    }
+    if(_pruned[room.name]) return;
+    _pruned[room.name] = true;
+
     let list = room.memory.reserveFill;
     if(!Array.isArray(list)) {
         room.memory.reserveFill = [];
@@ -273,6 +329,75 @@ function advanceTo(creep, target, swampPrio = false) {
     }
 }
 
+/**
+ * The hub bin, resolved once per room per tick.
+ *
+ * Room.findBin() (Functions/roomFunctions) walks a 24-tile lookFor ring and
+ * does NOT consult room.memory.Structures.bin before doing it — so in a room
+ * that has no bin yet, EVERY filler re-walked all 24 tiles EVERY tick to be
+ * told "no bin" again. Nothing a creep does can build a container mid-tick,
+ * so one resolution per room per tick is the identical answer, and the first
+ * caller still performs findBin()'s Structures.bin write for the room.
+ */
+let _binTick = -1;
+let _bin: {[roomName: string]: any} = {};
+function hubBin(room, storage): any {
+    if(_binTick !== Game.time) {
+        _binTick = Game.time;
+        _bin = {};
+    }
+    if(_bin[room.name] === undefined) {
+        const S = room.memory.Structures;
+        _bin[room.name] = (S && Game.getObjectById(S.bin)) || room.findBin(storage) || null;
+    }
+    return _bin[room.name];
+}
+
+/**
+ * Is there ANY salvage on this room's floor at all? One answer per room per
+ * tick, and a strict SUPERSET of what the per-creep probes in run() look for
+ * (they add a range leash and an amount floor on top), so a `false` here
+ * provably means all three of those probes would come back empty.
+ *
+ * Unfiltered room.find() results are shared for the whole tick by the engine,
+ * so on a clean floor this turns three filtered range scans per filler per
+ * tick into three array-length reads.
+ */
+let _salvageTick = -1;
+let _salvage: {[roomName: string]: boolean} = {};
+function roomHasSalvage(room): boolean {
+    if(_salvageTick !== Game.time) {
+        _salvageTick = Game.time;
+        _salvage = {};
+    }
+    if(_salvage[room.name] === undefined) {
+        _salvage[room.name] =
+            room.find(FIND_DROPPED_RESOURCES).length > 0 ||
+            room.find(FIND_TOMBSTONES).length > 0 ||
+            room.find(FIND_RUINS).length > 0;
+    }
+    return _salvage[room.name];
+}
+
+/**
+ * "Am I the only filler left in this room?" — one census per room per tick.
+ *
+ * Creeps cannot be born or die mid-tick, so the count is constant for the
+ * whole tick and every filler in the room can share one answer.
+ */
+let _censusTick = -1;
+let _census: {[roomName: string]: number} = {};
+function lastFillerIn(room): boolean {
+    if(_censusTick !== Game.time) {
+        _censusTick = Game.time;
+        _census = {};
+    }
+    if(_census[room.name] === undefined) {
+        _census[room.name] = room.find(FIND_MY_CREEPS, {filter: (c) => c.memory.role == "filler"}).length;
+    }
+    return _census[room.name] == 1;
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
     // Attributed reserveFill is pruned, never wiped: a %40 / spawn wipe
@@ -289,10 +414,17 @@ const run = function (creep) {
     // Last-filler handoff. This role never writes memory.storage (withdraw
     // uses room.storage), and ==22 is shorter than RCL7/8 hatch (27/36).
     // Fire once when TTL first covers body.length*3 plus a short queue slack.
-    const lastFiller = creep.room.find(FIND_MY_CREEPS, {filter: (c) => c.memory.role == "filler"}).length == 1;
-    if(!creep.memory._fillerQueued && lastFiller &&
+    //
+    // The census is LAST in the condition on purpose. It is a full
+    // FIND_MY_CREEPS plus a memory read per creep, and the answer only ever
+    // matters in the handful of ticks at the end of a filler's life — every
+    // other tick it was a room-wide scan whose result was thrown away. The
+    // three cheap reads in front of it are side-effect free, so short-
+    // circuiting past the scan cannot change what this branch decides.
+    if(!creep.memory._fillerQueued &&
        creep.ticksToLive <= creep.body.length * 3 + 3 &&
-       creep.room.memory.spawn_list) {
+       creep.room.memory.spawn_list &&
+       lastFillerIn(creep.room)) {
         creep.memory._fillerQueued = true;
         let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.controller.level <= 3) {
@@ -336,14 +468,15 @@ const run = function (creep) {
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
+    // store[] is start-of-tick. Judge "still have a load" from that, not
+    // after a withdraw — the old check ran after collect and un-fulled us.
+    const startedEnergy = creep.store[RESOURCE_ENERGY] || 0;
     if(creep.memory.full) {
-        if(creep.room.controller && (creep.room.controller.level <= 6 && creep.store[RESOURCE_ENERGY] < 50 || creep.room.controller.level == 7 && creep.store[RESOURCE_ENERGY] < 100 || creep.room.controller.level == 8 && creep.store[RESOURCE_ENERGY] < 200)) {
+        if(creep.room.controller && (creep.room.controller.level <= 6 && startedEnergy < 50 || creep.room.controller.level == 7 && startedEnergy < 100 || creep.room.controller.level == 8 && startedEnergy < 200)) {
             creep.memory.full = false;
             creep.memory.t = false;
         }
     }
-
-
 
     if(!creep.memory.full) {
         // native getter is authoritative — the Structures cache can go stale
@@ -353,7 +486,7 @@ const run = function (creep) {
         let storage = creep.room.storage || (creep.room.memory.Structures && Game.getObjectById(creep.room.memory.Structures.storage)) || creep.room.findStorage();
         let bin;
         if(creep.room.memory.Structures) {
-            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+            bin = hubBin(creep.room, storage);
         }
 
         // Salvage free floor energy — but the hub outranks it. A range-10 leash
@@ -368,17 +501,23 @@ const run = function (creep) {
             (bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) ||
             (storage && storage.store[RESOURCE_ENERGY] > 0);
         const lootRange = hubSupplies ? 1 : 10;
-        const freeLoot =
+        // Same question as before, asked in cost order. The danger gate is a
+        // memory read and roomHasSalvage() is a provable superset of all three
+        // probes, so on the (overwhelmingly common) clean-floor tick none of
+        // the three range scans run at all; when one of them can hit, the
+        // remaining two are short-circuited past on the first hit. The answer
+        // is bit-for-bit the old `sum > 0 && !danger`.
+        const freeLoot = !creep.room.memory.danger && roomHasSalvage(creep.room) && (
             creep.pos.findInRange(FIND_DROPPED_RESOURCES, lootRange, {
                 filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= MaxStorage,
-            }).length +
+            }).length > 0 ||
             creep.pos.findInRange(FIND_TOMBSTONES, lootRange, {
                 filter: (t) => t.store[RESOURCE_ENERGY] >= MaxStorage,
-            }).length +
+            }).length > 0 ||
             creep.pos.findInRange(FIND_RUINS, lootRange, {
                 filter: (r) => r.store[RESOURCE_ENERGY] >= MaxStorage,
-            }).length;
-        if (freeLoot > 0 && !creep.room.memory.danger) {
+            }).length > 0);
+        if (freeLoot) {
             creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         } else if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
@@ -397,16 +536,52 @@ const run = function (creep) {
                 creep.memory.full = true;
             }
         }
-        else if(!creep.room.memory.danger) {
-            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        else {
+            // Storage empty: tap links. Live E37N59 sat 1.8k in three links
+            // while fillers walked to the east wall because acquireEnergy
+            // only knows containers/drops.
+            const links: any[] = creep.room.find(FIND_MY_STRUCTURES, {
+                filter: (s: any) =>
+                    s.structureType === STRUCTURE_LINK &&
+                    s.store[RESOURCE_ENERGY] >= 50,
+            });
+            let link: any = null;
+            if (links.length) {
+                if (storage) {
+                    const hub = links.filter((l) => l.pos.getRangeTo(storage) <= 2);
+                    if (hub.length) {
+                        hub.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+                        link = hub[0];
+                    }
+                }
+                if (!link) {
+                    links.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+                    link = creep.pos.findClosestByRange(links) || links[0];
+                }
+            }
+            if (link) {
+                if (creep.pos.isNearTo(link)) {
+                    if (creep.withdraw(link, RESOURCE_ENERGY) === 0) creep.memory.full = true;
+                } else {
+                    advanceTo(creep, link, true);
+                }
+            } else if (!creep.room.memory.danger) {
+                creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+            }
         }
     }
 
     if(creep.memory.full) {
-        let storage;
-        if(creep.room.memory.Structures) {
-            storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
-        }
+        // Resolved on demand, not up front. It is read in exactly ONE place —
+        // the no-plan-sitter fallback on the last-transfer branch far below —
+        // but the eager version paid Room.findStorage() on every tick of every
+        // walk to an extension whenever Structures.storage was unset. That is
+        // not a cheap call: even its fast path runs invalidateStaleStorageLink,
+        // which sweeps a 25-tile lookForAt ring.
+        const homeStorage = (): any => {
+            if(!creep.room.memory.Structures) return undefined;
+            return Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
+        };
 
 
         // creep.memory.t is STICKY — it is only re-asked when the object is
@@ -494,8 +669,11 @@ const run = function (creep) {
                     if(sitter) {
                         creep.MoveCostMatrixRoadPrio(sitter, 0);
                     }
-                    else if(storage) {
-                        creep.MoveCostMatrixRoadPrio(storage, 1);
+                    else {
+                        const storage = homeStorage();
+                        if(storage) {
+                            creep.MoveCostMatrixRoadPrio(storage, 1);
+                        }
                     }
                 }
             }

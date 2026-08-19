@@ -1,4 +1,10 @@
 import { calc_incoming_damage } from "Misc/calc_incoming_damage";
+
+/** Rebuild the exposed-structure cache this often (ticks). */
+const EXPOSED_TTL = 500;
+/** PathFinder reachability probes per creep per tick. */
+const EXPOSED_PER_TICK = 10;
+
 const run = function (creep:Creep) {
 
     creep.memory.moving = false;
@@ -89,34 +95,55 @@ const run = function (creep:Creep) {
     }
 
 
-    if(!creep.memory.exposedStructures) {
-        let exposedStructures = [];
-        let exposedSNoRampart = [];
-        let hostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_RAMPART});
-        for(let s of hostileStructures) {
-            if(!PathFinder.search(creep.pos, {pos:s.pos, range:3},
+    // Reachability cache. This used to run one PathFinder search per hostile
+    // structure in a single tick (100+ on an RCL8 target, each building its own
+    // 2500 tile cost matrix) and then keep the answer forever. Now: a snapshot
+    // queue drained EXPOSED_PER_TICK probes at a time, rebuilt every EXPOSED_TTL
+    // ticks (or as soon as the last cached target dies, see below). The old list
+    // stays live while the new one is being built, so the creep never idles.
+    const mem: any = creep.memory;
+    if(!mem.exposedStructures) {
+        mem.exposedStructures = [];
+        mem.exposedAt = null;
+    }
+    const exposedAge = mem.exposedAt == null ? Infinity : Game.time - mem.exposedAt;
+    if(!mem.exposedQueue && exposedAge >= EXPOSED_TTL) {
+        mem.exposedQueue = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+            filter: s => s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_RAMPART
+        }).map(s => s.id);
+        mem.exposedNext = [];
+    }
+    if(mem.exposedQueue) {
+        if(!mem.exposedNext) mem.exposedNext = [];
+        let probes = 0;
+        while(mem.exposedQueue.length > 0 && probes < EXPOSED_PER_TICK) {
+            probes++;
+            let s: any = Game.getObjectById(mem.exposedQueue.pop());
+            if(!s) continue;
+            if(PathFinder.search(creep.pos, {pos:s.pos, range:3},
             {
                 maxOps: 400,
                 maxRooms: 1,
                 roomCallback: (roomName) => pathAroundStructuresAndTerrain(roomName)
-            }).incomplete) {
-                exposedStructures.push(s);
-            }
-        }
-        for(let s of exposedStructures) {
-            let look = s.pos.lookFor(LOOK_STRUCTURES);
+            }).incomplete) continue;
+
             let found = false;
-            for(let s of look) {
-                if(s.structureType == STRUCTURE_RAMPART && s.hits > 5000) {
+            for(let building of s.pos.lookFor(LOOK_STRUCTURES)) {
+                if(building.structureType == STRUCTURE_RAMPART && building.hits > 5000) {
                     found = true;
+                    break;
                 }
             }
             if(!found) {
-                exposedSNoRampart.push(s.id)
+                mem.exposedNext.push(s.id);
             }
         }
-        creep.memory.exposedStructures = exposedSNoRampart;
-
+        if(mem.exposedQueue.length == 0) {
+            mem.exposedStructures = mem.exposedNext;
+            mem.exposedAt = Game.time;
+            delete mem.exposedQueue;
+            delete mem.exposedNext;
+        }
     }
 
 
@@ -240,6 +267,11 @@ const run = function (creep:Creep) {
                 }
 
             }
+        }
+        // Everything we had cached is gone: force a rebuild instead of waiting
+        // out the TTL with nothing to shoot at.
+        if(listOfId.length == 0 && creep.memory.exposedStructures.length > 0) {
+            (creep.memory as any).exposedAt = null;
         }
         creep.memory.exposedStructures = listOfId;
     }
@@ -413,9 +445,18 @@ const GoToTheClosestSpawn = (roomName: string): boolean | CostMatrix => {
 }
 
 
+/** Heap memo: one matrix per room per tick, shared by every search and creep. */
+const matrixCache: { [roomName: string]: { tick: number, costs: boolean | CostMatrix } } = {};
+
 const pathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
+    const cached = matrixCache[roomName];
+    if (cached && cached.tick === Game.time) {
+        return cached.costs;
+    }
+
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
+        matrixCache[roomName] = { tick: Game.time, costs: false };
         return false;
     }
 
@@ -449,6 +490,8 @@ const pathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix 
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+    matrixCache[roomName] = { tick: Game.time, costs: costs };
     return costs;
 
 }

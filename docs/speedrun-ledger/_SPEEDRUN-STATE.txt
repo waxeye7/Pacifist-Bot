@@ -1,0 +1,10 @@
+phase: cycle-24-called
+goal: fastest spawn→RCL8; cheap loop spawn→RCL4
+never: server:local:reset
+never: npm run push-race
+control: e839fc8 frozen
+run: run-2026-08-16T14-39-26Z
+label: cycle-24-rcl3-remotes
+verdict: CENSOR 6/8 no-KEEP; E13S7 27897 worse than 20815 without remotes
+mark: 29029
+docker: ON

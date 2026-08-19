@@ -1,0 +1,116 @@
+{
+  "facts": {
+    "veto": 7.67,
+    "labs": 7.67,
+    "towers": 7.33,
+    "emptyLap": 7.33
+  },
+  "rows": [
+    {
+      "name": "p22 :=0 raw",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive "
+    },
+    {
+      "name": "p22 +=1 raw",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 8.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-deri"
+    },
+    {
+      "name": "p22 := veto raw",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 7.67 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-deri"
+    },
+    {
+      "name": "p22 :=0 + repair twin + regen",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 3,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 0 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the cen"
+    },
+    {
+      "name": "p22 +=1 + repair twin + regen",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 5,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 8.33 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the "
+    },
+    {
+      "name": "p22 := veto + repair twin + regen",
+      "room": "E11S7",
+      "status": "BITES",
+      "changed": true,
+      "n": 3,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.67 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the "
+    },
+    {
+      "name": "p22 := emptyLap identity (no-op)",
+      "room": "E11S7",
+      "status": "ESCAPE",
+      "changed": false,
+      "n": 0
+    }
+  ],
+  "details": [
+    {
+      "label": ":=0 raw",
+      "n": 2,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: not",
+      "walk": [
+        "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 7.33. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+      ],
+      "twin": [
+        "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the "
+      ]
+    },
+    {
+      "label": ":=0 + twin + regen",
+      "n": 3,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 0 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re",
+      "walk": [
+        "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 7.33. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+      ],
+      "twin": [
+        "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 0 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `",
+        "DECLARATION CONTENT — mobility|: `ladder.shippedLap` is 7.33 and `repair.tower.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `"
+      ]
+    },
+    {
+      "label": "+=1 + twin + regen",
+      "n": 5,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 8.33 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can",
+      "walk": [
+        "meta.towers.mobilityVeto.baseLap is 8.33 and the freeze-cut gated lap with only the hub kit standing is 7.33. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+      ],
+      "twin": [
+        "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 8.33 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number a",
+        "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 8.33, which exceeds `repair.tower.lapWithBattery` (7.67) — and the record-leaf inventory holds it to exactly that (\"it ma",
+        "DECLARATION CONTENT — mobility|: `repair.tower.lapWithBattery` is 7.67, below `repair.tower.baseLap` (8.33) — and the record-leaf inventory holds it to exactly that (\"it may not fa",
+        "DECLARATION CONTENT — mobility|: `ladder.shippedLap` is 7.33 and `repair.tower.baseLap` says 8.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number a"
+      ]
+    },
+    {
+      "label": ":=veto + twin + regen",
+      "n": 3,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.67 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `ladder.shippedLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can",
+      "walk": [
+        "meta.towers.mobilityVeto.baseLap is 7.67 and the freeze-cut gated lap with only the hub kit standing is 7.33. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+      ],
+      "twin": [
+        "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.67 and `ladder.shippedLap` says 7.33 — and the record-leaf inventory holds it to exactly that (\"it is the same number a",
+        "DECLARATION CONTENT — mobility|: `ladder.shippedLap` is 7.33 and `repair.tower.baseLap` says 7.67 — and the record-leaf inventory holds it to exactly that (\"it is the same number a"
+      ]
+    }
+  ]
+}

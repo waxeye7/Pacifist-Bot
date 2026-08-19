@@ -59,19 +59,46 @@ export function getPerimeterTiles(room: Room): PerimeterTile[] {
   return [];
 }
 
+/**
+ * PER-ROOM, PER-TICK MEMO on the heap (the Room object is rebuilt every tick,
+ * so the tick stamp is belt-and-braces against a cached Room reference).
+ *
+ * This sits on the DEFENCE path, which is the one path in the bot that runs
+ * per hostile per tower per tick. Un-memoised it was: perimeterKeySet unpacks
+ * the whole shellCut and allocates a fresh Set on EVERY call, isPerimeterPos
+ * does that per query, and findPerimeterRamparts called getPerimeterTiles
+ * INSIDE a filter predicate — i.e. |ramparts| x |perimeter| unpacks, ~50x50
+ * on a walled RCL8 room, for one boolean.
+ *
+ * Callers treat both fields as READ-ONLY. getPerimeterTiles itself still hands
+ * out a fresh array per call so the existing (mutating-safe) contract holds.
+ */
+type PerimeterMemo = { tick: number; tiles: PerimeterTile[]; keys: Set<string> };
+
+function perimeterMemo(room: Room): PerimeterMemo {
+  const holder = room as any;
+  const cached = holder.__perimeterMemo as PerimeterMemo | undefined;
+  if (cached && cached.tick === Game.time) return cached;
+  const tiles = getPerimeterTiles(room);
+  const keys = new Set<string>();
+  for (const t of tiles) keys.add(key(t.x, t.y));
+  const memo: PerimeterMemo = { tick: Game.time, tiles: tiles, keys: keys };
+  holder.__perimeterMemo = memo;
+  return memo;
+}
+
 export function perimeterKeySet(room: Room): Set<string> {
-  const s = new Set<string>();
-  for (const t of getPerimeterTiles(room)) s.add(key(t.x, t.y));
-  return s;
+  return perimeterMemo(room).keys;
 }
 
 export function isPerimeterPos(room: Room, x: number, y: number): boolean {
-  return perimeterKeySet(room).has(key(x, y));
+  return perimeterMemo(room).keys.has(key(x, y));
 }
 
 /** Ramparts that sit on the planned perimeter (or near it if partial build). */
 export function findPerimeterRamparts(room: Room): StructureRampart[] {
-  const set = perimeterKeySet(room);
+  const memo = perimeterMemo(room);
+  const set = memo.keys;
   const all = room.find(FIND_MY_STRUCTURES, {
     filter: (s) => s.structureType === STRUCTURE_RAMPART,
   }) as StructureRampart[];
@@ -79,9 +106,11 @@ export function findPerimeterRamparts(room: Room): StructureRampart[] {
   if (set.size > 0) {
     const onCut = all.filter((r) => set.has(key(r.pos.x, r.pos.y)));
     if (onCut.length > 0) return onCut;
-    // near perimeter (build progress / slight offset)
+    // near perimeter (build progress / slight offset) — tiles hoisted OUT of
+    // the predicate; it used to re-read the plan once per rampart.
+    const tiles = memo.tiles;
     return all.filter((r) => {
-      for (const t of getPerimeterTiles(room)) {
+      for (const t of tiles) {
         if (r.pos.getRangeTo(t.x, t.y) <= 1) return true;
       }
       return false;
@@ -110,8 +139,24 @@ export function findDamagedPerimeterRamparts(
  *  rampart gate in BasePlan.placeFromBasePlan and utils/PlanV2 wantsAtRcl. */
 export const SHELL_MIN_RCL = 4;
 
-/** Sync plan perimeter → construction.rampartLocations for older erect roles. */
+/**
+ * Sync plan perimeter → construction.rampartLocations for older erect roles.
+ *
+ * CONTRACT: construction.rampartLocations = perimeter tiles that are STILL
+ * MISSING A RAMPART. Empty means "the shell is finished" — Guard.ts:43 only
+ * promotes Guard → RampartDefender on an empty list, and rooms.spawning only
+ * spawns RampartErectors on a non-empty one. This legacy writer publishes ALL
+ * perimeter tiles (it has no built/not-built view), which is a conservative
+ * over-approximation of the contract and never converges to empty on its own.
+ *
+ * planV2 rooms are therefore OFF LIMITS: PlanV2.syncPlanV2Memory writes the
+ * real "not yet ramparted" list every SYNC_EVERY ticks, and one call from here
+ * (e.g. `getBasePlan(room, true)` from the console) re-inflated it to the full
+ * ring — leaving the room reading "shell unfinished" for up to 100 ticks, with
+ * no RampartDefenders and RampartErectors spawning for tiles already walled.
+ */
 export function syncPerimeterToConstructionMemory(room: Room): void {
+  if ((room.memory as any).planV2) return;
   const tiles = getPerimeterTiles(room);
   if (!tiles.length) return;
   if (!room.memory.construction) room.memory.construction = {};

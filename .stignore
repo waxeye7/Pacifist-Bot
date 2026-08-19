@@ -1,0 +1,16 @@
+﻿// Regenerable / junk â€” keep source, .git, and local screeps.json
+node_modules
+dist
+.rpt2_cache
+tsc-out
+build
+server
+_book
+typings
+*.log
+*.tmp
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+.stversions

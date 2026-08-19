@@ -12,8 +12,8 @@
  *      the cheap ones are derived here.
  */
 import { D4, D8, buildable, chebyshev, walkable, exteriorFlood, mineralGuard, reservedTiles } from "./shared.mjs";
-import { fieldFrom, winningSeedScore } from "./layer-hub.mjs";
-import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, MOBILITY_TARGET, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
+import { fieldFrom, planHub, winningSeedScore } from "./layer-hub.mjs";
+import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, MOBILITY_TARGET, pickBattlements, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -32,6 +32,7 @@ import {
 } from "./layer-walls.mjs";
 import { MIN_SAT, SWAP_OFFER_BASIS, renderSwapOfferBasis, shellDamage } from "./layer-towers.mjs";
 import { renderMineralOffNetworkWhy, mineralSeatCensus } from "./layer-misc.mjs";
+import { composeCap10Lane } from "./layer-ext.mjs";
 import idents from "./_r27-idents.json" with { type: "json" };
 
 const K = (t) => `${t.x},${t.y}`;
@@ -580,6 +581,22 @@ function wantComposeRadii(opts) {
   if (bonus === 85) return ESCALATION_RADII_LATE;
   if (bonus === 25 || bonus === 55) return RADII_WIDE;
   return null;
+}
+
+/** layer-1 object tiles planHub reads. Prefer the dump; the shipped plan has the same coords. */
+function objectsForHub(plan, ctx) {
+  if (Array.isArray(ctx?.objects) && ctx.objects.length) return ctx.objects;
+  const out = [];
+  for (const s of plan.sources || []) {
+    if (s && Number.isInteger(s.x) && Number.isInteger(s.y)) out.push({ type: "source", x: s.x, y: s.y });
+  }
+  if (plan.controller && Number.isInteger(plan.controller.x) && Number.isInteger(plan.controller.y)) {
+    out.push({ type: "controller", x: plan.controller.x, y: plan.controller.y });
+  }
+  if (plan.mineral && Number.isInteger(plan.mineral.x) && Number.isInteger(plan.mineral.y)) {
+    out.push({ type: "mineral", x: plan.mineral.x, y: plan.mineral.y });
+  }
+  return out;
 }
 
 /** fieldFrom's unreachable sentinel (same INF as layer-hub). */
@@ -1537,7 +1554,9 @@ export function checkR27(plan, ctx = {}) {
   // ROUND 29 tenth / the unread suffix: a D8 neighbour of the kept prefix
   // (E11S1 19,27) is this room's floor and still invents a longer walk.
   // Shrink fullRun.reserved / byRound are the kept prefix (=== lane.reserved).
-  // The refused tail is wanted − tiles, a count, not a COORD list.
+  //
+  // ROUND 45 / r29p23 — that prefix is the greedy compose (first `to` rounds).
+  // wanted is that walk's tile count, not a free integer greater than tiles.
   {
     const lane = meta.extensions?.laneMeta || w.mobility?.lanes;
     if (lane && typeof lane === "object") {
@@ -1769,6 +1788,54 @@ export function checkR27(plan, ctx = {}) {
                 fails.push(
                   `this room DROPPED the reservation and fullRun.reserved is empty. The walk it ` +
                     `refused is a board, not a count`,
+                );
+              }
+            }
+          }
+          // r45 / 98 — reserved is the greedy compose (kept prefix on a shrink).
+          // wanted is that walk. A D8 neighbour written on both lists, or
+          // wanted += 1, used to pass.
+          if (ctx.terrain) {
+            const walk = composeCap10Lane(ctx.terrain, plan);
+            if (!walk) {
+              fails.push(
+                `the cap-10 greedy could not be re-composed for this room. reserved and wanted ` +
+                  `are that walk — without it a neighbor bag and a free integer pass`,
+              );
+            } else {
+              const sortJ = (a) => a.slice().map(String).sort().join("|");
+              const wantFull = walk.reserved.map(String);
+              const to = shrunk && lane.shrunk && typeof lane.shrunk.to === "number" ? lane.shrunk.to : null;
+              const wantKept = shrunk && to != null
+                ? walk.byRound.slice(0, to).flat().map(String)
+                : dropped
+                  ? wantFull
+                  : wantFull;
+              if (sortJ(reserved) !== sortJ(wantKept)) {
+                fails.push(
+                  `fullRun.reserved is not the greedy compose this room walked` +
+                    `${shrunk ? " (the kept prefix of that board)" : ""}. ` +
+                    `A floor-touching neighbour of the walk is not a reserved tile — ` +
+                    `appending one to both lists used to pass`,
+                );
+              }
+              if (laneRes && !dropped && sortJ(laneRes) !== sortJ(wantKept)) {
+                fails.push(
+                  `lane.reserved is not the greedy compose this room walked` +
+                    `${shrunk ? " (the kept prefix of that board)" : ""}. ` +
+                    `The two reserved lists are that walk, not a neighbor bag`,
+                );
+              }
+              if (shrunk && typeof lane.shrunk.wanted === "number" && lane.shrunk.wanted !== walk.tiles) {
+                fails.push(
+                  `shrunk.wanted is ${lane.shrunk.wanted} and the cap-10 greedy walked ${walk.tiles} tile(s). ` +
+                    `wanted is that walk, not a free integer — adding 1 used to pass`,
+                );
+              }
+              if (dropped && typeof lane.wanted === "number" && lane.wanted !== walk.tiles) {
+                fails.push(
+                  `lane.wanted is ${lane.wanted} and the cap-10 greedy walked ${walk.tiles} tile(s). ` +
+                    `wanted is that walk, not a free integer`,
                 );
               }
             }
@@ -2365,6 +2432,78 @@ export function checkR27(plan, ctx = {}) {
               `trail published for that rung walks ${want}. Regenerating the paragraph does not ` +
               `launder a fatter rung's invented lap`,
           );
+        }
+      }
+    }
+    // r45 / 88 — discarded cutTiles ARE the enclosure layer 2 composed at
+    // that bonus. enclosureMobility of a free list is an agreement test; a
+    // same-lap neighbour (E11S2 29,33→28,34) still seals and walks 2.5.
+    // Replay is planHub + planShell on the shipped seed — cutAtFreeze is
+    // snapshotted at layer 2, so composePlan (500ms+) is not the walk.
+    // Fleet: 165/165 discarded rungs match; 55 rooms, ~134ms mean, not 119ms×172.
+    if (ctx.terrain && plan.sitter) {
+      const jobs = [];
+      const pushJob = (row, cuts, where) => {
+        if (!isDiscarded(row) || !cuts || !cuts.length) return;
+        jobs.push({ row, cuts, where });
+      };
+      if (ladderDecl) {
+        const escRungs = Array.isArray(esc?.rungs) ? esc.rungs : [];
+        for (const row of ladderDecl.ladder.rungs) {
+          if (!row) continue;
+          const twin = escRungs.find((r) => r && r.needDeepBonus === row.needDeepBonus);
+          const cuts = Array.isArray(row.cutTiles) && row.cutTiles.length
+            ? row.cutTiles
+            : twin && Array.isArray(twin.cutTiles) && twin.cutTiles.length
+              ? twin.cutTiles
+              : null;
+          pushJob(row, cuts, "ladder.rungs");
+        }
+      }
+      if (esc && Array.isArray(esc.rungs)) {
+        for (const row of esc.rungs) {
+          if (row && Array.isArray(row.cutTiles) && row.cutTiles.length) {
+            pushJob(row, row.cutTiles, "meta.shellEscalation.rungs");
+          }
+        }
+      }
+      if (jobs.length) {
+        const objects = objectsForHub(plan, ctx);
+        const hasCtrl = objects.some((o) => o && o.type === "controller");
+        const hasSrc = objects.some((o) => o && o.type === "source");
+        if (hasCtrl && hasSrc) {
+          const hub = planHub(ctx.terrain, objects, { seedSkip: meta.seedSkip ?? 0 });
+          if (hub.error) {
+            fails.push(
+              `discarded cutTiles could not be re-composed (planHub: ${hub.error}). The last discarded ` +
+                `rung is the enclosure layer 2 composed at that bonus, not a free list`,
+            );
+          } else {
+            const shellPlan = { room: plan.room, terrain: ctx.terrain, ...hub };
+            const cache = new Map();
+            for (const job of jobs) {
+              const bonus = job.row.needDeepBonus ?? 0;
+              const opts = { needDeepBonus: bonus, shellCache: cache };
+              const radii = wantComposeRadii({ needDeepBonus: bonus });
+              if (radii) opts.radii = radii;
+              const shell = planShell(ctx.terrain, shellPlan, opts);
+              if (shell.error) {
+                fails.push(
+                  `${job.where} needDeep+${bonus} discarded enclosure could not be re-composed ` +
+                    `(${shell.error}). A same-lap neighbour of the last discarded rung used to pass`,
+                );
+                continue;
+              }
+              const want = shell.shell?.cut || [];
+              if (!sameCutSet(job.cuts, want)) {
+                fails.push(
+                  `${job.where} needDeep+${bonus} discarded cutTiles (${job.cuts.length}) are not the ` +
+                    `enclosure layer 2 composed at that bonus (${want.length}). A same-lap neighbour of ` +
+                    `the last discarded rung used to pass`,
+                );
+              }
+            }
+          }
         }
       }
     }

@@ -1,0 +1,346 @@
+{
+  "md5": "86d38bdd2b2aef39a79cb8aa134f9b06",
+  "rooms": 172,
+  "pathCensus": {
+    "nukerInWindow": {
+      "meta.towers.nukeWindow.nukerInWindow": 172
+    },
+    "center": {
+      "meta.towers.nukeWindow.center": 172
+    },
+    "mineralSeatNetTiles": {
+      "meta.misc.mineralSeatNetTiles": 172
+    },
+    "coveredDetourDeclared": {
+      "meta.walls.mobility.coveredDetourDeclared": 8
+    },
+    "spurred": {
+      "meta.walls.spurred": 172
+    }
+  },
+  "nuker": {
+    "paths": {
+      "meta.towers.nukeWindow.nukerInWindow": 172
+    },
+    "vsPublishedNw": {
+      "name": "nukerInWindow === nukeWindow.nukerInWindow",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "vsPublishedBbox": {
+      "name": "nukerInWindow === nuker cheb<=2 of published center",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "vsDerivedBbox": {
+      "name": "nukerInWindow === nuker cheb<=2 of derived center",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "vsDerivedFlag": {
+      "name": "nukerInWindow === recomputeNukeWindow flag",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "siblingVsNw": {
+      "name": "sibling nukerInWindow === nukeWindow.nukerInWindow",
+      "n": 0,
+      "match": 0,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "types": {
+      "boolean": 172
+    },
+    "trueCount": 152,
+    "falseCount": 20,
+    "otherCount": 0
+  },
+  "center": {
+    "paths": {
+      "meta.towers.nukeWindow.center": 172
+    },
+    "vsDerived": {
+      "name": "center === derived window center",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "vsPublishedNw": {
+      "name": "center === nukeWindow.center",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    }
+  },
+  "mineral": {
+    "paths": {
+      "meta.misc.mineralSeatNetTiles": 172
+    },
+    "vsFinishedInclSeat": {
+      "name": "mineralSeatNetTiles === finished-net D8 (seat stays on net)",
+      "n": 172,
+      "match": 171,
+      "miss": 1,
+      "absent": 0,
+      "samples": [
+        {
+          "room": "E5S1",
+          "got": [
+            "28,31",
+            "28,29"
+          ],
+          "want": "28,29|28,30|28,31"
+        }
+      ]
+    },
+    "vsFinishedDropSeat": {
+      "name": "mineralSeatNetTiles === finished-net D8 (seat dropped from net)",
+      "n": 172,
+      "match": 171,
+      "miss": 1,
+      "absent": 0,
+      "samples": [
+        {
+          "room": "E5S1",
+          "got": [
+            "28,31",
+            "28,29"
+          ],
+          "want": "28,29|28,30|28,31"
+        }
+      ]
+    },
+    "emptyWhenNoSeat": {
+      "name": "no seat => field absent or []",
+      "n": 0,
+      "match": 0,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "nonempty": 39
+  },
+  "covered": {
+    "paths": {
+      "meta.walls.mobility.coveredDetourDeclared": 8
+    },
+    "vsSf": {
+      "name": "flag === shortfall covered-detour",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "vsAny": {
+      "name": "flag === shortfall|note|noteRecord",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "flagTrue": 8,
+    "flagFalse": 0,
+    "flagAbsent": 164,
+    "sfTrue": 8
+  },
+  "spurred": {
+    "paths": {
+      "meta.walls.spurred": 172
+    },
+    "eqLaid": {
+      "name": "spurred === laid.spur",
+      "n": 172,
+      "match": 99,
+      "miss": 73,
+      "absent": 0,
+      "samples": [
+        {
+          "room": "E11S2",
+          "spurred": 4,
+          "laid": 13
+        },
+        {
+          "room": "E11S4",
+          "spurred": 2,
+          "laid": 19
+        },
+        {
+          "room": "E11S5",
+          "spurred": 1,
+          "laid": 2
+        },
+        {
+          "room": "E11S6",
+          "spurred": 1,
+          "laid": 3
+        },
+        {
+          "room": "E11S8",
+          "spurred": 1,
+          "laid": 2
+        },
+        {
+          "room": "E11S9",
+          "spurred": 1,
+          "laid": 2
+        }
+      ]
+    },
+    "zeroIff": {
+      "name": "spurred===0 iff laid.spur===0",
+      "n": 172,
+      "match": 172,
+      "miss": 0,
+      "absent": 0,
+      "samples": []
+    },
+    "eqShipped": {
+      "name": "spurred === shippedByKind.spur",
+      "n": 172,
+      "match": 99,
+      "miss": 73,
+      "absent": 0,
+      "samples": [
+        {
+          "room": "E11S2",
+          "spurred": 4,
+          "shipped": 12
+        },
+        {
+          "room": "E11S4",
+          "spurred": 2,
+          "shipped": 19
+        },
+        {
+          "room": "E11S5",
+          "spurred": 1,
+          "shipped": 2
+        },
+        {
+          "room": "E11S6",
+          "spurred": 1,
+          "shipped": 3
+        },
+        {
+          "room": "E11S8",
+          "spurred": 1,
+          "shipped": 2
+        },
+        {
+          "room": "E11S9",
+          "spurred": 1,
+          "shipped": 2
+        }
+      ]
+    },
+    "eq1orLaid": {
+      "name": "spurred is 0/1 OR === laid.spur",
+      "n": 172,
+      "match": 135,
+      "miss": 37,
+      "absent": 0,
+      "samples": [
+        {
+          "room": "E11S2",
+          "spurred": 4,
+          "laid": 13
+        },
+        {
+          "room": "E11S4",
+          "spurred": 2,
+          "laid": 19
+        },
+        {
+          "room": "E12S5",
+          "spurred": 3,
+          "laid": 4
+        },
+        {
+          "room": "E12S8",
+          "spurred": 2,
+          "laid": 4
+        },
+        {
+          "room": "E13S3",
+          "spurred": 5,
+          "laid": 14
+        },
+        {
+          "room": "E13S5",
+          "spurred": 2,
+          "laid": 11
+        }
+      ]
+    },
+    "mixed": [
+      {
+        "room": "E11S2",
+        "spurred": 4,
+        "laid": 13,
+        "shipped": 12
+      },
+      {
+        "room": "E11S4",
+        "spurred": 2,
+        "laid": 19,
+        "shipped": 19
+      },
+      {
+        "room": "E11S5",
+        "spurred": 1,
+        "laid": 2,
+        "shipped": 2
+      },
+      {
+        "room": "E11S6",
+        "spurred": 1,
+        "laid": 3,
+        "shipped": 3
+      },
+      {
+        "room": "E11S8",
+        "spurred": 1,
+        "laid": 2,
+        "shipped": 2
+      },
+      {
+        "room": "E11S9",
+        "spurred": 1,
+        "laid": 2,
+        "shipped": 2
+      },
+      {
+        "room": "E12S1",
+        "spurred": 1,
+        "laid": 3,
+        "shipped": 3
+      },
+      {
+        "room": "E12S5",
+        "spurred": 3,
+        "laid": 4,
+        "shipped": 4
+      }
+    ]
+  }
+}

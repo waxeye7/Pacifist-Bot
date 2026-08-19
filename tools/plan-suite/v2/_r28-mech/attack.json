@@ -1,0 +1,302 @@
+{
+  "bites": 26,
+  "escapes": 23,
+  "threw": 0,
+  "skip": 0,
+  "results": [
+    {
+      "name": "MF5-refill-blocked-parsed-from-sentence",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF5-refill-blocked-and-regen-from-parsed",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF5-swap-offer-face-parsed-from-sentence",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF5-swap-offer-face-coforged-via-parse",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF5-enclosureBasis-invented-prefix-keep-suffix",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/shell.enclosureBasis — shipped prose is not the sentence this room's own census renders. They agree for 14 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ON THIS ROOM: this room is perfect and every source is inside.…\". Derived: \"…ON THIS ROOM: 2 source(s) re-read ov"
+    },
+    {
+      "name": "MF5-enclosure-leaf-only-enclosedSources",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 558 character(s) and then diverge — shipped: \"…ed in it) · controller outside, sources 1/2 inside…\" vs generated: \"…ed in it) · controller outside, sources 2/2 inside…\". The note is composed from the mobility answer and the wall's own tail, every figure in it a published leaf "
+    },
+    {
+      "name": "MF5-enclosure-leaf-and-sentence-coforged",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 541 character(s) and then diverge — shipped: \"… program was placed in it) · controller outside, sources 1/2 inside…\" vs generated: \"… program was placed in it) · controller inside, sources 2/2 inside…\". The note is composed from the mobility answer and the wall's own tail, eve"
+    },
+    {
+      "name": "MF5-deepTiles-leaf-only",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 358 character(s) and then diverge — shipped: \"…) — 32 cut tiles · 1.29 e/tick upkeep · 11 free deep tiles left on the board this room SHIPS (layer 2 bought the enclosu…\" vs generated: \"…) — 32 cut tiles · 1.29 e/tick upkeep · 999 free deep tiles left on the board this room SHI"
+    },
+    {
+      "name": "MF5-deepTiles-leaf-and-sentence",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 358 character(s) and then diverge — shipped: \"…) — 32 cut tiles · 1.29 e/tick upkeep · 11 free deep tiles left on the board this room SHIPS (layer 2 bought the enclosu…\" vs generated: \"…) — 32 cut tiles · 1.29 e/tick upkeep · 999 free deep tiles left on the board this room SHI"
+    },
+    {
+      "name": "MF5-prunedBasis-leaf-and-sentence",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "META — the dead-end prune: `pruned` says 13 and `prunedTiles` names 0 distinct tile(s). The fleet summary prints this counter as \"pruned N dead-end road tiles\", and an EVENT counter under a TILE label is criticism 27 in the same printed line that applies the laid-vs-shipped discipline to spurs."
+    },
+    {
+      "name": "MF5-counterfactual-append-clause",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.counterfactualBasis` is \"ON THIS ROOM: 3 sealed tile(s) in 2 pocket(s) — 31,42: 2 tile(s), 2 deep, 7 structure(s)  and `meta.sealedFloor.counterfactualBasis` — the sealed-floor record this file re-derives tile by tile — says \"ON THIS ROOM: 3 sealed tile(s) in 2 pocket(s) — 31,42: 2 tile(s), 2 deep, 7 structure(s) . A note is the plann"
+    },
+    {
+      "name": "MF5-counterfactual-leaf-and-sentence",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[1]` (class sealedFloor) says `.ourFault` is 3 and `meta.sealedFloor.ourFault` — the sealed-floor record this file re-derives tile by tile — says 0. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly l"
+    },
+    {
+      "name": "MF5-noteObligation-append",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/noteObligationBasis — shipped prose is not the sentence this room's own census renders. They agree for 681 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ing field and its value. NOTHING IS OWED.…\". Derived: \"…ing field and its value.…\""
+    },
+    {
+      "name": "MF5-remeasured-append",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta/shell.remeasured — shipped prose is not the sentence this room's own census renders. They agree for 607 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ring layer 2 negotiated. THE CUT NEVER MOVED.…\". Derived: \"…ring layer 2 negotiated.…\""
+    },
+    {
+      "name": "MF5-mineralWhy-append-normal-room",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-nukerHubDist-1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-protectRadius-0",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-priceyWall-0",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-baseCut-0",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-uselessCut-cleared",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-cutAdopted-invent-ramparted-tile",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-cutAdopted-cleared",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-shippedShellDmg-inflated-with-twins",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: min 9999 vs 2250 · avg 9999 vs 2477 · worst 9999 vs {\"x\":13,\"y\":43}. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free"
+    },
+    {
+      "name": "MF6-shippedShellDmg-only-no-twins",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: min 9999 vs 2250 · avg 9999 vs 2477 · worst 9999 vs {\"x\":13,\"y\":43}. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free"
+    },
+    {
+      "name": "MF6-mobilityShipped-zero",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-refillDistsUnblocked-all-1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-newRoads-spurred-swampPaved-zero",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-mineralBubble-false",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MF6-battlementUnreachable-zero-count-only",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.battlementUnreachable says 0 and this room's own floods give 1. The enclosure verdicts are a flood, a ring and a works list — the arithmetic this file already runs four times over — and while they were unread the flattering direction was free in every one of them at once. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a supp"
+    },
+    {
+      "name": "MF6-battlementUnreachable-zero-count-AND-tiles",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "CUT-absorb-one-add-into-freeze-rewrite-passes",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutAtFreeze is not a MINIMAL sealing set: 2 of its 47 tile(s) (13,34 14,35) can be deleted from it with the exterior flood still failing to reach this room's sitter. It is published as LAYER 2's CUT — a min-cut — and every reading of the enclosure contract is a flood taken over it. A tile that is not load-bearing in it is a tile layer 2 did not buy, and putting one"
+    },
+    {
+      "name": "CUT-grow-freeze-by-interior-empty-tile",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutAtFreeze is not a MINIMAL sealing set: 1 of its 33 tile(s) (5,5) can be deleted from it with the exterior flood still failing to reach this room's sitter. It is published as LAYER 2's CUT — a min-cut — and every reading of the enclosure contract is a flood taken over it. A tile that is not load-bearing in it is a tile layer 2 did not buy, and putting one there i"
+    },
+    {
+      "name": "CUT-erase-adds-only",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutPasses does not bind to this room's own drift log: layer7-reconcileSeal says it made 2 add(s) and 0 remove(s) and the drift log carries 0 and 0 for it. Each marker is one invocation's own count of what it moved, and the drift rows carrying that pass's name are the same moves seen from the other side — so a room may not report a pass that acted and log nothing, o"
+    },
+    {
+      "name": "CUT-delete-cutDrift-and-cutPasses",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.inertPruned names 4 tile(s) (13,34 13,35 13,36 13,37) that `meta.shell.cutDrift` carries no `remove` row for, and that carry neither an eco bubble nor any structure of this room's. The prune deletes ramparts of both kinds — wall and rented cover — and only the wall ones move the cut, so a deletion that is neither is a prune the drift log dropped. This is the leg th"
+    },
+    {
+      "name": "CUT-rewrite-add-why-keep-markers",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.cutDrift carries 2 entr(y/ies) that are not a move this room's two passes made: [4] 14,35 add states a reason the producer's own generator does not produce for (add, layer7-reconcileSeal) — they agree for 484 character(s), then shipped \"… AND IT WAS FREE.…\" against generated \"……\". WHOLE-VALUE, so an appended clause is a different sentence and not a longer one · [5]"
+    },
+    {
+      "name": "CUT-repoint-freeze-at-shipped-empty-drift",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — meta.shell.inertPruned names 4 tile(s) (13,34 13,35 13,36 13,37) that `meta.shell.cutDrift` carries no `remove` row for, and that carry neither an eco bubble nor any structure of this room's. The prune deletes ramparts of both kinds — wall and rented cover — and only the wall ones move the cut, so a deletion that is neither is a prune the drift log dropped. This is the leg th"
+    },
+    {
+      "name": "CUT-shrink-first-freeze-tile",
+      "room": "E13S3",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — the film captions 1 of this room's ramparts with a sentence the board does not give them (19,19 film \"container cover — a container inside the shell on shallow floor, renting a rampart of its own\" · board \"seat outside the shell — a container beyond the wall, covered where it stands\"). One tile, one job, one sentence: the facet is a membership test in the shipped board — the "
+    },
+    {
+      "name": "FILM-emptyBecause-swap-two-absence-reasons",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — the film's `rampartCensus` row `seat.inside` is empty because this room has NO rampart matching that facet's own test, and the reason it prints is not the one this room's census renders. Shipped: \"every one of this room's 43 rampart(s) is accounted for by an earlier class — 32 on the cut, 4 under a container, 4 on the stand-denial ring and 3 und\". Derived here from the board "
+    },
+    {
+      "name": "FILM-emptyBecause-use-other-facet-renderer-text",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — the film's `rampartCensus` row `seat.inside` is empty because this room has NO rampart matching that facet's own test, and the reason it prints is not the one this room's census renders. Shipped: \"this facet is never painted: the stage sweeps this room's 43 rampart(s), so every tile it paints carries one\". Derived here from the board (43 rampart(s), 32 on the cut, 4 under a c"
+    },
+    {
+      "name": "FILM-NOTES.ramparts-append-after-last-char",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "walls/mobility-caption — this room's film note (`NOTES.ramparts`) is not the note its own record generates. They agree for 568 character(s) and then diverge — shipped: \"…· controller outside, sources 1/2 inside AND EVERY CUT TILE IS REDUNDANT.…\" vs generated: \"…· controller outside, sources 1/2 inside…\". The note is composed from the mobility answer and the wall's own tail, every figure in it a pu"
+    },
+    {
+      "name": "MINERAL-residue-keep-seat-suffix-rewrite-ring-E2S5",
+      "room": "E2S5",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MINERAL-residue-keep-seat-suffix-rewrite-ring-E5S1",
+      "room": "E5S1",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MINERAL-residue-keep-seat-suffix-rewrite-ring-E5S3",
+      "room": "E5S3",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "MINERAL-seat-moved-to-source-container",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.mineralSeat is 4,25 and this room's mineral container stands at 24,8. The field is published as THE MINERAL CONTAINER'S SEAT and it is the tile the off-network exemption is argued over, so it is the container's tile or it is an intent this room did not build — every gate and every sentence about the seat derives it from the container, which is exactly why a field that drifted off it changed n"
+    },
+    {
+      "name": "CIRC-battlement-twins-zeroed-together",
+      "room": "E13S3",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "CIRC-shippedShellDmg-twins-moved-together",
+      "room": "E11S1",
+      "status": "BITES",
+      "detail": "meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: avg 1 vs 2477 · weak 99 vs 0 · worst 1 vs {\"x\":13,\"y\":43}. It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — holding the copies to each other left the number free"
+    },
+    {
+      "name": "88-invent-rung-mobility",
+      "room": "E11S2",
+      "status": "BITES",
+      "detail": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5571 character(s) and then diverge — shipped: \"…mparts · rung 1 (needDeep+25): mobility 1.56, 46 ramparts · rung 2 (needDeep+55): mobility 1.56, 46 ramparts · rung 3 (needDeep+85…\" vs generated: \"…mparts · rung 1 (needDeep+25): mobility 0.01, 46 ramparts · rung 2 (needDeep+55): mobility"
+    },
+    {
+      "name": "93-inflate-taken-pocket-holders",
+      "room": "E11S7",
+      "status": "ESCAPE",
+      "detail": "pass"
+    },
+    {
+      "name": "98-invent-shrink-on-plain-room",
+      "room": "E11S3",
+      "status": "ESCAPE",
+      "detail": "pass"
+    }
+  ]
+}

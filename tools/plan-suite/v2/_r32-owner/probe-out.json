@@ -1,0 +1,10 @@
+{
+  "E11S1_unmodified": "PASS",
+  "E11S1_append_19_27_fullRun_only_wanted_eq_tiles": "BITES",
+  "E11S1_wanted_plus_1": "ESCAPE",
+  "E11S1_append_19_27_both_lists_wanted_plus_1": "ESCAPE",
+  "E11S1_prefix_swap_18_27_to_19_27": "ESCAPE",
+  "E11S2_leaky_20_9_to_19_9_complete_true": "BITES",
+  "E11S2_leaky_plus_complete_false_regen": "ESCAPE",
+  "E11S2_sealing_29_33_to_28_34": "ESCAPE"
+}

@@ -1552,16 +1552,6 @@ async function main() {
     process.exit(1);
   }
 
-  // djb2 over the structure list — a cheap "is the room building the plan I
-  // am looking at?" marker. The bot stores it in room.memory.planV2.h and
-  // logs old->new on re-adoption, so a stale in-game plan is visible instead
-  // of silently diverging from out-v2/plans-hub.json.
-  const structuresJson = JSON.stringify(plan.structures);
-  let hash = 5381;
-  for (let i = 0; i < structuresJson.length; i++) {
-    hash = ((hash * 33) ^ structuresJson.charCodeAt(i)) >>> 0;
-  }
-
   // per-road-tile RCL, parallel to structures.road — see roadStageFor
   const roadStage = roadStageFor(plan);
   // EVERY RCL, WITH THE TILES. This warned once, at RCL3, with a bare count —
@@ -1587,14 +1577,49 @@ async function main() {
     }
   }
 
+  // the min-cut wall RING only (never the bubbles) — this is the defence
+  // perimeter every legacy consumer reads
+  const shellCut = (plan.meta && plan.meta.shell && plan.meta.shell.cut) || [];
+
+  // ---------------------------------------------------------------------
+  // djb2 over the WHOLE plan payload — a cheap "is the room building the plan
+  // I am looking at?" marker. The bot stores it in room.memory.planV2.h, logs
+  // old->new on re-adoption, drops a heuristic auto-arm on change, and
+  // Interior keys its tile cache on "h:" + h.
+  //
+  // It used to hash `plan.structures` ALONE, which made all four of the other
+  // payload fields invisible to it: moving the min-cut wall, restaging the
+  // roads, moving the sitter or reassigning the lab inputs all re-pushed under
+  // the OLD hash. No "layout changed" line, no auto-arm demotion, and Interior
+  // kept serving exterior/interior answers computed against the previous wall.
+  //
+  // `room` and `pushedAt` stay OUT: the room name is not layout, and pushedAt
+  // would make every push a "change". Field order here is the hash input, so
+  // it is fixed and must not be reordered casually.
+  //
+  // NOTE: this necessarily changes the hash of every existing plan. The next
+  // push of an otherwise-unchanged room reads as "layout changed" exactly once
+  // (one log line, and an auto-armed established room demotes to placement-only
+  // and needs migratePlan again). That is the one-off cost of the fix.
+  // ---------------------------------------------------------------------
+  const hashInput = JSON.stringify({
+    structures: plan.structures,
+    shellCut,
+    roadStage,
+    sitter: plan.sitter,
+    labInputs: plan.labInputs,
+  });
+  let hash = 5381;
+  for (let i = 0; i < hashInput.length; i++) {
+    hash = ((hash * 33) ^ hashInput.charCodeAt(i)) >>> 0;
+  }
+
   const payload = {
     room,
     structures: plan.structures,
     sitter: plan.sitter,
     labInputs: plan.labInputs,
-    // the min-cut wall RING only (never the bubbles) — this is the defence
-    // perimeter every legacy consumer reads
-    shellCut: (plan.meta && plan.meta.shell && plan.meta.shell.cut) || [],
+    shellCut,
     roadStage,
     planHash: hash.toString(36),
     pushedAt: Date.now(),

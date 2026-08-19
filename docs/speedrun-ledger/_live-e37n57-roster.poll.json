@@ -1,0 +1,451 @@
+{
+  "polled": "2026-08-16T10:29:12.682Z",
+  "dest": "main",
+  "shard": "shard3",
+  "tick1": 82287433,
+  "tick2": 82287433,
+  "me": {
+    "_id": "62f89e0d84c31c184db79629",
+    "username": "PacifistBot",
+    "gcl": 356664659,
+    "cpu": 20
+  },
+  "owned": [
+    "E37N59",
+    "E36N57",
+    "E37N58",
+    "E35N59",
+    "E37N57",
+    "E39N58"
+  ],
+  "room": "E37N57",
+  "mine": true,
+  "rcl": 2,
+  "p": 3065,
+  "pt": 0,
+  "dg": 10000,
+  "spawn": {
+    "name": "Spawn6",
+    "xy": [
+      26,
+      29
+    ],
+    "e": 300,
+    "cap": 300,
+    "spawning": null,
+    "hits": 5000,
+    "mine": true
+  },
+  "extBuilt": 0,
+  "extE": 0,
+  "extSites": [
+    {
+      "x": 24,
+      "y": 31,
+      "p": 0,
+      "tot": 3000
+    },
+    {
+      "x": 28,
+      "y": 27,
+      "p": 0,
+      "tot": 3000
+    },
+    {
+      "x": 23,
+      "y": 26,
+      "p": 0,
+      "tot": 3000
+    },
+    {
+      "x": 23,
+      "y": 28,
+      "p": 0,
+      "tot": 3000
+    },
+    {
+      "x": 23,
+      "y": 30,
+      "p": 0,
+      "tot": 3000
+    }
+  ],
+  "siteTypes": {
+    "extension": [
+      {
+        "x": 24,
+        "y": 31,
+        "p": 0,
+        "tot": 3000
+      },
+      {
+        "x": 28,
+        "y": 27,
+        "p": 0,
+        "tot": 3000
+      },
+      {
+        "x": 23,
+        "y": 26,
+        "p": 0,
+        "tot": 3000
+      },
+      {
+        "x": 23,
+        "y": 28,
+        "p": 0,
+        "tot": 3000
+      },
+      {
+        "x": 23,
+        "y": 30,
+        "p": 0,
+        "tot": 3000
+      }
+    ],
+    "container": [
+      {
+        "x": 26,
+        "y": 27,
+        "p": 3600,
+        "tot": 5000
+      }
+    ]
+  },
+  "mySites": 6,
+  "localMiners": [
+    {
+      "name": "EnergyMiner-78269504-E37N57",
+      "xy": [
+        43,
+        45
+      ],
+      "e": 0,
+      "cap": null,
+      "ttl": 58,
+      "body": "wwm",
+      "work": 2,
+      "carry": 0,
+      "move": 1,
+      "role": "EnergyMiner",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": "5bbcaf189099fc012e63a285",
+      "spawning": false
+    }
+  ],
+  "allMinersInRoom": [
+    {
+      "name": "EnergyMiner-78269504-E37N57",
+      "xy": [
+        43,
+        45
+      ],
+      "e": 0,
+      "cap": null,
+      "ttl": 58,
+      "body": "wwm",
+      "work": 2,
+      "carry": 0,
+      "move": 1,
+      "role": "EnergyMiner",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": "5bbcaf189099fc012e63a285",
+      "spawning": false
+    }
+  ],
+  "localMinerWork": 2,
+  "allMinerWork": 2,
+  "localCarriers": [
+    {
+      "name": "Carrier-50509073-E37N57",
+      "xy": [
+        29,
+        35
+      ],
+      "e": 150,
+      "cap": 150,
+      "ttl": 113,
+      "body": "cccmm",
+      "work": 0,
+      "carry": 3,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Carrier-24245592-E37N57",
+      "xy": [
+        30,
+        36
+      ],
+      "e": 100,
+      "cap": 100,
+      "ttl": 168,
+      "body": "ccmm",
+      "work": 0,
+      "carry": 2,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    }
+  ],
+  "allCarriersInRoom": [
+    {
+      "name": "Carrier-50509073-E37N57",
+      "xy": [
+        29,
+        35
+      ],
+      "e": 150,
+      "cap": 150,
+      "ttl": 113,
+      "body": "cccmm",
+      "work": 0,
+      "carry": 3,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Carrier-24245592-E37N57",
+      "xy": [
+        30,
+        36
+      ],
+      "e": 100,
+      "cap": 100,
+      "ttl": 168,
+      "body": "ccmm",
+      "work": 0,
+      "carry": 2,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    }
+  ],
+  "creeps": [
+    {
+      "name": "EnergyMiner-78269504-E37N57",
+      "xy": [
+        43,
+        45
+      ],
+      "e": 0,
+      "cap": null,
+      "ttl": 58,
+      "body": "wwm",
+      "work": 2,
+      "carry": 0,
+      "move": 1,
+      "role": "EnergyMiner",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": "5bbcaf189099fc012e63a285",
+      "spawning": false
+    },
+    {
+      "name": "Carrier-50509073-E37N57",
+      "xy": [
+        29,
+        35
+      ],
+      "e": 150,
+      "cap": 150,
+      "ttl": 113,
+      "body": "cccmm",
+      "work": 0,
+      "carry": 3,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Carrier-24245592-E37N57",
+      "xy": [
+        30,
+        36
+      ],
+      "e": 100,
+      "cap": 100,
+      "ttl": 168,
+      "body": "ccmm",
+      "work": 0,
+      "carry": 2,
+      "move": 2,
+      "role": "carry",
+      "homeRoom": "E37N57",
+      "targetRoom": "E37N57",
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Builder-23597700-E37N57",
+      "xy": [
+        30,
+        33
+      ],
+      "e": 0,
+      "cap": 50,
+      "ttl": 261,
+      "body": "wcmm",
+      "work": 1,
+      "carry": 1,
+      "move": 2,
+      "role": "builder",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Upgrader-49523521-E37N57",
+      "xy": [
+        26,
+        30
+      ],
+      "e": 0,
+      "cap": 50,
+      "ttl": 330,
+      "body": "wcm",
+      "work": 1,
+      "carry": 1,
+      "move": 1,
+      "role": "upgrader",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Upgrader-80686781-E37N57",
+      "xy": [
+        15,
+        15
+      ],
+      "e": 36,
+      "cap": 50,
+      "ttl": 499,
+      "body": "wcm",
+      "work": 1,
+      "carry": 1,
+      "move": 1,
+      "role": "upgrader",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Upgrader-36053714-E37N57",
+      "xy": [
+        19,
+        13
+      ],
+      "e": 34,
+      "cap": 50,
+      "ttl": 788,
+      "body": "wcm",
+      "work": 1,
+      "carry": 1,
+      "move": 1,
+      "role": "upgrader",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Sweeper-69075585-E37N57",
+      "xy": [
+        25,
+        27
+      ],
+      "e": 0,
+      "cap": 100,
+      "ttl": 804,
+      "body": "ccm",
+      "work": 0,
+      "carry": 2,
+      "move": 1,
+      "role": "sweeper",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Upgrader-46171821-E37N57",
+      "xy": [
+        16,
+        14
+      ],
+      "e": 50,
+      "cap": 50,
+      "ttl": 953,
+      "body": "wcm",
+      "work": 1,
+      "carry": 1,
+      "move": 1,
+      "role": "upgrader",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    },
+    {
+      "name": "Builder-79434424-E37N57",
+      "xy": [
+        42,
+        46
+      ],
+      "e": 0,
+      "cap": 50,
+      "ttl": 1245,
+      "body": "wcmm",
+      "work": 1,
+      "carry": 1,
+      "move": 2,
+      "role": "builder",
+      "homeRoom": null,
+      "targetRoom": null,
+      "source": null,
+      "spawning": false
+    }
+  ],
+  "sources": [
+    {
+      "id": "5bbcaf189099fc012e63a285",
+      "xy": [
+        44,
+        44
+      ],
+      "e": 1976,
+      "regen": 300
+    }
+  ],
+  "containers": [],
+  "spawn_list": [],
+  "c_spawned": null,
+  "structures": {
+    "spawn": "6a814b0d73d79963dc449477",
+    "towers": []
+  },
+  "autoExpand": null
+}

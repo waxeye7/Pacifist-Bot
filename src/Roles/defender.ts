@@ -52,16 +52,6 @@ const run = function (creep) {
                 }
                 return;
             }
-            else if(creep.room.memory.attack_target) {
-                let target = creep.room.memory.attack_target
-                if(target && creep.rangedAttack(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target);
-                    return;
-                }
-                else {
-                    creep.rangedAttack(closestEnemyCreep)
-                }
-            }
 
             if(rampart) {
                 if(creep.pos.lookFor(LOOK_STRUCTURES).length == 0 || creep.pos.lookFor(LOOK_STRUCTURES).length == 1 && creep.pos.lookFor(LOOK_STRUCTURES)[0].structureType == STRUCTURE_ROAD) {

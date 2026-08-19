@@ -1,0 +1,201 @@
+[
+  {
+    "name": "MF5-mineral-E11S1-nearest-19-to-1",
+    "room": "E11S1",
+    "status": "BITES",
+    "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 344 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ile this room ships is 1,1, 1 step(s) away. no road by design — mineral …\". Derived: \"…ile this room ships is 18,27, 19 step(s) away. no road by design — miner…\"",
+    "nFails": 1,
+    "fails": [
+      "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 344 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…ile this room ships is 1,1, 1 step(s) away. no road by design — mineral …\". Derived: \"…ile this room ships is 18,27, 19 step(s) away. no road by design — miner…\""
+    ]
+  },
+  {
+    "name": "MF5-mineral-E2S5-seat-road-clause-rewritten",
+    "room": "E2S5",
+    "status": "BITES",
+    "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 269 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on the network, and the nearest road tile this room ships is 1,1, 99 ste…\". Derived: \"…on the network, and the seat tile itself carries a road (a container and…\"",
+    "nFails": 1,
+    "fails": [
+      "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 269 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on the network, and the nearest road tile this room ships is 1,1, 99 ste…\". Derived: \"…on the network, and the seat tile itself carries a road (a container and…\""
+    ]
+  },
+  {
+    "name": "MF5-mineral-E5S3-seat-road-clause-rewritten",
+    "room": "E5S3",
+    "status": "BITES",
+    "detail": "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 264 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on the network, and the nearest road tile this room ships is 1,1, 99 ste…\". Derived: \"…on the network, and the seat tile itself carries a road (a container and…\"",
+    "nFails": 1,
+    "fails": [
+      "meta/misc.mineralOffNetworkWhy — shipped prose is not the sentence this room's own census renders. They agree for 264 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…on the network, and the nearest road tile this room ships is 1,1, 99 ste…\". Derived: \"…on the network, and the seat tile itself carries a road (a container and…\""
+    ]
+  },
+  {
+    "name": "88-E11S2-rung-census",
+    "room": "E11S2",
+    "status": "INFO",
+    "detail": "{\"pretty\":1.56,\"shipped\":37,\"rungs\":[{\"bonus\":0,\"ramparts\":46,\"mobility\":1.56,\"cut\":37},{\"bonus\":25,\"ramparts\":46,\"mobility\":1.56,\"cut\":37},{\"bonus\":55,\"ramparts\":46,\"mobility\":1.56,\"cut\":37},{\"bonus\":85,\"ramparts\":50,\"mobility\":2.5,\"cut\":42}]}"
+  },
+  {
+    "name": "88-invent-4tile-box-cut-matching-its-own-lap",
+    "room": "E11S2",
+    "status": "BITES",
+    "detail": "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5571 character(s) and then diverge — shipped: \"…mparts · rung 1 (needDeep+25): mobility 1.56, 46 ramparts · rung 2 (needDeep+55): mobility 1.56, 46 ramparts · rung 3 (needDeep+85…\" vs generated: \"…mparts · rung 1 (needDeep+25): mobility 0, 46 ramparts · rung 2 (needDeep+55): mobility 1.56, 46 ramparts · rung 3 (needDeep+85): …\". Declaration prose is generated from the structured record by one shared template that the producer and this file both run, precisely so that the sentence a human reads cannot say something the audited record does not. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+    "nFails": 3,
+    "fails": [
+      "DECLARATION CONTENT — mobility: the shipped paragraph is not the paragraph this record generates. They agree for 5571 character(s) and then diverge — shipped: \"…mparts · rung 1 (needDeep+25): mobility 1.56, 46 ramparts · rung 2 (needDeep+55): mobility 1.56, 46 ramparts · rung 3 (needDeep+85…\" vs generated: \"…mparts · rung 1 (needDeep+25): mobility 0, 46 ramparts · rung 2 (needDeep+55): mobility 1.56, 46 ramparts · rung 3 (needDeep+85): …\". Declaration prose is generated from the structured record by one shared template that the producer and this file both run, precisely so that the sentence a human reads cannot say something the audited record does not. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — mobility: this room's shipped lap of 1.56 is not over the ladder's 2 buy floor, so no wall may be spent on lap here at all — and the paragraph that refuses a materially shorter rung never says so. The floor is the whole reason on this room and a verdict that leaves it out is a verdict a reader has to guess at. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — mobility: ladder rung 1 (needDeep+25) is recorded COMPLETE at a lap of 0 for 46 rampart(s), and this room shipped a wider-composed rung at 1.56 for 46. The escalation walk composed that rung with this one already the incumbent and takes any challenger that is shorter and no dearer, so a rung that is both and did not ship is a rung the walk's own rule says would have. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+    ]
+  },
+  {
+    "name": "98-consistent-fullRun-plus-shrink",
+    "room": "E11S3",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "98-invent-shrink-to-existing-rounds",
+    "room": "E11S3",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "93-taken-inflate-recovers-and-regen-note",
+    "room": "E15S6",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "134c-ec1-withheld-plus-1",
+    "room": "E11S1",
+    "status": "BITES",
+    "detail": "DECLARATION CONTENT — meta.exteriorContract labs(L4): `withheldTiles` carries [object Object] — the roster is \"x,y\" tiles of this room's own 50x50 board. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+    "nFails": 5,
+    "fails": [
+      "DECLARATION CONTENT — meta.exteriorContract labs(L4): `withheldTiles` carries [object Object] — the roster is \"x,y\" tiles of this room's own 50x50 board. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContract: 1 tile(s) withheld from labs(L4) ([object Object]) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContract labs(L4): its `withheldTiles` roster is 11 tile(s) and this file re-derives 10 from terrain — the flood over `meta.shell.cutAtFreeze` against that wall plus the ramparts this room's towers stand on — the cover layer 3 rented before the lab layer ran · 1 named tile(s) the derivation does not reach ([object Object]). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContract labs(L4): its roster is not between the two readings this file can take without believing anything the producer wrote — the frozen cut against layer 2's own bubbles (10 tile(s)) and the frozen cut against every rampart the room ships (11) · 1 tile(s) above the ceiling are named ([object Object]). A middle consumer reads a wall between those two and nothing else. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+    ]
+  },
+  {
+    "name": "134c-ec2-withheld-zeroed",
+    "room": "E11S1",
+    "status": "BITES",
+    "detail": "DECLARATION CONTENT — meta.exteriorContract: 10 tile(s) withheld from labs(L4) (4,25 4,26 6,28 42,28 6,29 7,29) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+    "nFails": 4,
+    "fails": [
+      "DECLARATION CONTENT — meta.exteriorContract: 10 tile(s) withheld from labs(L4) (4,25 4,26 6,28 42,28 6,29 7,29) are NOT withheld from misc(L5), which runs after it. The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 — that is the entire argument for letting these layers read a stale enclosure — so the withheld set grows and a tile that leaves it is the permission without the thing that earns it. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContract misc(L5): its `withheldTiles` roster is 0 tile(s) and this file re-derives 10 from terrain — the flood over `meta.shell.cutAtFreeze` against that wall plus the ramparts this room's labs stand on — the board layer 5 read · 10 derived tile(s) the record does not name (4,25 4,26 6,28 42,28 6,29 7,29). All four readings are one frozen flood against a wall this file can rebuild, so all four are held to the board: holding three of them by containment alone left 516 of the 688 records that build published free, and appending invented tiles to the last one took the withheld sum this fleet publishes from 2786 to 37186 without a single room failing. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContract misc(L5): its roster is not between the two readings this file can take without believing anything the producer wrote — the frozen cut against layer 2's own bubbles (10 tile(s)) and the frozen cut against every rampart the room ships (11) · 10 tile(s) below the floor are missing (4,25 4,26 6,28 42,28 6,29 7,29). A middle consumer reads a wall between those two and nothing else. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+      "DECLARATION CONTENT — meta.exteriorContractBasis's census contradicts the contract it is printed beside: it sums the readings to 41 and the four counts add to 31 · it reads misc(L5) as withholding 10 and the record says 0 · it names misc(L5)'s roster as \"4,25 4,26 42,28 42,29 5,30 5,31 6,28 6,29 7,29 8,29\" and the record's is \"nothing\". The census is what makes the field about THIS room — without it a cross-room transplant is a no-op, which is what \"byte-identical in 172 of 172 rooms\" meant. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+    ]
+  },
+  {
+    "name": "141e-seedSkip-zeroed",
+    "room": "E11S1",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "141e-seedScore-inflated",
+    "room": "E11S1",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "141e-seedPool-halved",
+    "room": "E11S1",
+    "status": "BITES",
+    "detail": "eco/seed-pool — the plan says layer 1 ranked 12 confluence(s) and this room's terrain admits 68 seed candidate(s), which layer 1 takes the first 25 of: 25. The pool is quoted to a reader as \"seed rank N of M scored confluences\" and it was a witnessed number with one mirror; both copies are written in the same pass, so the pair is one edit",
+    "nFails": 2,
+    "fails": [
+      "eco/seed-pool — the plan says layer 1 ranked 12 confluence(s) and this room's terrain admits 68 seed candidate(s), which layer 1 takes the first 25 of: 25. The pool is quoted to a reader as \"seed rank N of M scored confluences\" and it was a witnessed number with one mirror; both copies are written in the same pass, so the pair is one edit",
+      "DECLARATION CONTENT — eco|: `eco.seedPool` is 25 and `@meta.seedPool` says 12 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.seedPool`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached."
+    ]
+  },
+  {
+    "name": "PRESENCE-fillerTiles",
+    "room": "-",
+    "status": "SKIP",
+    "detail": "no room"
+  },
+  {
+    "name": "PRESENCE-servedExts",
+    "room": "-",
+    "status": "SKIP",
+    "detail": "no room"
+  },
+  {
+    "name": "PRESENCE-corridorFallback-flattered",
+    "room": "E2S5",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "PRESENCE-corridorPlaced-flattered",
+    "room": "E11S1",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "PRESENCE-roadsEaten-flattered",
+    "room": "E9S2",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "PRESENCE-shallowRamparts",
+    "room": "-",
+    "status": "SKIP",
+    "detail": "no room"
+  },
+  {
+    "name": "PRESENCE-mineralSeatNetTiles-flattered",
+    "room": "E11S2",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "PRESENCE-extractorSeatNetTiles-flattered",
+    "room": "E11S2",
+    "status": "ESCAPE",
+    "detail": "pass",
+    "nFails": 0,
+    "fails": []
+  },
+  {
+    "name": "PRESENCE-faceAndSatHeld-flattered",
+    "room": "E11S1",
+    "status": "BITES",
+    "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\"",
+    "nFails": 1,
+    "fails": [
+      "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the eleven *Basis/*Why fields the round-27 review replaced fleet-wide with one invented sentence at 172/172. Shipped: \"…s) the D8 prior allows. 10 of those hold the weakest cut-tile face at 22…\". Derived: \"…s) the D8 prior allows. 0 of those hold the weakest cut-tile face at 225…\""
+    ]
+  },
+  {
+    "name": "PRESENCE-nukerInWindow",
+    "room": "-",
+    "status": "SKIP",
+    "detail": "no room"
+  }
+]

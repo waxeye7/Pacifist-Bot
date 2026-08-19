@@ -1,6 +1,8 @@
 // import {Room} from "../utils/Types";
 // declare global is required now that this file has an export (it became a
 // module, so a bare `interface Room` stopped merging with the global type).
+import { plannedLinkTile } from "utils/PlanV2";
+
 declare global {
     interface Room {
         findStorage:() => object;
@@ -126,6 +128,21 @@ Room.prototype.findObserver = function(): object | void {
  * built. Drop the cache on RCL change, or when a better hub sits in the
  * chebyshev-2 ring (adjacent, or the legacy storage.x-2 tile).
  */
+function standingLinkAt(room: Room, tile: { x: number; y: number } | null): StructureLink | null {
+    if (!tile) return null;
+    const here = room.lookForAt(LOOK_STRUCTURES, tile.x, tile.y);
+    for (const s of here) {
+        if (s.structureType === STRUCTURE_LINK && (s as StructureLink).my) return s as StructureLink;
+    }
+    return null;
+}
+
+function isControllerDepotLink(room: Room, link: Structure): boolean {
+    if (!room.controller || link.structureType !== STRUCTURE_LINK) return false;
+    if (link.pos.getRangeTo(room.controller) > 3) return false;
+    return link.pos.findInRange(FIND_SOURCES, 1).length === 0;
+}
+
 export function invalidateStaleStorageLink(room: any): void {
     if (!room || !room.memory || !room.memory.Structures || !room.storage) return;
     const rcl = room.controller ? room.controller.level : 0;
@@ -135,6 +152,12 @@ export function invalidateStaleStorageLink(room: any): void {
         return;
     }
     const cur: any = Game.getObjectById(room.memory.Structures.StorageLink);
+    // VPS W1N2: the controller depot sat range-2 of live storage, so both
+    // keys pinned the same link and transfers targeted themselves.
+    if (cur && (cur.id === room.memory.Structures.controllerLink || isControllerDepotLink(room, cur))) {
+        delete room.memory.Structures.StorageLink;
+        return;
+    }
     if (!cur || room.storage.pos.getRangeTo(cur) <= 1) return;
     // Pin is range 2 (or farther). Adjacent-only missed the legacy hub at
     // storage.x-2, so an RCL5 source-ring pin stuck after the real hub
@@ -169,41 +192,43 @@ export function invalidateStaleStorageLink(room: any): void {
 
 Room.prototype.findStorageLink = function(): object | void {
     invalidateStaleStorageLink(this);
+    const plannedHub = standingLinkAt(this, plannedLinkTile(this, 0));
+    if (plannedHub && !isControllerDepotLink(this, plannedHub)) {
+        this.memory.Structures.StorageLink = plannedHub.id;
+        return plannedHub;
+    }
     let links = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
     if(links.length > 0) {
         let storage = Game.getObjectById(this.memory.Structures.storage) || this.findStorage();
         if(!storage) return;
-        // The hub link is wherever the layout put it: legacy stamps use
-        // storage.x-2 (chebyshev 2), the v2 planner glues it to the storage
-        // (chebyshev 1). Search the neighbourhood and take the closest link
-        // instead of hardcoding one offset — v2 wins at 1, legacy still
-        // resolves at 2.
-        let nearby = links.filter(function(link) {return storage.pos.getRangeTo(link) <= 2;});
-        if(nearby.length > 0) {
+        const ctrlId = this.memory.Structures.controllerLink;
+        const pick = (maxRange: number, allowCtrl: boolean) => {
             const hubX = storage.pos.x - 2;
             const hubY = storage.pos.y;
-            nearby.sort((a, b) => {
+            const nearby = links.filter((link: any) => {
+                if (storage.pos.getRangeTo(link) > maxRange) return false;
+                if (link.id === ctrlId) return false;
+                if (!allowCtrl && isControllerDepotLink(this, link)) return false;
+                return true;
+            });
+            if (!nearby.length) return null;
+            nearby.sort((a: any, b: any) => {
                 const d = storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b);
                 if (d !== 0) return d;
-                // Equal range: legacy x-2 hub, then a non-source-adjacent
-                // tile, so a source link in the storage ring does not win
-                // the first-live-wins pin after invalidate drops it.
                 const aHub = a.pos.x === hubX && a.pos.y === hubY ? 0 : 1;
                 const bHub = b.pos.x === hubX && b.pos.y === hubY ? 0 : 1;
                 if (aHub !== bHub) return aHub - bHub;
                 return a.pos.findInRange(FIND_SOURCES, 1).length - b.pos.findInRange(FIND_SOURCES, 1).length;
             });
-            this.memory.Structures.StorageLink = nearby[0].id;
             return nearby[0];
+        };
+        // Prefer a real hub. Range 3 is the fallback for off-plan live
+        // storage (W1N2: plan hub 21,40 is 3 from storage at 24,39).
+        const chosen = pick(2, false) || pick(3, false) || pick(2, true);
+        if (chosen) {
+            this.memory.Structures.StorageLink = chosen.id;
+            return chosen;
         }
-        // Lowercase `storageLink` here for years — a key with no reader, while
-        // every consumer reads `StorageLink`. So the "there is no link next to
-        // the storage" case never actually invalidated anything, and a stale
-        // id survived indefinitely. That id is used as an EXCLUSION filter in
-        // half a dozen places (the hub link is deliberately not a donor), so
-        // when it points at a source link that link can never forward, and it
-        // is simultaneously the transfer TARGET — a link sending to itself,
-        // answering ERR_INVALID_TARGET silently, forever.
         delete this.memory.Structures.StorageLink;
     }
 }
@@ -322,14 +347,24 @@ Room.prototype.findContainers = function(capacity) {
              i.id !== this.memory.Structures.storage &&
              i.id !== this.memory.Structures.controllerLink));
 
+    // Sticky pick FIRST: keep the current container while it still passes the
+    // SAME filter, so haulers don't thrash between two equally full containers.
+    //
+    // This used to sit INSIDE `if(containers.length > 0)`, below the whole-room
+    // scan — which made the scan unconditional even though the sticky answer
+    // wins in the steady state. Hoisting it is exactly equivalent: `usable` is
+    // the very predicate the scan filters on and it already requires the
+    // container to be in THIS room, so a usable CurrentContainer is necessarily
+    // one of the scan's own results and `containers.length > 0` could never
+    // have been false when we got here. Every hauler calls this up to twice per
+    // tick from acquireEnergyWithContainersAndOrDroppedEnergy.
+    let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
+    if(usable(CurrentContainer)) {
+        return CurrentContainer;
+    }
+
     let containers = this.find(FIND_STRUCTURES, {filter: usable});
     if(containers.length > 0) {
-        // Sticky pick: keep the current container while it still passes the SAME
-        // filter, so haulers don't thrash between two equally full containers.
-        let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
-        if(usable(CurrentContainer)) {
-            return CurrentContainer;
-        }
         containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
         this.memory.Structures.container = containers[0].id;
         return containers[0];

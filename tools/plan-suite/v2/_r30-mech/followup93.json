@@ -1,0 +1,117 @@
+{
+  "withR": [
+    {
+      "room": "E11S4",
+      "taken": false,
+      "outcome": "allRefused",
+      "holders": [
+        "lab@28,36=2/2",
+        "lab@28,37=2/2"
+      ]
+    },
+    {
+      "room": "E14S5",
+      "taken": false,
+      "outcome": "allRefused",
+      "holders": [
+        "spawn@31,32=1/1",
+        "tower@31,33=1/1"
+      ]
+    },
+    {
+      "room": "E4S9",
+      "taken": false,
+      "outcome": "allRefused",
+      "holders": [
+        "lab@23,34=3/3",
+        "lab@23,35=3/3",
+        "lab@25,33=1/1",
+        "lab@25,34=1/1",
+        "lab@26,34=1/1",
+        "spawn@27,33=1/1"
+      ]
+    }
+  ],
+  "pocketTaken": [
+    "E15S6",
+    "E19S2",
+    "E2S1",
+    "E4S6",
+    "E5S5",
+    "E8S2",
+    "E9S1",
+    "E9S9"
+  ],
+  "results": [
+    {
+      "name": "93-census",
+      "room": "*",
+      "status": "INFO",
+      "detail": "{\"withR\":[{\"room\":\"E11S4\",\"taken\":false,\"outcome\":\"allRefused\",\"holders\":[\"lab@28,36=2/2\",\"lab@28,37=2/2\"]},{\"room\":\"E14S5\",\"taken\":false,\"outcome\":\"allRefused\",\"holders\":[\"spawn@31,32=1/1\",\"tower@31,33=1/1\"]},{\"room\":\"E4S9\",\"taken\":false,\"outcome\":\"allRefused\",\"holders\":[\"lab@23,34=3/3\",\"lab@23,35=3/3\",\"lab@25,33=1/1\",\"lab@25,34=1/1\",\"lab@26,34=1/1\",\"spawn@27,33=1/1\"]}],\"pocketTaken\":[\"E15S6\",\"E19S2\",\"E2S1\",\"E4S6\",\"E5S5\",\"E8S2\",\"E9S1\",\"E9S9\"]}"
+    },
+    {
+      "name": "93-inflate-remaining-fixedHolders-recovers",
+      "room": "E11S4",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.fixedHolders` is [{\"type\":\"lab\",\"x\":28,\"y\":36,\"recovers\":2,\"recoversDeep\":2},{\"type\":\"lab\",\"x\":28,\"y\":37,\"r and `meta.sealedRecovery.fixedHolders` — the sealed-recovery record this file gates against the shipped board — says [{\"type\":\"lab\",\"x\":28,\"y\":36,\"recovers\":3,\"recoversDeep\":2},{\"type\":\"lab\",\"x\":28,\"y\":37,\"r. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 3,
+      "fails": [
+        "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.fixedHolders` is [{\"type\":\"lab\",\"x\":28,\"y\":36,\"recovers\":2,\"recoversDeep\":2},{\"type\":\"lab\",\"x\":28,\"y\":37,\"r and `meta.sealedRecovery.fixedHolders` — the sealed-recovery record this file gates against the shipped board — says [{\"type\":\"lab\",\"x\":28,\"y\":36,\"recovers\":3,\"recoversDeep\":2},{\"type\":\"lab\",\"x\":28,\"y\":37,\"r. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` says the lab at 28,36 holds 3 tile(s) shut and the per-structure counterfactual this file re-derives for that tile returns 2. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` says the lab at 28,37 holds 3 tile(s) shut and the per-structure counterfactual this file re-derives for that tile returns 2. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted."
+      ]
+    },
+    {
+      "name": "93-plant-recovers-back-on-taken-fixed",
+      "room": "E15S6",
+      "status": "BITES",
+      "detail": "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 34,31 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+      "nFails": 4,
+      "fails": [
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 34,31 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 35,31 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 33,29 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted.",
+        "META — the sealed-recovery and across-prior records: `sealedRecovery.fixedHolders` at 33,30 still carries recovers=2 / recoversDeep=2. A take re-seated the mass; those numbers are a log of a board that left. Round 17 gated eight fields of one panel on these two records and 15 of 27 semantic mutations escaped — a fabricated take, a fabricated refusal, a forged withdrawn seat, and the whole record deleted."
+      ]
+    },
+    {
+      "name": "93-taken-inflate-pocket-recovers-only",
+      "room": "E15S6",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `meta.noteRecords[0]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":34,\"y\":32},{\"x\":34,\"y\":33}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":34,\"y\":32},{\"x\":34,\"y\":33}],\"holde. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 15,
+      "fails": [
+        "PLANNER NOTE — `meta.noteRecords[0]` (class sealedFloor) says `.pockets` is [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":34,\"y\":32},{\"x\":34,\"y\":33}],\"holde and `meta.sealedFloor.pockets` — the sealed-floor record this file re-derives tile by tile — says [{\"at\":{\"x\":34,\"y\":32},\"tiles\":2,\"deep\":2,\"named\":[{\"x\":34,\"y\":32},{\"x\":34,\"y\":33}],\"holde. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the lab at 34,31 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 34,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    },
+    {
+      "name": "93-taken-inflate-pocket-recovers-and-regen",
+      "room": "E15S6",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 14,
+      "fails": [
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the lab at 34,31 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 34,34 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the lab at 35,31 returns 3 tile(s) (2 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    },
+    {
+      "name": "93-taken-inflate-pocket-recoversDeep-and-regen",
+      "room": "E15S6",
+      "status": "BITES",
+      "detail": "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (3 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+      "nFails": 14,
+      "fails": [
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 33,34 returns 3 tile(s) (3 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the lab at 34,31 returns 3 tile(s) (3 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the extension at 34,34 returns 3 tile(s) (3 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+        "PLANNER NOTE — `pockets[0]` says removing the lab at 35,31 returns 3 tile(s) (3 deep) and deleting exactly that structure and re-running the own-creep flood returns 2 (2 deep). A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration."
+      ]
+    }
+  ]
+}

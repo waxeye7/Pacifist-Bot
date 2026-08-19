@@ -1,0 +1,1626 @@
+{
+  "tick": 82313884,
+  "polled": "2026-08-17T13:30:31.484Z",
+  "rooms": {
+    "E37N59": {
+      "byType": {
+        "source": 2,
+        "mineral": 1,
+        "container": 3,
+        "road": 109,
+        "energy": 7,
+        "controller": 1,
+        "rampart": 75,
+        "link": 3,
+        "extension": 37,
+        "lab": 3,
+        "extractor": 1,
+        "creep": 8,
+        "tower": 1,
+        "constructionSite": 1
+      },
+      "ctrl": [
+        {
+          "x": 44,
+          "y": 29,
+          "level": 6,
+          "p": 373826,
+          "user": "62f89e0d84c31c184db79629",
+          "sm": 81901441,
+          "sma": 5,
+          "smc": null,
+          "dg": 119963
+        }
+      ],
+      "spawn": null,
+      "storage": null,
+      "terminal": null,
+      "towers": [
+        {
+          "x": 21,
+          "y": 20,
+          "e": 970,
+          "hits": 3000,
+          "onRampart": false,
+          "rampHits": null,
+          "toSpawn": null,
+          "toStorage": null,
+          "border": false
+        }
+      ],
+      "ext": {
+        "n": 37,
+        "e": 1850,
+        "cap": 1850
+      },
+      "containers": [
+        {
+          "x": 10,
+          "y": 21,
+          "e": 2000,
+          "hits": 245000
+        },
+        {
+          "x": 41,
+          "y": 31,
+          "e": 2000,
+          "hits": 245000
+        },
+        {
+          "x": 35,
+          "y": 36,
+          "e": 0,
+          "hits": 245000
+        }
+      ],
+      "links": [
+        {
+          "x": 11,
+          "y": 21,
+          "e": 0,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 27,
+          "y": 42,
+          "e": 0,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 19,
+          "y": 22,
+          "e": 0,
+          "user": "62f89e0d84c31c184db79629"
+        }
+      ],
+      "sources": [
+        {
+          "x": 9,
+          "y": 20,
+          "e": 0
+        },
+        {
+          "x": 27,
+          "y": 41,
+          "e": 2940
+        }
+      ],
+      "mineral": [
+        {
+          "x": 34,
+          "y": 37,
+          "t": "H"
+        }
+      ],
+      "hostiles": [],
+      "myCreeps": [
+        {
+          "name": "Carrier-27853910-E37N59",
+          "x": 21,
+          "y": 21,
+          "hits": 3400,
+          "hitsMax": 3400,
+          "e": 840,
+          "ttl": 37,
+          "body": "cccccccccccccccccmmmmmmmmmmmmmmmmm"
+        },
+        {
+          "name": "Upgrader-26661294-E37N59",
+          "x": 49,
+          "y": 28,
+          "hits": 1800,
+          "hitsMax": 1800,
+          "e": 6,
+          "ttl": 131,
+          "body": "wwwwcmwwwwcmwwwwcm"
+        },
+        {
+          "name": "Filler-57925596-E37N59",
+          "x": 20,
+          "y": 21,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 200,
+          "ttl": 206,
+          "body": "ccccmm"
+        },
+        {
+          "name": "Carrier-71636385-E37N59",
+          "x": 11,
+          "y": 22,
+          "hits": 3100,
+          "hitsMax": 3100,
+          "e": 800,
+          "ttl": 518,
+          "body": "cccccccccccccccccmmmmmmmmmmmmmm"
+        },
+        {
+          "name": "ControllerLinkFiller-13261731-E37N59",
+          "x": 28,
+          "y": 23,
+          "hits": 2400,
+          "hitsMax": 2400,
+          "e": 10,
+          "ttl": 655,
+          "body": "ccmccmccmccmccmccmccmccm"
+        },
+        {
+          "name": "EnergyManager-49565307-E37N59",
+          "x": 20,
+          "y": 22,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 797,
+          "body": "ccccmm"
+        },
+        {
+          "name": "EnergyMiner-53407177-E37N59",
+          "x": 28,
+          "y": 42,
+          "hits": 2000,
+          "hitsMax": 2000,
+          "e": 80,
+          "ttl": 859,
+          "body": "wwwwwwwwccccmmmmwwcm"
+        },
+        {
+          "name": "EnergyMiner-69085446-E37N59",
+          "x": 10,
+          "y": 21,
+          "hits": 2000,
+          "hitsMax": 2000,
+          "e": 120,
+          "ttl": 919,
+          "body": "wwwwwwwwccccmmmmwwcm"
+        }
+      ],
+      "drops": [
+        {
+          "x": 10,
+          "y": 21,
+          "t": "energy"
+        },
+        {
+          "x": 21,
+          "y": 22,
+          "t": "UH"
+        },
+        {
+          "x": 21,
+          "y": 22,
+          "t": "ZH"
+        },
+        {
+          "x": 21,
+          "y": 22,
+          "t": "KO"
+        },
+        {
+          "x": 21,
+          "y": 22,
+          "t": "GO"
+        },
+        {
+          "x": 21,
+          "y": 22,
+          "t": "H"
+        },
+        {
+          "x": 20,
+          "y": 24,
+          "t": "H"
+        }
+      ],
+      "dropTotal": 0,
+      "sites": [
+        {
+          "x": 34,
+          "y": 33,
+          "st": "spawn",
+          "p": 0,
+          "pt": 15000,
+          "user": "PacifistBot"
+        }
+      ],
+      "rampartsNearBorder": [
+        {
+          "x": 47,
+          "y": 34,
+          "hits": 69491,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 33,
+          "hits": 69561,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 32,
+          "hits": 69741,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 31,
+          "hits": 69521,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 30,
+          "hits": 69481,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 29,
+          "hits": 69701,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 28,
+          "hits": 69681,
+          "user": "62f89e0d84c31c184db79629"
+        },
+        {
+          "x": 47,
+          "y": 27,
+          "hits": 69581,
+          "user": "62f89e0d84c31c184db79629"
+        }
+      ],
+      "structsOnBorder": [],
+      "mem": {
+        "danger": false,
+        "danger_timer": 0,
+        "blown_fuse": false,
+        "spawn_list": [
+          [
+            "work",
+            "work",
+            "carry",
+            "carry",
+            "move",
+            "work",
+            "work",
+            "carry",
+            "carry",
+            "move",
+            "work",
+            "work",
+            "carry",
+            "carry",
+            "move",
+            "work",
+            "work",
+            "carry",
+            "carry",
+            "move",
+            "work",
+            "work",
+            "carry",
+            "carry",
+            "move"
+          ],
+          "Builder-76801215-E37N59",
+          {
+            "memory": {
+              "role": "builder"
+            }
+          },
+          [
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move",
+            "work",
+            "carry",
+            "move"
+          ],
+          "RampartErector-7309974-E37N59",
+          {
+            "memory": {
+              "role": "RampartErector",
+              "rampartLocations": [
+                [
+                  12,
+                  27
+                ],
+                [
+                  12,
+                  28
+                ],
+                [
+                  12,
+                  29
+                ],
+                [
+                  12,
+                  30
+                ],
+                [
+                  12,
+                  31
+                ],
+                [
+                  12,
+                  32
+                ],
+                [
+                  27,
+                  16
+                ],
+                [
+                  27,
+                  17
+                ],
+                [
+                  27,
+                  18
+                ],
+                [
+                  27,
+                  19
+                ],
+                [
+                  27,
+                  20
+                ],
+                [
+                  27,
+                  21
+                ],
+                [
+                  27,
+                  22
+                ],
+                [
+                  27,
+                  23
+                ],
+                [
+                  27,
+                  24
+                ],
+                [
+                  27,
+                  25
+                ],
+                [
+                  27,
+                  26
+                ],
+                [
+                  10,
+                  18
+                ],
+                [
+                  10,
+                  27
+                ],
+                [
+                  11,
+                  27
+                ],
+                [
+                  27,
+                  15
+                ],
+                [
+                  27,
+                  14
+                ],
+                [
+                  10,
+                  17
+                ],
+                [
+                  8,
+                  24
+                ],
+                [
+                  10,
+                  16
+                ],
+                [
+                  8,
+                  23
+                ],
+                [
+                  8,
+                  22
+                ],
+                [
+                  13,
+                  14
+                ],
+                [
+                  14,
+                  14
+                ],
+                [
+                  28,
+                  42
+                ],
+                [
+                  16,
+                  14
+                ],
+                [
+                  28,
+                  44
+                ],
+                [
+                  15,
+                  14
+                ],
+                [
+                  28,
+                  43
+                ]
+              ]
+            }
+          }
+        ],
+        "structures": {
+          "towers": [
+            "6a82fb5156494436b99ff06b"
+          ],
+          "storage": "6a6e8451fec09b54349aa6d3",
+          "controllerLink": "6a727edf940f7a30333907af",
+          "extractor": "6a7ab999b6c5fa9b8a2494dc",
+          "_slRcl": 6,
+          "StorageLink": "6a799d3b577a5fb37b827a18"
+        },
+        "construction": {
+          "keys": [
+            "rampartLocations"
+          ],
+          "rampartN": 1,
+          "sampleRamp": [
+            [
+              24,
+              24
+            ]
+          ]
+        },
+        "planSummary": {
+          "keys": [
+            "v",
+            "h",
+            "t",
+            "rs",
+            "si",
+            "s"
+          ],
+          "hash": "ux13gx",
+          "tKeys": [
+            "spawn",
+            "extension",
+            "container",
+            "tower",
+            "storage",
+            "terminal",
+            "link",
+            "road",
+            "lab",
+            "nuker",
+            "rampart",
+            "observer",
+            "extractor",
+            "shellCut",
+            "labInput"
+          ],
+          "towers": [
+            1536,
+            1584,
+            1434,
+            1734,
+            1737,
+            1482
+          ],
+          "spawns": [
+            1684,
+            1689,
+            1490
+          ],
+          "storage": [
+            1587
+          ]
+        },
+        "planMigration": {
+          "mode": "disarmed",
+          "since": 82313710,
+          "by": "operator"
+        }
+      }
+    },
+    "E36N57": {
+      "byType": {
+        "source": 2,
+        "mineral": 1,
+        "container": 5,
+        "road": 140,
+        "energy": 1,
+        "controller": 1,
+        "extension": 17,
+        "rampart": 67,
+        "tower": 1,
+        "creep": 7,
+        "constructionSite": 1
+      },
+      "ctrl": [
+        {
+          "x": 36,
+          "y": 24,
+          "level": 4,
+          "p": 67675,
+          "user": "62f89e0d84c31c184db79629",
+          "sm": 82270833,
+          "sma": 2,
+          "smc": 82300833,
+          "dg": 39705
+        }
+      ],
+      "spawn": null,
+      "storage": null,
+      "terminal": null,
+      "towers": [
+        {
+          "x": 22,
+          "y": 30,
+          "e": 1000,
+          "hits": 3000,
+          "onRampart": false,
+          "rampHits": null,
+          "toSpawn": null,
+          "toStorage": null,
+          "border": false
+        }
+      ],
+      "ext": {
+        "n": 17,
+        "e": 850,
+        "cap": 850
+      },
+      "containers": [
+        {
+          "x": 16,
+          "y": 20,
+          "e": 90,
+          "hits": 245000
+        },
+        {
+          "x": 9,
+          "y": 6,
+          "e": 2000,
+          "hits": 8700
+        },
+        {
+          "x": 6,
+          "y": 43,
+          "e": 2000,
+          "hits": 205100
+        },
+        {
+          "x": 21,
+          "y": 29,
+          "e": 1695,
+          "hits": 244800
+        },
+        {
+          "x": 38,
+          "y": 27,
+          "e": 2000,
+          "hits": 190000
+        }
+      ],
+      "links": [],
+      "sources": [
+        {
+          "x": 10,
+          "y": 7,
+          "e": 1308
+        },
+        {
+          "x": 7,
+          "y": 42,
+          "e": 3000
+        }
+      ],
+      "mineral": [
+        {
+          "x": 45,
+          "y": 18,
+          "t": "O"
+        }
+      ],
+      "hostiles": [],
+      "myCreeps": [
+        {
+          "name": "Filler-74136359-E36N57",
+          "x": 21,
+          "y": 29,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 180,
+          "ttl": 14,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "Carrier-673318-E36N57",
+          "x": 14,
+          "y": 11,
+          "hits": 2200,
+          "hitsMax": 2200,
+          "e": 690,
+          "ttl": 240,
+          "body": "ccccccccccccccmmmmmmmm"
+        },
+        {
+          "name": "EnergyMiner-19925395-E36N57",
+          "x": 9,
+          "y": 6,
+          "hits": 900,
+          "hitsMax": 900,
+          "e": 0,
+          "ttl": 277,
+          "body": "mmwwwwwwm"
+        },
+        {
+          "name": "Carrier-80182765-E36N57",
+          "x": 20,
+          "y": 27,
+          "hits": 2200,
+          "hitsMax": 2200,
+          "e": 680,
+          "ttl": 345,
+          "body": "ccccccccccccccmmmmmmmm"
+        },
+        {
+          "name": "Sweeper-3780374-E36N57",
+          "x": 14,
+          "y": 5,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 860,
+          "body": "ccccmm"
+        },
+        {
+          "name": "Carrier-73582560-E36N57",
+          "x": 21,
+          "y": 30,
+          "hits": 1900,
+          "hitsMax": 1900,
+          "e": 600,
+          "ttl": 919,
+          "body": "ccccccccccccmmmmmmm"
+        },
+        {
+          "name": "Sweeper-14092932-E36N57",
+          "x": 14,
+          "y": 8,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 970,
+          "body": "ccccmm"
+        }
+      ],
+      "drops": [
+        {
+          "x": 9,
+          "y": 6,
+          "t": "energy"
+        }
+      ],
+      "dropTotal": 0,
+      "sites": [
+        {
+          "x": 20,
+          "y": 26,
+          "st": "spawn",
+          "p": 50,
+          "pt": 15000,
+          "user": "PacifistBot"
+        }
+      ],
+      "rampartsNearBorder": [],
+      "structsOnBorder": [],
+      "mem": {
+        "danger": false,
+        "danger_timer": 0,
+        "blown_fuse": false,
+        "spawn_list": [
+          [
+            "carry",
+            "carry",
+            "carry",
+            "carry",
+            "move",
+            "move"
+          ],
+          "filler-46534734-E36N57",
+          {
+            "memory": {
+              "role": "filler"
+            }
+          }
+        ],
+        "structures": {
+          "towers": [
+            "6a829c910cb17b4087d0a9dc"
+          ],
+          "storage": "6a824d9c6b30f4c3f4154aee",
+          "controllerLink": "6a82bbae6ed0fdbe6abd7839",
+          "container": "6a804e2274018e7fa0bd91d1",
+          "_slRcl": 4,
+          "bin": "6a824d9c6b30f4c3f4154aee"
+        },
+        "construction": {
+          "keys": [
+            "rampartLocations"
+          ],
+          "rampartN": 0,
+          "sampleRamp": []
+        },
+        "planSummary": {
+          "keys": [
+            "v",
+            "h",
+            "t",
+            "rs",
+            "si",
+            "s"
+          ],
+          "hash": "f88jo6",
+          "tKeys": [
+            "spawn",
+            "extension",
+            "container",
+            "tower",
+            "storage",
+            "terminal",
+            "link",
+            "road",
+            "lab",
+            "nuker",
+            "rampart",
+            "observer",
+            "extractor",
+            "shellCut",
+            "labInput"
+          ],
+          "towers": [
+            1522,
+            1524,
+            1371,
+            1520,
+            1625,
+            1374
+          ],
+          "spawns": [
+            1320,
+            1376,
+            1576
+          ],
+          "storage": [
+            1473
+          ]
+        },
+        "planMigration": {
+          "mode": "disarmed",
+          "since": 82313710,
+          "by": "operator"
+        }
+      }
+    },
+    "E37N58": {
+      "byType": {
+        "source": 2,
+        "mineral": 1,
+        "container": 4,
+        "road": 86,
+        "energy": 1,
+        "controller": 1,
+        "extension": 17,
+        "tower": 1,
+        "rampart": 21,
+        "creep": 16,
+        "spawn": 1,
+        "constructionSite": 4,
+        "tombstone": 1
+      },
+      "ctrl": [
+        {
+          "x": 39,
+          "y": 5,
+          "level": 4,
+          "p": 352338,
+          "user": "62f89e0d84c31c184db79629",
+          "sm": null,
+          "sma": 3,
+          "smc": 79924442,
+          "dg": 39444
+        }
+      ],
+      "spawn": {
+        "name": "Spawn3",
+        "x": 20,
+        "y": 17,
+        "e": 150,
+        "hits": 5000,
+        "spawning": {
+          "name": "ContainerBuilder-rescue-82313846",
+          "needTime": 36,
+          "spawnTime": 82313909
+        }
+      },
+      "storage": null,
+      "terminal": null,
+      "towers": [
+        {
+          "x": 27,
+          "y": 14,
+          "e": 1000,
+          "hits": 3000,
+          "onRampart": false,
+          "rampHits": null,
+          "toSpawn": 7,
+          "toStorage": null,
+          "border": false
+        }
+      ],
+      "ext": {
+        "n": 17,
+        "e": 850,
+        "cap": 850
+      },
+      "containers": [
+        {
+          "x": 25,
+          "y": 14,
+          "e": 99,
+          "hits": 230000
+        },
+        {
+          "x": 25,
+          "y": 23,
+          "e": 437,
+          "hits": 229800
+        },
+        {
+          "x": 24,
+          "y": 14,
+          "e": 0,
+          "hits": 230800
+        },
+        {
+          "x": 36,
+          "y": 6,
+          "e": 2000,
+          "hits": 229800
+        }
+      ],
+      "links": [],
+      "sources": [
+        {
+          "x": 12,
+          "y": 12,
+          "e": 1706
+        },
+        {
+          "x": 26,
+          "y": 24,
+          "e": 2476
+        }
+      ],
+      "mineral": [
+        {
+          "x": 12,
+          "y": 47,
+          "t": "H"
+        }
+      ],
+      "hostiles": [],
+      "myCreeps": [
+        {
+          "name": "Builder-30235158-E39N58",
+          "x": 2,
+          "y": 14,
+          "hits": 500,
+          "hitsMax": 500,
+          "e": 95,
+          "ttl": 40,
+          "body": "wccmm"
+        },
+        {
+          "name": "RemoteRepairer-13302506-E37N58",
+          "x": 1,
+          "y": 13,
+          "hits": 900,
+          "hitsMax": 900,
+          "e": 100,
+          "ttl": 97,
+          "body": "wcmwcmwcm"
+        },
+        {
+          "name": "Filler-74960253-E37N58",
+          "x": 22,
+          "y": 16,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 200,
+          "ttl": 204,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "Carrier-52172782-E37N58",
+          "x": 21,
+          "y": 17,
+          "hits": 2200,
+          "hitsMax": 2200,
+          "e": 297,
+          "ttl": 270,
+          "body": "cccccccccccccmmmmmmmmm"
+        },
+        {
+          "name": "Carrier-77496415-E37N58",
+          "x": 20,
+          "y": 16,
+          "hits": 1400,
+          "hitsMax": 1400,
+          "e": 238,
+          "ttl": 378,
+          "body": "cccccccccmmmmm"
+        },
+        {
+          "name": "Sweeper-20714460-E37N58",
+          "x": 25,
+          "y": 14,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 396,
+          "body": "ccccmm"
+        },
+        {
+          "name": "Scout-war-64873343-E37N58-E38N58",
+          "x": 24,
+          "y": 24,
+          "hits": 100,
+          "hitsMax": 100,
+          "e": 0,
+          "ttl": 463,
+          "body": "m"
+        },
+        {
+          "name": "EnergyMiner-60543008-E37N58",
+          "x": 13,
+          "y": 13,
+          "hits": 900,
+          "hitsMax": 900,
+          "e": 0,
+          "ttl": 492,
+          "body": "mmwwwwwwm"
+        },
+        {
+          "name": "Filler-72825106-E37N58",
+          "x": 25,
+          "y": 13,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 100,
+          "ttl": 516,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "Maintainer-53712270-E36N57",
+          "x": 7,
+          "y": 19,
+          "hits": 1400,
+          "hitsMax": 1400,
+          "e": 64,
+          "ttl": 611,
+          "body": "wwwwwwwwcccmmm"
+        },
+        {
+          "name": "Builder-48534508-E36N57",
+          "x": 15,
+          "y": 14,
+          "hits": 1500,
+          "hitsMax": 1500,
+          "e": 348,
+          "ttl": 719,
+          "body": "wcccmwcccmwcccm"
+        },
+        {
+          "name": "Maintainer-8064944-E37N59",
+          "x": 0,
+          "y": 12,
+          "hits": 2600,
+          "hitsMax": 2600,
+          "e": 0,
+          "ttl": 779,
+          "body": "wwwwwwwwwwwwwccccmmmmmmmmm"
+        },
+        {
+          "name": "Carrier-76079947-E37N58",
+          "x": 21,
+          "y": 19,
+          "hits": 1500,
+          "hitsMax": 1500,
+          "e": 0,
+          "ttl": 841,
+          "body": "ccccccccccmmmmm"
+        },
+        {
+          "name": "Maintainer-610302-E37N58",
+          "x": 13,
+          "y": 17,
+          "hits": 1400,
+          "hitsMax": 1400,
+          "e": 142,
+          "ttl": 1434,
+          "body": "wwwwwwwwcccmmm"
+        },
+        {
+          "name": "Goblin-68041318-E37N58-E37N58",
+          "x": 21,
+          "y": 16,
+          "hits": 1800,
+          "hitsMax": 1800,
+          "e": 450,
+          "ttl": 1488,
+          "body": "mmmmmmmmmccccccccc"
+        },
+        {
+          "name": "ContainerBuilder-rescue-82313846",
+          "x": 20,
+          "y": 17,
+          "hits": 1200,
+          "hitsMax": 1200,
+          "e": 0,
+          "ttl": null,
+          "body": "wwwwccccmmmm"
+        }
+      ],
+      "drops": [
+        {
+          "x": 13,
+          "y": 13,
+          "t": "energy"
+        }
+      ],
+      "dropTotal": 0,
+      "sites": [
+        {
+          "x": 23,
+          "y": 18,
+          "st": "storage",
+          "p": 84,
+          "pt": 30000,
+          "user": "PacifistBot"
+        },
+        {
+          "x": 13,
+          "y": 12,
+          "st": "container",
+          "p": 335,
+          "pt": 5000,
+          "user": "PacifistBot"
+        },
+        {
+          "x": 23,
+          "y": 20,
+          "st": "extension",
+          "p": 0,
+          "pt": 3000,
+          "user": "PacifistBot"
+        },
+        {
+          "x": 25,
+          "y": 20,
+          "st": "extension",
+          "p": 150,
+          "pt": 3000,
+          "user": "PacifistBot"
+        }
+      ],
+      "rampartsNearBorder": [],
+      "structsOnBorder": [],
+      "mem": {
+        "danger": false,
+        "danger_timer": 0,
+        "blown_fuse": false,
+        "spawn_list": [
+          [
+            "move"
+          ],
+          "Scout-war-59836223-E37N58-E39N59",
+          {
+            "memory": {
+              "role": "scout",
+              "homeRoom": "E37N58",
+              "targetRoom": "E39N59",
+              "warScout": true
+            }
+          }
+        ],
+        "structures": {
+          "towers": [
+            "6a7f9278aebed645a87d8d9d"
+          ],
+          "storage": "6a80ce14f57d27e1790c665d",
+          "controllerLink": "6a81b1c497634e505c359f86",
+          "container": "6a7f6b27564944636e9f05da",
+          "_slRcl": 4,
+          "bin": "6a7f3ab93d816e60cd0e788c",
+          "spawn": "6a830b51da3070415b7a9242"
+        },
+        "construction": {
+          "keys": [
+            "rampartLocations"
+          ],
+          "rampartN": 23,
+          "sampleRamp": [
+            [
+              11,
+              14
+            ],
+            [
+              12,
+              14
+            ],
+            [
+              13,
+              14
+            ],
+            [
+              13,
+              15
+            ],
+            [
+              13,
+              16
+            ],
+            [
+              13,
+              17
+            ],
+            [
+              13,
+              18
+            ],
+            [
+              13,
+              19
+            ]
+          ]
+        },
+        "planSummary": {
+          "keys": [
+            "v",
+            "h",
+            "t",
+            "rs",
+            "si",
+            "s"
+          ],
+          "hash": "dfjkf1",
+          "tKeys": [
+            "spawn",
+            "extension",
+            "container",
+            "tower",
+            "storage",
+            "terminal",
+            "link",
+            "road",
+            "lab",
+            "nuker",
+            "rampart",
+            "observer",
+            "extractor",
+            "shellCut",
+            "labInput"
+          ],
+          "towers": [
+            921,
+            1121,
+            1021,
+            821,
+            869,
+            1173
+          ],
+          "spawns": [
+            870,
+            1070,
+            1075
+          ],
+          "storage": [
+            923
+          ]
+        },
+        "planMigration": {
+          "mode": "disarmed",
+          "since": 82313710,
+          "by": "operator"
+        }
+      }
+    },
+    "E37N57": {
+      "byType": {
+        "controller": 1,
+        "source": 1,
+        "mineral": 1,
+        "container": 1
+      },
+      "ctrl": [
+        {
+          "x": 22,
+          "y": 10,
+          "level": 0,
+          "p": 0,
+          "user": null,
+          "sm": null,
+          "sma": 0,
+          "smc": 82355229,
+          "dg": null
+        }
+      ],
+      "spawn": null,
+      "storage": null,
+      "terminal": null,
+      "towers": [],
+      "ext": {
+        "n": 0,
+        "e": 0,
+        "cap": 0
+      },
+      "containers": [
+        {
+          "x": 43,
+          "y": 45,
+          "e": 820,
+          "hits": 215000
+        }
+      ],
+      "links": [],
+      "sources": [
+        {
+          "x": 44,
+          "y": 44,
+          "e": 1500
+        }
+      ],
+      "mineral": [
+        {
+          "x": 7,
+          "y": 47,
+          "t": "U"
+        }
+      ],
+      "hostiles": [],
+      "myCreeps": [],
+      "drops": [],
+      "dropTotal": 0,
+      "sites": [],
+      "rampartsNearBorder": [],
+      "structsOnBorder": [],
+      "mem": {
+        "structures": {
+          "container": "6a82fe528b4bc30de8fdcb32"
+        },
+        "construction": null,
+        "planSummary": null,
+        "planMigration": null
+      }
+    },
+    "E39N58": {
+      "byType": {
+        "source": 2,
+        "mineral": 1,
+        "container": 3,
+        "energy": 2,
+        "controller": 1,
+        "extension": 5,
+        "creep": 8,
+        "constructionSite": 1
+      },
+      "ctrl": [
+        {
+          "x": 19,
+          "y": 38,
+          "level": 3,
+          "p": 7769,
+          "user": "62f89e0d84c31c184db79629",
+          "sm": null,
+          "sma": 2,
+          "smc": 82330948,
+          "dg": 19963
+        }
+      ],
+      "spawn": null,
+      "storage": null,
+      "terminal": null,
+      "towers": [],
+      "ext": {
+        "n": 5,
+        "e": 250,
+        "cap": 250
+      },
+      "containers": [
+        {
+          "x": 21,
+          "y": 28,
+          "e": 611,
+          "hits": 245000
+        },
+        {
+          "x": 22,
+          "y": 27,
+          "e": 2000,
+          "hits": 248500
+        },
+        {
+          "x": 22,
+          "y": 28,
+          "e": 0,
+          "hits": 245000
+        }
+      ],
+      "links": [],
+      "sources": [
+        {
+          "x": 22,
+          "y": 7,
+          "e": 2410
+        },
+        {
+          "x": 3,
+          "y": 41,
+          "e": 1990
+        }
+      ],
+      "mineral": [
+        {
+          "x": 5,
+          "y": 14,
+          "t": "O"
+        }
+      ],
+      "hostiles": [],
+      "myCreeps": [
+        {
+          "name": "Carrier-78097437-E39N58",
+          "x": 15,
+          "y": 24,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 146,
+          "ttl": 273,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "Upgrader-17423853-E39N58",
+          "x": 22,
+          "y": 23,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 98,
+          "ttl": 362,
+          "body": "wwccmm"
+        },
+        {
+          "name": "Carrier-71456887-E39N58",
+          "x": 23,
+          "y": 20,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 200,
+          "ttl": 388,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "Carrier-80423947-E39N58",
+          "x": 24,
+          "y": 20,
+          "hits": 800,
+          "hitsMax": 800,
+          "e": 200,
+          "ttl": 417,
+          "body": "ccccmmmm"
+        },
+        {
+          "name": "EnergyMiner-56291868-E39N58",
+          "x": 23,
+          "y": 7,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 656,
+          "body": "wwwwwm"
+        },
+        {
+          "name": "Upgrader-3598261-E39N58",
+          "x": 20,
+          "y": 24,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 674,
+          "body": "wwccmm"
+        },
+        {
+          "name": "Upgrader-56355916-E39N58",
+          "x": 23,
+          "y": 22,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 36,
+          "ttl": 712,
+          "body": "wwccmm"
+        },
+        {
+          "name": "EnergyMiner-21965531-E39N58",
+          "x": 2,
+          "y": 40,
+          "hits": 600,
+          "hitsMax": 600,
+          "e": 0,
+          "ttl": 852,
+          "body": "wwwwwm"
+        }
+      ],
+      "drops": [
+        {
+          "x": 23,
+          "y": 7,
+          "t": "energy"
+        },
+        {
+          "x": 2,
+          "y": 40,
+          "t": "energy"
+        }
+      ],
+      "dropTotal": 0,
+      "sites": [
+        {
+          "x": 14,
+          "y": 24,
+          "st": "spawn",
+          "p": 730,
+          "pt": 15000,
+          "user": "PacifistBot"
+        }
+      ],
+      "rampartsNearBorder": [],
+      "structsOnBorder": [],
+      "mem": {
+        "danger": false,
+        "danger_timer": 0,
+        "blown_fuse": false,
+        "spawn_list": [
+          [
+            "carry",
+            "move"
+          ],
+          "filler-46863270-E39N58",
+          {
+            "memory": {
+              "role": "filler"
+            }
+          }
+        ],
+        "structures": {
+          "towers": [],
+          "storage": "6a8243d43e54a4ad376a2b13",
+          "bin": "6a81dcfb363cb7e7ed909e51"
+        },
+        "construction": {
+          "keys": [
+            "rampartLocations"
+          ],
+          "rampartN": 0,
+          "sampleRamp": []
+        },
+        "planSummary": {
+          "keys": [
+            "v",
+            "h",
+            "t",
+            "rs",
+            "si",
+            "s"
+          ],
+          "hash": "1276dw6",
+          "tKeys": [
+            "spawn",
+            "extension",
+            "container",
+            "tower",
+            "storage",
+            "terminal",
+            "link",
+            "road",
+            "lab",
+            "nuker",
+            "rampart",
+            "observer",
+            "extractor",
+            "shellCut",
+            "labInput"
+          ],
+          "towers": [
+            1465,
+            1170,
+            1215,
+            1367,
+            1467,
+            1268
+          ],
+          "spawns": [
+            1214,
+            1267,
+            1416
+          ],
+          "storage": [
+            1314
+          ]
+        },
+        "planMigration": {
+          "mode": "disarmed",
+          "since": 82313710,
+          "by": "operator"
+        }
+      }
+    }
+  }
+}

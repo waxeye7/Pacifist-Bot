@@ -1,0 +1,150 @@
+{
+  "md5": "8e5d6725885bd3f3731379bedf408326",
+  "md5Ok": true,
+  "rooms": 172,
+  "missingTerrain": [],
+  "sample": [
+    {
+      "room": "E12S5",
+      "h": 12835217
+    },
+    {
+      "room": "E19S7",
+      "h": 26101735
+    },
+    {
+      "room": "E8S9",
+      "h": 45757481
+    },
+    {
+      "room": "E15S4",
+      "h": 63789042
+    },
+    {
+      "room": "E4S3",
+      "h": 72125483
+    }
+  ],
+  "physicals": {
+    "extensions": 10320,
+    "extShort": [],
+    "roads": 14100,
+    "roadsMedian": 81,
+    "roadsMin": 53,
+    "roadsMax": 124,
+    "ramparts": 8208,
+    "containers": 688,
+    "links": 688,
+    "towers": 1032,
+    "labs": 1720,
+    "spawns": 516,
+    "extractors": 172,
+    "storage": 172,
+    "terminal": 172,
+    "nuker": 172,
+    "observer": 172,
+    "factory": 0,
+    "powerSpawn": 0,
+    "declarations": 300,
+    "notes": 236,
+    "noteRecords": 236
+  },
+  "legality": {
+    "leaks": 0,
+    "leakRooms": [],
+    "extractorOutsideBare": 0,
+    "shallowEcoBare": 0,
+    "extNoD4Road": 0,
+    "stackIllegal": 0,
+    "onObject": 0,
+    "borderIllegal": 0
+  },
+  "roadRampart": {
+    "total": 274,
+    "crossing": 231,
+    "seat": 30,
+    "ring": 13,
+    "cover": 0,
+    "unclassified": 0,
+    "rooms": 153,
+    "median": 2,
+    "max": 5
+  },
+  "roadKind": {
+    "spur": 370,
+    "swampPave": 82,
+    "reflow": 21,
+    "stitch": 4,
+    "alongCutMoved": 11,
+    "conductBridge": 3
+  },
+  "clumpHist": {
+    "0": 12,
+    "1": 14,
+    "2": 53,
+    "3": 60,
+    "4": 30,
+    "5": 3,
+    "other": 0
+  },
+  "cutAtFreeze": {
+    "tiles": 7246,
+    "loose": 0,
+    "looseRooms": [],
+    "sealFail": [],
+    "differRooms": 29,
+    "adds": 34,
+    "removes": 46,
+    "adoptRooms": 27,
+    "driftRooms": 29
+  },
+  "mineralWhy": {
+    "n": 172,
+    "exactOfficial": 172,
+    "lieRooms": []
+  },
+  "seed": {
+    "hasSeed": 172,
+    "noSeed": 0,
+    "eqHub": 126,
+    "neHub": 46,
+    "onStorage": 126,
+    "fields": {
+      "seedScore": 172,
+      "seedSkip": 172,
+      "seedPool": 172
+    }
+  },
+  "fullRun": {
+    "n": 172,
+    "ran": 17,
+    "shrunk": 7,
+    "dropped": 9,
+    "plain": 156,
+    "reserved": 172,
+    "byRound": 172,
+    "laneReserved": 172,
+    "reservedEqLane": 163,
+    "reservedGtLane": 9
+  },
+  "ladders": {
+    "n": 57,
+    "withEsc": 54,
+    "withCut": 57,
+    "noCut": 0
+  },
+  "taken": [
+    "E11S7",
+    "E15S6",
+    "E18S3",
+    "E19S2",
+    "E2S1",
+    "E4S6",
+    "E5S5",
+    "E7S2",
+    "E7S5",
+    "E8S2",
+    "E9S1",
+    "E9S9"
+  ]
+}

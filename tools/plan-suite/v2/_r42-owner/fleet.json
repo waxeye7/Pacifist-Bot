@@ -1,0 +1,360 @@
+{
+  "presenceN": 34,
+  "derivedN": 65,
+  "presence": [
+    "baseCut",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "deepBudget",
+    "deepExhausted",
+    "digRoads",
+    "faceAndSatHeld",
+    "freeLeft",
+    "haulCost",
+    "inertPromoted",
+    "lapVeto",
+    "mobilityRepair",
+    "noAlternative",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "searchedSeats",
+    "shallowNow",
+    "shallowRamparts",
+    "strandedFirst",
+    "stubExhausted",
+    "tourRule",
+    "towerSwapOffer",
+    "tradeCost",
+    "unsealed",
+    "uselessCut",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derived": [
+    "arrayPartner",
+    "baseOverGated",
+    "battlementFloor",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "center",
+    "corridorFallback",
+    "corridorPlaced",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "deepReach",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "hubDistCap",
+    "lapCeilingFloor",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralBubble",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "parkCap",
+    "priceyWall",
+    "protectRadius",
+    "radii",
+    "rcl5Pair",
+    "refillDistsUnblocked",
+    "roadsEaten",
+    "servedExts",
+    "servedFree",
+    "shallowCost",
+    "shallowRefused",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "stitchTiles",
+    "stitched",
+    "stubCap",
+    "stubRoads",
+    "swampPaved",
+    "takeTowerSwap",
+    "towerOnly",
+    "unreachableExts",
+    "unreachedClusters",
+    "wasLap"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 15,
+  "flippedEvents": 1189,
+  "flipped2": {
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipped2Kinds": 13,
+  "flipped2Events": 1014,
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "fleetSkip": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "bogN": 57,
+  "fleetBog": {
+    "label": "p20-baseOverGated-zeroed",
+    "pass": 115,
+    "fail": 57,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 4 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 34 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 13 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 125 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 28 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 53 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "wasN": 4,
+  "fleetWas": {
+    "label": "p20-wasLap-zeroed",
+    "pass": 168,
+    "fail": 4,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E16S1",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 3.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E1S8",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E9S3",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 3.67. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "capEnum": 170,
+  "fleetCapEnum": {
+    "label": "p16-hubDistCap-16-to-19",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "seedZeroed": 172,
+  "fleetSeed": {
+    "label": "seedScore-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -92.9. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -42.4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -44.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -31.8. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -40.1. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -33.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "fromD8n": 3,
+  "fleetFromD8": {
+    "label": "p19-takeTowerSwap-from-other-D8",
+    "pass": 169,
+    "fail": 3,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E14S1",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 35,24 -> 34,24 and the published swap is 34,25 -> 34,24. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E3S5",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 28,26 -> 27,26 and the published swap is 26,26 -> 27,26. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      },
+      {
+        "room": "E4S3",
+        "fails": [
+          "meta.composeOpts.takeTowerSwap is 25,25 -> 24,25 and the published swap is 25,26 -> 24,25. The take vacated that seat for that destination — moving it to another D8 used to pass"
+        ]
+      }
+    ]
+  },
+  "ms": 119166
+}

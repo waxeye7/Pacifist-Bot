@@ -1,0 +1,289 @@
+{
+  "presenceN": 34,
+  "derivedN": 66,
+  "derivedHasBaseLap": true,
+  "flipAll": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipAllKinds": 15,
+  "flipAllEvents": 1189,
+  "flipSkip": {
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipSkipKinds": 13,
+  "flipSkipEvents": 1014,
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "fleetAll": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "fleetSkip": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "tw0N": 57,
+  "fleetTw0": {
+    "label": "p22-towers-baseLap-zeroed",
+    "pass": 115,
+    "fail": 57,
+    "firstFails": [
+      {
+        "room": "E11S2",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 1.56 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 1.56. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 2.63 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 2.63. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 1.5 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 1.5. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 7.33 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 7.33. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S3",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 2.17 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 2.17. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S4",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 3.83 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with only the hub kit standing is 3.83. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "tw1N": 172,
+  "fleetTw1": {
+    "label": "p22-towers-baseLap-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.towers.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with only the hub kit standing is 0. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 1.56 and `@meta.towers.mobilityVeto.baseLap` says 2.56 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 2.56 and the freeze-cut gated lap with only the hub kit standing is 1.56. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.towers.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with only the hub kit standing is 0. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.towers.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with only the hub kit standing is 0. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 2.63 and `@meta.towers.mobilityVeto.baseLap` says 3.63 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 3.63 and the freeze-cut gated lap with only the hub kit standing is 2.63. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 1.5 and `@meta.towers.mobilityVeto.baseLap` says 2.5 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive it, so the arithmetic of the census it sits in is the whole of what stands between the number and a reader. A declaration is a claim that a room beat the planner, and a claim nobody re-derives is a suppression flag with a paragraph attached.",
+          "meta.towers.mobilityVeto.baseLap is 2.5 and the freeze-cut gated lap with only the hub kit standing is 1.5. It is the empty-room walk the battery is measured against, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "lap0N": 57,
+  "fleetLap0": {
+    "label": "p21-baseLap-zeroed",
+    "pass": 115,
+    "fail": 57,
+    "firstFails": [
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.56. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.63. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 7.67. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.17. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "lap1N": 172,
+  "fleetLap1": {
+    "label": "p21-baseLap-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 2.56 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.56. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 3.63 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.63. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 2.5 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "capEnum": 170,
+  "fleetCap": {
+    "label": "hubDistCap-16-to-19",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "ms": 131737
+}

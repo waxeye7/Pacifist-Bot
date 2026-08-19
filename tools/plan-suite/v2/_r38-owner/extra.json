@@ -1,0 +1,350 @@
+{
+  "fleetA": {
+    "label": "skip-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "flipAKinds": 19,
+  "flipAEvents": 1603,
+  "flipA": {
+    "deepExhausted": 36,
+    "maxHubDist": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "wasLap": 4,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "fleetB": {
+    "label": "skip-baseCut-shallowNow-hubDistCap",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "extra": [
+    {
+      "name": "p15 seat+approach moved together to other cheb-1/D8",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p16 hubDistCap := 17 off-ladder",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.hubDistCap is 17 and the cohesion ladder is 16,19,23,999. Zero is not a rung this room was allowed to try — flattening it used to pass"
+    },
+    {
+      "name": "p16 hubDistCap 16→19 in-enum",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    },
+    {
+      "name": "p16 lapCeilingFloor := 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 2,
+      "first": "reflow.lapCeilingFloor is 0 and MOBILITY_TARGET is 1.2. The ceiling floor is that target, not a comment — flattening it used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced := 0 keep fallback 0",
+      "room": "E11S1",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "meta.extensions.corridorPlaced is 0 and corridorFallback is 0. Fallback is 0 iff every extension sat on a corridor (60) — flattening the count used to pass"
+    },
+    {
+      "name": "p16 corridorPlaced 0 + fallback 1",
+      "room": "E11S1",
+      "status": "ESCAPE",
+      "changed": true,
+      "n": 0
+    }
+  ],
+  "minerals": [
+    {
+      "room": "E17S3",
+      "mineral": {
+        "x": 19,
+        "y": 36
+      },
+      "seat": {
+        "x": 18,
+        "y": 35
+      },
+      "seatRes": {
+        "x": 18,
+        "y": 35
+      },
+      "appr": {
+        "x": 17,
+        "y": 34
+      },
+      "apprRes": {
+        "x": 17,
+        "y": 34
+      },
+      "off": true,
+      "seedScore": -46.4,
+      "baseCut": 58,
+      "cut": 58,
+      "freeze": 58,
+      "protect": 10,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E21S1",
+      "mineral": {
+        "x": 17,
+        "y": 9
+      },
+      "seat": {
+        "x": 18,
+        "y": 10
+      },
+      "seatRes": {
+        "x": 18,
+        "y": 10
+      },
+      "appr": {
+        "x": 17,
+        "y": 11
+      },
+      "apprRes": {
+        "x": 17,
+        "y": 11
+      },
+      "off": true,
+      "seedScore": -51.1,
+      "baseCut": 15,
+      "cut": 15,
+      "freeze": 15,
+      "protect": 7,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E7S2",
+      "mineral": {
+        "x": 35,
+        "y": 12
+      },
+      "seat": {
+        "x": 36,
+        "y": 11
+      },
+      "seatRes": {
+        "x": 36,
+        "y": 11
+      },
+      "appr": {
+        "x": 37,
+        "y": 12
+      },
+      "apprRes": {
+        "x": 37,
+        "y": 12
+      },
+      "off": true,
+      "seedScore": -14.8,
+      "baseCut": 22,
+      "cut": 25,
+      "freeze": 25,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E11S8",
+      "mineral": {
+        "x": 25,
+        "y": 24
+      },
+      "seat": {
+        "x": 24,
+        "y": 25
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 25
+      },
+      "appr": {
+        "x": 23,
+        "y": 25
+      },
+      "apprRes": {
+        "x": 23,
+        "y": 25
+      },
+      "off": false,
+      "seedScore": -23.2,
+      "baseCut": 48,
+      "cut": 48,
+      "freeze": 48,
+      "protect": 10,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E2S7",
+      "mineral": {
+        "x": 33,
+        "y": 4
+      },
+      "seat": {
+        "x": 32,
+        "y": 3
+      },
+      "seatRes": {
+        "x": 32,
+        "y": 3
+      },
+      "appr": {
+        "x": 31,
+        "y": 2
+      },
+      "apprRes": {
+        "x": 31,
+        "y": 2
+      },
+      "off": true,
+      "seedScore": -21.5,
+      "baseCut": 18,
+      "cut": 18,
+      "freeze": 18,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    },
+    {
+      "room": "E11S1",
+      "mineral": {
+        "x": 23,
+        "y": 7
+      },
+      "seat": {
+        "x": 24,
+        "y": 8
+      },
+      "seatRes": {
+        "x": 24,
+        "y": 8
+      },
+      "appr": {
+        "x": 25,
+        "y": 9
+      },
+      "apprRes": {
+        "x": 25,
+        "y": 9
+      },
+      "off": true,
+      "seedScore": -92.9,
+      "baseCut": 32,
+      "cut": 32,
+      "freeze": 32,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": {
+        "from": 10,
+        "to": 2,
+        "wanted": 7,
+        "premium": 2
+      }
+    },
+    {
+      "room": "E1S4",
+      "mineral": {
+        "x": 10,
+        "y": 37
+      },
+      "seat": {
+        "x": 11,
+        "y": 38
+      },
+      "seatRes": {
+        "x": 11,
+        "y": 38
+      },
+      "appr": {
+        "x": 11,
+        "y": 37
+      },
+      "apprRes": {
+        "x": 11,
+        "y": 37
+      },
+      "off": true,
+      "seedScore": -31.8,
+      "baseCut": 24,
+      "cut": 26,
+      "freeze": 26,
+      "protect": 12,
+      "redundant": {
+        "tiles": 0,
+        "pruned": 0,
+        "explained": 0,
+        "reasons": {}
+      },
+      "dropped": false,
+      "shrunk": null
+    }
+  ]
+}

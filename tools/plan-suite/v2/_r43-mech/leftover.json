@@ -1,0 +1,1590 @@
+{
+  "nPresence": 34,
+  "byKlass": {
+    "bounded": 2,
+    "fleet-zero": 8,
+    "flippable": 15,
+    "twin-only": 6,
+    "gated-one-copy": 3
+  },
+  "flippable": [
+    "causeFirst",
+    "deepExhausted",
+    "digRoads",
+    "freeLeft",
+    "haulCost",
+    "inertPromoted",
+    "lapVeto",
+    "mobilityRepair",
+    "pickedBy",
+    "rescuedLap",
+    "rescuedTo",
+    "rolledBackFrom",
+    "shallowRamparts",
+    "stubExhausted",
+    "towerSwapOffer"
+  ],
+  "twinOnly": [
+    "deepBudget",
+    "strandedFirst",
+    "tourRule",
+    "unsealed",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "fleetZero": [
+    "boundRederived",
+    "budgetSpent",
+    "cleanAnchor",
+    "noAlternative",
+    "paveRetired",
+    "rescueSpent",
+    "tradeCost",
+    "uselessCut"
+  ],
+  "bounded": [
+    "baseCut",
+    "shallowNow"
+  ],
+  "gatedOne": [
+    "faceAndSatHeld",
+    "priceProven",
+    "searchedSeats"
+  ],
+  "rows": [
+    {
+      "name": "baseCut",
+      "why": "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 172,
+      "paths": [
+        "meta.shell.baseCut"
+      ],
+      "hist": {
+        "4": 1,
+        "6": 1,
+        "7": 1,
+        "8": 1,
+        "10": 1,
+        "13": 1,
+        "14": 2,
+        "15": 2,
+        "16": 2,
+        "17": 3,
+        "18": 4,
+        "19": 1,
+        "20": 3,
+        "21": 2,
+        "22": 1,
+        "23": 3,
+        "24": 2,
+        "25": 1,
+        "26": 1,
+        "27": 4,
+        "28": 5,
+        "29": 1,
+        "30": 4,
+        "31": 4,
+        "32": 10,
+        "33": 4,
+        "34": 1,
+        "35": 2,
+        "36": 4,
+        "37": 6,
+        "38": 1,
+        "39": 2,
+        "40": 2,
+        "41": 3,
+        "42": 3,
+        "43": 4,
+        "44": 3,
+        "45": 3,
+        "46": 3,
+        "47": 1,
+        "48": 4,
+        "49": 4,
+        "50": 4,
+        "51": 3,
+        "52": 3,
+        "53": 3,
+        "54": 3,
+        "55": 2,
+        "56": 2,
+        "57": 3,
+        "58": 4,
+        "59": 5,
+        "60": 4,
+        "61": 2,
+        "62": 2,
+        "63": 1,
+        "64": 4,
+        "65": 2,
+        "67": 2,
+        "68": 2,
+        "70": 3,
+        "71": 2,
+        "72": 3,
+        "79": 1,
+        "80": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.shell.baseCut",
+        "kind": "number",
+        "v": "32"
+      },
+      "single": null,
+      "twin": null,
+      "klass": "bounded"
+    },
+    {
+      "name": "boundRederived",
+      "why": "the bound re-read after relocation; a layer-6 witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 0,
+      "paths": [
+        "meta.walls.reflow.boundRederived",
+        "meta.extensions.reflow.boundRederived"
+      ],
+      "hist": {
+        "object": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "budgetSpent",
+      "why": "layer-6 lane reservation spend; the reservation is the note's evidence",
+      "witness": false,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 0,
+      "paths": [
+        "meta.misc.mobilityVeto.budgetSpent",
+        "meta.labs.lapVeto.budgetSpent"
+      ],
+      "hist": {
+        "false": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "causeFirst",
+      "why": "mobility-cause tie-break witness on a declaration record",
+      "witness": true,
+      "have": 155,
+      "nCopies": 155,
+      "nTruthy": 155,
+      "paths": [
+        "meta.shellEscalation.causeFirst"
+      ],
+      "hist": {
+        "str:none": 99,
+        "str:terrain": 55,
+        "str:structures": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.shellEscalation.causeFirst",
+        "kind": "string",
+        "v": "str:none"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "cleanAnchor",
+      "why": "lab-anchor search witness; the shipped diamond is gated",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 0,
+      "paths": [
+        "meta.labs.lapVeto.cleanAnchor"
+      ],
+      "hist": {
+        "object": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "deepBudget",
+      "why": "layer-6 deep-tile budget witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 172,
+      "paths": [
+        "meta.walls.mobility.lanes.deepBudget",
+        "meta.extensions.laneMeta.deepBudget"
+      ],
+      "hist": {
+        "8": 42,
+        "9": 1,
+        "10": 1,
+        "11": 1,
+        "12": 1,
+        "13": 1,
+        "15": 1,
+        "17": 1,
+        "18": 2,
+        "19": 2,
+        "20": 2,
+        "21": 2,
+        "22": 3,
+        "23": 1,
+        "24": 111
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.walls.mobility.lanes.deepBudget",
+        "kind": "number",
+        "v": "8"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.deepBudget` is 0 and `meta.extensions.laneMeta.deepBudget` is 8. They are one object written twice by one pass; a room whose two copi"
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    },
+    {
+      "name": "deepExhausted",
+      "why": "layer-6 search exhaustion flag",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 36,
+      "paths": [
+        "meta.extensions.deepExhausted"
+      ],
+      "hist": {
+        "true": 36,
+        "false": 136
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.extensions.deepExhausted",
+        "kind": "boolean",
+        "v": "true"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "digRoads",
+      "why": "layer-5 road-on-wall tunnel count; the road+rampart taxonomy is gated",
+      "witness": false,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 44,
+      "paths": [
+        "meta.extensions.digRoads"
+      ],
+      "hist": {
+        "0": 128,
+        "1": 3,
+        "2": 4,
+        "3": 5,
+        "4": 10,
+        "5": 13,
+        "6": 6,
+        "7": 1,
+        "8": 1,
+        "11": 1
+      },
+      "sample": {
+        "room": "E11S2",
+        "path": "meta.extensions.digRoads",
+        "kind": "number",
+        "v": "5"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "faceAndSatHeld",
+      "why": "towerSwapOffer leaf; the offer basis is rendered from it",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 135,
+      "paths": [
+        "meta.towers.towerSwapOffer.faceAndSatHeld"
+      ],
+      "hist": {
+        "0": 37,
+        "1": 16,
+        "2": 18,
+        "3": 17,
+        "4": 19,
+        "5": 11,
+        "6": 7,
+        "7": 7,
+        "8": 7,
+        "9": 5,
+        "10": 1,
+        "11": 1,
+        "12": 3,
+        "13": 2,
+        "14": 4,
+        "15": 1,
+        "16": 2,
+        "21": 1,
+        "22": 2,
+        "24": 3,
+        "25": 1,
+        "28": 1,
+        "29": 1,
+        "42": 1,
+        "43": 1,
+        "56": 1,
+        "97": 1,
+        "125": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.towers.towerSwapOffer.faceAndSatHeld",
+        "kind": "number",
+        "v": "10"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the e"
+      },
+      "twin": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 205 character(s) then diverge. WHOLE-VALUE: this is one of the e"
+      },
+      "klass": "gated-one-copy"
+    },
+    {
+      "name": "freeLeft",
+      "why": "layer-6 remaining free-deep count",
+      "witness": false,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 165,
+      "paths": [
+        "meta.extensions.reflow.freeLeft"
+      ],
+      "hist": {
+        "0": 7,
+        "1": 3,
+        "2": 3,
+        "3": 2,
+        "4": 3,
+        "5": 1,
+        "6": 2,
+        "7": 6,
+        "8": 10,
+        "9": 10,
+        "10": 28,
+        "11": 14,
+        "12": 12,
+        "13": 18,
+        "14": 4,
+        "15": 13,
+        "16": 4,
+        "17": 5,
+        "18": 4,
+        "19": 2,
+        "20": 2,
+        "21": 3,
+        "23": 2,
+        "24": 3,
+        "25": 1,
+        "27": 1,
+        "29": 1,
+        "30": 1,
+        "31": 1,
+        "33": 2,
+        "34": 1,
+        "35": 1,
+        "36": 1,
+        "40": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.extensions.reflow.freeLeft",
+        "kind": "number",
+        "v": "2"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "haulCost",
+      "why": "lab haul scoring witness; the shipped haul is declared",
+      "witness": true,
+      "have": 6,
+      "nCopies": 6,
+      "nTruthy": 3,
+      "paths": [
+        "meta.misc.mobilityVeto.nuker.haulCost",
+        "meta.misc.mobilityVeto.observer.haulCost"
+      ],
+      "hist": {
+        "0": 3,
+        "1": 1,
+        "-1": 2
+      },
+      "sample": {
+        "room": "E11S6",
+        "path": "meta.misc.mobilityVeto.nuker.haulCost",
+        "kind": "number",
+        "v": "1"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "inertPromoted",
+      "why": "inert-prune promotion roster; cutDrift binds the prune",
+      "witness": false,
+      "have": 37,
+      "nCopies": 37,
+      "nTruthy": 27,
+      "paths": [
+        "meta.shell.inertPromoted"
+      ],
+      "hist": {
+        "0": 10,
+        "1": 17,
+        "2": 7,
+        "3": 2,
+        "4": 1
+      },
+      "sample": {
+        "room": "E13S3",
+        "path": "meta.shell.inertPromoted",
+        "kind": "number",
+        "v": "4"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "lapVeto",
+      "why": "layer-3/4 lap veto record; the as-built lap is gated",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 172,
+      "paths": [
+        "meta.labs.lapVeto"
+      ],
+      "hist": {
+        "obj:target,baseLap,measured,provedFree,refused,budget,budgetSpent,kept": 172
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.labs.lapVeto",
+        "kind": "object",
+        "v": "obj:target,baseLap,measured,provedFree,refused,budget,budgetSpent,kept"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "mobilityRepair",
+      "why": "layer-6 repair-attempt record",
+      "witness": true,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 172,
+      "paths": [
+        "meta.walls.reflow.mobilityRepair",
+        "meta.extensions.reflow.mobilityRepair"
+      ],
+      "hist": {
+        "obj:ran,lapBefore,lapAfter,liftedLap,rounds,blockersSeen,trials,moved": 172
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.walls.reflow.mobilityRepair",
+        "kind": "object",
+        "v": "obj:ran,lapBefore,lapAfter,liftedLap,rounds,blockersSeen,trials,moved"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "noAlternative",
+      "why": "a search-refusal witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 0,
+      "paths": [
+        "meta.labs.lapVeto.noAlternative"
+      ],
+      "hist": {
+        "false": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "paveRetired",
+      "why": "layer-7b reflow witness",
+      "witness": true,
+      "have": 4,
+      "nCopies": 12,
+      "nTruthy": 0,
+      "paths": [
+        "meta.walls.reflow.boundRollback[0].paveRetired",
+        "meta.extensions.reflow.boundRollback[0].paveRetired",
+        "meta.walls.reflow.boundRollback[2].paveRetired",
+        "meta.walls.reflow.boundRollback[1].paveRetired",
+        "meta.extensions.reflow.boundRollback[2].paveRetired",
+        "meta.extensions.reflow.boundRollback[1].paveRetired"
+      ],
+      "hist": {
+        "object": 4
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "pickedBy",
+      "why": "a search's own picker label",
+      "witness": true,
+      "have": 4,
+      "nCopies": 12,
+      "nTruthy": 4,
+      "paths": [
+        "meta.walls.reflow.boundRollback[0].pickedBy",
+        "meta.extensions.reflow.boundRollback[0].pickedBy",
+        "meta.walls.reflow.boundRollback[2].pickedBy",
+        "meta.walls.reflow.boundRollback[1].pickedBy",
+        "meta.extensions.reflow.boundRollback[2].pickedBy",
+        "meta.extensions.reflow.boundRollback[1].pickedBy"
+      ],
+      "hist": {
+        "str:dearest": 4
+      },
+      "sample": {
+        "room": "E12S6",
+        "path": "meta.walls.reflow.boundRollback[0].pickedBy",
+        "kind": "string",
+        "v": "str:dearest"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "priceProven",
+      "why": "towerSwapOffer leaf; the offer basis is rendered from it",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 58,
+      "paths": [
+        "meta.towers.towerSwapOffer.priceProven"
+      ],
+      "hist": {
+        "0": 114,
+        "1": 30,
+        "2": 16,
+        "3": 2,
+        "4": 1,
+        "5": 4,
+        "6": 3,
+        "7": 1,
+        "68": 1
+      },
+      "sample": {
+        "room": "E11S2",
+        "path": "meta.towers.towerSwapOffer.priceProven",
+        "kind": "number",
+        "v": "1"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the e"
+      },
+      "twin": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 297 character(s) then diverge. WHOLE-VALUE: this is one of the e"
+      },
+      "klass": "gated-one-copy"
+    },
+    {
+      "name": "rescueSpent",
+      "why": "layer-6 rescue spend",
+      "witness": false,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 0,
+      "paths": [
+        "meta.extensions.rescueSpent"
+      ],
+      "hist": {
+        "0": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "rescuedLap",
+      "why": "layer-6 rescue witness",
+      "witness": true,
+      "have": 3,
+      "nCopies": 10,
+      "nTruthy": 2,
+      "paths": [
+        "meta.walls.reflow.boundRollback[0].rescuedLap",
+        "meta.extensions.reflow.boundRollback[0].rescuedLap",
+        "meta.walls.reflow.boundRollback[2].rescuedLap",
+        "meta.walls.reflow.boundRollback[1].rescuedLap",
+        "meta.extensions.reflow.boundRollback[2].rescuedLap",
+        "meta.extensions.reflow.boundRollback[1].rescuedLap"
+      ],
+      "hist": {
+        "0": 1,
+        "4": 1,
+        "2.5": 1
+      },
+      "sample": {
+        "room": "E13S6",
+        "path": "meta.walls.reflow.boundRollback[0].rescuedLap",
+        "kind": "number",
+        "v": "2.5"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "rescuedTo",
+      "why": "layer-6 rescue destination",
+      "witness": false,
+      "have": 3,
+      "nCopies": 10,
+      "nTruthy": 3,
+      "paths": [
+        "meta.walls.reflow.boundRollback[0].rescuedTo",
+        "meta.extensions.reflow.boundRollback[0].rescuedTo",
+        "meta.walls.reflow.boundRollback[2].rescuedTo",
+        "meta.walls.reflow.boundRollback[1].rescuedTo",
+        "meta.extensions.reflow.boundRollback[2].rescuedTo",
+        "meta.extensions.reflow.boundRollback[1].rescuedTo"
+      ],
+      "hist": {
+        "xy:5,41": 1,
+        "xy:1,11": 1,
+        "xy:18,16": 1
+      },
+      "sample": {
+        "room": "E13S6",
+        "path": "meta.walls.reflow.boundRollback[0].rescuedTo",
+        "kind": "coord",
+        "v": "xy:5,41"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "rolledBackFrom",
+      "why": "layer-7b rollback origin",
+      "witness": false,
+      "have": 3,
+      "nCopies": 10,
+      "nTruthy": 3,
+      "paths": [
+        "meta.walls.reflow.moved[2].rolledBackFrom",
+        "meta.extensions.reflow.moved[2].rolledBackFrom",
+        "meta.walls.reflow.moved[4].rolledBackFrom",
+        "meta.walls.reflow.moved[3].rolledBackFrom",
+        "meta.extensions.reflow.moved[4].rolledBackFrom",
+        "meta.extensions.reflow.moved[3].rolledBackFrom"
+      ],
+      "hist": {
+        "xy:6,37": 1,
+        "xy:17,25": 1,
+        "xy:17,14": 1
+      },
+      "sample": {
+        "room": "E13S6",
+        "path": "meta.walls.reflow.moved[2].rolledBackFrom",
+        "kind": "coord",
+        "v": "xy:6,37"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "searchedSeats",
+      "why": "towerSwapOffer leaf",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 172,
+      "paths": [
+        "meta.towers.towerSwapOffer.searchedSeats"
+      ],
+      "hist": {
+        "46": 1,
+        "69": 1,
+        "71": 2,
+        "77": 1,
+        "90": 1,
+        "93": 1,
+        "94": 1,
+        "96": 2,
+        "97": 2,
+        "99": 2,
+        "100": 1,
+        "101": 3,
+        "102": 1,
+        "103": 2,
+        "104": 1,
+        "106": 1,
+        "108": 2,
+        "110": 1,
+        "113": 1,
+        "115": 2,
+        "116": 1,
+        "119": 1,
+        "120": 2,
+        "121": 1,
+        "122": 3,
+        "123": 1,
+        "124": 2,
+        "125": 2,
+        "126": 3,
+        "127": 3,
+        "128": 2,
+        "129": 2,
+        "130": 4,
+        "131": 3,
+        "132": 3,
+        "133": 4,
+        "134": 2,
+        "135": 2,
+        "136": 6,
+        "137": 3,
+        "138": 4,
+        "139": 5,
+        "140": 5,
+        "141": 7,
+        "142": 3,
+        "143": 3,
+        "144": 2,
+        "145": 3,
+        "146": 1,
+        "147": 3,
+        "148": 1,
+        "149": 1,
+        "151": 3,
+        "153": 1,
+        "154": 1,
+        "155": 1,
+        "157": 1,
+        "159": 1,
+        "160": 6,
+        "161": 1,
+        "163": 1,
+        "164": 1,
+        "165": 1,
+        "166": 1,
+        "167": 1,
+        "169": 3,
+        "171": 1,
+        "172": 1,
+        "175": 2,
+        "176": 1,
+        "180": 1,
+        "181": 1,
+        "183": 1,
+        "184": 1,
+        "186": 2,
+        "188": 1,
+        "192": 1,
+        "195": 1,
+        "196": 2,
+        "198": 1,
+        "199": 2,
+        "200": 1,
+        "202": 1,
+        "209": 1,
+        "211": 2,
+        "219": 1,
+        "234": 1,
+        "243": 1,
+        "244": 1,
+        "246": 1,
+        "248": 1,
+        "256": 1,
+        "260": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.towers.towerSwapOffer.searchedSeats",
+        "kind": "number",
+        "v": "99"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the el"
+      },
+      "twin": {
+        "status": "BITES",
+        "detail": "meta/towers.towerSwapOffer.basis — shipped prose is not the sentence this room's own census renders. They agree for 72 character(s) then diverge. WHOLE-VALUE: this is one of the el"
+      },
+      "klass": "gated-one-copy"
+    },
+    {
+      "name": "shallowNow",
+      "why": "reflow's own remaining-shallow count; the board's shallow set is gated",
+      "witness": true,
+      "have": 36,
+      "nCopies": 36,
+      "nTruthy": 3,
+      "paths": [
+        "meta.noteRecords[0].rec.shallowNow"
+      ],
+      "hist": {
+        "0": 33,
+        "4": 1,
+        "6": 1,
+        "15": 1
+      },
+      "sample": {
+        "room": "E12S6",
+        "path": "meta.noteRecords[0].rec.shallowNow",
+        "kind": "number",
+        "v": "6"
+      },
+      "single": null,
+      "twin": null,
+      "klass": "bounded"
+    },
+    {
+      "name": "shallowRamparts",
+      "why": "personal-rampart count at a layer; the board's ramparts are gated",
+      "witness": false,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 1,
+      "paths": [
+        "meta.walls.reflow.shallowRamparts"
+      ],
+      "hist": {
+        "arr0": 171,
+        "arr2": 1
+      },
+      "sample": {
+        "room": "E9S2",
+        "path": "meta.walls.reflow.shallowRamparts",
+        "kind": "array",
+        "v": "arr2"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "strandedFirst",
+      "why": "conduct-bridge witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 145,
+      "paths": [
+        "meta.walls.mobility.lanes.strandedFirst",
+        "meta.extensions.laneMeta.strandedFirst"
+      ],
+      "hist": {
+        "0": 27,
+        "3": 2,
+        "4": 1,
+        "5": 2,
+        "6": 3,
+        "7": 6,
+        "8": 6,
+        "9": 5,
+        "10": 2,
+        "11": 3,
+        "12": 7,
+        "13": 8,
+        "14": 3,
+        "15": 6,
+        "16": 1,
+        "17": 2,
+        "18": 7,
+        "19": 7,
+        "20": 5,
+        "21": 5,
+        "22": 4,
+        "23": 4,
+        "24": 5,
+        "25": 5,
+        "26": 3,
+        "27": 2,
+        "28": 2,
+        "29": 4,
+        "30": 2,
+        "31": 3,
+        "33": 2,
+        "34": 2,
+        "35": 3,
+        "36": 3,
+        "37": 1,
+        "38": 3,
+        "40": 1,
+        "41": 2,
+        "43": 2,
+        "44": 1,
+        "45": 1,
+        "46": 2,
+        "47": 1,
+        "48": 1,
+        "49": 1,
+        "51": 3,
+        "66": 1
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.walls.mobility.lanes.strandedFirst",
+        "kind": "number",
+        "v": "13"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.strandedFirst` is 0 and `meta.extensions.laneMeta.strandedFirst` is 13. They are one object written twice by one pass; a room whose t"
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    },
+    {
+      "name": "stubExhausted",
+      "why": "layer-6 stub exhaustion",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 8,
+      "paths": [
+        "meta.extensions.stubExhausted"
+      ],
+      "hist": {
+        "false": 164,
+        "true": 8
+      },
+      "sample": {
+        "room": "E16S1",
+        "path": "meta.extensions.stubExhausted",
+        "kind": "boolean",
+        "v": "true"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "tourRule",
+      "why": "sealed-recovery tour ceiling (OF6)",
+      "witness": true,
+      "have": 62,
+      "nCopies": 126,
+      "nTruthy": 62,
+      "paths": [
+        "meta.sealedRecovery.tourRule",
+        "meta.noteRecords[2].rec.tourRule",
+        "meta.noteRecords[1].rec.tourRule",
+        "meta.noteRecords[3].rec.tourRule",
+        "meta.noteRecords[0].rec.tourRule",
+        "meta.noteRecords[4].rec.tourRule",
+        "meta.sealedRecovery.next.tourRule",
+        "meta.noteRecords[1].rec.next.tourRule"
+      ],
+      "hist": {
+        "str:THE FILLER'S OTHER WALK,": 62
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.sealedRecovery.tourRule",
+        "kind": "string",
+        "v": "str:THE FILLER'S OTHER WALK,"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "PLANNER NOTE — `meta.noteRecords[2]` (class sealedRecovery) says `.tourRule` is \"THE FILLER'S OTHER WALK, PRICED AND NOT GATED (OF6, round 18): extTourBefore/extTourAfter and `meta"
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    },
+    {
+      "name": "towerSwapOffer",
+      "why": "the offer record; its basis is rendered",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 172,
+      "paths": [
+        "meta.towers.towerSwapOffer"
+      ],
+      "hist": {
+        "obj:seats,searchedSeats,scanned,faceAndSatHeld,priceProven,instruments,before,best": 172
+      },
+      "sample": {
+        "room": "E11S1",
+        "path": "meta.towers.towerSwapOffer",
+        "kind": "object",
+        "v": "obj:seats,searchedSeats,scanned,faceAndSatHeld,priceProven,instruments,before,best"
+      },
+      "single": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "twin": null,
+      "klass": "flippable"
+    },
+    {
+      "name": "tradeCost",
+      "why": "a priced-refusal witness",
+      "witness": true,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 0,
+      "paths": [
+        "meta.labs.lapVeto.tradeCost"
+      ],
+      "hist": {
+        "object": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "unsealed",
+      "why": "a pocket-unseal witness",
+      "witness": true,
+      "have": 9,
+      "nCopies": 18,
+      "nTruthy": 7,
+      "paths": [
+        "meta.walls.mobility.lanes.unsealed",
+        "meta.extensions.laneMeta.unsealed"
+      ],
+      "hist": {
+        "0": 2,
+        "7": 1,
+        "9": 1,
+        "10": 1,
+        "13": 1,
+        "18": 1,
+        "24": 1,
+        "44": 1
+      },
+      "sample": {
+        "room": "E12S5",
+        "path": "meta.walls.mobility.lanes.unsealed",
+        "kind": "number",
+        "v": "18"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.unsealed` is 0 and `meta.extensions.laneMeta.unsealed` is 18. They are one object written twice by one pass; a room whose two copies "
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    },
+    {
+      "name": "uselessCut",
+      "why": "tiles layer-2 kept that the single-removal test does not need; redundantCut is gated",
+      "witness": false,
+      "have": 172,
+      "nCopies": 172,
+      "nTruthy": 0,
+      "paths": [
+        "meta.shell.uselessCut"
+      ],
+      "hist": {
+        "arr0": 172
+      },
+      "sample": null,
+      "single": null,
+      "twin": null,
+      "klass": "fleet-zero"
+    },
+    {
+      "name": "worstCase",
+      "why": "layer-6 worst-case bound",
+      "witness": false,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 13,
+      "paths": [
+        "meta.walls.mobility.lanes.worstCase",
+        "meta.extensions.laneMeta.worstCase"
+      ],
+      "hist": {
+        "0": 14,
+        "10": 1,
+        "object": 145,
+        "7.5": 1,
+        "2.13": 1,
+        "2.57": 1,
+        "11.25": 1,
+        "1.5": 1,
+        "2.25": 1,
+        "4.43": 1,
+        "5.09": 1,
+        "5.29": 1,
+        "7.83": 1,
+        "2.22": 1,
+        "3.77": 1
+      },
+      "sample": {
+        "room": "E12S2",
+        "path": "meta.walls.mobility.lanes.worstCase",
+        "kind": "number",
+        "v": "7.5"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCase` is 0 and `meta.extensions.laneMeta.worstCase` is 7.5. They are one object written twice by one pass; a room whose two copi"
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    },
+    {
+      "name": "worstCaseUngated",
+      "why": "layer-6 worst-case ungated bound",
+      "witness": false,
+      "have": 172,
+      "nCopies": 344,
+      "nTruthy": 26,
+      "paths": [
+        "meta.walls.mobility.lanes.worstCaseUngated",
+        "meta.extensions.laneMeta.worstCaseUngated"
+      ],
+      "hist": {
+        "1": 13,
+        "10": 1,
+        "13": 1,
+        "object": 146,
+        "7.5": 1,
+        "2.13": 1,
+        "2.57": 1,
+        "1.5": 1,
+        "4.43": 1,
+        "5.09": 1,
+        "5.29": 1,
+        "1.43": 1,
+        "7.83": 1,
+        "2.22": 1,
+        "3.77": 1
+      },
+      "sample": {
+        "room": "E11S9",
+        "path": "meta.walls.mobility.lanes.worstCaseUngated",
+        "kind": "number",
+        "v": "1"
+      },
+      "single": {
+        "status": "BITES",
+        "detail": "walls/lane-anchor — `meta.walls.mobility.lanes.worstCaseUngated` is 0 and `meta.extensions.laneMeta.worstCaseUngated` is 1. They are one object written twice by one pass; a room wh"
+      },
+      "twin": {
+        "status": "ESCAPE",
+        "detail": "pass"
+      },
+      "klass": "twin-only"
+    }
+  ],
+  "walks": [
+    {
+      "label": "inertPromoted::eq-inertPruned-len",
+      "have": 37,
+      "match": 26,
+      "missN": 11,
+      "miss": [
+        "E11S6",
+        "E15S1",
+        "E15S5"
+      ]
+    },
+    {
+      "label": "digRoads::eq-road+rampart-on-wall",
+      "have": 172,
+      "match": 128,
+      "missN": 44,
+      "miss": [
+        "E11S2",
+        "E11S9",
+        "E12S2"
+      ]
+    },
+    {
+      "label": "digRoads::eq-roads-on-cut",
+      "have": 172,
+      "match": 18,
+      "missN": 154,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "freeLeft::eq-reflow-freeLeft",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "haulCost::eq-labs-haul",
+      "have": 6,
+      "match": 0,
+      "missN": 6,
+      "miss": [
+        "E11S6",
+        "E12S6",
+        "E16S1"
+      ]
+    },
+    {
+      "label": "worstCase::eq-floorGated",
+      "have": 172,
+      "match": 14,
+      "missN": 158,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "worstCaseUngated::eq-floorUngated",
+      "have": 172,
+      "match": 13,
+      "missN": 159,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "deepBudget::const-8",
+      "have": 172,
+      "match": 42,
+      "missN": 130,
+      "miss": [
+        "E11S2",
+        "E11S3",
+        "E11S4"
+      ]
+    },
+    {
+      "label": "deepBudget::eq-lane-deep",
+      "have": 172,
+      "match": 1,
+      "missN": 171,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "stubExhausted::stubRoads-ge-stubCap",
+      "have": 172,
+      "match": 139,
+      "missN": 33,
+      "miss": [
+        "E11S6",
+        "E11S7",
+        "E11S8"
+      ]
+    },
+    {
+      "label": "deepExhausted::iff-stub",
+      "have": 172,
+      "match": 136,
+      "missN": 36,
+      "miss": [
+        "E11S1",
+        "E11S7",
+        "E11S9"
+      ]
+    },
+    {
+      "label": "unsealed::eq-lane-unsealed",
+      "have": 9,
+      "match": 9,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "searchedSeats::eq-offer-seats",
+      "have": 172,
+      "match": 168,
+      "missN": 4,
+      "miss": [
+        "E14S1",
+        "E1S3",
+        "E21S2"
+      ]
+    },
+    {
+      "label": "faceAndSatHeld::eq-offer-scanned",
+      "have": 172,
+      "match": 0,
+      "missN": 172,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "priceProven::eq-offer-price",
+      "have": 172,
+      "match": 0,
+      "missN": 172,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "strandedFirst::eq-conduct-stranded-len",
+      "have": 172,
+      "match": 27,
+      "missN": 145,
+      "miss": [
+        "E11S1",
+        "E11S2",
+        "E11S3"
+      ]
+    },
+    {
+      "label": "shallowRamparts::len-eq-extensions.shallow",
+      "have": 172,
+      "match": 169,
+      "missN": 3,
+      "miss": [
+        "E12S6",
+        "E2S3",
+        "E9S2"
+      ]
+    },
+    {
+      "label": "uselessCut::empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "budgetSpent::false",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "rescueSpent::eq-0",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "paveRetired::empty",
+      "have": 4,
+      "match": 4,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "boundRederived::false-or-empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    }
+  ],
+  "walk172": [
+    {
+      "label": "freeLeft::eq-reflow-freeLeft",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "uselessCut::empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "budgetSpent::false",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "rescueSpent::eq-0",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "boundRederived::false-or-empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    }
+  ],
+  "walkHaveMatch": [
+    {
+      "label": "freeLeft::eq-reflow-freeLeft",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "unsealed::eq-lane-unsealed",
+      "have": 9,
+      "match": 9,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "uselessCut::empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "budgetSpent::false",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "rescueSpent::eq-0",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "paveRetired::empty",
+      "have": 4,
+      "match": 4,
+      "missN": 0,
+      "miss": []
+    },
+    {
+      "label": "boundRederived::false-or-empty",
+      "have": 172,
+      "match": 172,
+      "missN": 0,
+      "miss": []
+    }
+  ]
+}

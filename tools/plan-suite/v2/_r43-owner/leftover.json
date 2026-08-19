@@ -1,0 +1,540 @@
+{
+  "presenceN": 34,
+  "derivedN": 66,
+  "derivedHasBaseLap": true,
+  "copies": {
+    "veto": {
+      "n": 172,
+      "nz": 57,
+      "rooms": [
+        {
+          "room": "E11S2",
+          "v": 1.56
+        },
+        {
+          "room": "E11S5",
+          "v": 2.63
+        },
+        {
+          "room": "E11S6",
+          "v": 1.5
+        },
+        {
+          "room": "E11S7",
+          "v": 7.67
+        }
+      ],
+      "vals": {
+        "0": 115,
+        "2": 3,
+        "3": 3,
+        "4": 4,
+        "5": 1,
+        "1.56": 1,
+        "2.63": 1,
+        "1.5": 4,
+        "7.67": 1,
+        "2.17": 2,
+        "2.5": 2,
+        "2.25": 1,
+        "1.54": 2,
+        "1.67": 1,
+        "1.69": 1,
+        "1.71": 1,
+        "3.5": 2,
+        "1.64": 2,
+        "5.33": 1,
+        "1.83": 2,
+        "2.71": 1,
+        "4.4": 1,
+        "1.44": 1,
+        "2.2": 1,
+        "2.27": 1,
+        "2.67": 1,
+        "3.8": 1,
+        "1.3": 1,
+        "2.75": 2,
+        "1.46": 1,
+        "1.58": 1,
+        "1.29": 1,
+        "3.14": 1,
+        "2.83": 2,
+        "2.57": 1,
+        "4.67": 1,
+        "1.75": 1,
+        "3.67": 1,
+        "1.31": 1,
+        "1.94": 1
+      }
+    },
+    "labs": {
+      "n": 172,
+      "nz": 57,
+      "rooms": [
+        {
+          "room": "E11S2",
+          "v": 1.56
+        },
+        {
+          "room": "E11S5",
+          "v": 2.63
+        },
+        {
+          "room": "E11S6",
+          "v": 1.5
+        },
+        {
+          "room": "E11S7",
+          "v": 7.67
+        }
+      ],
+      "vals": {
+        "0": 115,
+        "2": 3,
+        "3": 3,
+        "4": 4,
+        "5": 1,
+        "1.56": 1,
+        "2.63": 1,
+        "1.5": 4,
+        "7.67": 1,
+        "2.17": 2,
+        "2.5": 2,
+        "2.25": 1,
+        "1.54": 2,
+        "1.67": 1,
+        "1.69": 1,
+        "1.71": 1,
+        "3.5": 2,
+        "1.64": 2,
+        "5.33": 1,
+        "1.83": 2,
+        "2.71": 1,
+        "4.4": 1,
+        "1.44": 1,
+        "2.2": 1,
+        "2.27": 1,
+        "2.67": 1,
+        "3.8": 1,
+        "1.3": 1,
+        "2.75": 2,
+        "1.46": 1,
+        "1.58": 1,
+        "1.29": 1,
+        "3.14": 1,
+        "2.83": 2,
+        "2.57": 1,
+        "4.67": 1,
+        "1.75": 1,
+        "3.67": 1,
+        "1.31": 1,
+        "1.94": 1
+      }
+    },
+    "nuker": {
+      "n": 0,
+      "nz": 0,
+      "rooms": [],
+      "vals": {}
+    },
+    "observer": {
+      "n": 0,
+      "nz": 0,
+      "rooms": [],
+      "vals": {}
+    },
+    "towers": {
+      "n": 172,
+      "nz": 57,
+      "rooms": [
+        {
+          "room": "E11S2",
+          "v": 1.56
+        },
+        {
+          "room": "E11S5",
+          "v": 2.63
+        },
+        {
+          "room": "E11S6",
+          "v": 1.5
+        },
+        {
+          "room": "E11S7",
+          "v": 7.33
+        }
+      ],
+      "vals": {
+        "0": 115,
+        "2": 3,
+        "3": 3,
+        "4": 4,
+        "5": 1,
+        "1.56": 1,
+        "2.63": 1,
+        "1.5": 3,
+        "7.33": 1,
+        "2.17": 2,
+        "3.83": 1,
+        "2.5": 2,
+        "2.25": 1,
+        "1.54": 2,
+        "1.67": 1,
+        "1.62": 1,
+        "1.71": 1,
+        "3.5": 2,
+        "1.45": 1,
+        "5.33": 1,
+        "1.83": 2,
+        "2.71": 1,
+        "1.44": 1,
+        "2.2": 1,
+        "2.27": 1,
+        "1.29": 2,
+        "2.67": 1,
+        "3.8": 1,
+        "1.3": 1,
+        "2.75": 2,
+        "1.46": 1,
+        "1.42": 1,
+        "3.14": 1,
+        "2.83": 2,
+        "2.57": 1,
+        "1.64": 1,
+        "4.5": 1,
+        "1.75": 1,
+        "3.67": 1,
+        "1.31": 1,
+        "1.41": 1
+      }
+    },
+    "repair": {
+      "n": 0,
+      "nz": 0,
+      "rooms": [],
+      "vals": {}
+    }
+  },
+  "wasEq": {
+    "rows": 6,
+    "same": 6,
+    "differ": 0,
+    "miss": []
+  },
+  "attacks": [
+    {
+      "name": "leftover towers.baseLap := 0 (nonzero)",
+      "room": "E11S2",
+      "status": "BITES",
+      "changed": true,
+      "n": 1,
+      "first": "DECLARATION CONTENT — mobility|: `repair.tower.baseLap` is 1.56 and `@meta.towers.mobilityVeto.baseLap` says 0 — and the record-leaf inventory holds it to exactly that (\"it is the same number as `@meta.towers.mobilityVeto.baseLap`, published twice\"). This is a WITNESSED leaf: nothing on the shipped board can re-derive "
+    }
+  ],
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "flipA": {
+    "baseCut": 172,
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipAKinds": 15,
+  "flipAEvents": 1189,
+  "fleetA": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "flipB": {
+    "deepExhausted": 36,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "digRoads": 44,
+    "haulCost": 3,
+    "worstCaseUngated": 52,
+    "worstCase": 26,
+    "unsealed": 14,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "stubExhausted": 8,
+    "shallowRamparts": 1
+  },
+  "flipBKinds": 13,
+  "flipBEvents": 1014,
+  "fleetB": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "lapN": 57,
+  "fleetLap": {
+    "label": "p21-baseLap-zeroed",
+    "pass": 115,
+    "fail": 57,
+    "firstFails": [
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.56. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.63. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 7.67. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.17. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "lapPlusN": 172,
+  "fleetPlus": {
+    "label": "p21-baseLap-plus-1",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 2.56 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.56. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 1 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 0. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 3.63 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 2.63. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseLap is 2.5 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "capEnum": 170,
+  "fleetCap": {
+    "label": "hubDistCap-16-to-19",
+    "pass": 172,
+    "fail": 0,
+    "firstFails": []
+  },
+  "seedN": 172,
+  "fleetSeed": {
+    "label": "seedScore-zeroed",
+    "pass": 0,
+    "fail": 172,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -92.9. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -42.4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -44.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -31.8. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -40.1. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.seedScore is 0 and the fullest confluence score in the seed window is -33.2. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "bogN": 57,
+  "fleetBog": {
+    "label": "baseOverGated-zeroed",
+    "pass": 115,
+    "fail": 57,
+    "firstFails": [
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 4 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 34 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 13 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 125 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S3",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 28 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E13S4",
+        "fails": [
+          "meta.misc.mobilityVeto.baseOverGated is 0 and the freeze-cut walk with the extension mass, nuker and observer lifted has 53 gated over-target pair(s). It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  },
+  "wasN": 4,
+  "fleetWas": {
+    "label": "wasLap-zeroed",
+    "pass": 168,
+    "fail": 4,
+    "firstFails": [
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 1.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E16S1",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 3.5. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E1S8",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 4. It is that walk, not a comment — flattening it used to pass"
+        ]
+      },
+      {
+        "room": "E9S3",
+        "fails": [
+          "meta.misc.mobilityVeto.refused[0].wasLap is 0 and the freeze-cut gated lap with the extension mass, nuker and observer lifted is 3.67. It is that walk, not a comment — flattening it used to pass"
+        ]
+      }
+    ]
+  }
+}

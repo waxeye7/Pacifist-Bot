@@ -1,0 +1,322 @@
+{
+  "presenceNames": [
+    "arrayPartner",
+    "baseCut",
+    "baseOverGated",
+    "battlementGap",
+    "battlementGapTiles",
+    "boundHeld",
+    "boundLap",
+    "boundRederived",
+    "budgetSpent",
+    "causeFirst",
+    "cleanAnchor",
+    "corridorFallback",
+    "corridorPlaced",
+    "deepBudget",
+    "deepExhausted",
+    "deepReach",
+    "digRoads",
+    "faceAndSatHeld",
+    "fillerTiles",
+    "floorGated",
+    "floorOver",
+    "floorOverGated",
+    "floorUngated",
+    "freeDin",
+    "freeLeft",
+    "haulCost",
+    "hubDistCap",
+    "inertPromoted",
+    "lapCeilingFloor",
+    "lapVeto",
+    "massAdds",
+    "maxDist",
+    "maxHubDist",
+    "minDmgArray",
+    "minDmgPicked",
+    "mineralApproachAtReservation",
+    "mineralContainer",
+    "mineralSeatAtReservation",
+    "mobilityRepair",
+    "noAlternative",
+    "parkCap",
+    "paveRetired",
+    "pickedBy",
+    "priceProven",
+    "radii",
+    "rcl5Pair",
+    "rescueSpent",
+    "rescuedLap",
+    "rescuedTo",
+    "roadsEaten",
+    "rolledBackFrom",
+    "searchedSeats",
+    "servedExts",
+    "servedFree",
+    "shallowCost",
+    "shallowNow",
+    "shallowRamparts",
+    "shallowRefused",
+    "stitchTiles",
+    "stitched",
+    "strandedFirst",
+    "stubCap",
+    "stubExhausted",
+    "stubRoads",
+    "takeTowerSwap",
+    "tourRule",
+    "towerOnly",
+    "towerSwapOffer",
+    "tradeCost",
+    "unreachableExts",
+    "unreachedClusters",
+    "unsealed",
+    "uselessCut",
+    "wasLap",
+    "worstCase",
+    "worstCaseUngated"
+  ],
+  "derivedNames": [
+    "battlementFloor",
+    "center",
+    "coveredDetourDeclared",
+    "cutAdopted",
+    "extractorOffNetwork",
+    "extractorSeatNetTiles",
+    "mineralBubble",
+    "mineralSeatNetTiles",
+    "mobilityShipped",
+    "mobilityShippedFree",
+    "newRoads",
+    "nukerHubDist",
+    "nukerInWindow",
+    "observerHubDist",
+    "priceyWall",
+    "protectRadius",
+    "refillDistsUnblocked",
+    "shippedAvgShellDmg",
+    "shippedShellDmg",
+    "shippedWeakTiles",
+    "shippedWeakest",
+    "spurred",
+    "swampPaved"
+  ],
+  "flipped": {
+    "baseCut": 172,
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowRefused": 3,
+    "shallowNow": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1,
+    "shallowRamparts": 1
+  },
+  "flippedKinds": 44,
+  "flippedEvents": 4319,
+  "flipped2": {
+    "towerOnly": 172,
+    "mineralContainer": 172,
+    "stubRoads": 172,
+    "deepExhausted": 36,
+    "stubCap": 172,
+    "corridorPlaced": 172,
+    "deepReach": 172,
+    "maxHubDist": 172,
+    "hubDistCap": 172,
+    "floorUngated": 344,
+    "strandedFirst": 290,
+    "deepBudget": 344,
+    "freeLeft": 165,
+    "lapCeilingFloor": 344,
+    "servedFree": 171,
+    "freeDin": 172,
+    "maxDist": 172,
+    "baseOverGated": 57,
+    "digRoads": 44,
+    "floorOver": 105,
+    "floorGated": 55,
+    "floorOverGated": 55,
+    "boundHeld": 164,
+    "boundLap": 52,
+    "wasLap": 4,
+    "haulCost": 3,
+    "massAdds": 28,
+    "worstCaseUngated": 52,
+    "stitched": 5,
+    "stitchTiles": 5,
+    "worstCase": 26,
+    "parkCap": 2,
+    "unsealed": 14,
+    "shallowRefused": 3,
+    "inertPromoted": 27,
+    "rescuedLap": 4,
+    "radii": 10,
+    "stubExhausted": 8,
+    "shallowCost": 1,
+    "corridorFallback": 4,
+    "roadsEaten": 1,
+    "shallowRamparts": 1
+  },
+  "flipped2Kinds": 42,
+  "flipped2Events": 4144,
+  "baseline": {
+    "label": "baseline",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "fleet": {
+    "label": "presence-zero",
+    "pass": 0,
+    "fail": 172,
+    "declared": 300,
+    "firstFails": [
+      {
+        "room": "E11S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S6",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E11S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S8",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E11S9",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S1",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S2",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room",
+          "meta.shell.priceyWall is true and baseCut 0 does not exceed MAX_CUT 45. priceyWall is that comparison, not a free flag"
+        ]
+      },
+      {
+        "room": "E12S3",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S4",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S5",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S6",
+        "fails": [
+          "PLANNER NOTE — `meta.notes[0]` is not the note its own record generates (class shallowExt). They agree for 20 character(s) and then diverge — shipped: \"…SHALLOW EXTENSIONS: 6 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\" vs generated: \"…SHALLOW EXTENSIONS: 0 of 60 sit at depth < 4 and rent a personal rampart forever. Layer 6's own end-of-layer p…\". Notes are the channel the gallery and the film ticker read; a reversed sentence with its numerals kept used to pass because only the numerals were checked. A note is the planner's own prose about its own record, printed for a human; every class but one was checked by nothing at all until round 14, and `meta.notes = []` passed every room. Prose derives or it dies, exactly like a declaration.",
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      },
+      {
+        "room": "E12S7",
+        "fails": [
+          "meta.shell.baseCut is 0. It is layer 2's pick size and a room with no cut is not a room"
+        ]
+      }
+    ]
+  },
+  "fleetSkip": {
+    "label": "presence-zero-except-baseCut-shallowNow",
+    "pass": 172,
+    "fail": 0,
+    "declared": 300,
+    "firstFails": []
+  },
+  "ms": 37822
+}

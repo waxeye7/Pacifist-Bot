@@ -1,0 +1,380 @@
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (n=8/8)  RCL3 15177 (n=8/8)  RCL4 28786 (n=3/8)  tick=4727508
+run-2026-08-15T23-57-10Z  control  RCL2 907 (n=8/8)  RCL3 15134 (n=8/8)  RCL4 25920 (n=5/8)  tick=4727508
+run-2026-08-15T23-57-10Z  vs-ctrl  RCL2 -96  RCL3 +43  RCL4 +2866 (n=3/8 vs 5/8)  tick=4727508
+run-2026-08-15T23-57-10Z  vs-leftover5  RCL2 +72  RCL3 +4177 (n=8/8 vs 11000)  RCL4 24512 still mark  tick=4727508
+run-2026-08-15T23-57-10Z  leftover-5  HOLD cand ext=5  firstRCL4 cand E13S7 26926 E11S6 29188 E18S5 30245  ctrl5/8 next E6S1 need=1101  tick=4727508
+run-2026-08-15T23-57-10Z  verdict  WATCHING  no-KEEP  no-REVERT  elapsed=30561/40000  tick=4727508
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (n=8/8)  RCL3 15177 (n=8/8)  RCL4 31445 (n=7/8)  tick=4732317
+run-2026-08-15T23-57-10Z  control  RCL2 907 (n=8/8)  RCL3 15134 (n=8/8)  RCL4 27475 (n=7/8)  tick=4732317
+run-2026-08-15T23-57-10Z  vs-ctrl  RCL2 -96  RCL3 +43  RCL4 +3970 (n=7/8 vs 7/8)  tick=4732317
+run-2026-08-15T23-57-10Z  vs-leftover5  RCL2 +72  RCL3 +4177 (n=8/8 vs 11000)  RCL4 dirty-24512 not-mark  tick=4732317
+run-2026-08-15T23-57-10Z  vs-clean29029  cand RCL4 31445 (7/8)  +2416 vs 29029  no-KEEP if RCL3/RCL4 worse than this ctrl  tick=4732317
+run-2026-08-15T23-57-10Z  leftover-5  HOLD L3 E18S9 ext=5  cand L4 E13S7 26926 E11S6 29188 E18S5 30245 E16S9 32248 E12S1 32370 E12S3 34236 E5S3 34900  tick=4732317
+run-2026-08-15T23-57-10Z  next  cand E18S9 p=121862 need=13138  ctrl E3S5 p=122755 need=12245  elapsed=35370/40000  tick=4732317
+run-2026-08-15T23-57-10Z  verdict  WATCHING  no-KEEP  no-REVERT  not-8/8  RCL3+43 RCL4+3970 vs this ctrl  tick=4732317
+run-2026-08-15T23-57-10Z  FINAL  all-reached-target tick 4734130
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (8/8)  RCL3 15177 (8/8)  RCL4 32092 (8/8)
+run-2026-08-15T23-57-10Z  control    RCL2 907 (8/8)  RCL3 15134 (8/8)  RCL4 28657 (8/8)
+run-2026-08-15T23-57-10Z  vs-ctrl  R2 -96  R3 +43  R4 +3435
+run-2026-08-15T23-57-10Z  vs-clean29029  R4 +3063
+run-2026-08-15T23-57-10Z  verdict  SEND BACK  lastSpawn=0 latch  (hatched 4W not 5W)
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4774612
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4774612
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 —  RCL4 —  tick=4774612
+run-2026-08-16T03-18-19Z  vs-clean29029  no-RCL4-yet  mark 29029 8/8 not dirty 24512  tick=4774612
+run-2026-08-16T03-18-19Z  pile  vs e839fc8  not isolated-5W-AB  leftover-5+6W+sticky+overlap+real5W  tick=4774612
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4774900
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4774900
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 —  RCL4 —  elapsed~5248/40000  tick=4774900
+run-2026-08-16T03-18-19Z  slam  all-16-L2  ext 0-5  B3-cand E18S9 0ext  B6-cand E18S5 4  B8-ctrl E21S4 5
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile-not-isolated-5W  mark 29029  tick=4774900
+run-2026-08-16T03-18-19Z  empire  push-vps+push-main  shell-floor+cover-CB+foreign-abort  not-push-race  tick=4774900
+run-2026-08-16T03-18-19Z  seed  16/16 seedOk  elapsed=4960/40000  tick=4774612
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  tick=4774612
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 —  RCL4 —  tick=4776872
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 —  RCL4 —  tick=4776872
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  elapsed~7220/40000  verdict WATCHING  mark 29029  tick=4776872
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 13022 (n=7/8)  RCL4 — (n=0/8)  tick=4792900
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 22951 (n=1/8)  tick=4792900
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -2227  RCL4 — (0/8 vs 1/8 E4S7 22951)  elapsed~23248/40000  tick=4792900
+run-2026-08-16T03-18-19Z  leftover-5  HOLD cand ext=5  L3 7/8  late E13S7 L2 p=41020/5  tick=4792900
+run-2026-08-16T03-18-19Z  vs-leftover5  RCL3 +2022 vs dirty-11000  vs-clean13829 ~-807  tick=4792900
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile  mark 29029  tick=4792900
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 14363 (n=8/8)  RCL4 23686 (n=4/8)  tick=4794260
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 23161 (n=2/8)  tick=4794260
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -886  RCL4 +525 (n=4/8 vs 2/8)  tick=4794260
+run-2026-08-16T03-18-19Z  vs-clean29029  cand RCL4 23686 (4/8)  -5343 vs 29029  not-8/8  no-KEEP  tick=4794260
+run-2026-08-16T03-18-19Z  vs-leftover5  RCL3 +3363 (n=8/8 vs dirty-11000)  dirty-not-mark  clean-compare 29029 / this-ctrl  tick=4794260
+run-2026-08-16T03-18-19Z  leftover-5  HOLD cand ext=5 8/8  ctrl leak 10 L3  E21S4 ext=12  tick=4794260
+run-2026-08-16T03-18-19Z  L4  cand E12S1 22886 E11S6 23625 E12S3 23955 E16S9 24278  ctrl E4S7 22951 E21S4 23371  tick=4794260
+run-2026-08-16T03-18-19Z  late  cand E13S7 L3 e3=23750 p=7504  E18S5 L3 e3=10408 p=9438 c=0 stall  tick=4794260
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile-vs-e839fc8  mark 29029  elapsed=24608/40000  tick=4794260
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (n=8/8)  RCL3 15177 (n=8/8)  RCL4 32092 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  control  RCL2 907 (n=8/8)  RCL3 15134 (n=8/8)  RCL4 28657 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-ctrl  RCL2 -96  RCL3 +43  RCL4 +3435 (n=8/8 vs 8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-leftover5  RCL2 +72  RCL3 +4177  RCL4 dirty-24512 not-mark  tick=4734130
+run-2026-08-15T23-57-10Z  vs-clean29029  cand RCL4 32092 (8/8)  +3063 vs 29029  tick=4734130
+run-2026-08-15T23-57-10Z  leftover-5  L4 E13S7 26926 E11S6 29188 E18S5 30245 E16S9 32248 E12S1 32370 E12S3 34236 E5S3 34900 E18S9 36623  tick=4734130
+run-2026-08-15T23-57-10Z  5W-latch  hatched-4W-not-5W  lastSpawn=0  RCL3+43 RCL4+3435 worse-than-this-ctrl  tick=4734130
+run-2026-08-15T23-57-10Z  verdict  REVERT  no-KEEP  8/8-both  elapsed=37183/40000  5W-latch SEND-BACK  tick=4734130
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 14363 (n=8/8)  RCL4 24742 (n=5/8)  tick=4799703
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 25130 (n=3/8)  tick=4799703
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -886  RCL4 -388 (n=5/8 vs 3/8)  elapsed~30051/40000  tick=4799703
+run-2026-08-16T03-18-19Z  leftover-5  HOLD L3 E5S3/E18S5/E13S7 ext=5  L4 dump E12S3=12 E11S6=10 E12S1=11  tick=4799703
+run-2026-08-16T03-18-19Z  L4  cand E12S1 22886 E11S6 23625 E12S3 23955 E16S9 24278 E18S9 28968  ctrl E4S7 22951 E21S4 23371 E9S1 29067
+run-2026-08-16T03-18-19Z  stall  E18S5 L3 p=9438 ext=5 creeps=1-CA 0-miners spawn=60-210 hub=2000  550-HOL-exempt-blackout
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile  mark 29029  tick=4799703
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 14363 (n=8/8)  RCL4 25658 (n=6/8)  tick=4800732
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 26347 (n=4/8)  tick=4800732
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -886  RCL4 -689 (n=6/8 vs 4/8)  tick=4800732
+run-2026-08-16T03-18-19Z  vs-clean29029  cand RCL4 25658 (6/8)  -3371 vs 29029  not-8/8  no-KEEP  tick=4800732
+run-2026-08-16T03-18-19Z  vs-leftover5  RCL3 +3363 (n=8/8 vs dirty-11000)  dirty-not-mark  clean-compare 29029 / this-ctrl  tick=4800732
+run-2026-08-16T03-18-19Z  leftover-5  HOLD L3 E18S5/E13S7 ext=5  dump-L4 E12S1=19 E11S6=16 E12S3=14  still-5 E5S3 E18S9 E16S9  ctrl leak 10 L3  E21S4=20  tick=4800732
+run-2026-08-16T03-18-19Z  L4  cand E12S1 22886 E11S6 23625 E12S3 23955 E16S9 24278 E18S9 28968 E5S3 30237  ctrl E4S7 22951 E21S4 23371 E9S1 29067 E8S3 30000  tick=4800732
+run-2026-08-16T03-18-19Z  late  cand E13S7 L3 e3=23750 p=90995  E18S5 L3 e3=10408 p=9438 c=1 stall  tick=4800732
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile-vs-e839fc8  mark 29029  elapsed=31080/40000  tick=4800732
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 14363 (n=8/8)  RCL4 26849 (n=7/8)  tick=4806041
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 30533 (n=8/8)  tick=4806041
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -886  RCL4 -3684 (n=7/8 vs 8/8)  elapsed~36389/40000  tick=4806041
+run-2026-08-16T03-18-19Z  leftover-5  HOLD then E18S5 DOWNGRADE L3→L2  0-creeps  550-HOL-blackout  tick=4806041
+run-2026-08-16T03-18-19Z  L4  cand E12S1 22886 E11S6 23625 E12S3 23955 E16S9 24278 E18S9 28968 E5S3 30237 E13S7 33991  missing E18S5
+run-2026-08-16T03-18-19Z  ctrl8/8  30533  cand7/8  26849  vs-29029 cand-2180-on-7/8  no-KEEP  tick=4806041
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  E18S5-censor  pile  mark 29029  tick=4806041
+run-2026-08-16T03-18-19Z  candidate  RCL2 1548 (n=8/8)  RCL3 14363 (n=8/8)  RCL4 26849 (n=7/8)  tick=4807486
+run-2026-08-16T03-18-19Z  control  RCL2 1730 (n=8/8)  RCL3 15249 (n=8/8)  RCL4 30533 (n=8/8)  tick=4807486
+run-2026-08-16T03-18-19Z  vs-ctrl  RCL2 -182  RCL3 -886  RCL4 -3684 (n=7/8 vs 8/8)  tick=4807486
+run-2026-08-16T03-18-19Z  vs-clean29029  cand RCL4 26849 (7/8)  -2180 vs 29029  not-8/8  no-KEEP  tick=4807486
+run-2026-08-16T03-18-19Z  vs-leftover5  RCL3 +3363 (n=8/8 vs dirty-11000)  dirty-not-mark  clean-compare 29029 / this-ctrl  tick=4807486
+run-2026-08-16T03-18-19Z  leftover-5  HOLD L3 E18S5 ext=5  dump-L4 E12S1=20 E11S6=20 E12S3=19 E16S9=20  still-5 E5S3 E13S7  E18S9=6  ctrl leak 10 E8S5/E6S1  tick=4807486
+run-2026-08-16T03-18-19Z  L4  cand E12S1 22886 E11S6 23625 E12S3 23955 E16S9 24278 E18S9 28968 E5S3 30237 E13S7 33991  missing E18S5  tick=4807486
+run-2026-08-16T03-18-19Z  ctrl8/8  30533  E4S7 22951 E21S4 23371 E9S1 29067 E8S3 30000 E8S5 33937 E13S9 34523 E3S5 35081 E6S1 35336  tick=4807486
+run-2026-08-16T03-18-19Z  late  E18S5 CENSOR-track  DOWNGRADE L3-L2-L1 then re-L3 p=5950/5 c=12  like-cycle-5  will-not-hit-4  tick=4807486
+run-2026-08-16T03-18-19Z  verdict  WATCHING  no-KEEP  no-REVERT  pile-vs-e839fc8  mark 29029  elapsed=37834/40000  tick=4807486
+run-2026-08-16T03-18-19Z  FINAL tick-budget 4809710  cand R2 1548 8/8 R3 14363 8/8 R4 26849 7/8  ctrl 1730/15249/30533 8/8
+run-2026-08-16T03-18-19Z  E18S5 DNF RCL4  WATCH-not-KEEP 7/8  vs ctrl -3684 on finished  vs 29029 -2180
+run-2026-08-16T03-18-19Z  verdict  CENSOR 7/8  no-KEEP  pile  E18S5 HOL-blackout  mark 29029  tick=4809710
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 —  RCL4 —  tick=4813777
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 —  RCL4 —  tick=4813777
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  cycle-17-rcl3-pave  slam  all-L2  pave-inert-until-RCL3  elapsed~3490/40000
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  pile+pave  leftover-5-on  mark 29029 / ctrl30533  tick=4813777
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 — (n=0/8)  RCL4 —  tick=4824464
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 12827 (n=3/8)  RCL4 —  tick=4824464
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 cand-0/8  ctrl E4S7 13722 E3S5 13376 E21S4 11382/10ext  elapsed~14177/40000
+run-2026-08-16T04-56-08Z  slam  cand E12S3 L2 p=44913/5  E5S3/E18S5 0ext stall  pave-inert
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  pile+pave  mark 29029  tick=4824464
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 14162 (n=1/8)  RCL4 —  tick=4832363
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 15349 (n=8/8)  RCL4 —  tick=4832363
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 14162 1/8 vs 15349 8/8  leftover-5 E12S3 ext=5  elapsed~22076/40000
+run-2026-08-16T04-56-08Z  slam  cand mostly-L2  E5S3/E18S5 2ext  pave-on E12S3-only  tick=4832363
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  pile+pave  mark 29029  tick=4832363
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 14162 (n=1/8)  RCL4 27338 (n=1/8)  tick=4842065
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 15349 (n=8/8)  RCL4 25989 (n=4/8)  tick=4842065
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 1/8 vs 8/8  RCL4 E12S3 27338 vs 25989 4/8  elapsed~31778/40000
+run-2026-08-16T04-56-08Z  stall  7-cand-L2-with-5ext  E16S9 p=43163 nearest  pave-only-E12S3  tick=4842065
+run-2026-08-16T04-56-08Z  leftover-5  E12S3 L4 ext=11 dump-ok  L2 all ext=5  tick=4842065
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  will-censor-RCL3  pile+pave  mark 29029  tick=4842065
+run-2026-08-16T04-56-08Z  FINAL tick-budget 4850273  cand R2 1313 8/8 R3 29990 4/8 R4 27338 1/8  ctrl R4 29919 8/8
+run-2026-08-16T04-56-08Z  verdict  CENSOR 1/8-R4  RCL2-pave SEND-BACK  no-KEEP  pile  E12S3-only  tick=4850273
+run-2026-08-16T06-22-16Z  candidate  RCL2 —  RCL3 —  RCL4 —  tick=4852013
+run-2026-08-16T06-22-16Z  control  RCL2 —  RCL3 —  RCL4 —  tick=4852013
+run-2026-08-16T06-22-16Z  cycle-18-rcl3-haul  16/16 L1 slam  no-RCL2-roads  leftover-5  watch 12880
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  mark 29029 / ctrl29919  tick=4852013
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 (n=8/8)  RCL3 13194 (n=2/8)  RCL4 —  tick=4864681
+run-2026-08-16T06-22-16Z  control  RCL2 1666 (n=8/8)  RCL3 12581 (n=2/8)  RCL4 —  tick=4864681
+run-2026-08-16T06-22-16Z  vs-ctrl  RCL2 +472  RCL3 +613 (n=2/8)  leftover-5 HOLD E16S9/E13S7 ext=5  elapsed~12.6k/40000
+run-2026-08-16T06-22-16Z  L3  cand E16S9 13439 E13S7 12949  ctrl E3S5 13036 E21S4 12126/10leak
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  haul-pave-inert-until-more-L3  mark 29029  tick=4864681
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4815455
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4815455
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 —  RCL4 —  elapsed=5195/40000  tick=4815455
+run-2026-08-16T04-56-08Z  vs-clean29029  no-RCL4-yet  mark 29029 8/8  this-ctrl 30533  tick=4815455
+run-2026-08-16T04-56-08Z  pile  leftover-5+sticky+overlap+rcl3-pave  not isolated-5W-AB  pave-inert-until-RCL3+slam-5  tick=4815455
+run-2026-08-16T04-56-08Z  slam  all-16-L2  cand-ext 0-5  E13S7-cand 5/550  ctrl E21S4 5/550  tick=4815455
+run-2026-08-16T04-56-08Z  seed  16/16 seedOk  seed0=4810260  tick=4815455
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+pave  mark 29029  tick=4815455
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 14162 (n=1/8)  RCL4 — (n=0/8)  tick=4824710
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 12827 (n=3/8)  RCL4 — (n=0/8)  tick=4824710
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 14162 1/8 vs 12827 3/8  RCL4 —  elapsed=14450/40000  tick=4824710
+run-2026-08-16T04-56-08Z  vs-clean29029  no-RCL4-yet  mark 29029 8/8  this-ctrl 30533  tick=4824710
+run-2026-08-16T04-56-08Z  first-L3  cand E12S3 14162/5 HOLD  ctrl E21S4 11382/10 E3S5 13376/6 E4S7 13722/5  tick=4824710
+run-2026-08-16T04-56-08Z  near-L3  cand next E12S1 p=10810/5 need=34190  ctrl E8S3 37992 need=7008 E9S1 36287 need=8713  tick=4824710
+run-2026-08-16T04-56-08Z  leftover-5  HOLD E12S3 ext=5  rest N/A still-L2  0ext-stall E5S3/E18S5  tick=4824710
+run-2026-08-16T04-56-08Z  pave  gate-open E12S3 L3+slam-5  rest inert  pile+pave  tick=4824710
+run-2026-08-16T04-56-08Z  seed  16/16 seedOk  seed0=4810260  tick=4824710
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+pave  mark 29029  tick=4824710
+
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 14162 (n=1/8)  RCL4 — (n=0/8)  tick=4834812
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 15349 (n=8/8)  RCL4 22957 (n=1/8)  tick=4834812
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 14162 1/8 vs 15349 8/8  RCL4 — vs 22957 1/8  elapsed=24552/40000  tick=4834812
+run-2026-08-16T04-56-08Z  vs-clean29029  no-cand-RCL4  ctrl E21S4 22957 1/8  -6072 vs 29029  not-8/8  no-KEEP  tick=4834812
+run-2026-08-16T04-56-08Z  leftover-5  HOLD cand E12S3 ext=5  slam-5 7/8-cand  E5S3 4ext  ctrl leak 10  E21S4 L4=11  tick=4834812
+run-2026-08-16T04-56-08Z  first-L4  ctrl E21S4 22957/11  next E4S7 p=117897/10 need=17103  tick=4834812
+run-2026-08-16T04-56-08Z  slam  E5S3 L2 p=7595/4  E18S5 now-5/550  was-2ext-stalls  tick=4834812
+run-2026-08-16T04-56-08Z  pave  E12S3 roads=12 sites=0 ext=5/550  L2-slam paving  E5S3 inert  tick=4834812
+run-2026-08-16T04-56-08Z  seed  16/16 seedOk  seed0=4810260  tick=4834812
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+pave  mark 29029  tick=4834812
+run-2026-08-16T04-56-08Z  pave  BFS-around-wall E12S3 13roads+8sites south-to-depot  all-8-slam-5-have-haul  leftover-5 HOLD
+run-2026-08-16T04-56-08Z  cand  R2 1313 8/8  R3 14162 1/8 E12S3~117k  R4 —  ctrl R3 15349 8/8 R4 E21S4 22957 E4S7 25216
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  pile+pave-harden  mark 29029 / ctrl30533
+run-2026-08-16T04-56-08Z  workbench-stale  live tick=4836015 cand R2 1313 8/8 R3 14162 1/8 E12S3 p=119749/5 R4 —  ctrl R4 24087 2/8  pave all-8-slam-5  leftover-5 HOLD  WATCHING mark 29029
+
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 (n=8/8)  RCL3 23010 (n=2/8)  RCL4 27338 (n=1/8)  tick=4843367
+run-2026-08-16T04-56-08Z  control  RCL2 1397 (n=8/8)  RCL3 15349 (n=8/8)  RCL4 28131 (n=6/8)  tick=4843367
+run-2026-08-16T04-56-08Z  vs-ctrl  RCL2 -84  RCL3 23010 2/8 vs 15349 8/8  RCL4 27338 1/8 vs 28131 6/8  elapsed=33107/40000  tick=4843367
+run-2026-08-16T04-56-08Z  vs-clean29029  cand RCL4 27338 1/8  -1691 vs 29029  not-8/8  no-KEEP  tick=4843367
+run-2026-08-16T04-56-08Z  leftover-5  HOLD cand E16S9 ext=5  E12S3 L4 dump ext=12  slam-5 8/8-cand  tick=4843367
+run-2026-08-16T04-56-08Z  first-L4  cand E12S3 27338/12  ctrl E21S4 22957 E4S7 25216 E9S1 27282 E8S3 28501 E3S5 32269 E8S5 32563  tick=4843367
+run-2026-08-16T04-56-08Z  late-L2  cand 6/8 all-5ext  E18S9 10109 E5S3 10332 E18S5 11292 E12S1 15735 E13S7 18970 E11S6 27941  tick=4843367
+run-2026-08-16T04-56-08Z  L3  cand E12S3 14162 E16S9 31858  ctrl 8/8 15349  tick=4843367
+run-2026-08-16T04-56-08Z  seed  16/16 seedOk  seed0=4810260  tick=4843367
+run-2026-08-16T04-56-08Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+pave  16-FINAL-stands  mark 29029  tick=4843367
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 8/8  RCL3 23010 2/8 (E12S3 14162 E16S9 31858)  RCL4 27338 1/8 E12S3
+run-2026-08-16T04-56-08Z  control    RCL2 1397 8/8  RCL3 15349 8/8  RCL4 28131 6/8
+run-2026-08-16T04-56-08Z  pave  RCL2-REVERT  E16S9 62roads L3=31858  E12S3 L4=27338 paved-on-135k
+run-2026-08-16T04-56-08Z  leftover-5  HOLD L2/L3  E12S3 L4 dumped ext=12
+run-2026-08-16T04-56-08Z  verdict  WATCHING  likely-censor  6-still-L2  no-KEEP  mark 29029
+run-2026-08-16T04-56-08Z  FINAL tick-budget 4850273
+run-2026-08-16T04-56-08Z  candidate  RCL2 1313 8/8  RCL3 29990 4/8  RCL4 27338 1/8 E12S3
+run-2026-08-16T04-56-08Z  control    RCL2 1397 8/8  RCL3 15349 8/8  RCL4 29919 8/8
+run-2026-08-16T04-56-08Z  vs-ctrl  R4 1/8 vs 8/8  vs-clean29029 E12S3 27338 is n=1
+run-2026-08-16T04-56-08Z  leftover-5  HOLD L2/L3  E12S3 dump-at-4
+run-2026-08-16T04-56-08Z  verdict  CENSOR 1/8  no-KEEP  RCL2-pave SEND-BACK  E16S9 L3 31858 / 62 roads
+run-2026-08-16T04-56-08Z  FINAL tick-budget 4850273  cand R2 1313 8/8 R3 29990 4/8 R4 27338 1/8 E12S3  ctrl 1397/15349/29919 8/8
+run-2026-08-16T04-56-08Z  vs-ctrl  R2 -84  R3 4/8 vs 8/8  R4 1/8 vs 8/8  vs-clean29029 E12S3 27338 n=1  elapsed=40013/40000  seed0=4810260
+run-2026-08-16T04-56-08Z  leftover-5  HOLD L2/L3  E12S3 dump-at-4 ext=19  RCL2-pave SEND-BACK  E16S9 L3 31858 / 62 roads
+run-2026-08-16T04-56-08Z  verdict  CENSOR 1/8  no-KEEP  no leftover-5/5W/pave-isolated  mark 29029 / this-ctrl 29919  tick=4850273
+run-2026-08-16T06-22-16Z  candidate  RCL2 2038 (n=7/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4853881
+run-2026-08-16T06-22-16Z  control  RCL2 1666 (n=8/8)  RCL3 — (n=0/8)  RCL4 — (n=0/8)  tick=4853881
+run-2026-08-16T06-22-16Z  vs-ctrl  RCL2 n=7/8 vs 8/8  RCL3 —  RCL4 —  elapsed=2926/40000  tick=4853881
+run-2026-08-16T06-22-16Z  vs-clean29029  no-RCL4-yet  mark 29029 8/8  this-ctrl 29919  tick=4853881
+run-2026-08-16T06-22-16Z  slam  cand L2 7/8  still-L1 E11S6  ext 0  ctrl all-L2  E8S3 1ext E21S4 2ext  tick=4853881
+run-2026-08-16T06-22-16Z  knob  cycle-18-rcl3-haul  RCL3-pave-after-slam-5  NO-RCL2-roads  leftover-5-on  tick=4853881
+run-2026-08-16T06-22-16Z  seed  16/16 seedOk  seed0=4850955  watch=12880  tick=4853881
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+rcl3-haul  mark 29029  tick=4853881
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 8/8  RCL3 13194 2/8  RCL4 —  tick=4865424
+run-2026-08-16T06-22-16Z  control    RCL2 1666 8/8  RCL3 13350 4/8  RCL4 —
+run-2026-08-16T06-22-16Z  leftover-5  HOLD all-cand ext=5  ctrl leak E21S4=10 E3S5=6
+run-2026-08-16T06-22-16Z  pave  L2 0-roads  L3 E16S9/E13S7 8 haul sites + 2B  elapsed=14469/40000
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  mark 29029 / ctrl29919
+
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 (n=8/8)  RCL3 13194 (n=2/8)  RCL4 — (n=0/8)  tick=4864681
+run-2026-08-16T06-22-16Z  control  RCL2 1666 (n=8/8)  RCL3 12581 (n=2/8)  RCL4 — (n=0/8)  tick=4864681
+run-2026-08-16T06-22-16Z  vs-ctrl  RCL2 +472  RCL3 13194 2/8 vs 12581 2/8  RCL4 —  elapsed=13726/40000  tick=4864681
+run-2026-08-16T06-22-16Z  vs-clean29029  no-RCL4-yet  mark 29029 8/8  this-ctrl 29919  tick=4864681
+run-2026-08-16T06-22-16Z  vs-leftover5  RCL3 +2194 vs dirty-11000  vs-clean13829 -635  not-8/8  tick=4864681
+run-2026-08-16T06-22-16Z  leftover-5  HOLD cand E16S9/E13S7 ext=5  slam-5 8/8-cand  ctrl leak E21S4=10  tick=4864681
+run-2026-08-16T06-22-16Z  L3  cand E13S7 12949/5 E16S9 13439/5  ctrl E21S4 12126/10 E3S5 13036  tick=4864681
+run-2026-08-16T06-22-16Z  lastSeen  4866684  ctrl now 13350 4/8 E8S3 14176 E4S7 14063  leak E3S5=10 E4S7=9 E8S3=6  tick=4864681
+run-2026-08-16T06-22-16Z  seed  16/16 seedOk  seed0=4850955  watch=12880  tick=4864681
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  no-REVERT  pile+rcl3-haul  17-CENSOR-stands  mark 29029  tick=4864681
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (n=8/8)  RCL3 15177 (n=8/8)  RCL4 32092 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  control  RCL2 907 (n=8/8)  RCL3 15134 (n=8/8)  RCL4 28657 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-ctrl  RCL2 -96  RCL3 +43  RCL4 +3435 (n=8/8 vs 8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-leftover5  RCL2 +72  RCL3 +4177  RCL4 dirty-24512 not-mark  tick=4734130
+run-2026-08-15T23-57-10Z  vs-clean29029  cand RCL4 32092 (8/8)  +3063 vs 29029  tick=4734130
+run-2026-08-15T23-57-10Z  leftover-5  L4 E13S7 26926 E11S6 29188 E18S5 30245 E16S9 32248 E12S1 32370 E12S3 34236 E5S3 34900 E18S9 36623  tick=4734130
+run-2026-08-15T23-57-10Z  5W-latch  hatched-4W-not-5W  lastSpawn=0  RCL3+43 RCL4+3435 worse-than-this-ctrl  tick=4734130
+run-2026-08-15T23-57-10Z  verdict  REVERT  no-KEEP  8/8-both  elapsed=37183/40000  5W-latch SEND-BACK  tick=4734130
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 (n=8/8)  RCL3 15333 (n=4/8)  RCL4 23715 (n=1/8)  tick=4876360
+run-2026-08-16T06-22-16Z  control  RCL2 1666 (n=8/8)  RCL3 15308 (n=8/8)  RCL4 24554 (n=1/8)  tick=4876360
+run-2026-08-16T06-22-16Z  vs-ctrl  RCL2 +472  RCL3 4/8 vs 8/8  RCL4 E13S7 23715 vs E21S4 24554  elapsed=25405/40000  tick=4876360
+run-2026-08-16T06-22-16Z  vs-clean29029  cand RCL4 23715 1/8  -5314 vs 29029  not-8/8  no-KEEP  tick=4876360
+run-2026-08-16T06-22-16Z  leftover-5  HOLD L3 ext=5  dump-L4 E13S7 ext=7  ctrl leak 10  tick=4876360
+run-2026-08-16T06-22-16Z  L3  cand E13S7 12949 E16S9 13439 E5S3 16706 E12S1 18238  tick=4876360
+run-2026-08-16T06-22-16Z  stall  E11S6 L2 p=6861 0-miners  E18S5 L2 p=6029 1W  E16S9 L3 p=14576 1W  tick=4876360
+run-2026-08-16T06-22-16Z  pave  L2 0/0  L3 E5S3=43r E12S1=39r E13S7=15r E16S9=5+8sites  tick=4876360
+run-2026-08-16T06-22-16Z  15-FINAL  SEND-BACK 32092 vs 28657  16-already-CENSOR-7/8  did-not-seed
+run-2026-08-16T06-22-16Z  src  sticky+overlap-reverted  cheap-miner-WORK<4  L4-take-storage.my  push-main+vps  not-push-pacifist
+run-2026-08-16T06-22-16Z  verdict  WATCHING  no-KEEP  pile+rcl3-haul  mark 29029 / ctrl29919  tick=4876360
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 (n=8/8)  RCL3 20531 (n=6/8)  RCL4 28488 (n=2/8)  tick=4885182
+run-2026-08-16T06-22-16Z  control  RCL2 1666 (n=8/8)  RCL3 15308 (n=8/8)  RCL4 28636 (n=7/8)  tick=4885182
+run-2026-08-16T06-22-16Z  vs-ctrl  RCL2 +472  RCL3 6/8 vs 8/8  RCL4 28488 2/8 vs 28636 7/8  elapsed=34227/40000
+run-2026-08-16T06-22-16Z  leftover-5  HOLD L3 ext=5  dump-L4 E13S7=20 E5S3=6  tick=4885182
+run-2026-08-16T06-22-16Z  L4  cand E13S7 23715 E5S3 33261  ctrl 7/8 28636  tick=4885182
+run-2026-08-16T06-22-16Z  stall  E11S6 DOWNGRADE L2-L1 p=7055  E16S9 L3 p=15115 1W  E18S5 L2 p=38174
+run-2026-08-16T06-22-16Z  src  RCL2-miner-first  L4-strip-ext-until-storage  push-main+vps  not-push-pacifist
+run-2026-08-16T06-22-16Z  verdict  WATCHING  will-CENSOR  no-KEEP  mark 29029 / ctrl29919  tick=4885182
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 8/8  RCL3 20531 6/8  RCL4 28488 2/8 E13S7 23715 E5S3 33261  tick=4885514
+run-2026-08-16T06-22-16Z  control    RCL2 1666 8/8  RCL3 15308 8/8  RCL4 28636 7/8
+run-2026-08-16T06-22-16Z  leftover-5  HOLD L3 ext=5  L4 dump E13S7=20 E5S3=6
+run-2026-08-16T06-22-16Z  stall  E11S6 L2 p=6978  E16S9 L3 p=15115  E18S5 L2 p=40764  elapsed=34559/40000
+run-2026-08-16T06-22-16Z  verdict  WATCHING  will-CENSOR  no-KEEP  mark 29029
+run-2026-08-16T06-22-16Z  FINAL tick-budget 4890981
+run-2026-08-16T06-22-16Z  candidate  RCL2 2138 8/8  RCL3 22636 7/8  RCL4 31683 3/8 E13S7 23715 E5S3 33261 E12S1 38073
+run-2026-08-16T06-22-16Z  control    RCL2 1666 8/8  RCL3 15308 8/8  RCL4 29694 8/8
+run-2026-08-16T06-22-16Z  leftover-5  HOLD L3  L4 dump
+run-2026-08-16T06-22-16Z  verdict  CENSOR 3/8  no-KEEP  RCL3-haul unisolated  L2-0-roads pass
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 8/8  RCL3 —  RCL4 —  tick=4894465
+run-2026-08-16T07-40-10Z  control    RCL2 1615 8/8  RCL3 —  RCL4 —
+run-2026-08-16T07-40-10Z  vs-ctrl  RCL2 -351  slam  ext 0-1  leftover-5 n/a  elapsed=2962/40000
+run-2026-08-16T07-40-10Z  verdict  WATCHING  no-KEEP  5w-only  mark 29029 / ctrl29694
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 (n=8/8)  RCL3 —  RCL4 —  tick=4894879
+run-2026-08-16T07-40-10Z  control  RCL2 1615 (n=8/8)  RCL3 —  RCL4 —  tick=4894879
+run-2026-08-16T07-40-10Z  vs-ctrl  RCL2 -351  slam 0-3ext  leftover-5 inert  elapsed=3376/40000
+run-2026-08-16T07-40-10Z  18-FINAL  CENSOR 3/8 R4 31683 vs 29694  did-not-reseed
+run-2026-08-16T07-40-10Z  src  miner-first WORK<2 L2/L3  market-compile  push-main+vps  not-push-pacifist
+run-2026-08-16T07-40-10Z  verdict  WATCHING  no-KEEP  cargo-pave+far-ctrl  mark 29029 / ctrl29694  tick=4894879
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 (n=8/8)  RCL3 9607 (n=1/8)  RCL4 —  tick=4906231
+run-2026-08-16T07-40-10Z  control  RCL2 1615 (n=8/8)  RCL3 12989 (n=3/8)  RCL4 —  tick=4906231
+run-2026-08-16T07-40-10Z  vs-ctrl  RCL2 -351  RCL3 1/8 vs 3/8  leftover-5 HOLD E13S7 ext=5  elapsed=14728/40000
+run-2026-08-16T07-40-10Z  pave  L2 0/0  L3 E13S7 2+8 E12S1 0+8  cargo
+run-2026-08-16T07-40-10Z  5W  DIRTY  dest cheap-miner WORK<4  E16S9 2x2W  E12S3 2W+1W  E13S7 2x1W
+run-2026-08-16T07-40-10Z  src  cheap-miner WORK<2  far-ctrl-reverted  push-main+vps  not-push-pacifist
+run-2026-08-16T07-40-10Z  verdict  WATCHING  no-KEEP  not-a-5W-AB  mark 29029 / ctrl29694  tick=4906231
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 (n=8/8)  RCL3 17196 (n=8/8)  RCL4 —  tick=4917064
+run-2026-08-16T07-40-10Z  control  RCL2 1615 (n=8/8)  RCL3 16566 (n=8/8)  RCL4 23570 (n=2/8)  tick=4917064
+run-2026-08-16T07-40-10Z  vs-ctrl  RCL2 -351  RCL3 +630  leftover-5 HOLD 8/8 ext=5  elapsed=25561/40000
+run-2026-08-16T07-40-10Z  L3  E13S7 9607 E12S1 14703 E5S3 15919 E16S9 17280 E11S6 20994
+run-2026-08-16T07-40-10Z  src  paveNow-reverted  not-push-pacifist  dest-20-ready
+run-2026-08-16T07-40-10Z  verdict  WATCHING  no-KEEP  5W-dirty  mark 29029 / ctrl29694  tick=4917064
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 8/8  RCL3 17196 8/8  RCL4 31699 2/8  tick=4926832
+run-2026-08-16T07-40-10Z  control  RCL2 1615 8/8  RCL3 16566 8/8  RCL4 29303 6/8  tick=4926832
+run-2026-08-16T07-40-10Z  vs-ctrl  R2 -351  R3 +630  R4 2/8 vs 6/8  leftover-5 HOLD L3+L4ext=5  elapsed=35329/40000
+run-2026-08-16T07-40-10Z  L4  cand E13S7 31638 E5S3 31759  late E18S9 L3 p=11053
+run-2026-08-16T07-40-10Z  verdict  WATCHING  will-CENSOR  no-KEEP  no-seed-20-yet  mark 29029 / ctrl29694  tick=4926832
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 8/8  RCL3 17196 8/8  RCL4 33622 4/8 E13S7 31638 E5S3 31759 E18S5 35279 E11S6 35812  tick=4927501
+run-2026-08-16T07-40-10Z  control    RCL2 1615 8/8  RCL3 16566 8/8  RCL4 29303 6/8
+run-2026-08-16T07-40-10Z  leftover-5  HOLD L3+L4 ext=5 (L4 take until storage)
+run-2026-08-16T07-40-10Z  E13S7  L3 9607 then L4 31638  climb 22k vs c18 10.7k
+run-2026-08-16T07-40-10Z  verdict  WATCHING  4/8  5W-dirty  no-KEEP  elapsed=35998/40000  mark 29029
+run-2026-08-16T07-40-10Z  FINAL tick-budget 4931580
+run-2026-08-16T07-40-10Z  candidate  RCL2 1264 8/8  RCL3 17196 8/8  RCL4 34358 5/8
+run-2026-08-16T07-40-10Z  control    RCL2 1615 8/8  RCL3 16566 8/8  RCL4 31044 8/8
+run-2026-08-16T07-40-10Z  leftover-5  HOLD  5W dest DIRTY WORK<4
+run-2026-08-16T07-40-10Z  verdict  CENSOR 5/8  no-KEEP  not-a-5W-AB
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 (n=8/8)  RCL3 —  RCL4 —  tick=4935803
+run-2026-08-16T08-58-29Z  control  RCL2 1500 (n=8/8)  RCL3 —  RCL4 —  tick=4935803
+run-2026-08-16T08-58-29Z  vs-ctrl  RCL2 -180  slam 0-3ext  leftover-5 inert  elapsed=3512/40000
+run-2026-08-16T08-58-29Z  pave  L2 0/0  no-far-ctrl  miners 2W (cap<550)
+run-2026-08-16T08-58-29Z  19-FINAL  CENSOR 5/8 R4 34358 vs 31044  did-not-reseed
+run-2026-08-16T08-58-29Z  verdict  WATCHING  no-KEEP  5W-hatch-waits-550  mark 29029 / ctrl31044  tick=4935803
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 13083 2/8  RCL4 —  tick=4948284
+run-2026-08-16T08-58-29Z  control  RCL2 1500 8/8  RCL3 14617 5/8  RCL4 —  tick=4948284
+run-2026-08-16T08-58-29Z  vs-ctrl  R2 -180  R3 2/8 vs 5/8  leftover-5 HOLD ext=5  elapsed=15993/40000
+run-2026-08-16T08-58-29Z  5W  PASS 2x5W E5S3 E13S7 E12S3 E16S9 E18S5 E12S1  FAIL E11S6 2x1W E18S9 1x2W
+run-2026-08-16T08-58-29Z  pave  L2 0/0  L3 0/0  paveNow-gone
+run-2026-08-16T08-58-29Z  src  bestWORK-not-sum  push-main+vps  not-push-pacifist
+run-2026-08-16T08-58-29Z  verdict  WATCHING  no-KEEP  5W-process-pass  mark 29029 / ctrl31044  tick=4948284
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 17160 7/8  RCL4 —  tick=4957948
+run-2026-08-16T08-58-29Z  control  RCL2 1500 8/8  RCL3 15419 8/8  RCL4 24189 2/8  tick=4957948
+run-2026-08-16T08-58-29Z  vs-ctrl  R2 -180  R3 +1741  leftover-5 HOLD ext=5  L3 0-roads  elapsed=25657/40000
+run-2026-08-16T08-58-29Z  5W  still-PASS  E11S6 E18S9 now 2x5W  E18S9 still L2 p=44363
+run-2026-08-16T08-58-29Z  verdict  WATCHING  no-KEEP  RCL3-slower  mark 29029 / ctrl31044  tick=4957948
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 18299 8/8  RCL4 29618 1/8  tick=4966833
+run-2026-08-16T08-58-29Z  control  RCL2 1500 8/8  RCL3 15419 8/8  RCL4 29053 8/8  tick=4966833
+run-2026-08-16T08-58-29Z  vs-ctrl  R2 -180  R3 +2880  R4 1/8 vs 8/8  leftover-5 HOLD  elapsed=34542/40000
+run-2026-08-16T08-58-29Z  L4  cand E13S7 29618  late E18S9 e3=26274
+run-2026-08-16T08-58-29Z  src  paveNow-restored  dest-21  push-main+vps  not-push-pacifist
+run-2026-08-16T08-58-29Z  verdict  WATCHING  will-CENSOR  no-KEEP  no-seed-21-yet  mark 29029 / ctrl31044  tick=4966833
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 14596 4/8 E13S7 10503 E5S3 15663 E12S1 15865 E16S9 16353
+run-2026-08-16T08-58-29Z  control    RCL2 1500 8/8  RCL3 15113 7/8
+run-2026-08-16T08-58-29Z  leftover-5  HOLD ext=5  5W hatch PASS 6/8  L3 0-roads
+run-2026-08-16T08-58-29Z  stall  E11S6 L2 p=9467  verdict WATCHING  no-KEEP  mark 29029
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 18299 8/8  RCL4 —  tick=4958565
+run-2026-08-16T08-58-29Z  control    RCL2 1500 8/8  RCL3 15419 8/8  RCL4 24189 2/8
+run-2026-08-16T08-58-29Z  leftover-5  HOLD ext=5  E13S7 p=111805  next-L4
+run-2026-08-16T08-58-29Z  vs-ctrl  R3 +2880  late E18S9 26274 E11S6 22907  elapsed=26274/40000
+run-2026-08-16T08-58-29Z  verdict  WATCHING  no-KEEP  5W-process-pass  mark 29029
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 18299 8/8  RCL4 32087 2/8 E13S7 29618 E12S3 34555  tick=4967616
+run-2026-08-16T08-58-29Z  control    RCL2 1500 8/8  RCL3 15419 8/8  RCL4 29053 8/8
+run-2026-08-16T08-58-29Z  leftover-5  HOLD L3 ext=5  L4 E13S7 dump=15
+run-2026-08-16T08-58-29Z  E16S9 p=130591 next-L4  elapsed=35325/40000
+run-2026-08-16T08-58-29Z  verdict  WATCHING  will-CENSOR  no-KEEP  5W  mark 29029 / ctrl29053
+run-2026-08-15T23-57-10Z  candidate  RCL2 811 (n=8/8)  RCL3 15177 (n=8/8)  RCL4 32092 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  control  RCL2 907 (n=8/8)  RCL3 15134 (n=8/8)  RCL4 28657 (n=8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-ctrl  RCL2 -96  RCL3 +43  RCL4 +3435 (n=8/8 vs 8/8)  tick=4734130
+run-2026-08-15T23-57-10Z  vs-leftover5  RCL2 +72  RCL3 +4177  RCL4 dirty-24512 not-mark  tick=4734130
+run-2026-08-15T23-57-10Z  vs-clean29029  cand RCL4 32092 (8/8)  +3063 vs 29029  tick=4734130
+run-2026-08-15T23-57-10Z  leftover-5  L4 E13S7 26926 E11S6 29188 E18S5 30245 E16S9 32248 E12S1 32370 E12S3 34236 E5S3 34900 E18S9 36623  tick=4734130
+run-2026-08-15T23-57-10Z  5W-latch  hatched-4W-not-5W  lastSpawn=0  RCL3+43 RCL4+3435 worse-than-this-ctrl  tick=4734130
+run-2026-08-15T23-57-10Z  verdict  REVERT  no-KEEP  8/8-both  elapsed=37183/40000  5W-latch SEND-BACK  tick=4734130
+run-2026-08-16T08-58-29Z  FINAL tick-budget 4972325
+run-2026-08-16T08-58-29Z  candidate  RCL2 1320 8/8  RCL3 18299 8/8  RCL4 33334 3/8 E13S7 29618 E12S3 34555 E16S9 35830
+run-2026-08-16T08-58-29Z  control    RCL2 1500 8/8  RCL3 15419 8/8  RCL4 29053 8/8
+run-2026-08-16T08-58-29Z  leftover-5  HOLD  5W hatch PASS  L3 0-roads
+run-2026-08-16T08-58-29Z  verdict  CENSOR 3/8  no-KEEP  5W process-pass not a speed KEEP
+run-2026-08-15T23-57-10Z  FINAL  SEND-BACK  R2 811/907  R3 15177/15134  R4 32092/28657  4W-not-5W  lastSpawn=0-poke
+run-2026-08-16T03-18-19Z  FINAL  CENSOR 7/8  R2 1548/1730  R3 14363/15249  R4 26849/30533  E18S5-DNF  do-not-reseed-16
+run-2026-08-16T10-19-31Z  candidate  RCL2 1550 (n=8/8)  RCL3 —  RCL4 —  tick=4979005
+run-2026-08-16T10-19-31Z  control  RCL2 1524 (n=8/8)  RCL3 —  RCL4 —  tick=4979005
+run-2026-08-16T10-19-31Z  vs-ctrl  RCL2 +26  slam  ext 1-5  leftover-5 HOLD  elapsed=6166/40000
+run-2026-08-16T10-19-31Z  slam  cap550 E12S1/E13S7  late E11S6 e2=3268 p=4341/1  watch=42424 dash=22928
+run-2026-08-16T10-19-31Z  15-SEND-BACK  16-CENSOR-stands  20-CENSOR-3/8  did-not-reseed
+run-2026-08-16T10-19-31Z  src  dest-cheap===0 dest-22  not-push-pacifist  lastSpawn-poke-absent
+run-2026-08-16T10-19-31Z  verdict  WATCHING  no-KEEP  pave-inert-until-L3  mark 29029 / ctrl29053
+run-2026-08-16T10-19-31Z  candidate  RCL2 1550 8/8  RCL3 —  RCL4 —  tick=4981949
+run-2026-08-16T10-19-31Z  L2-roads  0/0 all-8  leftover-5 HOLD slam-5 8/8  elapsed=9110/40000
+run-2026-08-16T10-19-31Z  5W  PASS E5S3 E12S3 E16S9 E12S1 E13S7  still-2W E18S9 E11S6 E18S5-thin
+run-2026-08-16T10-19-31Z  empire  E36N57 KEEP  E39N58 13120/15k  E35N59 DG851  no-unclaim
+run-2026-08-16T10-19-31Z  vps  W3N3 L3 36736 HOLD  W2N1 fuse+empty-bank  no-SSH no-push-vps
+run-2026-08-16T10-19-31Z  verdict  WATCHING  no-KEEP  5W-process-pass  mark 29029 / ctrl29053
+run-2026-08-15T23-57-10Z  FINAL SEND-BACK 32092 vs 28657  stands  do-not-reseed-16
+run-2026-08-16T03-18-19Z  FINAL CENSOR 7/8 26849 vs 30533  stands
+run-2026-08-16T10-19-31Z  candidate  RCL2 1550 8/8  RCL3 12951 5/8  RCL4 —  tick=4988980
+run-2026-08-16T10-19-31Z  control    RCL2 1524 8/8  RCL3 12972 4/8  RCL4 —
+run-2026-08-16T10-19-31Z  pave  E13S7 15r e3=9608  E5S3/E16S9 0r 1W+1W c=2 starved
+run-2026-08-16T10-19-31Z  leftover-5  HOLD ext=5  L2-roads 0/0  elapsed=16141/40000
+run-2026-08-16T10-19-31Z  src  dest-23 miner-first===0  hub-unlock  push-main  not-push-pacifist
+run-2026-08-16T10-19-31Z  verdict  WATCHING  no-KEEP  mark 29029 / ctrl29053
+run-2026-08-16T10-19-31Z  candidate  RCL2 1550 8/8  RCL3 13564 6/8  RCL4 —  tick=4989762
+run-2026-08-16T10-19-31Z  control    RCL2 1524 8/8  RCL3 13700 5/8  RCL4 —
+run-2026-08-16T10-19-31Z  leftover-5  HOLD ext=5  L2 0-roads  L3 haul live E13S7 15 standing
+run-2026-08-16T10-19-31Z  E13S7  R3 9608 p=74569  elapsed=16923/40000
+run-2026-08-16T10-19-31Z  verdict  WATCHING  no-KEEP  mark 29029 / ctrl29053
+run-2026-08-16T10-19-31Z  FINAL all-reached-target 5012700
+run-2026-08-16T10-19-31Z  candidate  RCL2 1550 8/8  RCL3 15353 8/8  RCL4 33645 8/8
+run-2026-08-16T10-19-31Z  control    RCL2 1524 8/8  RCL3 15032 8/8  RCL4 29626 8/8
+run-2026-08-16T10-19-31Z  vs-ctrl  R4 +4019  vs-29029 +4616
+run-2026-08-16T10-19-31Z  leftover-5  HOLD  E13S7 21657  E18S5 39482
+run-2026-08-16T10-19-31Z  verdict  8/8  no-KEEP  haul+5W slower than ctrl
+run-2026-08-16T11-51-57Z  NOTE  candidate code CHANGED mid-race: push-pacifist by a non-race agent at ~00:10 (bundle 18fb3011) and ~00:40 local (bundle b7dd7ef0), commit c136737 checkpoint. Treat cycle-22 A/B as CONTAMINATED unless candidate was re-pushed after 00:40. Sorry - the WATCHING line was not yet in _RUNNING.txt when I checked.
+run-2026-08-16T11-51-57Z  DATA-FOR-RCL6-MILESTONE  live shard3 E36N57 (RCL4, storage still a site): 20 creeps (5 upg 4W1C, 6 carry 6-8C, 3 build 1W2C, 2 miners 5W, RampartErector, sweeper) -> 0.69 e/t upgrade (12.5 when parked, depot 38,27 empties, they trek 27-31 tiles). Since checkpoint c136737: findStorage returns hub container at RCL4 (sink), upgrader trek cap + 10k bank floor, CLF rung floor. Roster size is the CPU lever (intent floor ~0.2/creep; empire ~64 creeps ~= 13 CPU of 20). Not touched by me - yours.
+run-2026-08-16T11-51-57Z  FINAL tick-budget INVALID  wipe-killed-first-batch  E5S3/E12S3/E18S9 L0
+run-2026-08-16T11-51-57Z  cand R4 4/8  28738/30069/33136/36552  no-KEEP
+run-2026-08-16T13-07-11Z  FINAL tick-budget CENSOR 3/8
+run-2026-08-16T13-07-11Z  cand R2 1481 8/8 R3 16984 8/8 R4 27598 3/8 E13S7 20815 E11S6 28565 E5S3 33415
+run-2026-08-16T13-07-11Z  ctrl R4 29283 8/8  no-KEEP
+run-2026-08-16T14-39-26Z  FINAL tick-budget CENSOR 6/8
+run-2026-08-16T14-39-26Z  cand R2 1316 8/8 R3 15618 8/8 R4 33197 6/8 E13S7 27897
+run-2026-08-16T14-39-26Z  ctrl R4 30014 8/8
+run-2026-08-16T14-39-26Z  verdict  no-KEEP  RCL3 remotes slowed E13S7 vs 20815

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>spawn → RCL4 · times</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --void: #13110c;
+  --ink: #efe6cc;
+  --mute: #8a7f68;
+  --tape: #e2b15a;
+  --ember: #d4783a;
+  --frost: #7eabba;
+  --swamp: #2a4a34;
+  --gate: #1c1913;
+  --sprocket: #3a3428;
+  --hair: #2c281f;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--void); color: var(--ink); }
+body {
+  font-family: Outfit, system-ui, sans-serif;
+  min-height: 100vh;
+  padding: 28px 28px 64px;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+  align-items: end;
+  border-bottom: 1px solid var(--hair);
+  padding-bottom: 22px;
+}
+.eyebrow {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--tape);
+  margin: 0 0 8px;
+}
+h1 {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin: 0;
+  line-height: 0.95;
+}
+h1 span { color: var(--tape); }
+.sub { color: var(--mute); margin: 10px 0 0; font-size: 14px; }
+.clocks {
+  display: flex;
+  gap: 18px;
+}
+.clock {
+  min-width: 132px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--hair);
+  background: #18150f;
+}
+.clock .k {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--mute);
+}
+.clock .v {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 28px;
+  font-weight: 600;
+  margin-top: 4px;
+  letter-spacing: -0.04em;
+}
+.clock .v em { font-style: normal; color: var(--mute); font-size: 13px; font-weight: 400; }
+.clock .split { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 12px; }
+.cand { color: var(--ember); }
+.ctrl { color: var(--frost); }
+.where {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--tape);
+  background: #18150f;
+  color: #cbbd9a;
+  font-size: 14px;
+  white-space: pre-wrap;
+  line-height: 1.45;
+}
+.film {
+  margin-top: 28px;
+  background: var(--gate);
+  border: 1px solid #2a251c;
+  padding: 0 0 16px;
+  position: relative;
+}
+.sprockets {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 14px;
+}
+.sprockets i {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--void);
+  box-shadow: inset 0 0 0 3px var(--sprocket);
+}
+.gate-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 18px 10px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.slots { display: flex; gap: 6px; flex-wrap: wrap; }
+.slots button, .speeds button, .play {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--sprocket);
+  padding: 5px 9px;
+  cursor: pointer;
+}
+.slots button.on, .speeds button.on, .play.on {
+  background: var(--tape);
+  color: #1a1408;
+  border-color: var(--tape);
+}
+.slots button.dark { outline: 1px solid #a14; }
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 0 18px;
+}
+.room {
+  background: #0e0c09;
+  border: 1px solid #2a251c;
+  min-height: 320px;
+}
+.room h2 {
+  margin: 0;
+  padding: 8px 10px 6px;
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 1px solid #2a251c;
+}
+.room canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  background: #16140c;
+}
+.hud {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--mute);
+  padding: 6px 10px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 0;
+  flex-wrap: wrap;
+}
+input[type="range"] { flex: 1; min-width: 180px; accent-color: var(--tape); }
+.tick-read { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--tape); min-width: 9ch; }
+.grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 22px;
+}
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+  text-align: left;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mute);
+  font-weight: 500;
+  padding: 0 8px 8px 0;
+  border-bottom: 1px solid var(--hair);
+}
+td { padding: 8px 8px 8px 0; border-bottom: 1px solid #221e16; vertical-align: top; }
+.bar {
+  height: 6px;
+  background: #241f16;
+  position: relative;
+  margin-top: 4px;
+}
+.bar > i { display: block; height: 100%; background: var(--ember); }
+.bar > b { display: block; height: 3px; background: var(--frost); margin-top: 2px; }
+.badge {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a14;
+  border: 1px solid #a14;
+  padding: 1px 5px;
+}
+.runs td { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  margin-top: 22px;
+  align-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--mute);
+}
+.legend .chip { display: flex; align-items: center; gap: 6px; }
+.legend canvas { width: 18px; height: 18px; image-rendering: pixelated; }
+.legend .dot {
+  width: 14px; height: 14px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 7px; font-weight: 700; color: #0b0b0b;
+}
+footer {
+  margin-top: 36px;
+  color: var(--mute);
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+a { color: var(--tape); }
+@media (max-width: 860px) {
+  header, .grid, .pair { grid-template-columns: 1fr; }
+  body { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <p class="eyebrow">mean ticks · candidate / control</p>
+    <h1>spawn <span>→</span> RCL4</h1>
+    <p class="sub" id="sub"></p>
+  </div>
+  <div class="clocks" id="clocks"></div>
+</header>
+<div class="where" id="where" hidden></div>
+
+<details class="film-wrap">
+<summary class="mono" style="color:var(--mute);cursor:pointer;margin:22px 0 8px">optional room film — skip this</summary>
+<section class="film">
+  <div class="sprockets" id="sprockets"></div>
+  <div class="gate-head">
+    <div class="slots" id="slots"></div>
+    <div class="speeds" id="speeds"></div>
+  </div>
+  <div class="pair">
+    <div class="room">
+      <h2><span class="cand" id="candTitle">candidate</span><span class="mono" id="candMeta"></span></h2>
+      <canvas id="cand" width="600" height="600"></canvas>
+      <div class="hud" id="candHud"></div>
+    </div>
+    <div class="room">
+      <h2><span class="ctrl" id="ctrlTitle">control</span><span class="mono" id="ctrlMeta"></span></h2>
+      <canvas id="ctrl" width="600" height="600"></canvas>
+      <div class="hud" id="ctrlHud"></div>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="play" id="play">play</button>
+    <input id="scrub" type="range" min="0" max="1" value="0" step="1"/>
+    <span class="tick-read" id="tickRead">+0</span>
+  </div>
+</section>
+
+<div class="grid">
+  <div>
+    <p class="eyebrow">this run · pairs</p>
+    <table>
+      <thead><tr><th>slot</th><th>candidate</th><th>control</th><th>RCL2</th><th>now</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div>
+    <p class="eyebrow">all runs</p>
+    <table class="runs">
+      <thead><tr><th>run</th><th>RCL2 Δ</th><th>RCL3</th><th>RCL4</th></tr></thead>
+      <tbody id="runs"></tbody>
+    </table>
+  </div>
+</div>
+<div class="legend" id="legend"></div>
+</details>
+<footer id="foot"></footer>
+
+<script src="sprites.js"></script>
+<script>
+const DASH = __DASH_JSON__;
+const SPEEDS = [12, 24, 48, 96];
+const TP = window.TP || { wall: "#0e0e0e", swamp: "#16301a", plain: "#2c2c24" };
+const RP = window.RP || { base: "#4a4a4a", top: "#6e6e6e", inset: 0.12, size: 0.76 };
+const MP = window.MP || { fill: "#3f6", stroke: "#5f8", inset: 1, fillOpacity: 0.28, strokeOpacity: 0.8, strokeWidth: 0.8 };
+const SPR = window.SPR || {};
+const SPRITE = {};
+const TERRAIN_CACHE = new Map();
+let spritesReady = false;
+
+function fmt(n) { return n == null ? "—" : String(n); }
+function pct(p, t) { return t ? Math.max(0, Math.min(1, p / t)) : 0; }
+
+function clockHtml() {
+  const m = DASH.means;
+  const cell = (lvl, a, b) => {
+    const left = a.mean == null ? "—" : a.mean;
+    const right = b.mean == null ? "—" : b.mean;
+    return `<div class="clock"><div class="k">RCL ${lvl}</div>
+      <div class="v">${left}<em> / ${right}</em></div>
+      <div class="split"><span class="cand">${a.hit}/${a.n}</span><span class="ctrl">${b.hit}/${b.n}</span></div></div>`;
+  };
+  return cell(2, m[2], m.c2) + cell(3, m[3], m.c3) + cell(4, m[4], m.c4);
+}
+
+function terrainByte(terrain, x, y) {
+  const c = terrain.charCodeAt(y * 50 + x) - 48;
+  return Number.isFinite(c) ? c : 0;
+}
+
+function roleColor(role) {
+  const s = role || "??";
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return "hsl(" + ((h >>> 0) % 360) + "," + (62 + ((h >>> 9) % 4) * 8) + "%," + (52 + ((h >>> 17) % 3) * 6) + "%)";
+}
+
+function loadSprites() {
+  const jobs = [];
+  for (const k of Object.keys(SPR)) {
+    const layers = SPR[k] || [];
+    for (let j = 0; j < layers.length; j++) jobs.push([k, j, layers[j].u]);
+  }
+  if (!jobs.length) {
+    spritesReady = true;
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    let left = jobs.length;
+    const imgs = {};
+    const done = () => {
+      if (--left > 0) return;
+      const R = 64;
+      for (const k of Object.keys(SPR)) {
+        const off = document.createElement("canvas");
+        off.width = R;
+        off.height = R;
+        const g = off.getContext("2d");
+        let drew = 0;
+        for (let j = 0; j < SPR[k].length; j++) {
+          const im = imgs[k + "#" + j];
+          if (!im) continue;
+          const sc = SPR[k][j].s || 0.94;
+          const pad = R * (1 - sc) / 2;
+          try { g.drawImage(im, pad, pad, R * sc, R * sc); drew++; } catch (e) {}
+        }
+        if (drew) SPRITE[k] = off;
+      }
+      spritesReady = true;
+      resolve();
+    };
+    for (const job of jobs) {
+      const im = new Image();
+      im.onload = () => { imgs[job[0] + "#" + job[1]] = im; done(); };
+      im.onerror = done;
+      im.src = job[2];
+    }
+  });
+}
+
+function terrainLayer(still) {
+  if (!still || !still.terrain) return null;
+  if (TERRAIN_CACHE.has(still.terrain)) return TERRAIN_CACHE.get(still.terrain);
+  const off = document.createElement("canvas");
+  off.width = 600;
+  off.height = 600;
+  const g = off.getContext("2d");
+  const cell = 12;
+  const T = still.terrain;
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
+      const t = terrainByte(T, x, y);
+      g.fillStyle = (t & 1) ? TP.wall : (t & 2) ? TP.swamp : TP.plain;
+      g.fillRect(x * cell, y * cell, cell, cell);
+    }
+  }
+  g.strokeStyle = "rgba(0,0,0,0.28)";
+  g.lineWidth = 0.5;
+  for (let i = 0; i <= 50; i++) {
+    g.beginPath(); g.moveTo(i * cell, 0); g.lineTo(i * cell, 600); g.stroke();
+    g.beginPath(); g.moveTo(0, i * cell); g.lineTo(600, i * cell); g.stroke();
+  }
+  TERRAIN_CACHE.set(still.terrain, off);
+  return off;
+}
+
+function blitSprite(ctx, type, x, y, cell, alpha) {
+  const spr = SPRITE[type];
+  if (!spr) return false;
+  ctx.save();
+  ctx.globalAlpha = alpha == null ? 1 : alpha;
+  ctx.drawImage(spr, x * cell, y * cell, cell, cell);
+  ctx.restore();
+  return true;
+}
+
+function paintRoad(ctx, x, y, cell) {
+  ctx.fillStyle = RP.base;
+  ctx.fillRect(x * cell, y * cell, cell, cell);
+  ctx.fillStyle = RP.top;
+  ctx.fillRect(x * cell + cell * RP.inset, y * cell + cell * RP.inset, cell * RP.size, cell * RP.size);
+}
+
+function paintRampart(ctx, x, y, cell) {
+  const px = x * cell + MP.inset;
+  const py = y * cell + MP.inset;
+  const w = cell - 2 * MP.inset;
+  ctx.save();
+  ctx.globalAlpha = MP.fillOpacity;
+  ctx.fillStyle = MP.fill;
+  ctx.fillRect(px, py, w, w);
+  ctx.globalAlpha = MP.strokeOpacity;
+  ctx.strokeStyle = MP.stroke;
+  ctx.lineWidth = MP.strokeWidth;
+  ctx.strokeRect(px + 0.5, py + 0.5, w - 1, w - 1);
+  ctx.restore();
+}
+
+function draw(canvas, still, frame) {
+  const ctx = canvas.getContext("2d");
+  const cell = canvas.width / 50;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!still || !still.terrain) {
+    ctx.fillStyle = "#16140c";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  const floor = terrainLayer(still);
+  if (floor) ctx.drawImage(floor, 0, 0, canvas.width, canvas.height);
+  const f = frame || still.last;
+  if (!f) return;
+  const order = ["road", "rampart", "constructedWall", "container", "extension", "spawn", "tower", "storage", "link", "terminal", "lab", "nuker", "observer", "extractor"];
+  const rest = (f.st || []).slice().sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+  for (const [type, x, y] of rest) {
+    if (type === "road") paintRoad(ctx, x, y, cell);
+    else if (type === "rampart") paintRampart(ctx, x, y, cell);
+    else if (!blitSprite(ctx, type, x, y, cell, 1)) {
+      ctx.fillStyle = "#888";
+      ctx.fillRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2);
+    }
+  }
+  for (const [type, x, y] of f.sites || []) {
+    if (type === "road") {
+      ctx.save(); ctx.globalAlpha = 0.35; paintRoad(ctx, x, y, cell); ctx.restore();
+    } else if (type === "rampart") {
+      ctx.save(); ctx.globalAlpha = 0.35; paintRampart(ctx, x, y, cell); ctx.restore();
+    } else blitSprite(ctx, type, x, y, cell, 0.4);
+    ctx.save();
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.setLineDash([2, 2]);
+    ctx.strokeRect(x * cell + 1, y * cell + 1, cell - 2, cell - 2);
+    ctx.restore();
+  }
+  if (still.sources) {
+    for (const [x, y] of still.sources) blitSprite(ctx, "source", x, y, cell, 1);
+  }
+  if (still.mineral) blitSprite(ctx, "mineral", still.mineral[0], still.mineral[1], cell, 1);
+  if (still.controller) blitSprite(ctx, "controller", still.controller[0], still.controller[1], cell, 1);
+  for (const [tag, x, y] of f.cr || []) {
+    const cx = x * cell + cell / 2;
+    const cy = y * cell + cell / 2;
+    ctx.fillStyle = roleColor(tag);
+    ctx.beginPath();
+    ctx.arc(cx, cy, cell * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#0b0b0b";
+    ctx.font = "bold " + Math.max(7, cell * 0.42) + "px ui-monospace,monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText((tag || "??").slice(0, 2), cx, cy + 0.5);
+  }
+}
+
+const cache = new Map();
+async function loadStrip(room) {
+  if (cache.has(room)) return cache.get(room);
+  try {
+    const r = await fetch("frames/" + encodeURIComponent(DASH.runId) + "/" + encodeURIComponent(room) + ".json", { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    cache.set(room, j);
+    return j;
+  } catch {
+    const still = DASH.stills[room];
+    const fake = still ? { terrain: still.terrain, sources: still.sources, controller: still.controller, frames: still.last ? [still.last] : [] } : { frames: [] };
+    cache.set(room, fake);
+    return fake;
+  }
+}
+
+function nearest(frames, elapsed) {
+  if (!frames || !frames.length) return null;
+  let best = frames[0];
+  let d = Math.abs((best.e ?? 0) - elapsed);
+  for (const f of frames) {
+    const dd = Math.abs((f.e ?? 0) - elapsed);
+    if (dd < d) { best = f; d = dd; }
+  }
+  return best;
+}
+
+let slotId = (DASH.slots[0] && DASH.slots[0].slot) || "B1";
+let fps = 24;
+let playing = false;
+let elapsed = 0;
+let maxE = 1;
+let raf = 0;
+let lastTs = 0;
+let candStrip = null;
+let ctrlStrip = null;
+
+function slotObj() {
+  return DASH.slots.find((s) => s.slot === slotId) || DASH.slots[0];
+}
+
+function hud(el, side, f) {
+  if (!f) { el.textContent = "no frame yet"; return; }
+  const p = f.pt ? ((f.p / f.pt) * 100).toFixed(1) + "%" : "—";
+  el.innerHTML = `<span>RCL ${f.rcl} · ${p}</span><span>ext ${f.ext}</span><span>tower ${f.twr}</span><span>box ${f.con}</span><span>${f.cr.length} creeps</span><span>${f.sites.length} sites</span><span>${f.en}/${f.cap}</span>`;
+}
+
+function paint() {
+  const s = slotObj();
+  if (!s) return;
+  const cf = nearest(candStrip && candStrip.frames, elapsed);
+  const kf = nearest(ctrlStrip && ctrlStrip.frames, elapsed);
+  const cStill = DASH.stills[s.candidate && s.candidate.room] || candStrip;
+  const kStill = DASH.stills[s.control && s.control.room] || ctrlStrip;
+  draw(document.getElementById("cand"), cStill, cf);
+  draw(document.getElementById("ctrl"), kStill, kf);
+  hud(document.getElementById("candHud"), "candidate", cf || (s.candidate && s.candidate.last));
+  hud(document.getElementById("ctrlHud"), "control", kf || (s.control && s.control.last));
+  document.getElementById("tickRead").textContent = "+" + elapsed;
+  document.getElementById("scrub").value = String(elapsed);
+}
+
+async function loadSlot(id) {
+  slotId = id;
+  const s = slotObj();
+  document.querySelectorAll(".slots button").forEach((b) => b.classList.toggle("on", b.dataset.slot === id));
+  document.getElementById("candTitle").textContent = "candidate · " + ((s.candidate && s.candidate.room) || "?");
+  document.getElementById("ctrlTitle").textContent = "control · " + ((s.control && s.control.room) || "?");
+  document.getElementById("candMeta").textContent = s.band || "";
+  document.getElementById("ctrlMeta").textContent = s.band || "";
+  candStrip = s.candidate ? await loadStrip(s.candidate.room) : { frames: [] };
+  ctrlStrip = s.control ? await loadStrip(s.control.room) : { frames: [] };
+  const es = []
+    .concat((candStrip.frames || []).map((f) => f.e || 0))
+    .concat((ctrlStrip.frames || []).map((f) => f.e || 0));
+  maxE = es.length ? Math.max(...es) : 1;
+  document.getElementById("scrub").max = String(maxE);
+  if (elapsed > maxE) elapsed = maxE;
+  paint();
+}
+
+function tickPlay(ts) {
+  if (!playing) return;
+  if (!lastTs) lastTs = ts;
+  const dt = (ts - lastTs) / 1000;
+  lastTs = ts;
+  const frameStep = Math.max(1, Math.round((maxE / Math.max(1, (candStrip.frames || []).length)) || 30));
+  elapsed = Math.min(maxE, elapsed + fps * dt * Math.max(8, frameStep));
+  if (elapsed >= maxE) {
+    playing = false;
+    document.getElementById("play").classList.remove("on");
+    document.getElementById("play").textContent = "play";
+  }
+  paint();
+  raf = requestAnimationFrame(tickPlay);
+}
+
+function renderChrome() {
+  document.getElementById("clocks").innerHTML = clockHtml();
+  document.getElementById("sub").textContent =
+    (DASH.label || DASH.runId) + " · tick " + (DASH.tick || "—") + " · generated " + (DASH.generatedAt || "").replace("T", " ").replace("Z", " UTC");
+  if (DASH.where) {
+    const w = document.getElementById("where");
+    w.hidden = false;
+    w.textContent = DASH.where;
+  }
+  const sprockets = document.getElementById("sprockets");
+  sprockets.innerHTML = Array.from({ length: 18 }, () => "<i></i>").join("");
+  const slots = document.getElementById("slots");
+  slots.innerHTML = "";
+  for (const s of DASH.slots) {
+    const b = document.createElement("button");
+    b.textContent = s.slot;
+    b.dataset.slot = s.slot;
+    if ((s.candidate && s.candidate.stalled) || (s.control && s.control.stalled)) b.classList.add("dark");
+    b.onclick = () => loadSlot(s.slot);
+    slots.appendChild(b);
+  }
+  const speeds = document.getElementById("speeds");
+  speeds.innerHTML = "";
+  for (const n of SPEEDS) {
+    const b = document.createElement("button");
+    b.textContent = n + " fps";
+    if (n === fps) b.classList.add("on");
+    b.onclick = () => {
+      fps = n;
+      speeds.querySelectorAll("button").forEach((x) => x.classList.toggle("on", x === b));
+    };
+    speeds.appendChild(b);
+  }
+  const play = document.getElementById("play");
+  play.onclick = () => {
+    playing = !playing;
+    play.classList.toggle("on", playing);
+    play.textContent = playing ? "pause" : "play";
+    lastTs = 0;
+    if (playing) {
+      if (elapsed >= maxE) elapsed = 0;
+      raf = requestAnimationFrame(tickPlay);
+    } else cancelAnimationFrame(raf);
+  };
+  document.getElementById("scrub").oninput = (e) => {
+    elapsed = Number(e.target.value);
+    paint();
+  };
+
+  const rows = document.getElementById("rows");
+  rows.innerHTML = DASH.slots.map((s) => {
+    const c = s.candidate || {};
+    const k = s.control || {};
+    const c2 = c.milestones && c.milestones[2];
+    const k2 = k.milestones && k.milestones[2];
+    const nowC = c.last ? ("RCL" + c.last.rcl + " " + (c.last.pt ? Math.round(c.last.p / c.last.pt * 100) + "%" : "")) : (c.lastSeen ? ("RCL" + c.lastSeen.level) : "—");
+    const nowK = k.last ? ("RCL" + k.last.rcl + " " + (k.last.pt ? Math.round(k.last.p / k.last.pt * 100) + "%" : "")) : (k.lastSeen ? ("RCL" + k.lastSeen.level) : "—");
+    const stall = (c.stalled || k.stalled) ? ' <span class="badge">dark</span>' : "";
+    return `<tr>
+      <td class="mono">${s.slot}<br><span style="color:var(--mute)">${s.band || ""}</span></td>
+      <td>${c.room || "—"}${c.stalled ? stall : ""}<div class="bar"><i style="width:${c.last && c.last.pt ? (c.last.p / c.last.pt * 100) : 0}%"></i></div></td>
+      <td>${k.room || "—"}${k.stalled && !c.stalled ? stall : ""}<div class="bar"><b style="width:${k.last && k.last.pt ? (k.last.p / k.last.pt * 100) : 0}%"></b></div></td>
+      <td class="mono"><span class="cand">${fmt(c2)}</span> / <span class="ctrl">${fmt(k2)}</span></td>
+      <td class="mono">${nowC}<br>${nowK}</td>
+    </tr>`;
+  }).join("");
+
+  const runs = document.getElementById("runs");
+  runs.innerHTML = (DASH.runs || []).slice().reverse().map((r) => {
+    const d2 = (r.means[2].mean != null && r.means.c2.mean != null) ? (r.means[2].mean - r.means.c2.mean) : null;
+    return `<tr>
+      <td>${r.label || r.runId}<br><span style="color:var(--mute)">${(r.createdAt || "").slice(0, 16)}</span></td>
+      <td>${d2 == null ? "—" : (d2 > 0 ? "+" : "") + d2}</td>
+      <td>${fmt(r.means[3].mean)} / ${fmt(r.means.c3.mean)}</td>
+      <td>${fmt(r.means[4].mean)} / ${fmt(r.means.c4.mean)}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("foot").innerHTML =
+    "candidate ember · control frost · film cells are mongo snapshots, not interpolated · open via <a href=\"/\">http://127.0.0.1:8767/</a> for playback · " +
+    (DASH.setHash ? "set " + DASH.setHash + " · " : "") +
+    "target RCL" + DASH.targetRcl;
+}
+
+function paintLegend() {
+  const el = document.getElementById("legend");
+  if (!el) return;
+  const kinds = ["spawn", "extension", "tower", "container", "storage", "source", "controller"];
+  const chips = kinds.map((k) => {
+    const c = document.createElement("canvas");
+    c.width = 36; c.height = 36;
+    const g = c.getContext("2d");
+    g.fillStyle = TP.plain;
+    g.fillRect(0, 0, 36, 36);
+    if (SPRITE[k]) g.drawImage(SPRITE[k], 0, 0, 36, 36);
+    const wrap = document.createElement("span");
+    wrap.className = "chip";
+    wrap.appendChild(c);
+    wrap.appendChild(document.createTextNode(k));
+    return wrap.outerHTML;
+  });
+  const roles = [["EM", "miner"], ["CA", "carry"], ["Up", "upgrade"], ["Bu", "build"]];
+  const dots = roles.map(([tag, name]) =>
+    `<span class="chip"><span class="dot" style="background:${roleColor(tag)}">${tag}</span>${name}</span>`
+  ).join("");
+  el.innerHTML = chips.join("") + dots + '<span class="chip">dashed = construction site</span>';
+}
+
+renderChrome();
+loadSprites().then(() => {
+  paintLegend();
+  loadSlot(slotId);
+});
+setTimeout(() => { if (location.protocol !== "file:") location.reload(); }, 180000);
+</script>
+</body>
+</html>

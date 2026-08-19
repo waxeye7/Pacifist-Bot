@@ -1,0 +1,72 @@
+[
+  {
+    "room": "E11S1",
+    "exact": true,
+    "seat": "24,8",
+    "gotLen": 569,
+    "wantLen": 569,
+    "gotHead": "ON THIS ROOM: the mineral seat at 24,8 has these eight neighbours — 25,8 (nothing of ours) · 23,8 (nothing of ours) · 24,9 (nothing of ours) · 24,7 (nothing of ours) · 25,9 (nothin",
+    "wantHead": "ON THIS ROOM: the mineral seat at 24,8 has these eight neighbours — 25,8 (nothing of ours) · 23,8 (nothing of ours) · 24,9 (nothing of ours) · 24,7 (nothing of ours) · 25,9 (nothin",
+    "divergeAt": 569
+  },
+  {
+    "room": "E2S5",
+    "exact": false,
+    "seat": "27,23",
+    "gotLen": 544,
+    "wantLen": 565,
+    "gotHead": "ON THIS ROOM: the mineral seat at 27,23 has these eight neighbours — 28,23 (road) · 26,23 (nothing of ours) · 27,24 (lab) · 27,22 (nothing of ours) · 28,24 (lab) · 28,22 (extractor",
+    "wantHead": "ON THIS ROOM: the mineral seat at 27,23 has these eight neighbours — 28,23 (road) · 26,23 (nothing of ours) · 27,24 (lab) · 27,22 (nothing of ours) · 28,24 (lab) · 28,22 (extractor",
+    "divergeAt": 269
+  },
+  {
+    "room": "E5S1",
+    "exact": false,
+    "seat": "29,30",
+    "gotLen": 568,
+    "wantLen": 563,
+    "gotHead": "ON THIS ROOM: the mineral seat at 29,30 has these eight neighbours — 30,30 (nothing of ours) · 28,30 (nothing of ours) · 29,31 (nothing of ours) · 29,29 (nothing of ours) · 30,31 (",
+    "wantHead": "ON THIS ROOM: the mineral seat at 29,30 has these eight neighbours — 30,30 (nothing of ours) · 28,30 (road) · 29,31 (nothing of ours) · 29,29 (nothing of ours) · 30,31 (extractor) ",
+    "divergeAt": 102
+  },
+  {
+    "room": "E5S3",
+    "exact": false,
+    "seat": "32,11",
+    "gotLen": 545,
+    "wantLen": 566,
+    "gotHead": "ON THIS ROOM: the mineral seat at 32,11 has these eight neighbours — 33,11 (extension) · 31,11 (road) · 32,12 (nothing of ours) · 32,10 (extension) · 33,12 (extractor) · 33,10 (roa",
+    "wantHead": "ON THIS ROOM: the mineral seat at 32,11 has these eight neighbours — 33,11 (extension) · 31,11 (road) · 32,12 (nothing of ours) · 32,10 (extension) · 33,12 (extractor) · 33,10 (roa",
+    "divergeAt": 264
+  },
+  {
+    "room": "E12S7",
+    "exact": true,
+    "seat": "25,32",
+    "gotLen": 561,
+    "wantLen": 561,
+    "gotHead": "ON THIS ROOM: the mineral seat at 25,32 has these eight neighbours — 26,32 (extractor) · 24,32 (nothing of ours) · 25,33 (tower) · 25,31 (nothing of ours) · 26,33 (nothing of ours)",
+    "wantHead": "ON THIS ROOM: the mineral seat at 25,32 has these eight neighbours — 26,32 (extractor) · 24,32 (nothing of ours) · 25,33 (tower) · 25,31 (nothing of ours) · 26,33 (nothing of ours)",
+    "divergeAt": 561
+  },
+  {
+    "room": "E9S9",
+    "exact": true,
+    "seat": "42,19",
+    "gotLen": 566,
+    "wantLen": 566,
+    "gotHead": "ON THIS ROOM: the mineral seat at 42,19 has these eight neighbours — 43,19 (extension) · 41,19 (road) · 42,20 (extension) · 42,18 (nothing of ours) · 43,20 (road) · 43,18 (road) · ",
+    "wantHead": "ON THIS ROOM: the mineral seat at 42,19 has these eight neighbours — 43,19 (extension) · 41,19 (road) · 42,20 (extension) · 42,18 (nothing of ours) · 43,20 (road) · 43,18 (road) · ",
+    "divergeAt": 566
+  },
+  {
+    "room": "E1S1",
+    "exact": true,
+    "seat": "15,17",
+    "gotLen": 576,
+    "wantLen": 576,
+    "gotHead": "ON THIS ROOM: the mineral seat at 15,17 has these eight neighbours — 16,17 (nothing of ours) · 14,17 (nothing of ours) · 15,18 (nothing of ours) · 15,16 (nothing of ours) · 16,18 (",
+    "wantHead": "ON THIS ROOM: the mineral seat at 15,17 has these eight neighbours — 16,17 (nothing of ours) · 14,17 (nothing of ours) · 15,18 (nothing of ours) · 15,16 (nothing of ours) · 16,18 (",
+    "divergeAt": 576
+  }
+]
