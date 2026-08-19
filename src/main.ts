@@ -19,6 +19,8 @@ import { installSegmentCommands } from "utils/Segments";
 import { publishAllyNeed } from "utils/AllyNeedSegment";
 import { refreshModes } from "War/mode";
 import { runReinforce } from "War/reinforce";
+import { runEmpire } from "Empire/empire";
+import { empireBrainEnabled } from "utils/Features";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -310,6 +312,14 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   // Modes from last tick's danger flags (refresh again after rooms).
   refreshModes();
+  // The empire looks at everything ONCE, before any room acts: shared creep
+  // census, the spawn-rescue job (target, mother, retasks), room postures.
+  // Rooms read it; nothing in a room writes empire state. docs/EMPIRE-LAYER.md.
+  // Not shed on economyOnly: it is O(creeps + rooms) and rescue is the thing
+  // a starving empire most needs to keep deciding.
+  if (empireBrainEnabled()) {
+    phase("empire", () => runEmpire());
+  }
   phase("rooms", () => rooms());
   // Defence just raised/cleared distress this tick — send help if anyone shouted.
   phase("reinforce", () => runReinforce());

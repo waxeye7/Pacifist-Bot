@@ -113,7 +113,13 @@ describe("spawnFirstInLine does not fake a spawn on -6", () => {
         assert.include(SPAWNING, 'startsWith("emergencyFILLER")');
     });
     it("does not default the rescue mother to every caller", () => {
-        assert.include(SPAWNING, "let best: string = null");
+        // Mother selection moved to Empire/rescueLib.ts (pickRescueMother, run
+        // once per tick by the empire pass); the room-side rule is the same:
+        // only the named mother queues, nobody defaults to themselves.
+        const LIB = fs.readFileSync(
+            path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
+        assert.include(LIB, "let best: string | null = null");
+        assert.include(SPAWNING, "if (!job || job.mother !== room.name) return");
         assert.include(SPAWNING, "if (!best || best !== room.name) return");
     });
 });

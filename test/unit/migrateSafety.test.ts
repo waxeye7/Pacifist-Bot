@@ -405,7 +405,9 @@ describe("construction never drops the pack", () => {
  */
 describe("spawn rescue: no unsatisfiable energy floors", () => {
     const SPAWNING = fs.readFileSync(
-        path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
+        path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8")
+        // rescueMotherFloor + mother selection moved to Empire/rescueLib.ts (docs/EMPIRE-LAYER.md)
+        + fs.readFileSync(path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
 
     it("gates the rescue mother on a share of capacity, not a flat number", () => {
         assert.notInclude(

@@ -808,11 +808,14 @@ describe("coloniseVetoesNoVisionSpawnless", () => {
     });
 
     it("roomLooksSpawnlessOwned uses the veto instead of a bare tc.room === name", () => {
-        const SPAWNING = fs.readFileSync(
-            path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
-        assert.include(SPAWNING, "coloniseVetoesNoVisionSpawnless(");
+        // roomLooksSpawnlessOwned moved to Empire/rescueLib.ts (the empire
+        // rescue pass and the legacy per-room path share it) — pin the veto
+        // where the live implementation is.
+        const LIB = fs.readFileSync(
+            path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
+        assert.include(LIB, "coloniseVetoesNoVisionSpawnless(");
         assert.notMatch(
-            SPAWNING,
+            LIB,
             /if \(Memory\.target_colonise && Memory\.target_colonise\.room === name\) return false;/,
         );
     });
@@ -862,12 +865,13 @@ describe("spawnRescuePinHolds", () => {
     });
 
     it("pickSpawnRescue consults spawnSiteUnfinishable, not spawnless alone", () => {
-        const SPAWNING = fs.readFileSync(
-            path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
-        assert.include(SPAWNING, "spawnRescuePinHolds(");
-        assert.include(SPAWNING, "spawnSiteUnfinishable(pinned)");
+        // pickSpawnRescue moved to Empire/rescueLib.ts — pin the live copy.
+        const LIB = fs.readFileSync(
+            path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
+        assert.include(LIB, "spawnRescuePinHolds(");
+        assert.include(LIB, "spawnSiteUnfinishable(pinned)");
         assert.notMatch(
-            SPAWNING,
+            LIB,
             /if \(typeof pinned === "string" && roomLooksSpawnlessOwned\(pinned\)\) return pinned;/,
         );
     });
@@ -924,7 +928,10 @@ describe("spawnRescueValue", () => {
         const SPAWNING = fs.readFileSync(
             path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
         assert.include(SPAWNING, "rememberOwnedRoomStats(");
-        assert.include(SPAWNING, "spawnRescueValue(");
+        // pickSpawnRescue (the spawnRescueValue consumer) lives in Empire/rescueLib.ts now.
+        const LIB = fs.readFileSync(
+            path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
+        assert.include(LIB, "spawnRescueValue(");
     });
 });
 
@@ -951,9 +958,10 @@ describe("retaskKeepsHatcheryRole", () => {
     });
 
     it("retaskBuildersToSpawnless uses the hatchery-crew skip", () => {
-        const SPAWNING = fs.readFileSync(
-            path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
-        assert.include(SPAWNING, "retaskKeepsHatcheryRole(");
+        // retaskBuildersToSpawnless lives in Empire/rescueLib.ts now.
+        const LIB = fs.readFileSync(
+            path.join(__dirname, "../../src/Empire/rescueLib.ts"), "utf8");
+        assert.include(LIB, "retaskKeepsHatcheryRole(");
     });
 });
 

@@ -40,6 +40,10 @@ export interface FeatureFlags {
    * still the on/off switch for the whole system.
    */
   expandMinRcl: number;
+  /** Empire pass before rooms: rescue as an empire job, shared census, postures. Off = legacy per-room rescue. docs/EMPIRE-LAYER.md */
+  empireBrain: boolean;
+  /** Critical-needs spawn ladder: the survival floor (miner per source, something moving energy) before the FIFO queue. docs/EMPIRE-LAYER.md */
+  spawnLadder: boolean;
 }
 
 const DEFAULTS: FeatureFlags = {
@@ -53,6 +57,8 @@ const DEFAULTS: FeatureFlags = {
   // AutoExpand.blockedReason now measures directly; an RCL proxy for readiness
   // just blocked a GCL-12 bot with 8 free claims behind rooms stuck at RCL6.
   expandMinRcl: 0,
+  empireBrain: true,
+  spawnLadder: true,
 };
 
 export function getFeatures(): FeatureFlags {
@@ -67,6 +73,8 @@ export function getFeatures(): FeatureFlags {
   if (f.pickupLock === undefined) f.pickupLock = true;
   if (f.sourceMaps === undefined) f.sourceMaps = false;
   if (f.expandMinRcl === undefined) f.expandMinRcl = 0;
+  if (f.empireBrain === undefined) f.empireBrain = true;
+  if (f.spawnLadder === undefined) f.spawnLadder = true;
   return f;
 }
 
@@ -100,4 +108,12 @@ export function minCutWallsEnabled(): boolean {
 export function sourceMapsEnabled(): boolean {
   if ((Memory as any).enableSourceMaps === true) return true;
   return getFeatures().sourceMaps === true;
+}
+
+export function empireBrainEnabled(): boolean {
+  return getFeatures().empireBrain !== false;
+}
+
+export function spawnLadderEnabled(): boolean {
+  return getFeatures().spawnLadder !== false;
 }

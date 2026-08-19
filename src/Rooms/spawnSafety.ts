@@ -7,6 +7,8 @@
  * wrong-open — see docs/STARVATION-TRAPS.md.
  */
 
+import { invalidateCensus } from "Empire/census";
+
 /**
  * Storage + terminal energy the room can actually spend. Either store
  * alone used to miss ALIGN leftover (storage 0 + terminal 10k) and
@@ -432,6 +434,7 @@ export function resetBuilderCullForTest(): void {
 export function cullSurplusBuildersOnce(): void {
     if (lastBuilderCullTick === Game.time) return;
     lastBuilderCullTick = Game.time;
+    let converted = 0;
     const byStation: { [rn: string]: any[] } = {};
     const creeps = Game.creeps || {};
     for (const name in creeps) {
@@ -462,7 +465,7 @@ export function cullSurplusBuildersOnce(): void {
         for (let i = 0; i < list.length; i++) {
             const c = list[i];
             if (i < cap) {
-                if (c.memory.role !== "builder") c.memory.role = "builder";
+                if (c.memory.role !== "builder") { c.memory.role = "builder"; converted++; }
                 if (!c.memory.homeRoom) c.memory.homeRoom = rn;
                 continue;
             }
@@ -470,6 +473,7 @@ export function cullSurplusBuildersOnce(): void {
             // them — the old `converted < LIVE_BUILDER_CAP` then suicide
             // leftover paid the last rescue in corpses.
             if (c.getActiveBodyparts(CARRY) > 0) {
+                converted++;
                 c.memory.role = "carry";
                 c.memory.homeRoom = rn;
                 delete c.memory.fill;
@@ -478,7 +482,11 @@ export function cullSurplusBuildersOnce(): void {
                 delete c.memory.targetRoom;
             } else if (c.ticksToLive && c.ticksToLive < 200) {
                 c.suicide();
+                converted++;
             }
         }
     }
+    // Roles were rewritten mid-tick: the shared census must not keep serving
+    // the old ones to the ladder / empire readers this tick (review O9).
+    if (converted) invalidateCensus();
 }
