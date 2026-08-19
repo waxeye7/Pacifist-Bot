@@ -160,6 +160,24 @@ function tapStillGood(creep): any {
 		}
 	}
 
+	// RAMPART SITES ARE ONE INTENT. progressTotal is 1: a single build()
+	// from any WORK part finishes the tile. There is no cheaper site in the
+	// game and no reason to let one linger — live 2026-08-20: the income
+	// ramparts at E36N57 (9,6) and E37N59 (25,43) sat at 0/1 for hours while
+	// the builders paved and stacked extensions, because no rung ever named
+	// ramparts and the closest-site fallback always had a nearer road.
+	// placeFromPlanV2 caps standing rampart sites at 4, so this rung costs at
+	// most four build ticks before handing back to the eco order.
+	if(buildingsToBuild.length > 0) {
+		const rampSites = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_RAMPART;});
+		if(rampSites.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🧱", true);
+			const closest = creep.pos.findClosestByRange(rampSites);
+			return (closest || rampSites[0]).id;
+		}
+	}
+
 	// RCL3: controller depot before leftover extensions. The parked 4W
 	// only pays once this container exists; the next five extensions
 	// raise cap 550→800 but the 4W is already 500e. Same range-4 /

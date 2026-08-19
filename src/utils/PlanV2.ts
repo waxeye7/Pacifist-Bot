@@ -204,6 +204,23 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // bleeding itself on optional structures, not at one that never finished
       // its own energy network. Two slots — a drip, not the RCL4-5 dump.
       if (coreBuildoutIncomplete(lvl, structs)) return 2;
+      // LABS ARE THE INCOME MULTIPLIER, NOT FURNITURE. VPS W1N1 (RCL8) sat at
+      // 7/10 labs with the bank oscillating 130-165k around the 150k floor —
+      // the clamp was holding back the exact structures whose reactions/boosts
+      // refill the bank. One slot for a missing lab once the room holds at
+      // least HALF the floor: a lab is 50k, half the RCL8 floor is 75k, the
+      // cushion survives the build. Rooms genuinely broke (W3N1 at 16k) stay
+      // fully clamped.
+      if (e >= floor / 2) {
+        const labCap = ((CONTROLLER_STRUCTURES as any)[STRUCTURE_LAB] || {})[lvl] || 0;
+        if (labCap > 0) {
+          let labs = 0;
+          for (const s of structs) {
+            if (s.structureType === STRUCTURE_LAB && (s as any).my) labs++;
+          }
+          if (labs < labCap) return 1;
+        }
+      }
       return 0;
     }
   }
