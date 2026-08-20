@@ -472,7 +472,16 @@ const run = function (creep) {
     // after a withdraw — the old check ran after collect and un-fulled us.
     const startedEnergy = creep.store[RESOURCE_ENERGY] || 0;
     if(creep.memory.full) {
-        if(creep.room.controller && (creep.room.controller.level <= 6 && startedEnergy < 50 || creep.room.controller.level == 7 && startedEnergy < 100 || creep.room.controller.level == 8 && startedEnergy < 200)) {
+        // The RCL literal must never exceed the BODY. An RCL8 ladder stopgap
+        // with 150 capacity hit "full" (free==0) and "still-loaded < 200" the
+        // SAME tick, un-fulled, and stood at the storage withdrawing ERR_FULL
+        // forever — W1N1 spawn-dead: 282k banked, 60 extensions all empty,
+        // every replacement filler born into the same livelock.
+        const fillerCap = creep.store.getCapacity(RESOURCE_ENERGY) || 0;
+        const rclFloor = creep.room.controller
+            ? (creep.room.controller.level <= 6 ? 50 : creep.room.controller.level == 7 ? 100 : 200)
+            : 50;
+        if(creep.room.controller && startedEnergy < Math.min(rclFloor, Math.max(1, fillerCap))) {
             creep.memory.full = false;
             creep.memory.t = false;
         }

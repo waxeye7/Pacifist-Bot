@@ -2255,7 +2255,13 @@ global.SDM = function (homeRoom, targetRoomName) {
             }
         });
 
-        if (billtongs == 0) {
+        // Also count QUEUED billtongs. Unguarded, this re-pushed a 3000e body
+        // every pass while none could hatch — W1N1's queue held EIGHTEEN of
+        // them (18 of 24 slots), which also starved the interleave scan of
+        // anything cheap to slot past the stalled head.
+        const queuedBilltong = _.some(room.memory.spawn_list || [], (e: any) =>
+            typeof e === "string" && e.indexOf("Billtong-") === 0);
+        if (billtongs == 0 && !queuedBilltong) {
 
             let newName = 'Billtong-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([MOVE, WORK, CARRY, MOVE, MOVE, WORK, CARRY, MOVE, MOVE, WORK, CARRY, MOVE, MOVE, WORK, CARRY, MOVE, MOVE, WORK, CARRY, MOVE, MOVE, WORK, CARRY, MOVE,

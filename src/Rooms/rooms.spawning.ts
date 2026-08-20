@@ -3369,7 +3369,11 @@ function emergencyFillerRescue(room, spawn): boolean {
     let storage = (room.storage && room.storage.my) ? room.storage
         : Game.getObjectById(room.memory.Structures?.storage);
     if (storage && storage.structureType !== STRUCTURE_STORAGE) storage = null;
-    let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
+    // Excludes ladder stopgaps, SAME as the producer roster (:875) — the two
+    // counts disagreeing is what kept W1N1 dead: the roster queued a 1200e
+    // real filler forever while this cure saw the livelocked 150-cap stopgap
+    // as "a filler exists" and never fired.
+    let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name && !(creep.memory as any).stopgap).length;
     // a carrier can drop into storage/spawn too, so it counts as "something can
     // still move energy" for the last-resort rung below ("FakeFiller" is a
     // carrier mid-dropoff, see carry.ts)
@@ -3666,6 +3670,11 @@ function spawnFirstInLine(room, spawn) {
                 }
                 else if(mayShrinkHead && (
                 room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
+                // Filler was the ONE role no safety could touch: the shredder
+                // exempts it, dest-cheap only rewrites miners, and the queue
+                // wipe needs an empty queue — so an unaffordable 1200e filler
+                // head sat in front of a 302-energy room forever (W1N1).
+                room.memory.spawn_list[1].startsWith("Filler") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
                 room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3
                     // [5W,M] HOL bar is 600; [2M,6W,M] HOL bar is 900. Both
                     // always shrink on -6 unless exempted.
