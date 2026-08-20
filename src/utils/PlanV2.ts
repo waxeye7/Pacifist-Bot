@@ -26,6 +26,7 @@ import { isExteriorTile, interiorReady } from "utils/Interior";
 import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 import { requestSegments } from "utils/Segments";
 import { incomeRampartAdds, shellExposure } from "utils/minerSeat";
+import { trimControllerRoads } from "utils/roadTrim";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -2730,6 +2731,35 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
     }
   } catch (e) {
     logAlways(`planV2 ${room.name}: income-rampart derive threw:`, (e && (e as any).stack) || e);
+  }
+
+  // CONTROLLER ROADS STOP AT THE DEPOT (owner rule, 2026-08-20; see
+  // utils/roadTrim). Roads within 4 of the controller are walked once per
+  // creep lifetime but repaired forever — trim them from the plan IN-PLACE,
+  // keeping only the depot container's own approach tiles. One-shot per
+  // adopted plan (plan.ct): the same sync rebuilds keepTheseRoads from the
+  // trimmed array, so already-built tiles fall out of the repair set and
+  // decay off the map; placement/drip/audits all read plan.t.road and follow.
+  // rs is index-locked to road, so both filter under one keep-mask.
+  if (!(plan as any).ct) {
+    (plan as any).ct = 1;
+    try {
+      if (room.controller && plan.t.road && plan.t.road.length) {
+        const trimmed = trimControllerRoads(
+          plan.t.road,
+          (plan as any).rs,
+          { x: room.controller.pos.x, y: room.controller.pos.y },
+          plan.t.container || [],
+        );
+        if (trimmed.dropped) {
+          plan.t.road = trimmed.road;
+          if (trimmed.rs) (plan as any).rs = trimmed.rs;
+          logAlways(`planV2 ${room.name}: trimmed ${trimmed.dropped} controller-hugging road tile(s) — roads stop at the depot, nothing closer than 4 to the controller`);
+        }
+      }
+    } catch (e) {
+      logAlways(`planV2 ${room.name}: controller road trim threw:`, (e && (e as any).stack) || e);
+    }
   }
 
   const shell = plan.t.shellCut || [];
