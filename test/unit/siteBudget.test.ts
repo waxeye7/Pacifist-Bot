@@ -27,7 +27,7 @@ describe("placement order and the road drip", () => {
     });
 
     it("roads trickle outside the shared budget, and the broke strip keeps the same number", () => {
-        assert.match(SRC, /const ROAD_DRIP = [23]/);
+        assert.match(SRC, /const ROAD_DRIP = [234]/);
         // drip placement runs before the budget gate
         const drip = SRC.indexOf("THE ROAD DRIP");
         const gate = SRC.indexOf("if (budget <= 0) return;");

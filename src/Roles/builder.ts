@@ -46,13 +46,14 @@ function weakestSanctionedRampart(room): any {
 
 
 /**
- * The room's ONE designated paver: the first builder name in sort order among
- * the room's live builders, and only when the crew is >= 2 (a lone builder
- * stays on eco). Cached per room per tick — findLocked runs every tick for
+ * The room's designated paver(s): the first builder name(s) in sort order
+ * among the room's live builders, and only when the crew is >= 2 (a lone
+ * builder stays on eco). A second paver joins from a 3+ crew when 5+ road
+ * sites stand. Cached per room per tick — findLocked runs every tick for
  * every idle builder.
  */
 let _paverTick = -1;
-let _paver: {[roomName: string]: string | null} = {};
+let _paver: {[roomName: string]: string[]} = {};
 function isDesignatedPaver(creep): boolean {
 	if(_paverTick !== Game.time) {
 		_paverTick = Game.time;
@@ -66,9 +67,22 @@ function isDesignatedPaver(creep): boolean {
 			if(c.memory && c.memory.role === "builder" &&
 				(c.memory.homeRoom || c.room.name) === rn) names.push(n);
 		}
-		_paver[rn] = names.length >= 2 ? names.sort()[0] : null;
+		names.sort();
+		// One paver from a crew of 2+. When the road BACKLOG is real (5+
+		// sites — arterials to the far source still unconnected, the owner's
+		// "roads not built quick enough" case) and the crew can spare it
+		// (3+), a SECOND builder paves too. Deterministic: first two names.
+		let pavers: string[] = [];
+		if(names.length >= 2) {
+			pavers = [names[0]];
+			const roadSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES, {
+				filter: (s: any) => s.structureType === STRUCTURE_ROAD,
+			}).length;
+			if(names.length >= 3 && roadSites >= 5) pavers.push(names[1]);
+		}
+		_paver[rn] = pavers;
 	}
-	return _paver[rn] === creep.name;
+	return (_paver[rn] as any).indexOf(creep.name) !== -1;
 }
 
 /**

@@ -205,22 +205,26 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // bleeding itself on optional structures, not at one that never finished
       // its own energy network. Two slots — a drip, not the RCL4-5 dump.
       if (coreBuildoutIncomplete(lvl, structs)) return 2;
-      // LABS ARE THE INCOME MULTIPLIER, NOT FURNITURE. VPS W1N1 (RCL8) sat at
-      // 7/10 labs with the bank oscillating 130-165k around the 150k floor —
-      // the clamp was holding back the exact structures whose reactions/boosts
-      // refill the bank. One slot for a missing lab once the room holds at
-      // least HALF the floor: a lab is 50k, half the RCL8 floor is 75k, the
-      // cushion survives the build. Rooms genuinely broke (W3N1 at 16k) stay
-      // fully clamped.
+      // LABS AND THE TERMINAL ARE THE INCOME MULTIPLIERS, NOT FURNITURE.
+      // VPS W1N1 (RCL8) sat at 7/10 labs with the bank oscillating 130-165k
+      // around the 150k floor; live E37N59 (RCL6) sat with NO TERMINAL at a
+      // 10-30k bank — the clamp was holding back the exact structures whose
+      // reactions/boosts/market refill the bank. One slot for a missing
+      // lab or terminal once the room holds at least HALF the floor (the
+      // cushion survives the build; PLACE_ORDER hands the slot to the
+      // terminal first). Rooms genuinely broke (W3N1 at 16k) stay clamped.
       if (e >= floor / 2) {
-        const labCap = ((CONTROLLER_STRUCTURES as any)[STRUCTURE_LAB] || {})[lvl] || 0;
-        if (labCap > 0) {
-          let labs = 0;
-          for (const s of structs) {
-            if (s.structureType === STRUCTURE_LAB && (s as any).my) labs++;
-          }
-          if (labs < labCap) return 1;
+        const caps: any = CONTROLLER_STRUCTURES as any;
+        const labCap = (caps[STRUCTURE_LAB] || {})[lvl] || 0;
+        const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
+        let labs = 0;
+        let terms = 0;
+        for (const s of structs) {
+          if (!(s as any).my) continue;
+          if (s.structureType === STRUCTURE_LAB) labs++;
+          else if (s.structureType === STRUCTURE_TERMINAL) terms++;
         }
+        if ((labCap > 0 && labs < labCap) || (termCap > 0 && terms < termCap)) return 1;
       }
       return 0;
     }
@@ -1625,7 +1629,7 @@ const PLACE_ORDER = [
  * tick-cost on that tile. Two sites is a drip, not a flood — the broke-bank
  * strip keeps exactly this many too, so the two never fight.
  */
-const ROAD_DRIP = 3;
+const ROAD_DRIP = 4;
 
 /**
  * ---------------------------------------------------------------------------

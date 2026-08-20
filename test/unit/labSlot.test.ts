@@ -21,9 +21,9 @@ describe("broke-clamp lab slot (W1N1 7/10 labs)", () => {
         const body = PLAN.slice(start, PLAN.indexOf("\nconst SYNC_EVERY", start));
         const core = body.indexOf("coreBuildoutIncomplete(lvl, structs)) return 2;");
         const half = body.indexOf("e >= floor / 2");
-        const grant = body.indexOf("labs < labCap) return 1;");
+        const grant = body.indexOf("(labCap > 0 && labs < labCap) || (termCap > 0 && terms < termCap)) return 1;");
         assert.isAbove(core, -1, "core drip still present");
-        assert.isAbove(half, core, "lab exception sits after the core drip");
+        assert.isAbove(half, core, "lab/terminal exception sits after the core drip");
         assert.isAbove(grant, half, "the grant is inside the half-floor guard");
         // still fully clamped when genuinely broke: the final return 0 survives
         assert.isAbove(body.indexOf("return 0;", grant), -1);

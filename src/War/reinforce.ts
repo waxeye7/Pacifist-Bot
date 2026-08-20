@@ -26,7 +26,12 @@ function alreadyHelping(target: string): boolean {
   for (const name in Game.creeps) {
     const c = Game.creeps[name];
     if (!c || !c.memory) continue;
-    if (c.memory.role === "Guard" && c.memory.targetRoom === target) return true;
+    // Guard.ts PROMOTES an arrived Guard to RampartDefender in an owned
+    // RCL4+ room (live E39N58, 2026-08-20): matching only "Guard" made the
+    // helper invisible the moment it started helping, so every raid 200+
+    // ticks apart sent a fresh 650e body at the same room.
+    if ((c.memory.role === "Guard" || c.memory.role === "RampartDefender") &&
+        c.memory.targetRoom === target) return true;
   }
   const owned = ownedRooms();
   for (let i = 0; i < owned.length; i++) {

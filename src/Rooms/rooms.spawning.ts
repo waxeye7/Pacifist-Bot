@@ -1219,7 +1219,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 // CPU crisis (live MMO only — benches idle at a full bucket):
                 // the shuttle roster is the first thing to shed. See
                 // CPU_CRISIS_BUCKET.
+                // STARVE CLAMP (owner, 2026-08-20: "we over produce upgraders
+                // when we don't even have enough energy"): while the spawn
+                // network sits below half, more drinkers only fight the
+                // spawn for the same joules — hold at 3 until the fill
+                // recovers. Self-releasing, never recycles a live creep.
                 amount: Game.cpu.bucket < CPU_CRISIS_BUCKET ? 2
+                    : (room.energyAvailable * 2 < room.energyCapacityAvailable) ? 3
                     : room.energyCapacityAvailable >= 550 ? 6 : 4,
                 // No controller depot until RCL3. [4W,C,M] is 3 ticks/tile
                 // (5 non-MOVE / 1 MOVE) and a 50-energy tank — ~0.5 e/t
@@ -1263,8 +1269,11 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                // CPU crisis shed — see CPU_CRISIS_BUCKET / RCL2's note.
-                amount: Game.cpu.bucket < CPU_CRISIS_BUCKET ? 2 : 4,
+                // CPU crisis shed + starve clamp — see CPU_CRISIS_BUCKET and
+                // RCL2's notes. Below half fill the roster holds at 2.
+                amount: Game.cpu.bucket < CPU_CRISIS_BUCKET ? 2
+                    : (room.energyAvailable * 2 < room.energyCapacityAvailable) ? 2
+                    : 4,
                 // Parked 4W only pays once the controller container exists.
                 // Until then this is the same shuttle as RCL2 — builders
                 // finish that depot before leftover extensions.
@@ -2791,7 +2800,14 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(room.memory.danger == true && room.memory.danger_timer >= 35 && fillers >= 2 && storage && storage.store[RESOURCE_ENERGY] > 10000) {
+    // The 10k bank floor kept a YOUNG room from ever defending itself: live
+    // E39N58 (RCL4, storage standing at 0 energy) sat through a real player
+    // raid unable to queue a single defender and permanently outsourced to
+    // its neighbour's reinforce Guard. Under actual danger a bankless room
+    // may spend its spawn network instead — half-full is the same bar the
+    // starve clamps use everywhere else.
+    if(room.memory.danger == true && room.memory.danger_timer >= 35 && fillers >= 2 && storage &&
+        (storage.store[RESOURCE_ENERGY] > 10000 || room.energyAvailable * 2 >= room.energyCapacityAvailable)) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 350;});
@@ -4010,7 +4026,13 @@ function earlyBuildSlots(sites, cap: number, room?): number {
         if(sites[i].structureType !== STRUCTURE_ROAD) useful++;
         else roads++;
     }
-    if(useful > 0) return Math.min(cap, useful, 2);
+    // The flat 2-builder crew is the right floor for a starving colony, but
+    // it is also why "it completes const sites so slowly": a FED young room
+    // (spawn+ext >= 75% full) can pay a third pair of hands. Fill is the
+    // honest signal — it dips the moment spawning outpaces income and the
+    // extra slot closes again on its own.
+    const fed = room && room.energyAvailable * 4 >= room.energyCapacityAvailable * 3;
+    if(useful > 0) return Math.min(cap, useful, fed ? 3 : 2);
     if(roads > 0 && room && room.energyCapacityAvailable >= 550) return Math.min(2, roads);
     return sites.length > 0 ? 1 : 0;
 }

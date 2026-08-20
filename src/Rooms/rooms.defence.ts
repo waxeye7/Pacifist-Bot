@@ -48,10 +48,16 @@ function planShellRamparts(room: any): any[] {
  * tower shell top-up below.
  * ------------------------------------------------------------------------- */
 export function rampartHitsTargetForRcl(rcl: number): number {
+    // Owner ladder (2026-08-20): the premium rises with what the room is
+    // insuring. 50k at RCL4 is "survive to safe-mode"; 12.5M at RCL8 is a
+    // real siege wall. Every spend decision routes through here, so the
+    // ladder IS the policy.
     if (rcl < 4) return 5000;
-    if (rcl <= 6) return 100000;
-    if (rcl === 7) return 300000;
-    return 15255000;
+    if (rcl === 4) return 50000;
+    if (rcl === 5) return 100000;
+    if (rcl === 6) return 250000;
+    if (rcl === 7) return 500000;
+    return 12500000;
 }
 
 export function rampartHitsTarget(room: any): number {

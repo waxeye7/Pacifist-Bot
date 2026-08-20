@@ -12,12 +12,14 @@ import {
 } from "../../src/Rooms/rooms.defence";
 
 describe("rampartHitsTarget", () => {
-    it("matches the per-RCL repair rungs", () => {
+    it("matches the owner ladder (2026-08-20)", () => {
         assert.strictEqual(rampartHitsTargetForRcl(3), 5000);
-        assert.strictEqual(rampartHitsTargetForRcl(6), 100000);
-        assert.strictEqual(rampartHitsTargetForRcl(7), 300000);
-        assert.strictEqual(rampartHitsTargetForRcl(8), 15255000);
-        assert.strictEqual(rampartHitsTarget({ controller: { level: 7 } }), 300000);
+        assert.strictEqual(rampartHitsTargetForRcl(4), 50000);
+        assert.strictEqual(rampartHitsTargetForRcl(5), 100000);
+        assert.strictEqual(rampartHitsTargetForRcl(6), 250000);
+        assert.strictEqual(rampartHitsTargetForRcl(7), 500000);
+        assert.strictEqual(rampartHitsTargetForRcl(8), 12500000);
+        assert.strictEqual(rampartHitsTarget({ controller: { level: 7 } }), 500000);
     });
 });
 
@@ -46,8 +48,8 @@ describe("safeModeBreachHits", () => {
     });
 
     it("falls back to the previous RCL target when no hits are known", () => {
-        assert.strictEqual(safeModeBreachHits(7, 0), 75000);
-        assert.strictEqual(safeModeBreachHits(8, 0), 225000);
+        assert.strictEqual(safeModeBreachHits(7, 0), 187500); // 75% of the 250k RCL6 shell
+        assert.strictEqual(safeModeBreachHits(8, 0), 375000); // 75% of the 500k RCL7 shell
     });
 
     it("hasDamagedRamparts uses safeModeBreachHits, not 75% of the new target", () => {
