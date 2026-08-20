@@ -4,7 +4,7 @@ import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
 import { logAlways } from "utils/Logger";
-import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { rescueJob } from "Empire/empire";
 import { empireBrainEnabled, spawnLadderEnabled } from "utils/Features";
@@ -1832,7 +1832,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount, room);
             const rcl3RoadsOnly = onlyRoadSites(sites);
             const paveArterials = room.energyCapacityAvailable >= 550 && hasRoadSite(sites);
-            if((!rcl3RoadsOnly || paveArterials) && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < (paveArterials ? 2 : rcl3BuildWant)) {
+            // min with liveBuilderKeep: wanting more builders than the cull
+            // will keep is a spawn->demote->respawn pump (see liveBuilderKeep).
+            if((!rcl3RoadsOnly || paveArterials) && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < Math.min(paveArterials ? 2 : rcl3BuildWant, liveBuilderKeep(sites.length))) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1881,7 +1883,11 @@ function add_creeps_to_spawn_list(room, spawn) {
             // gets built, which means no storage, which means no builders.
             // FLAG: RCL4 builder floor was 15k vs RCL5's 5k — a fresh storage
             // sat idle while sites waited. Aligned to 5k (R6.19).
-            if(builders < spawnrules[4].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
+            // min with liveBuilderKeep: the flat amount (3) vs the cull's
+            // max(1, sites) is the E39N58 pump — one open site kept exactly 1
+            // builder while this rung refilled the other two forever, minting
+            // a 900e "carry" every 47 ticks.
+            if(builders < Math.min(spawnrules[4].build_creep.amount, liveBuilderKeep(sites.length)) && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1941,7 +1947,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             // Was 15k — left sites unfinished while eco was still climbing
             // same container-vs-storage trap as RCL4 above
-            if(builders < spawnrules[5].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
+            if(builders < Math.min(spawnrules[5].build_creep.amount, liveBuilderKeep(sites.length)) && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -2524,7 +2530,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     // Bankless RCL5+ used to queue 5 full-size builders (50 parts) on
     // top of queueBuilder. Live E37N59 after a hub move sat at 0 storage
     // and hatched a second builder army in front of its own miners.
-    if(room.controller.level >= 5 && !storage && builders < 2 && sites.length > 0) {
+    if(room.controller.level >= 5 && !storage && builders < Math.min(2, liveBuilderKeep(sites.length)) && sites.length > 0) {
         let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 12), name, {memory: {role: 'builder'}});
         console.log('Adding Builder to Spawn List: ' + name + ' (bankless floor)');
@@ -4236,7 +4242,7 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
      * actually trying to do. Two builders cannot both work one site faster than
      * one can; the extra bodies are pure queue pressure.
      */
-    const want = Math.min(rich ? rules.build_creep.amount : 1, usefulSites);
+    const want = Math.min(rich ? rules.build_creep.amount : 1, usefulSites, liveBuilderKeep(sites.length));
     if(builders >= want) return;
     const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
     room.memory.spawn_list.push(rules.build_creep.body, name, {memory: {role: 'builder'}});

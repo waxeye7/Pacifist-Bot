@@ -11,6 +11,7 @@ import {
     cullSurplusBuildersOnce,
     resetBuilderCullForTest,
     LIVE_BUILDER_CAP,
+    liveBuilderKeep,
     headBlocksInterleave,
     destCheapRewritesHead,
     destCheapLeftoverNeedsFiveW,
@@ -350,6 +351,15 @@ describe("builderStationRoom", () => {
     });
 });
 
+describe("liveBuilderKeep", () => {
+    it("is the single spawn/cull cap: 0 without sites, max(1,sites), ceiling LIVE_BUILDER_CAP", () => {
+        assert.strictEqual(liveBuilderKeep(0), 0);
+        assert.strictEqual(liveBuilderKeep(1), 1);
+        assert.strictEqual(liveBuilderKeep(3), 3);
+        assert.strictEqual(liveBuilderKeep(12), LIVE_BUILDER_CAP);
+    });
+});
+
 describe("cullSurplusBuildersOnce", () => {
     function runCull(creeps: any, rooms: any, time = 10): any[] {
         const list = Object.keys(creeps).map((k) => creeps[k]);
@@ -434,6 +444,46 @@ describe("cullSurplusBuildersOnce", () => {
         const carries = Object.keys(creeps).filter((k) => creeps[k].memory.role === "carry");
         assert.strictEqual(suicided.length, 0);
         assert.strictEqual(carries.length, 12 - LIVE_BUILDER_CAP);
+    });
+
+    it("promotes a demoted ex-builder back when sites return, instead of hatching fresh", () => {
+        // The other half of the E39N58 pump: the planner drips the next site
+        // batch, the roster reads 0 builders, and a fresh 900e body hatches
+        // while three 3W ex-builders idle around the storage.
+        const dest = makeRoom("E39N58", { sites: 2, my: true });
+        const b = makeCreep("b", { role: "builder", room: "E39N58", home: "E39N58", work: 3 });
+        const ex1 = makeCreep("ex1", { role: "carry", room: "E39N58", home: "E39N58", work: 3 });
+        const ex2 = makeCreep("ex2", { role: "carry", room: "E39N58", home: "E39N58", work: 3 });
+        const hauler = makeCreep("h", { role: "carry", room: "E39N58", home: "E39N58", work: 0 });
+        ex1.memory.full = true;
+        runCull({ b, ex1, ex2, h: hauler }, { E39N58: dest });
+        const builders = [b, ex1, ex2, hauler].filter((c) => c.memory.role === "builder");
+        assert.strictEqual(builders.length, 2, "2 sites -> keep 2: the builder plus ONE promoted ex");
+        assert.strictEqual(b.memory.role, "builder", "standing builder outranks an equal-WORK ex");
+        assert.strictEqual(ex1.memory.role, "builder", "first ex-builder promoted");
+        assert.isUndefined(ex1.memory.full, "carry-state cleared on promotion");
+        assert.strictEqual(ex2.memory.role, "carry", "surplus ex-builder keeps hauling");
+        assert.strictEqual(hauler.memory.role, "carry", "0-WORK real hauler is never a candidate");
+    });
+
+    it("never promotes source-bound or emergency-feed carriers, whatever their WORK", () => {
+        const dest = makeRoom("E39N58", { sites: 4, my: true });
+        const srcBound = makeCreep("s", { role: "carry", room: "E39N58", home: "E39N58", work: 3 });
+        srcBound.memory.sourceId = "abc123";
+        const feeder = makeCreep("f", { role: "carry", room: "E39N58", home: "E39N58", work: 3 });
+        feeder.memory.emergencyFeed = "E35N58";
+        runCull({ s: srcBound, f: feeder }, { E39N58: dest });
+        assert.strictEqual(srcBound.memory.role, "carry");
+        assert.strictEqual(feeder.memory.role, "carry");
+    });
+
+    it("leaves ex-builders hauling (memory untouched) while the station has no sites", () => {
+        const dest = makeRoom("E39N58", { sites: 0, my: true });
+        const ex = makeCreep("ex", { role: "carry", room: "E39N58", home: "E39N58", work: 3 });
+        ex.memory.full = true;
+        runCull({ ex }, { E39N58: dest });
+        assert.strictEqual(ex.memory.role, "carry");
+        assert.isTrue(ex.memory.full, "no-op pass must not churn hauler memory");
     });
 
     it("does not convert a rescue ContainerBuilder still walking to the colony", () => {

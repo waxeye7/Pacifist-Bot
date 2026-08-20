@@ -15,18 +15,21 @@ const PLAN = fs.readFileSync(path.join(__dirname, "../../src/utils/PlanV2.ts"), 
 const BUILDER = fs.readFileSync(path.join(__dirname, "../../src/Roles/builder.ts"), "utf8");
 
 describe("broke-clamp lab slot (W1N1 7/10 labs)", () => {
-    it("grants one slot for a missing lab at half the floor, inside the broke branch", () => {
+    it("grants one slot for a missing lab at half the floor, and a missing terminal at 5k", () => {
         const start = PLAN.indexOf("function maxSitesFor");
         assert.isAbove(start, -1);
         const body = PLAN.slice(start, PLAN.indexOf("\nconst SYNC_EVERY", start));
         const core = body.indexOf("coreBuildoutIncomplete(lvl, structs)) return 2;");
-        const half = body.indexOf("e >= floor / 2");
-        const grant = body.indexOf("(labCap > 0 && labs < labCap) || (termCap > 0 && terms < termCap)) return 1;");
+        // Split guards (E37N59 deadlock): the terminal — the structure that
+        // un-breaks a room — opens at the builders' 5k floor; labs keep half
+        // the RCL floor.
+        const termGrant = body.indexOf("termCap > 0 && terms < termCap && e >= 5000) return 1;");
+        const labGrant = body.indexOf("e >= floor / 2 && labCap > 0 && labs < labCap) return 1;");
         assert.isAbove(core, -1, "core drip still present");
-        assert.isAbove(half, core, "lab/terminal exception sits after the core drip");
-        assert.isAbove(grant, half, "the grant is inside the half-floor guard");
+        assert.isAbove(termGrant, core, "terminal exception sits after the core drip");
+        assert.isAbove(labGrant, termGrant, "lab grant stays behind the half-floor guard");
         // still fully clamped when genuinely broke: the final return 0 survives
-        assert.isAbove(body.indexOf("return 0;", grant), -1);
+        assert.isAbove(body.indexOf("return 0;", labGrant), -1);
     });
 });
 

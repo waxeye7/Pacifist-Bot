@@ -38,6 +38,19 @@ describe("placement order and the road drip", () => {
     });
 });
 
+describe("broke-clamp income exceptions", () => {
+    it("a missing terminal opens its slot at the builders' 5k floor, not half the RCL floor", () => {
+        // E37N59 deadlock: a 2-source no-remote RCL6 netting <10/t can never
+        // save the 15k half-floor, and the terminal is exactly the structure
+        // that would fix that (market + neighbor energy arrive through it).
+        const term = SRC.indexOf("termCap > 0 && terms < termCap && e >= 5000) return 1;");
+        const lab = SRC.indexOf("e >= floor / 2 && labCap > 0 && labs < labCap) return 1;");
+        assert.isAbove(term, -1, "terminal slot at the 5k bank floor");
+        assert.isAbove(lab, -1, "lab slot still needs half the floor");
+        assert.isBelow(term, lab, "terminal exception is checked first");
+    });
+});
+
 describe("war economy gate", () => {
     let prevGame: any;
     let prevMemory: any;

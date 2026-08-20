@@ -424,11 +424,35 @@ export function stripKeepsRescueRole(role: string, danger: boolean): boolean {
  */
 export const LIVE_BUILDER_CAP = 4;
 
+/**
+ * The ONE formula for "how many builders may this station keep". The cull
+ * demotes down to it, and every builder spawn rung must clamp its own want to
+ * it — a rung that wants more than the cull will keep is a pump: spawn,
+ * demote to carry, roster count drops, spawn again. Live E39N58 (RCL4 rung
+ * wanted 3, one open site kept 1) minted a 900e builder every 47 ticks for
+ * ~750 ticks and ended up with 16 surplus haulers on a 2-source room.
+ */
+export function liveBuilderKeep(siteCount: number): number {
+    return siteCount > 0 ? Math.min(LIVE_BUILDER_CAP, Math.max(1, siteCount)) : 0;
+}
+
 let lastBuilderCullTick = 0;
 
 /** Test hook — the live cull is once-per-tick. */
 export function resetBuilderCullForTest(): void {
     lastBuilderCullTick = 0;
+}
+
+/**
+ * An ex-builder the cull demoted to carry and may promote back: real build
+ * power, not bound to a source or an emergency-feed run, not draining. Real
+ * haulers are 0-WORK bodies, so >=2 WORK cannot steal one.
+ */
+function promotableExBuilder(c: any): boolean {
+    const m = c.memory || {};
+    if (m.role !== "carry" && m.role !== "FakeFiller") return false;
+    if (m.sourceId || m.emergencyFeed || m.suicide) return false;
+    return c.getActiveBodyparts(WORK) >= 2;
 }
 
 export function cullSurplusBuildersOnce(): void {
@@ -441,13 +465,17 @@ export function cullSurplusBuildersOnce(): void {
         const c = creeps[name];
         if (!c.memory) continue;
         const role = c.memory.role;
-        if (role !== "builder" && role !== "buildcontainer") continue;
         // Rescue CBs are already capped by RESCUE_BUILDER_CAP. Walking AND
         // arrived stay exempt: converting an arrived crew to builder/carry
         // (spawnFirstLockdown leaves one site, so cap=1) makes
         // colonyBuildersOn see 0, mothers hatch another wave, and retask
         // then cull oscillates every tick — nobody stays on the 15k site.
         if (role === "buildcontainer") continue;
+        // Demoted ex-builders stay in the pool: when the planner drips the
+        // next site batch, promoting a 3W hauler already standing there is
+        // free — hatching a fresh 900e builder while it idles is the other
+        // half of how E39N58 stacked 16 haulers.
+        if (role !== "builder" && !promotableExBuilder(c)) continue;
         const station = builderStationRoom(c);
         if (!station) continue;
         (byStation[station] = byStation[station] || []).push(c);
@@ -460,15 +488,29 @@ export function cullSurplusBuildersOnce(): void {
         if (!room || !room.controller || !room.controller.my) continue;
         const sites = room.find ? room.find(FIND_MY_CONSTRUCTION_SITES).length : 0;
         const list = byStation[rn];
-        list.sort((a, b) => b.getActiveBodyparts(WORK) - a.getActiveBodyparts(WORK));
-        const cap = sites > 0 ? Math.min(LIVE_BUILDER_CAP, Math.max(1, sites)) : 0;
+        // WORK first; on ties a standing builder outranks an ex-builder, so
+        // the same creeps keep the job tick over tick instead of flip-flopping
+        // roles (and repathing) every pass.
+        list.sort((a, b) =>
+            b.getActiveBodyparts(WORK) - a.getActiveBodyparts(WORK)
+            || (b.memory.role === "builder" ? 1 : 0) - (a.memory.role === "builder" ? 1 : 0));
+        const cap = liveBuilderKeep(sites);
         for (let i = 0; i < list.length; i++) {
             const c = list[i];
             if (i < cap) {
-                if (c.memory.role !== "builder") { c.memory.role = "builder"; converted++; }
+                if (c.memory.role !== "builder") {
+                    c.memory.role = "builder";
+                    converted++;
+                    delete c.memory.full;
+                    delete c.memory.fill;
+                    delete c.memory.locked;
+                    delete c.memory.building;
+                }
                 if (!c.memory.homeRoom) c.memory.homeRoom = rn;
                 continue;
             }
+            // Surplus ex-builders just keep hauling — leave their memory be.
+            if (c.memory.role !== "builder") continue;
             // Surplus become carriers for the STATION room. Convert all of
             // them — the old `converted < LIVE_BUILDER_CAP` then suicide
             // leftover paid the last rescue in corpses.

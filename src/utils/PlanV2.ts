@@ -209,23 +209,28 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // VPS W1N1 (RCL8) sat at 7/10 labs with the bank oscillating 130-165k
       // around the 150k floor; live E37N59 (RCL6) sat with NO TERMINAL at a
       // 10-30k bank — the clamp was holding back the exact structures whose
-      // reactions/boosts/market refill the bank. One slot for a missing
-      // lab or terminal once the room holds at least HALF the floor (the
-      // cushion survives the build; PLACE_ORDER hands the slot to the
-      // terminal first). Rooms genuinely broke (W3N1 at 16k) stay clamped.
-      if (e >= floor / 2) {
-        const caps: any = CONTROLLER_STRUCTURES as any;
-        const labCap = (caps[STRUCTURE_LAB] || {})[lvl] || 0;
-        const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
-        let labs = 0;
-        let terms = 0;
-        for (const s of structs) {
-          if (!(s as any).my) continue;
-          if (s.structureType === STRUCTURE_LAB) labs++;
-          else if (s.structureType === STRUCTURE_TERMINAL) terms++;
-        }
-        if ((labCap > 0 && labs < labCap) || (termCap > 0 && terms < termCap)) return 1;
+      // reactions/boosts/market refill the bank. One slot for a missing lab
+      // once the room holds at least HALF the floor (the cushion survives
+      // the build); PLACE_ORDER hands a shared slot to the terminal first.
+      const caps: any = CONTROLLER_STRUCTURES as any;
+      const labCap = (caps[STRUCTURE_LAB] || {})[lvl] || 0;
+      const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
+      let labs = 0;
+      let terms = 0;
+      for (const s of structs) {
+        if (!(s as any).my) continue;
+        if (s.structureType === STRUCTURE_LAB) labs++;
+        else if (s.structureType === STRUCTURE_TERMINAL) terms++;
       }
+      // A missing TERMINAL is the one structure that can UN-break a room:
+      // market sales and neighbor energy both arrive through it. Half the
+      // floor (15k at RCL6) deadlocked live E37N59 — a 2-source, no-remote
+      // room netting <10/t slid 12k->3k and could never reach the bar it
+      // needed to build its own way out. The builder rungs already refuse
+      // to spend below a 5k bank, so the site is free until the room can
+      // actually pay the drip; 5k is that same floor.
+      if (termCap > 0 && terms < termCap && e >= 5000) return 1;
+      if (e >= floor / 2 && labCap > 0 && labs < labCap) return 1;
       return 0;
     }
   }
