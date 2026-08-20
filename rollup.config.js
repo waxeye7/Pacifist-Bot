@@ -26,7 +26,7 @@ export default {
     clear({ targets: ["dist"] }),
     resolve({ rootDir: "src" }),
     commonjs(),
-    typescript({tsconfig: "./tsconfig.json"}),
+    typescript({tsconfig: "./tsconfig.json", include: ["*.ts+(|x)", "**/*.ts+(|x)", "**/*.ts", "**/*.tsx"]}),
     screeps({config: cfg, dryRun: cfg == null})
   ]
 }
