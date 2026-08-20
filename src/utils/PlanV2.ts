@@ -1663,6 +1663,20 @@ const SHARES_TILE: { [k: string]: boolean } = {
   rampart: true,
   extractor: true,
 };
+
+/** Structures a creep cannot stand on — forbidden on shellCut tiles (the
+ *  defender lane). See the wall-clash guard in placeFromPlanV2. */
+const WALL_BLOCKERS: { [k: string]: boolean } = {
+  spawn: true,
+  extension: true,
+  storage: true,
+  tower: true,
+  link: true,
+  terminal: true,
+  lab: true,
+  nuker: true,
+  observer: true,
+};
 /** cheap + rebuildable: the plan may take its tile back by force */
 const RECLAIMABLE: string[] = [STRUCTURE_CONTAINER, STRUCTURE_EXTENSION, STRUCTURE_ROAD];
 
@@ -3055,6 +3069,15 @@ export function placeFromPlanV2(room: Room): void {
     builtOn[s.pos.x + s.pos.y * 50] = true;
   }
 
+  // WALL-CLASH GUARD. A structure a creep cannot stand on, sited ON the
+  // min-cut line, breaks the defender lane for the life of the room — live
+  // VPS W5N3 (2026-08-20): the planner put the source link on a shellCut
+  // tile and every RampartDefender walking the wall would bounce off it.
+  // The PLAN is wrong when this fires; refuse the tile loudly rather than
+  // build the hole. Roads/containers conduct and rampart IS the wall, so
+  // only true blockers are refused.
+  const cutSet = new Set<number>(plan.t.shellCut || []);
+
   for (const type of placeOrderFor(lvl)) {
     if (budget <= 0) break;
     // SPAWN FIRST: while no spawn is standing, no other type may take a slot —
@@ -3102,6 +3125,14 @@ export function placeFromPlanV2(room: Room): void {
       // container squatted tower[0]).
       const packed = planned[i];
       if (placedSet[packed]) continue;
+      // wall-clash guard (see cutSet above): never site a blocker on the wall
+      if (WALL_BLOCKERS[type] && cutSet.has(packed)) {
+        if (Game.time % 300 < 15) {
+          const u = unpack(packed);
+          logAlways(`planV2 ${room.name}: plan wants ${type}@${u.x},${u.y} ON the shell cut — refused (defender lane); fix the plan`);
+        }
+        continue;
+      }
       // Cover waits for the thing it covers. Naked-shell budget prefers the wall.
       if (type === "rampart" && plannedOccupancy[packed] && (nakedShell || !builtOn[packed])) continue;
       const { x, y } = unpack(packed);

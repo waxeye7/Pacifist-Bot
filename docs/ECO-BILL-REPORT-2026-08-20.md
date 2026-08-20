@@ -95,3 +95,26 @@ refused second-castle 965 / price 449 / mobility 26 / no-cut 13 / reach 12.
   ever trips it fails validation. Not triggered in this build; the reach knee is what keeps it away.
 - `second-castle` refuses ~2/3 of all bids: the min-cut often encloses an eco pocket as a separate
   ring. A connected-enclosure formulation would let more trades through.
+
+## Post-ship finding (2026-08-20, live W5N3): the cut can run THROUGH a planned blocker
+
+The first pack shipped under the eco bill put W5N3's **source link on a shellCut
+tile** (19,2 — source at 17,3 hugs the room edge). A blocker structure standing
+in the wall line breaks the defender lane: a RampartDefender walking the shell
+bounces off the link tile and has to leave the wall to get around it.
+
+Bot-side containment is deployed (commit pending alongside this note):
+placeFromPlanV2 refuses to site any WALL_BLOCKERS type on a shellCut tile
+(loud log), assignDefenderTiles skips rampart seats with a blocking structure
+beneath, and W5N3's adopted plan was hand-patched (link 19,2 → 17,2, off-cut,
+still adjacent to seat+source; all other adopted plans on live+VPS sweep clean).
+
+Planner follow-ups this needs at the source:
+1. **layer-shell**: min-cut candidate tiles must exclude tiles carrying planned
+   blocker structures (spawn/ext/storage/tower/link/terminal/lab/nuker/observer)
+   — the cut must route AROUND works, never over them. (The works existed before
+   the cut here; the shell chose the clash.)
+2. **validate.mjs**: a hard gate `shell|blocker-on-cut` — non-empty
+   intersection of meta.shell.cut with any blocker structure list fails the
+   room. (Not added here: the gate-kind registries make a partial add fail the
+   validator itself; belongs to the pipeline owner.)

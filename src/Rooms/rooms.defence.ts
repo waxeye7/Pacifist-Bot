@@ -102,6 +102,17 @@ function assignDefenderTiles(room: any, MyRamparts: any[], HostileCreeps: any[],
         const occupant = rampart.pos.lookFor(LOOK_CREEPS)[0];
         // Friendly-only skip used to assign a tile a hostile already stands on.
         if (occupant && !occupant.my) continue;
+        // A rampart atop a BLOCKING structure is cover for that structure,
+        // not a seat (live VPS W5N3: the plan put the source link on the
+        // wall line — a defender ordered onto it bounces off and leaves the
+        // lane mid-fight). Roads/containers conduct; everything else blocks.
+        let blocked = false;
+        for (const s of rampart.pos.lookFor(LOOK_STRUCTURES)) {
+            if (s.structureType !== STRUCTURE_RAMPART &&
+                s.structureType !== STRUCTURE_ROAD &&
+                s.structureType !== STRUCTURE_CONTAINER) { blocked = true; break; }
+        }
+        if (blocked) continue;
         mannable.push(rampart);
     }
     const mannableIds: any = {};
