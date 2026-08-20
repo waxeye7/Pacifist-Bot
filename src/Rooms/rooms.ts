@@ -380,6 +380,11 @@ function rooms() {
               everyRoom &&
               everyRoom.memory &&
               !everyRoom.memory.danger &&
+              // OWNED rooms only. For a REMOTE this list is RemoteRepair's
+              // entire repair enrollment; wiping it made the repairer arrive,
+              // find nothing repairable, latch serviced and recycle — while
+              // the rung kept re-spawning it for the still-decaying roads.
+              everyRoom.controller && everyRoom.controller.my &&
               everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0
             ) {
               everyRoom.memory.keepTheseRoads = [];
@@ -679,6 +684,11 @@ function establishMemory(room) {
         });
 
         room.memory.roomData.has_hostile_creeps = true;
+        // Freshness stamp: this flag is only ever written WITH vision, so on a
+        // blind remote it survives arbitrarily long after the hostiles left.
+        // fleeHomeIfInDanger honors it only while recent — the spawning side
+        // (rooms.spawning ~:5473) already refuses stale reads the same way.
+        room.memory.roomData.hostile_t = Game.time;
         room.memory.roomData.hostile_body_type = {
           attack: attackParts,
           ranged_attack: rangedAttackParts,

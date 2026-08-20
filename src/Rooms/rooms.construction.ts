@@ -2,6 +2,7 @@ import { getBasePlan, placeFromBasePlan, visualizeBasePlan, haulRoadTiles, haulR
 import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
 import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
+import { isExteriorPos } from "utils/Interior";
 import { logAlways } from "utils/Logger";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
@@ -712,6 +713,17 @@ function construction(room) {
     // basePlan and perimeter logic must never touch them. A far live spawn
     // is a hub-migrate job, not a reason to throw the pack away.
     if (room.memory.planV2) {
+        // findExtractor — the ONLY writer of Structures.extractor, which gates
+        // the MineralMiner rung — lives on the legacy path below this return,
+        // so no planV2 room ever mined its mineral even with the extractor
+        // standing (audit 2026-08-21: W1N1/W3N1/E37N59 all built, all idle).
+        if (Game.time % 50 === 0 && room.controller && room.controller.level >= 6) {
+            const st = room.memory.Structures || (room.memory.Structures = {});
+            if (!(st.extractor && Game.getObjectById(st.extractor))) {
+                delete st.extractor;
+                room.findExtractor();
+            }
+        }
         placeFromPlanV2(room);
         return;
     }
@@ -2531,7 +2543,33 @@ function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [pac
         // terrain costs" — exactly the right answer for a room whose
         // structures we cannot enumerate.
         if (!Game.rooms[roomName]) return undefined;
-        return makeStructuresCostMatrixModifiedTest(roomName);
+        /*
+         * STICKY LINE: without a road discount every 500-tick pass is free to
+         * return a different equal-cost route and pave 4 tiles of THAT one —
+         * the observed "scattered roads, no line" in every remote. Existing
+         * roads and road sites cost 1 vs plain 2 / swamp 6, so the search
+         * re-uses what previous passes paid for. (The file header documents
+         * this exact failure for the home room; this is the remote half.)
+         */
+        const rr = Game.rooms[roomName];
+        const stickyCosts = new PathFinder.CostMatrix();
+        const terr = new Room.Terrain(roomName);
+        for (let y = 0; y <= 49; y++) {
+            for (let x = 0; x <= 49; x++) {
+                const t = terr.get(x, y);
+                stickyCosts.set(x, y, t === TERRAIN_MASK_WALL ? 255 : t === TERRAIN_MASK_SWAMP ? 6 : 2);
+            }
+        }
+        for (const s of rr.find(FIND_STRUCTURES)) {
+            if (s.structureType === STRUCTURE_ROAD) { stickyCosts.set(s.pos.x, s.pos.y, 1); continue; }
+            if (s.structureType === STRUCTURE_CONTAINER) continue;
+            if (s.structureType === STRUCTURE_RAMPART && (s as any).my) continue;
+            stickyCosts.set(s.pos.x, s.pos.y, 255);
+        }
+        for (const cs of rr.find(FIND_CONSTRUCTION_SITES)) {
+            if (cs.structureType === STRUCTURE_ROAD) stickyCosts.set(cs.pos.x, cs.pos.y, 1);
+        }
+        return stickyCosts;
     }
     const costs = new PathFinder.CostMatrix();
     const terrain = new Room.Terrain(roomName);
@@ -2587,8 +2625,24 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
         const inHome = pos.roomName === homeRoom.name;
         if (inHome) {
             if (homeBudget <= 0) continue;
-            if (budget.homeSites >= HOME_SITE_CEILING) continue;
-            if (!planRoads[pos.x + pos.y * 50]) continue; // off-plan -> don't pave
+            /*
+             * On-plan tiles ride the base's own eco roads. EXTERIOR tiles are
+             * the shell->exit connector the planner never emits (verified: 0
+             * road tiles in any border band across all shipped plans) — the
+             * reason every remote line dead-ended at the border with 6-10
+             * roads sitting on the remote side. Exterior off-plan roads are
+             * already exempt from migration destroy (PlanV2 isExteriorTile
+             * guards), so paving them cannot fight the planner; interior
+             * off-plan tiles stay unpaved as before.
+             *
+             * The connector also bypasses the homeSites ceiling: ROAD_DRIP
+             * keeps up to 4 plan-road sites standing at all times, so a
+             * ceiling of 4 seeded with ALL home sites blocked this branch
+             * permanently (the second half of the dead-end).
+             */
+            const onPlan = !!planRoads[pos.x + pos.y * 50];
+            if (!onPlan && !isExteriorPos(homeRoom, pos)) continue;
+            if (onPlan && budget.homeSites >= HOME_SITE_CEILING) continue;
         } else {
             if (remoteBudget <= 0) continue;
             if (budget.remoteSites[pos.roomName] === undefined) {

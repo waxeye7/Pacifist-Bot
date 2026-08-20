@@ -188,7 +188,17 @@ function coreBuildoutIncomplete(lvl: number, structures: Structure[]): boolean {
   return false;
 }
 
+/**
+ * When the broke-clamp grants its single exception slot, the structure type it
+ * was granted FOR. PLACE_ORDER re-arbitrates untyped slots by priority index,
+ * and container (3) / extension (4) precede terminal (5) — observed: W5N1
+ * spent >5000 ticks of its "missing terminal" slot rebuilding a dead source
+ * box. The placement loop skips every other type while this is set.
+ */
+let _exceptionSlotFor: string | null = null;
+
 function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number {
+  _exceptionSlotFor = null;
   // Established rooms: do not keep 8 sites open when the bank is thin.
   // RCL4-5 dump (800→1300) is allowed on an empty new storage. RCL6+
   // site-flood is what bled VPS RCL8 rooms dry.
@@ -215,22 +225,32 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       const caps: any = CONTROLLER_STRUCTURES as any;
       const labCap = (caps[STRUCTURE_LAB] || {})[lvl] || 0;
       const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
+      const extrCap = (caps[STRUCTURE_EXTRACTOR] || {})[lvl] || 0;
       let labs = 0;
       let terms = 0;
+      let extrs = 0;
       for (const s of structs) {
         if (!(s as any).my) continue;
         if (s.structureType === STRUCTURE_LAB) labs++;
         else if (s.structureType === STRUCTURE_TERMINAL) terms++;
+        else if (s.structureType === STRUCTURE_EXTRACTOR) extrs++;
       }
+      const grant = (type: string): number => {
+        _exceptionSlotFor = type;
+        return 1;
+      };
       // A missing TERMINAL is the one structure that can UN-break a room:
       // market sales and neighbor energy both arrive through it. Half the
       // floor (15k at RCL6) deadlocked live E37N59 — a 2-source, no-remote
-      // room netting <10/t slid 12k->3k and could never reach the bar it
-      // needed to build its own way out. The builder rungs already refuse
-      // to spend below a 5k bank, so the site is free until the room can
-      // actually pay the drip; 5k is that same floor.
-      if (termCap > 0 && terms < termCap && e >= 5000) return 1;
-      if (e >= floor / 2 && labCap > 0 && labs < labCap) return 1;
+      // room netting <10/t slid 12k->3k and could never reach the bar; even
+      // 5k sat just above its 4.7k steady state. 3k is scraping but the
+      // builder rungs throttle the spend anyway (thin-bank want=1).
+      // EXTRACTOR next: 5k build cost, unlocks the mineral the room already
+      // paid a container for. Lab keeps the half-floor bar. All three grants
+      // are TYPED — see _exceptionSlotFor.
+      if (termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");
+      if (extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");
+      if (e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");
       return 0;
     }
   }
@@ -2962,6 +2982,9 @@ export function placeFromPlanV2(room: Room): void {
       if (s.structureType === STRUCTURE_STORAGE) continue;
       if (s.structureType === STRUCTURE_LINK || s.structureType === STRUCTURE_CONTAINER) continue;
       if (s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_EXTENSION) continue;
+      // The typed exception slot's own site (terminal/extractor, max 1 each)
+      // must survive the strip — it IS the way back out of broke.
+      if (s.structureType === STRUCTURE_TERMINAL || s.structureType === STRUCTURE_EXTRACTOR) continue;
       if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
         continue;
       }
@@ -3085,6 +3108,12 @@ export function placeFromPlanV2(room: Room): void {
 
   for (const type of placeOrderFor(lvl)) {
     if (budget <= 0) break;
+    // The broke-clamp exception slot is TYPED (see _exceptionSlotFor): it
+    // exists to site exactly one missing terminal/extractor/lab, and letting
+    // the normal priority order spend it on a container/extension defeats it.
+    // Only ever set when the room has spawns and a complete core, so nothing
+    // urgent is being skipped.
+    if (_exceptionSlotFor && type !== _exceptionSlotFor) continue;
     // SPAWN FIRST: while no spawn is standing, no other type may take a slot —
     // not the container/extension pair RCL2 unlocks, not anything. PLACE_ORDER
     // opens with "spawn", so in practice this ends the loop after one type;

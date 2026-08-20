@@ -4979,28 +4979,41 @@ function remotePathIsRoaded(room, targetRoomName, values?, sourceId?):boolean {
             plainCost: 2, swampCost: 10, maxRooms: 16, maxOps: 4000
         });
         if(!ret.incomplete && ret.path && ret.path.length) {
-            let remoteTiles = 0;
-            let remoteRoads = 0;
+            /*
+             * WHOLE path, high bar. The old walk counted only the REMOTE
+             * room's tiles at 40% — with the remote half-paved and the home
+             * leg dirt (the observed state), it said "roaded" and handed out
+             * 2:1 bodies that crawl the unpaved stretch at half speed loaded.
+             * Fatigue math: a loaded 2C:1M is 1 tile/tick ONLY on road; the
+             * flag must therefore mean "the loaded leg is essentially all
+             * road". Border tiles (0/49) cannot hold roads and are skipped.
+             */
+            let seenTiles = 0;
+            let roadTiles = 0;
+            let blindTiles = 0;
             for(let i = 0; i < ret.path.length; i++) {
                 const p = ret.path[i];
-                if(p.roomName !== targetRoomName) continue;
-                remoteTiles++;
+                if(p.x === 0 || p.x === 49 || p.y === 0 || p.y === 49) continue;
                 const rm = Game.rooms[p.roomName];
-                if(!rm) continue;
+                if(!rm) { blindTiles++; continue; }
+                seenTiles++;
                 const structs = rm.lookForAt(LOOK_STRUCTURES, p.x, p.y);
                 for(let j = 0; j < structs.length; j++) {
                     if(structs[j].structureType === STRUCTURE_ROAD) {
-                        remoteRoads++;
+                        roadTiles++;
                         break;
                     }
                 }
             }
-            const roaded = remoteTiles > 0 && remoteRoads >= remoteTiles * 0.4;
-            if(values) {
-                values._roadChk = Game.time;
-                values._roadedWalk = roaded;
+            // Can't judge a mostly-blind path — fall through to the cache.
+            if(seenTiles >= (seenTiles + blindTiles) * 0.5 && seenTiles > 0) {
+                const roaded = roadTiles >= seenTiles * 0.85;
+                if(values) {
+                    values._roadChk = Game.time;
+                    values._roadedWalk = roaded;
+                }
+                return roaded;
             }
-            return roaded;
         }
     }
     const res = room.memory.resources;
@@ -5028,28 +5041,56 @@ const REMOTE_PATH_GUESS_TTL = 500;
  */
 function ensureRemotePathLength(room, targetRoomName, values, sourceId?): number | null {
     if(!values) return null;
-    if(values.pathLength != null) return values.pathLength;
-    if(values._pathGuess != null && Game.time - (values._pathGuessT || 0) < REMOTE_PATH_GUESS_TTL) {
+    // Write-once memos went 70-92% stale on the VPS (W3N2: 73 vs 43 real) —
+    // demand, bodies and the recycle clocks all price trips off this number.
+    // Refresh on a slow clock; a failed refresh keeps the old value.
+    const freshLen = values.pathLength != null
+        && values.pathLengthT != null
+        && Game.time - values.pathLengthT <= 10000;
+    if(freshLen) return values.pathLength;
+    if(values.pathLength == null
+        && values._pathGuess != null && Game.time - (values._pathGuessT || 0) < REMOTE_PATH_GUESS_TTL) {
         return values._pathGuess;
     }
     const origin = room.storage || room.find(FIND_MY_SPAWNS)[0];
-    if(!origin) return null;
+    if(!origin) return values.pathLength != null ? values.pathLength : null;
     const src:any = sourceId ? Game.getObjectById(sourceId) : null;
+    // Blind, the scout's persisted per-source coordinates (Roles/scout.ts —
+    // "Source coordinates outlive vision") are just as good as vision: terrain
+    // is always pathable. Without them every blind source pathed to (25,25)±15
+    // and the demand gate priced a 25-tile and a 70-tile source identically
+    // (L=40 default) — the far source could never earn its carriers.
+    const blindPos = !src && values.x != null && values.y != null
+        ? new RoomPosition(values.x, values.y, targetRoomName)
+        : null;
     const goal = src && src.pos
         ? {pos: src.pos, range: 1}
-        : {pos: new RoomPosition(25, 25, targetRoomName), range: 15};
+        : blindPos
+            ? {pos: blindPos, range: 1}
+            : {pos: new RoomPosition(25, 25, targetRoomName), range: 15};
     const ret = PathFinder.search(origin.pos, goal, {
         plainCost: 2, swampCost: 10, maxRooms: 16, maxOps: 6000
     });
-    if(ret.incomplete || !ret.path || !ret.path.length) return null;
-    if(src && src.pos) {
+    if(ret.incomplete || !ret.path || !ret.path.length) {
+        return values.pathLength != null ? values.pathLength : null;
+    }
+    if((src && src.pos) || blindPos) {
+        // Exact-coordinate paths are a real survey either way — promote.
         values.pathLength = ret.path.length;
+        values.pathLengthT = Game.time;
         delete values._pathGuess;
         delete values._pathGuessT;
         return values.pathLength;
     }
     values._pathGuess = ret.path.length;
     values._pathGuessT = Game.time;
+    if (values.pathLength != null) {
+        // No coordinates to re-survey against (no vision, no scout x/y) —
+        // keep the memo, restamp so this centre-guess search does not re-run
+        // every producer pass for the next 10k ticks.
+        values.pathLengthT = Game.time;
+        return values.pathLength;
+    }
     return ret.path.length;
 }
 
@@ -5116,7 +5157,12 @@ function homePathIsRoaded(room, targetSource, storage, spawn): boolean {
  * across N carriers is what actually closes the gap.
  */
 function remoteCarrierDemand(room, targetRoomName, values, sourceId?) {
-    const L = values && values.pathLength != null ? values.pathLength : 40;
+    // Derive, don't default: the raw read fell back to L=40 for every blind
+    // source, so the gate (`have >= want`) and the body (which derives its own
+    // length) disagreed permanently on far remotes. ensureRemotePathLength is
+    // cached (pathLength / 500-tick guess), so this is not a per-pass search.
+    const derivedL = values ? ensureRemotePathLength(room, targetRoomName, values, sourceId) : null;
+    const L = derivedL != null ? derivedL : (values && values.pathLength != null ? values.pathLength : 40);
     const rr = Game.rooms[targetRoomName];
     // Prefer live vision, fall back to the verdict manageRemotes cached. A long
     // remote spends most of its time unobserved, and sizing must not depend on

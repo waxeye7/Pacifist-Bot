@@ -15,21 +15,32 @@ const PLAN = fs.readFileSync(path.join(__dirname, "../../src/utils/PlanV2.ts"), 
 const BUILDER = fs.readFileSync(path.join(__dirname, "../../src/Roles/builder.ts"), "utf8");
 
 describe("broke-clamp lab slot (W1N1 7/10 labs)", () => {
-    it("grants one slot for a missing lab at half the floor, and a missing terminal at 5k", () => {
+    it("grants typed slots: terminal at 3k, extractor at 5k, lab at half the floor", () => {
         const start = PLAN.indexOf("function maxSitesFor");
         assert.isAbove(start, -1);
         const body = PLAN.slice(start, PLAN.indexOf("\nconst SYNC_EVERY", start));
         const core = body.indexOf("coreBuildoutIncomplete(lvl, structs)) return 2;");
-        // Split guards (E37N59 deadlock): the terminal — the structure that
-        // un-breaks a room — opens at the builders' 5k floor; labs keep half
-        // the RCL floor.
-        const termGrant = body.indexOf("termCap > 0 && terms < termCap && e >= 5000) return 1;");
-        const labGrant = body.indexOf("e >= floor / 2 && labCap > 0 && labs < labCap) return 1;");
+        // Split, TYPED guards (E37N59 deadlock + W5N1's stolen slot): the
+        // terminal — the structure that un-breaks a room — opens at 3k, the
+        // extractor at 5k, labs keep half the RCL floor.
+        const termGrant = body.indexOf('termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");');
+        const extrGrant = body.indexOf('extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");');
+        const labGrant = body.indexOf('e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");');
         assert.isAbove(core, -1, "core drip still present");
         assert.isAbove(termGrant, core, "terminal exception sits after the core drip");
-        assert.isAbove(labGrant, termGrant, "lab grant stays behind the half-floor guard");
+        assert.isAbove(extrGrant, termGrant, "extractor grant after terminal");
+        assert.isAbove(labGrant, extrGrant, "lab grant stays behind the half-floor guard");
         // still fully clamped when genuinely broke: the final return 0 survives
         assert.isAbove(body.indexOf("return 0;", labGrant), -1);
+    });
+
+    it("the exception slot is typed — PLACE_ORDER cannot hand it to a container", () => {
+        // W5N1 spent >5000 ticks of its terminal slot rebuilding a dead
+        // source box: container (idx 3) precedes terminal (idx 5).
+        assert.match(PLAN, /let _exceptionSlotFor: string \| null = null;/);
+        assert.match(PLAN, /_exceptionSlotFor = null;/, "reset on every maxSitesFor call");
+        assert.match(PLAN, /if \(_exceptionSlotFor && type !== _exceptionSlotFor\) continue;/,
+            "the placement loop honors the grant type");
     });
 });
 

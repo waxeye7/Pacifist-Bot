@@ -39,15 +39,27 @@ describe("placement order and the road drip", () => {
 });
 
 describe("broke-clamp income exceptions", () => {
-    it("a missing terminal opens its slot at the builders' 5k floor, not half the RCL floor", () => {
+    it("a missing terminal opens its typed slot at a 3k bank, not half the RCL floor", () => {
         // E37N59 deadlock: a 2-source no-remote RCL6 netting <10/t can never
         // save the 15k half-floor, and the terminal is exactly the structure
         // that would fix that (market + neighbor energy arrive through it).
-        const term = SRC.indexOf("termCap > 0 && terms < termCap && e >= 5000) return 1;");
-        const lab = SRC.indexOf("e >= floor / 2 && labCap > 0 && labs < labCap) return 1;");
-        assert.isAbove(term, -1, "terminal slot at the 5k bank floor");
-        assert.isAbove(lab, -1, "lab slot still needs half the floor");
-        assert.isBelow(term, lab, "terminal exception is checked first");
+        const term = SRC.indexOf('termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");');
+        const extr = SRC.indexOf('extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");');
+        const lab = SRC.indexOf('e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");');
+        assert.isAbove(term, -1, "terminal slot at the 3k bank floor");
+        assert.isAbove(extr, term, "extractor slot at 5k, after terminal");
+        assert.isAbove(lab, extr, "lab slot still needs half the floor");
+    });
+});
+
+describe("planV2 extractor key (minerals dead fleet-wide)", () => {
+    it("construction sets Structures.extractor for planV2 rooms before the early return", () => {
+        const CONSTR = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.construction.ts"), "utf8");
+        const early = CONSTR.indexOf("placeFromPlanV2(room);");
+        const key = CONSTR.indexOf("room.findExtractor();");
+        assert.isAbove(early, -1);
+        assert.isAbove(key, -1, "findExtractor is reachable for planV2 rooms");
+        assert.isBelow(key, early, "…and it runs before the planV2 early return");
     });
 });
 

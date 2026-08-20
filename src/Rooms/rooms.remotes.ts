@@ -300,7 +300,14 @@ export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
         // worst case is one probe creep, not a permanent loss of the remote.
         const rr = Game.rooms[remoteName];
         if (rr) {
-            if (rr.find(FIND_HOSTILE_CREEPS).length > 0) {
+            // COMBAT hostiles only. The unfiltered find let a MOVE-only scout
+            // re-arm the flag every HOT_COOLDOWN forever — a remote lost to a
+            // wandering pacifist. Harvest thieves don't kill our creeps; the
+            // things that do carry ATTACK/RANGED/HEAL.
+            const combat = rr.find(FIND_HOSTILE_CREEPS, {filter: (c: any) =>
+                c.body && c.body.some((p: any) =>
+                    p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)});
+            if (combat.length > 0) {
                 return true; // still hot; scanRemoteThreats will push the timer out
             }
             // Cores outlive the creep wave; ignoring them reopened a cored

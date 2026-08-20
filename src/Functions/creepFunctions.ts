@@ -1801,6 +1801,15 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 /** Ticks a hauler sticks to a chosen pile before re-evaluating. */
 const PICKUP_LOCK_TTL = 25;
 
+/**
+ * A carry with a sourceId only collects at ITS source. Range 0-2 covers the
+ * source-tile drop, an adjacent miner's drop and the source box. Without this,
+ * sourceId is spawn accounting only: every carrier closest-selects from the
+ * same entry tile, the near pile gets the whole fleet and the far source
+ * decays unserved (spec: docs/speedrun-ledger/_next-sticky-pickup.md).
+ */
+const STICKY_SOURCE_RANGE = 2;
+
 /** Rebuilt lazily once per tick from Game.creeps — heap only, never Memory. */
 let _pickupLedger: { tick: number; claims: Map<string, number> } | null = null;
 
@@ -1903,6 +1912,20 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
 
     const locking = _pickupLockEnabled();
 
+    // Source-sticky: resolved once; missing / invisible sourceId degrades to
+    // today's closest-select (atMine always true). No walk-to-source is
+    // invented on idle — the sticky only FILTERS what may be taken.
+    const stickySrc: any =
+        this.memory.role === "carry" && this.memory.sourceId
+            ? Game.getObjectById(this.memory.sourceId)
+            : null;
+    const atMine = (o: any) =>
+        !stickySrc ||
+        !stickySrc.pos ||
+        !!(o && o.pos &&
+            o.pos.roomName === stickySrc.pos.roomName &&
+            o.pos.getRangeTo(stickySrc) <= STICKY_SOURCE_RANGE);
+
     /** Unreserved energy, excluding this creep's own (possibly stale) claim. */
     const unreserved = (o: any) =>
         _pickupUnreserved(o, o && o.id === prevId ? prevClaim : 0);
@@ -1942,11 +1965,13 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     const tombsE:any[] = cachedDerived(room, "pickupTombs", () =>
         cachedTombstones(room).filter((t:any) => t.store[RESOURCE_ENERGY] > 0));
 
-    /** first entry of a source-ordered list within one tile — same pick findInRange made */
+    /** first entry of a source-ordered list within one tile — same pick findInRange made.
+     *  atMine: a far-tagged carrier pathing past the near pile must NOT fill
+     *  there and turn around — that is the whole lock-on failure in one line. */
     const adjacent = (list:any[]):any => {
         for (let i = 0; i < list.length; i++) {
             const p = list[i].pos;
-            if (Math.abs(p.x - this.pos.x) <= 1 && Math.abs(p.y - this.pos.y) <= 1) return list[i];
+            if (Math.abs(p.x - this.pos.x) <= 1 && Math.abs(p.y - this.pos.y) <= 1 && atMine(list[i])) return list[i];
         }
         return null;
     };
@@ -1997,6 +2022,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
             !expired &&
             locked.pos &&
             locked.pos.roomName === this.pos.roomName &&
+            atMine(locked) &&
             worthIt;
 
         if (stillGood) {
@@ -2015,7 +2041,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     const selectMin = Math.min(nearWorth, free);
     /** strict = respect other creeps' reservations. */
     const hasRoom = (o: any, strict: boolean) =>
-        !locking || !strict || unreserved(o) >= selectMin;
+        atMine(o) && (!locking || !strict || unreserved(o) >= selectMin);
     const takeable = (o: any) =>
         locking ? Math.min(free, unreserved(o)) : Math.min(free, _pickupEnergyOf(o));
 
@@ -2105,7 +2131,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     }
     if (!target) {
         _pickupBumpStat("pickupIdle", 1);
-        return;
+        // Distinguishable from the silent go()/locked-move returns so carry
+        // can take a partial load home when the room is genuinely dry.
+        // Callers only ever compare against 0/OK, so this changes nothing else.
+        return "idle";
     }
 
     lockOn(target, queued ? 0 : takeable(target), queued);
@@ -2126,7 +2155,15 @@ Creep.prototype.roadCheck = function roadCheck() {
 }
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | string {
-    if(this.memory.targetRoom && this.memory.homeRoom && this.memory.targetRoom !== this.memory.homeRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
+    // The hostile flag is only written WITH vision (rooms.ts establishMemory,
+    // %3 ticks), so on a blind remote it can be arbitrarily stale — carriers
+    // arriving on a non-refresh tick bounced home empty for hours after the
+    // hostiles died. Honor it only while fresh; with live vision the next %3
+    // pass re-stamps or clears it anyway.
+    const rdFlee: any = this.memory.targetRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData;
+    const hostileFresh = !!(rdFlee && rdFlee.has_hostile_creeps
+        && (Game.rooms[this.memory.targetRoom] || Game.time - (rdFlee.hostile_t || 0) <= 100));
+    if(this.memory.targetRoom && this.memory.homeRoom && this.memory.targetRoom !== this.memory.homeRoom && hostileFresh) {
         if(this.room.name == this.memory.targetRoom) {
             this.memory.timeOut = 25;
             this.moveToRoom(this.memory.homeRoom);

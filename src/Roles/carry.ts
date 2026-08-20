@@ -545,12 +545,17 @@ function depotSink(creep: any): any {
             creep.memory.targetRoom !== creep.memory.homeRoom
         );
         let recalledHome = false;
+        // HOT gets the same non-destructive treatment the recall got: walk
+        // home, work home-side, resume when the flag lifts. The old branch
+        // deleted sourceId/pathLength — the body dropped out of
+        // liveCarriersForSource, the room spawned a REPLACEMENT for a carrier
+        // still alive, and one MOVE-only scout keeping the remote hot
+        // (rooms.remotes re-arm) doubled the haul fleet permanently.
         if (remoteTrip && remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)) {
-            creep.memory.targetRoom = creep.memory.homeRoom;
-            delete creep.memory.exit;
-            delete creep.memory.route;
-            delete creep.memory.sourceId;
-            delete creep.memory.pathLength;
+            if (creep.room.name !== creep.memory.homeRoom) {
+                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
+            recalledHome = true;
         }
         else if (remoteTrip && remoteRecalled(creep)) {
             if (creep.room.name !== creep.memory.homeRoom) {
@@ -574,14 +579,44 @@ function depotSink(creep: any): any {
             creep.memory.full = false;
             delivered = true;
         }
-        let result = OK;
+        let result: any = OK;
         if (startedFree > 0) {
             result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         }
         if (result == 0) {
-            const took = (creep.memory.pickup && creep.memory.pickup.amt) || 0;
-            if (startedFree <= took || took >= 50) creep.memory.full = true;
-            walkToDropoff(creep);
+            delete creep.memory.dry;
+            /*
+             * `amt` is a lock-time FORECAST (up to 25t stale), and adjacent
+             * salvage issues its intent without touching the lock at all — so
+             * "took >= 50" sent 1500-capacity remote carriers home with 150,
+             * or with 3 when a crumb pickup read another pile's stale amt.
+             * Reconcile the claim against what actually stands on the locked
+             * target, and only a genuine top-off ends the collect leg early.
+             */
+            const p: any = creep.memory.pickup;
+            const onLocked: any = p && p.id ? Game.getObjectById(p.id) : null;
+            const standing = !onLocked ? 0
+                : typeof onLocked.amount === "number" ? onLocked.amount
+                : (onLocked.store && onLocked.store[RESOURCE_ENERGY]) || 0;
+            const took = Math.min((p && p.amt) || 0, standing);
+            if (startedFree <= took) creep.memory.full = true;
+            // Stepping toward home on EVERY collect is the border oscillation
+            // the film caught — only a full body starts the trip back.
+            if (creep.memory.full) walkToDropoff(creep);
+        } else if (result === "idle" && startedFree > 0 && startedEnergy > 0) {
+            /*
+             * Collect-dry room while holding a partial load. Brief dips (the
+             * pile regrowing under a drop-miner) are worth waiting out next to
+             * the source; a real drought takes the partial home — that is the
+             * "rooms starve themselves" half of 37dffc94, kept, but time-based
+             * instead of crumb-triggered.
+             */
+            creep.memory.dry = (creep.memory.dry || 0) + 1;
+            if (creep.memory.dry >= 15) {
+                delete creep.memory.dry;
+                creep.memory.full = true;
+                walkToDropoff(creep);
+            }
         } else if (delivered) {
             walkToSource(creep);
         }

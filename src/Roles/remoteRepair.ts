@@ -1,5 +1,11 @@
 function findLockedRepair(creep) {
-    if(!creep.memory.allowed_repairs) {
+    // Rebuild per ROOM. The list used to be built once from whichever room
+    // the creep stood in and frozen for life (an empty array is truthy), so a
+    // repairer carried a stale cross-room list forever — findClosestByRange
+    // over cross-room objects is arbitrary, and the walk-home exit gated on
+    // "list empty" could never fire. The W3N1/W2N1 border bouncer in one line.
+    if(!creep.memory.allowed_repairs || creep.memory._repRoom !== creep.room.name) {
+        creep.memory._repRoom = creep.room.name;
         creep.memory.allowed_repairs = [];
 
         let roadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD});
@@ -78,9 +84,20 @@ function findLockedBuild(creep) {
 
     if(creep.memory.suicide == true) {
 
-        if(Game.time % 7 == 0 && creep.room.name != creep.memory.homeRoom && creep.room.find(FIND_CONSTRUCTION_SITES).length > 0) {
+        // Adopting the room it stands in must adopt it PROPERLY: the old
+        // re-arm left myTargetRoomServiced latched and the stale repair list
+        // in place, so the creep immediately walked home again — un-suicide,
+        // walk home, suicide, un-suicide: the border dance. MY sites only
+        // (FIND_CONSTRUCTION_SITES counted anyone's), and not with a body
+        // about to expire.
+        if(Game.time % 7 == 0 && creep.room.name != creep.memory.homeRoom && (creep.ticksToLive || 0) > 100 && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
             creep.memory.targetRoom = creep.room.name;
             creep.memory.suicide = false;
+            creep.memory.myTargetRoomServiced = false;
+            delete creep.memory.allowed_repairs;
+            delete creep.memory._repRoom;
+            delete creep.memory.locked_repair;
+            delete creep.memory.locked_build;
             return;
         }
 
@@ -178,15 +195,16 @@ function findLockedBuild(creep) {
             creep.memory.myTargetRoomServiced = true;
         }
 
-        if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.homeRoom && creep.memory.allowed_repairs.length == 0) {
+        // Serviced -> go home and recycle. The old exit ALSO required the
+        // repair list to be empty at home, which a stale cross-room list
+        // never was — the repairer wandered the border with a full tank
+        // instead of recycling. Home upkeep belongs to the maintainer.
+        if(creep.memory.myTargetRoomServiced && !creep.memory.locked_repair && !creep.memory.locked_build) {
+            if(creep.room.name !== creep.memory.homeRoom) {
+                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
             creep.memory.suicide = true;
-        }
-
-        if(creep.memory.myTargetRoomServiced && !creep.memory.locked_repair && !creep.memory.locked_build && creep.memory.allowed_repairs.length == 0) {
-            // if(creep.room.name !== creep.memory.homeRoom && creep.room.name !== creep.memory.targetRoom) {
-
-            // }
-            return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom)
+            return;
         }
     }
 
