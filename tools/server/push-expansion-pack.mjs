@@ -5,6 +5,7 @@
  *
  *   node tools/server/push-expansion-pack.mjs --user pacifist [--dest pserver]
  *                                            [--plans <plans-hub.json>] [--dry-run]
+ *                                            [--api-owned]
  *
  * Reads tools/plan-suite/out-v2/plans-hub.json (run plan.mjs first) and mongo
  * (who owns what), then writes:
@@ -47,11 +48,44 @@
  *
  * Segments 80-86 are deliberately below the planner's 88 (plan) and 89-99
  * (animator frames) so nothing here can clash with them.
+ *
+ * ---------------------------------------------------------------------------
+ * `--api-owned`: WHO-OWNS-WHAT OVER HTTP, FOR A SERVER WHOSE MONGO IS NOT OURS.
+ *
+ * The default path shells into the LOCAL docker stack twice — once through
+ * redis for a token, once through mongo for the ownership map — which is
+ * correct for the bench server running on this machine and simply impossible
+ * for a remote one: a VPS world's mongo is not on this host, so the pack could
+ * not be rebuilt for the server it is most needed on. `--api-owned` replaces
+ * both queries with the same HTTP API the rest of this file already pushes
+ * segments through, and changes nothing else:
+ *
+ *   token     screeps.json's `--dest` entry, as-is (no redis mint)
+ *   my id     GET /api/auth/me
+ *   my rooms  GET /api/user/rooms?id=<me>          (controller ownership)
+ *   taken     GET /api/game/room-objects?room=R, per CANDIDATE room only —
+ *             owned controller, RESERVED controller, or a spawn that is not
+ *             mine. Candidates are the plans that already survived the cheap
+ *             local filters, so a 6-room pack costs 6 requests, not a world
+ *             scan.
+ *
+ * The reservation half is not decoration: `claimController` on a controller
+ * somebody else has reserved returns ERR_INVALID_TARGET, and an NPC invader
+ * core reserves the rooms it sits in for thousands of ticks. src/Managers/
+ * AutoExpand.ts's own pick() guard reads `controller.owner` and never the
+ * reservation, so a reserved room shipped in segment 86 is a claimer parked in
+ * a room it cannot take until the core decays. Reserved rooms are skipped, out
+ * loud, with the holder printed — re-run once the reservation lapses.
+ *
+ * nSources comes from the live room in this mode (the plan's `sources` array is
+ * only the prefilter), so the count the bot reads in segment 86 is the count
+ * the server has.
+ * ---------------------------------------------------------------------------
  */
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import {
   roadStageFor,
   stagedOrphans,
@@ -116,6 +150,76 @@ async function api(cfg, method, endpoint, body) {
   return json;
 }
 
+/**
+ * A SEGMENT WRITE IS NOT DONE WHEN THE POST RETURNS ok:1.
+ *
+ * Every ACTIVE segment is persisted from the runtime's own copy at the end of
+ * each tick, so an API write that lands while the bot has that segment active
+ * is silently overwritten by the string the bot loaded at tick start. Observed
+ * on the VPS: segment 86 stuck, segment 80 came straight back holding the pack
+ * from two weeks ago, and the only symptom was the bot logging "W5N1 has no
+ * entry in the expansion pack" against a segment this tool had just reported
+ * writing. Nothing checked, because only 86 was ever read back.
+ *
+ * So every segment is read back and compared, and a revert is retried — the
+ * bot's adoption sweep holds 80-85 for a few ticks at a time, not forever. A
+ * write that will not stick is an error, not a log line.
+ */
+async function writeSegment(cfg, seg, data, label) {
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    await api(cfg, "POST", "/api/user/memory-segment", { segment: Number(seg), data });
+    const back = await api(cfg, "GET", `/api/user/memory-segment?segment=${seg}`);
+    if ((back.data || "") === data) return;
+    console.log(
+      `segment ${seg} came back different after write ${attempt}/4 ` +
+        `(${(back.data || "").length}B vs ${data.length}B) — the bot holds it active; retrying`,
+    );
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  throw new Error(`segment ${seg} (${label}) will not hold — the bot is rewriting it every tick`);
+}
+
+/**
+ * --api-owned: the two mongo answers, over HTTP. `rooms` is the CANDIDATE list
+ * (plans that already passed the local filters), so this is a handful of GETs.
+ */
+async function apiIdentity(cfg) {
+  const me = await api(cfg, "GET", "/api/auth/me");
+  if (!me._id) throw new Error("/api/auth/me returned no user id — is the token right for this dest?");
+  return { userId: String(me._id), username: me.username };
+}
+async function apiOwnedRooms(cfg, userId) {
+  const r = await api(cfg, "GET", `/api/user/rooms?id=${encodeURIComponent(userId)}`);
+  return r.rooms || [];
+}
+async function apiRoomStates(cfg, rooms) {
+  const out = new Map();
+  for (const room of rooms) {
+    const j = await api(cfg, "GET", `/api/game/room-objects?room=${encodeURIComponent(room)}`);
+    const objs = j.objects || [];
+    const ctrl = objs.find((o) => o.type === "controller");
+    out.set(room, {
+      owner: (ctrl && ctrl.user) || null,
+      reservedBy: (ctrl && ctrl.reservation && ctrl.reservation.user) || null,
+      reservedUntil: (ctrl && ctrl.reservation && ctrl.reservation.endTime) || 0,
+      foreignSpawns: objs.filter((o) => o.type === "spawn").map((o) => o.user),
+      nSources: objs.filter((o) => o.type === "source").length,
+      gameTime: j.gameTime,
+    });
+  }
+  return out;
+}
+/** Why this candidate must not be shipped as a target. null = free to claim. */
+function whyTaken(st, userId) {
+  if (!st) return "no room data";
+  if (st.owner) return st.owner === userId ? "already mine" : `owned by ${st.owner}`;
+  if (st.reservedBy && st.reservedBy !== userId)
+    return `controller reserved by ${st.reservedBy} until tick ${st.reservedUntil}`;
+  const foreign = st.foreignSpawns.filter((u) => u !== userId);
+  if (foreign.length) return `${foreign.length} foreign spawn(s) (${[...new Set(foreign)].join(",")})`;
+  return null;
+}
+
 /** Game.map.getRoomLinearDistance, offline. */
 function roomCoords(name) {
   const m = /^([WE])(\d+)([NS])(\d+)$/.exec(name);
@@ -172,21 +276,37 @@ function score(plan, ownedRooms) {
 async function main() {
   const args = process.argv.slice(2);
   const dest = args.includes("--dest") ? args[args.indexOf("--dest") + 1] : "pserver";
-  const username = args.includes("--user") ? args[args.indexOf("--user") + 1] : "pacifist";
+  let username = args.includes("--user") ? args[args.indexOf("--user") + 1] : "pacifist";
   const dryRun = args.includes("--dry-run");
+  // remote worlds have no mongo/redis of ours to ask — see the --api-owned note above
+  const apiOwned = args.includes("--api-owned");
   const cfg = loadConfig(dest);
-  const { token, userId } = tokenForUser(username);
-  cfg.token = token;
 
-  // who owns what, straight from the world DB
-  const rawOwned = mongoEval(
-    `db = db.getSiblingDB("screeps"); print(JSON.stringify({
-       mine: db["rooms.objects"].distinct("room", {type: "controller", user: ${JSON.stringify(userId)}}),
-       taken: db["rooms.objects"].distinct("room", {type: "controller", user: {$ne: null}})
-     }))`,
-  );
-  const { mine, taken } = JSON.parse(rawOwned.slice(rawOwned.indexOf("{")));
-  const takenSet = new Set(taken);
+  let userId;
+  let mine;
+  let takenSet = null; // mongo path only; --api-owned decides per candidate
+  if (apiOwned) {
+    const me = await apiIdentity(cfg); // cfg.token is screeps.json's, unchanged
+    userId = me.userId;
+    if (me.username !== username)
+      console.log(`note: --user ${username} ignored — the ${dest} token authenticates as ${me.username}`);
+    username = me.username;
+    mine = await apiOwnedRooms(cfg, userId);
+  } else {
+    const t = tokenForUser(username);
+    userId = t.userId;
+    cfg.token = t.token;
+    // who owns what, straight from the world DB
+    const rawOwned = mongoEval(
+      `db = db.getSiblingDB("screeps"); print(JSON.stringify({
+         mine: db["rooms.objects"].distinct("room", {type: "controller", user: ${JSON.stringify(userId)}}),
+         taken: db["rooms.objects"].distinct("room", {type: "controller", user: {$ne: null}})
+       }))`,
+    );
+    const parsed = JSON.parse(rawOwned.slice(rawOwned.indexOf("{")));
+    mine = parsed.mine;
+    takenSet = new Set(parsed.taken);
+  }
   if (!mine.length) throw new Error(`${username} owns no rooms — nothing to expand from`);
 
   // --plans lets you point at a snapshot while the planner rewrites the live file
@@ -195,16 +315,39 @@ async function main() {
     : path.join(REPO, "tools", "plan-suite", "out-v2", "plans-hub.json");
   const plans = JSON.parse(fs.readFileSync(plansPath, "utf8"));
 
-  const ranked = [];
+  // pass 1 — everything decidable from the plan alone. In --api-owned mode this
+  // is also the list of rooms worth spending an HTTP request on.
+  const prelim = [];
   for (const plan of plans) {
     if (!plan || !plan.room || plan.error || !plan.structures) continue;
     if (!plan.structures.spawn || !plan.structures.spawn.length) continue;
-    if (takenSet.has(plan.room)) continue; // owned or reserved by somebody
+    if (takenSet && takenSet.has(plan.room)) continue; // owned or reserved by somebody
     const nSources = Array.isArray(plan.sources) ? plan.sources.length : 0;
     if (nSources < 2) continue;
     const sc = score(plan, mine);
     if (sc.nearest < MIN_DIST || sc.nearest > MAX_DIST) continue;
-    ranked.push({ plan, ...sc });
+    prelim.push({ plan, nSources, ...sc });
+  }
+
+  // pass 2 — who is sitting on the survivors (HTTP mode only; mongo answered
+  // this in one query above)
+  const ranked = [];
+  const world = apiOwned ? await apiRoomStates(cfg, prelim.map((c) => c.plan.room)) : null;
+  for (const c of prelim) {
+    if (world) {
+      const st = world.get(c.plan.room);
+      const why = whyTaken(st, userId);
+      if (why) {
+        console.log(`skip ${c.plan.room} — ${why}`);
+        continue;
+      }
+      // the live count beats the plan's, and a disagreement is worth saying
+      if (st.nSources !== c.nSources)
+        console.log(`note ${c.plan.room}: plan says ${c.nSources} sources, the server says ${st.nSources}`);
+      c.nSources = st.nSources;
+      if (c.nSources < 2) continue;
+    }
+    ranked.push(c);
   }
   ranked.sort((a, b) => b.s - a.s);
   if (!ranked.length) throw new Error(`no claimable room within ${MIN_DIST}-${MAX_DIST} of ${mine.join(",")}`);
@@ -217,7 +360,7 @@ async function main() {
       score: Number(r.s.toFixed(2)),
       spawnPos: r.plan.structures.spawn[0],
       hash: planHash(r.plan, roadStageFor(r.plan)),
-      nSources: Array.isArray(r.plan.sources) ? r.plan.sources.length : 0,
+      nSources: r.nSources, // live count under --api-owned, the plan's otherwise
     };
     if (seg !== undefined) t.seg = seg;
     return t;
@@ -268,7 +411,10 @@ async function main() {
     }
   }
 
-  console.log(`owned: ${mine.join(",")} · claimable candidates ${ranked.length}`);
+  console.log(
+    `owned: ${mine.join(",")} (${apiOwned ? `${dest} HTTP API as ${username}` : "local mongo"}) · ` +
+      `claimable candidates ${ranked.length}/${prelim.length}`,
+  );
   console.log("rank  room     score   dist  cut  eco  enclCtrl encSrc pricey  spawn");
   top.slice(0, 8).forEach((r, i) => {
     const sh = (r.plan.meta && r.plan.meta.shell) || {};
@@ -294,13 +440,10 @@ async function main() {
   for (const [seg, map] of Object.entries(segData)) {
     const data = JSON.stringify(map);
     if (data.length > 100 * 1024) throw new Error(`segment ${seg} too big: ${data.length}`);
-    await api(cfg, "POST", "/api/user/memory-segment", { segment: Number(seg), data });
+    await writeSegment(cfg, seg, data, Object.keys(map).join("+"));
     console.log(`segment ${seg} <- ${Object.keys(map).join(", ")} (${data.length} bytes)`);
   }
-  await api(cfg, "POST", "/api/user/memory-segment", { segment: SEG_INDEX, data: indexData });
-  const back = await api(cfg, "GET", `/api/user/memory-segment?segment=${SEG_INDEX}`);
-  const verify = JSON.parse(back.data || "{}");
-  if (!verify.targets || verify.targets[0].room !== targets[0].room) throw new Error("segment 86 verify failed");
+  await writeSegment(cfg, SEG_INDEX, indexData, "index");
   console.log(
     `segment ${SEG_INDEX} <- ${targets.length} targets (${indexData.length} bytes), best ${targets[0].room} ` +
       `score ${targets[0].score} spawn ${targets[0].spawnPos.x},${targets[0].spawnPos.y}`,
@@ -308,7 +451,15 @@ async function main() {
   console.log(`in the game console run: autoExpand()`);
 }
 
-main().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+// Entry-point guard, for the reason push-plan.mjs carries one: the payload
+// builders here (planHash above all) are what a re-push or an offline check
+// wants, and a check that re-implements planHash proves nothing about the hash
+// the bot compares against. Importing this module gets the real one, no push.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+  });
+}
+
+export { planHash, writeSegment, apiIdentity, apiRoomStates, SEG_PLANS, SEG_INDEX, PLANS_PER_SEG };
