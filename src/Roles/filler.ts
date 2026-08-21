@@ -4,6 +4,7 @@
  **/
 import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Reachability";
 import { planSitter } from "utils/PlanV2";
+import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -44,17 +45,55 @@ import { planSitter } from "utils/PlanV2";
  */
 export const TOWER_FLOOR = 200;
 
+/**
+ * One room-wide candidate list for fillNeed(), memoised per room per tick.
+ *
+ * fillNeed() ran up to FOUR room-wide FIND_MY_STRUCTURES passes, and a loaded
+ * filler calls it TWICE per tick — once for the structure it delivers to and
+ * once for the look-ahead on the leftover in its store — so an 8-filler room
+ * paid up to eight room-wide passes per filler per tick for four answers that
+ * are the same for every filler in it. Measured shard3 (limit 20, avg 20.6):
+ * the filler role alone was 2.26 CPU across 8 creeps.
+ *
+ * Its sibling creep.findFillerTarget() has already been split this way —
+ * see creepFunctions :363 (fillSpawnExt) and :439 (fillTowers) — and this is
+ * the identical split, with the identical justification: what goes IN the memo
+ * is structure type and store, and stores only settle BETWEEN ticks (transfer
+ * is an intent, which is the whole reason the reservation ledger exists), so
+ * the candidate set is a room/tick constant.
+ *
+ * What deliberately stays OUT of the memo, re-evaluated per creep per call:
+ *
+ *   excludeId        the caller's own current target on the look-ahead path.
+ *   isUndeliverable  a room-wide TTL blacklist that advanceTo() WRITES TO
+ *                    DURING THE TICK — a filler that gives up on a target
+ *                    blacklists it for everyone (APPROACH_GIVE_UP above), so
+ *                    folding this into the memo would keep handing the rest of
+ *                    the fleet a target the room has just written off.
+ *   isUnreachableId  same story, the physical half of it.
+ *
+ * Keys are private to this function rather than shared with findFillerTarget's:
+ * the two predicates happen to coincide today for spawn/extension and must be
+ * free to diverge without silently changing the other caller's answer.
+ *
+ * The list is returned in engine FIND order and only ever filtered afterwards,
+ * so findClosestByRange() breaks ties on exactly the order it always did.
+ */
+function fillCandidates(room, key: string, want: (s: any) => boolean): any[] {
+    return cachedDerived(room, key, () => cachedMyStructures(room).filter(want));
+}
+
 function fillNeed(creep, excludeId?, spawnOnly?) {
+    const room = creep.room;
     // A tower under the floor outranks the extension network. Only when the
     // caller has asked for spawn/extension targets specifically (spawnOnly)
     // does this step aside, since that path exists to unblock spawning.
     if(!spawnOnly) {
-        const dryTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+        const dryTowers = fillCandidates(room, "fillNeedDryTowers", (s: any) =>
             s.structureType == STRUCTURE_TOWER
-            && s.id !== excludeId
             && s.store[RESOURCE_ENERGY] < TOWER_FLOOR
-            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            && !isUndeliverable(creep.room, s.id)});
+            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+            .filter((s: any) => s.id !== excludeId && !isUndeliverable(room, s.id));
         if(dryTowers.length) {
             return creep.pos.findClosestByRange(dryTowers);
         }
@@ -66,20 +105,18 @@ function fillNeed(creep, excludeId?, spawnOnly?) {
     // parks on it — E11S2 lost two loaded fillers to extension@18,36 and E9S2
     // lost two carriers to extension@20,39, both walled in by extensions the
     // current plan does not want. See utils/Reachability.
-    let targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+    let targets = fillCandidates(room, "fillNeedSpawnExt", (s: any) =>
         (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION)
-        && s.id !== excludeId
-        && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-        && !isUndeliverable(creep.room, s.id)});
+        && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+        .filter((s: any) => s.id !== excludeId && !isUndeliverable(room, s.id));
     if(targets.length == 0 && spawnOnly) {
         return null;
     }
     if(targets.length == 0) {
-        targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+        targets = fillCandidates(room, "fillNeedHalfTowers", (s: any) =>
             s.structureType == STRUCTURE_TOWER
-            && s.id !== excludeId
-            && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) / 2
-            && !isUndeliverable(creep.room, s.id)});
+            && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) / 2)
+            .filter((s: any) => s.id !== excludeId && !isUndeliverable(room, s.id));
     }
     if(targets.length == 0) {
         // Last resort: this function is the room's DELIVERY GUARANTEE, so it
@@ -87,12 +124,11 @@ function fillNeed(creep, excludeId?, spawnOnly?) {
         // blacklist got greedy. Retry with only the exact, physical filter -
         // a structure with no walkable approach is still off the table, but
         // everything else is back on it.
-        targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+        targets = fillCandidates(room, "fillNeedAnyFillable", (s: any) =>
             (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION
              || s.structureType == STRUCTURE_TOWER)
-            && s.id !== excludeId
-            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
-            && !isUnreachableId(creep.room, s.id)});
+            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+            .filter((s: any) => s.id !== excludeId && !isUnreachableId(room, s.id));
     }
     if(targets.length == 0) {
         return null;

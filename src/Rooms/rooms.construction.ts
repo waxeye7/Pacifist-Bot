@@ -2519,12 +2519,35 @@ const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix =
 
 /** packed (x + y*50) set of the adopted plan's road tiles, or null */
 function planRoadSet(room): { [packed: number]: boolean } | null {
+    if (_haulTick === Game.time && _planRoadCache[room.name] !== undefined) {
+        return _planRoadCache[room.name];
+    }
     const plan = room.memory.planV2;
-    if (!plan || !plan.t || !plan.t.road) return null;
-    const set: { [packed: number]: boolean } = {};
-    for (const p of plan.t.road) set[p] = true;
+    let set: { [packed: number]: boolean } | null = null;
+    if (plan && plan.t && plan.t.road) {
+        set = {};
+        for (const p of plan.t.road) set[p] = true;
+    }
+    if (_haulTick !== Game.time) {
+        _haulTick = Game.time;
+        _planRoadCache = {};
+        _haulMatrixCache = {};
+    }
+    _planRoadCache[room.name] = set;
     return set;
 }
+
+/*
+ * Per-tick memo for the haul matrices. One searchRemoteHaulPath call can
+ * touch up to 16 rooms and remoteRoadCostMatrix builds a fresh 50x50 matrix
+ * (2500 terrain gets + two finds) per touched room — and the roaded check,
+ * the pathLength survey and the road pass can all fire in the same tick.
+ * On a 20-CPU shard that is a spike landmine for the moment remotes reopen.
+ * Structures/sites cannot change mid-tick, so a tick-scoped memo is free.
+ */
+let _haulTick = -1;
+let _planRoadCache: { [roomName: string]: { [packed: number]: boolean } | null } = {};
+let _haulMatrixCache: { [key: string]: boolean | CostMatrix | undefined } = {};
 
 /**
  * Cost matrix for the storage -> remote-source line.
@@ -2542,6 +2565,21 @@ function planRoadSet(room): { [packed: number]: boolean } | null {
  * and path-length survey MUST walk this same matrix.
  */
 export function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix | undefined {
+    const memoKey = roomName + "|" + homeRoom.name + (planRoads ? "|p" : "|n");
+    if (_haulTick === Game.time && memoKey in _haulMatrixCache) {
+        return _haulMatrixCache[memoKey];
+    }
+    const built = _remoteRoadCostMatrixRaw(roomName, homeRoom, planRoads);
+    if (_haulTick !== Game.time) {
+        _haulTick = Game.time;
+        _planRoadCache = {};
+        _haulMatrixCache = {};
+    }
+    _haulMatrixCache[memoKey] = built;
+    return built;
+}
+
+function _remoteRoadCostMatrixRaw(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix | undefined {
     if (!planRoads || roomName !== homeRoom.name) {
         // No vision: makeStructuresCostMatrixModifiedTest returns `false`, and
         // `false` tells PathFinder the room is IMPASSABLE. Every path to a

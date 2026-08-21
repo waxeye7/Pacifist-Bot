@@ -13,6 +13,7 @@ import * as path from "path";
 const FILLER = fs.readFileSync(path.join(__dirname, "../../src/Roles/filler.ts"), "utf8");
 const SPAWNING = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
 const COMMANDS = fs.readFileSync(path.join(__dirname, "../../src/utils/Commands.ts"), "utf8");
+const CENSUS = fs.readFileSync(path.join(__dirname, "../../src/Empire/census.ts"), "utf8");
 
 describe("filler livelock (W1N1 spawn-dead)", () => {
     it("the un-full threshold is clamped to the BODY, not just the RCL", () => {
@@ -24,8 +25,14 @@ describe("filler livelock (W1N1 spawn-dead)", () => {
     it("emergencyFillerRescue counts fillers the way the producer roster does (no stopgaps)", () => {
         const at = SPAWNING.indexOf("function emergencyFillerRescue");
         assert.isAbove(at, -1);
-        const body = SPAWNING.slice(at, at + 1600);
-        assert.match(body, /role == 'filler' && creep\.room\.name == room\.name && !\(creep\.memory as any\)\.stopgap/);
+        const body = SPAWNING.slice(at, at + 2400);
+        // The count moved off its own `_.filter(Game.creeps)` and onto the
+        // shared census (see cpuRelief.test.ts) — but it is still the SAME set:
+        // presentReal is "physically in this room" minus ladder stopgaps, which
+        // is exactly what the old predicate spelled out by hand.
+        assert.match(body, /presentRealCount\(census, room\.name, 'filler'\)/);
+        assert.match(CENSUS, /if \(!stopgap\) bump\(c\.presentReal, here, role\);/,
+            "presentReal must keep excluding stopgaps or this rescue goes blind again");
     });
 
     it("an unaffordable Filler head can shrink like a Carrier head", () => {

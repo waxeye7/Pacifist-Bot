@@ -35,6 +35,17 @@ export interface EmpireCensus {
     /** REAL (non-stopgap) home crew by room and role, by name — what a stopgap yields to */
     reals: { [room: string]: { [role: string]: string[] } };
     present: { [room: string]: RoleCounts };
+    /**
+     * like present, but only creeps that are NOT ladder stopgaps.
+     *
+     * emergencyFillerRescue asks "is anything in this room actually filling?"
+     * and must NOT count a livelocked 150-cap ladder stopgap as a filler — that
+     * disagreement between the rescue and the producer roster is what kept W1N1
+     * dead (rooms.spawning emergencyFillerRescue). It counted that itself with a
+     * whole `_.filter(Game.creeps)` per owned room per tick, immediately after
+     * the ladder had already built this census.
+     */
+    presentReal: { [room: string]: RoleCounts };
     /** creeps whose memory.targetRoom is this room (remote crews, rescue builders, feeders) */
     target: { [room: string]: RoleCounts };
     minersBySource: { [sourceId: string]: SourceStaff };
@@ -49,7 +60,7 @@ function bump(map: { [room: string]: RoleCounts }, room: string, role: string): 
 
 export function getCensus(): EmpireCensus {
     if (cache && cache.tick === Game.time) return cache;
-    const c: EmpireCensus = { tick: Game.time, total: 0, home: {}, homeReal: {}, stopgaps: {}, reals: {}, present: {}, target: {}, minersBySource: {} };
+    const c: EmpireCensus = { tick: Game.time, total: 0, home: {}, homeReal: {}, stopgaps: {}, reals: {}, present: {}, presentReal: {}, target: {}, minersBySource: {} };
     const creeps = Game.creeps || {};
     for (const name in creeps) {
         const creep: any = creeps[name];
@@ -61,6 +72,7 @@ export function getCensus(): EmpireCensus {
         c.total++;
         const stopgap = !!mem.stopgap;
         bump(c.present, here, role);
+        if (!stopgap) bump(c.presentReal, here, role);
         if (!mem.targetRoom || mem.targetRoom === home) {
             bump(c.home, home, role);
             const bag = stopgap ? c.stopgaps : c.reals;
@@ -90,6 +102,12 @@ export function homeCount(census: EmpireCensus, room: string, role: string): num
 /** Physically-present count for a role in a room (0 when unknown). */
 export function presentCount(census: EmpireCensus, room: string, role: string): number {
     const rc = census.present[room];
+    return rc ? (rc[role] || 0) : 0;
+}
+
+/** Physically-present count EXCLUDING ladder stopgaps (0 when unknown). */
+export function presentRealCount(census: EmpireCensus, room: string, role: string): number {
+    const rc = census.presentReal[room];
     return rc ? (rc[role] || 0) : 0;
 }
 

@@ -2162,6 +2162,121 @@ function reconcileSealPass(terrain, plan, pass) {
 
 /**
  * ===========================================================================
+ * COVER IS RE-TESTED AGAINST THE WALL THE ROOM SHIPS, NOT THE ONE IT WAS
+ * PRICED AGAINST.
+ * ===========================================================================
+ *
+ * Every personal rampart in this plan — layer 2's eco bubbles and its
+ * stand-denial ring, layer 5's mineral cover, layer 4's shallow labs, layer 6
+ * and 7b's shallow extensions — is bought by the same test: the tile is
+ * outside the wall, or inside it and shallower than DEPTH_SAFE, so a ranged
+ * attacker standing on floor he can reach can hit the thing underneath. Every
+ * one of those passes runs that test against `plan.exterior`/`plan.depth`,
+ * which is layer 2's flood over the cut layer 2 negotiated
+ * (`meta.shell.cutAtFreeze`, frozen in pipeline.mjs).
+ *
+ * THE WALL THEN MOVES, TWICE, AND THE LAST MOVE IS AN ADDITION. The inert
+ * prune above deletes cut tiles (`plan.shell.cut` shrinks) and `reconcileSeal`
+ * ADOPTS non-cut ramparts into it (`plan.shell.cut` grows); the per-tile
+ * record of both is `meta.shell.cutDrift`, and the header on it owns the
+ * fleet counts. `meta.shell.cut` is what ships as `planV2.t.shellCut`, and it
+ * is the ONLY blocker set the live bot floods (utils/Interior.ts `build`):
+ * adopting a bubble into the cut pushes the exterior back off everything
+ * standing behind it, and every rampart in that pocket gets deeper without
+ * anything re-reading its depth. A source lobe the enclosure trades pulled
+ * inside is the shape this happens in, and the result is a rampart behind its
+ * own shell at or past DEPTH_SAFE — unreachable by any attacker who has not
+ * already breached the room, and repaired forever by the RCL8 ladder.
+ *
+ * WHERE THE FINDING CAME FROM, AND WHY IT IS NOT A FLEET NUMERAL. It is an
+ * audit of two RUNNING servers (2026-08-22, shard3 and the VPS), on plans
+ * pushed by earlier builds — not a reading of anything this suite writes, so
+ * nothing here re-derives it and it is not stated as a count of this fleet.
+ * What IS derivable is the invariant, and it is the one this pass exists to
+ * hold: no rampart the room ships may sit off the cut and past DEPTH_SAFE
+ * behind it. The bot grew its own runtime veto for the tiles the audit found
+ * (`rampartIsBuried`, utils/Interior.ts), and a consumer refusing to build
+ * its producer's output is a workaround, not a fix: the plan should not
+ * contain the tile.
+ *
+ * So the EMITTED set is re-tested here, after the last thing that can move the
+ * wall, against the wall that ships — the same predicate, on the same flood
+ * the bot will take. Nothing else is touched:
+ *
+ *   - CUT TILES ARE NEVER DROPPED. This pass has no opinion about the wall;
+ *     the prune above owns that, and doubled inner wall is its business.
+ *   - THE SEAL CANNOT MOVE. A tile this pass drops is at chebyshev >= 4 from
+ *     the exterior, so no D8 neighbour of it is exterior under this flood or
+ *     under the (smaller) whole-rampart flood — and `sealCriticalSet` is
+ *     exactly "touches inside AND touches outside". A buried tile is in
+ *     neither reconciliation's answer, which is why re-running the adoption
+ *     after this pass would be a no-op and is not done.
+ *   - THE GARRISON KEEPS ITS FLOOR. A rampart is walkable and so is the plain
+ *     floor under it; a rampart on an OBSTACLE (link, spawn, lab) is not
+ *     walkable either way, because `interiorWalk` blocks occupied tiles
+ *     whether or not they carry a rampart. Deleting one moves no walk region.
+ *
+ * The deletions join `inertPruned` rather than a roster of their own: it is
+ * the prune's existing meaning — "ramparts layer 7 deleted, wall or rented
+ * cover" — and the validator's drift reconciliation already accepts non-cut
+ * entries on it when they carry an eco bubble or a structure of ours, which is
+ * what every tile here is by construction.
+ *
+ * ...WHICH MEANS THEY JOIN THE LATE PRUNE'S COUNTER TOO, AND THAT IS NOT
+ * BOOKKEEPING TIDINESS. `meta.shell.cutPasses` is re-derived by the validator
+ * against the board, twice over, and both legs would go wrong if this pass
+ * deleted silently: the prune markers' `rampartsDeleted` must SUM to
+ * `meta.shell.inertPruned`, and the `layer7b-inertPrune` marker publishes
+ * "nothing adds a rampart after me", so `shipped + rampartsDeleted` has to
+ * reconstruct the count it saw. A deletion on the shared roster that no
+ * marker counts breaks the first; a deletion after the last marker breaks the
+ * second. This pass is the same layer-7b finalisation deleting the same class
+ * of tile onto the same roster, so it reports into the same counter — see the
+ * amendment at the end of the function.
+ */
+function pruneBuriedCover(terrain, plan) {
+  const removed = [];
+  const ramp = plan.structures.rampart || [];
+  const cut = plan.shell?.cut || [];
+  if (!ramp.length || !cut.length || !plan.sitter) return removed;
+  const cutKeys = new Set(cut.map((c) => key(c.x, c.y)));
+  const ext = exteriorFlood(terrain, cutKeys);
+  // A CUT THAT DOES NOT SEAL ON ITS OWN DROPS NOTHING. A room whose cut needs
+  // a bubble to close the curve (`meta.shell.closures.needed`) floods its own
+  // garrison here, and then every interior tile reads as exterior — nothing
+  // measures as buried and nothing is deleted. That is the fail-safe
+  // direction, and it is the same one the bot takes: its interior cache
+  // refuses to answer at all when the hub comes back exterior.
+  if (ext[idxOf(plan.sitter.x, plan.sitter.y)]) return removed;
+  const depth = depthFromExterior(ext);
+  const kept = ramp.filter((r) => {
+    if (cutKeys.has(key(r.x, r.y))) return true; // the wall, never this pass's
+    const i = idxOf(r.x, r.y);
+    if (ext[i] || depth[i] < DEPTH_SAFE) return true; // still worth its upkeep
+    removed.push({ x: r.x, y: r.y });
+    return false;
+  });
+  if (!removed.length) return removed;
+  plan.structures.rampart = kept;
+  // same reason as the prune: the shipped flood every later measurement is
+  // taken against is no longer the one that may be cached
+  invalidateShippedFlood(plan);
+  // `plan.shell.bubble` is NOT scrubbed, for the reason the prune gives: a
+  // declaration this pass may not act on is one it may not edit. What the room
+  // BOUGHT and what it SHIPS are two questions, and the eco bill answers the
+  // first one.
+  plan.shell.upkeepPerTick = Math.round(kept.length * 3) / 100;
+  if (plan.meta?.counts) plan.meta.counts.rampart = kept.length;
+  // the shared counter — see the header. `pass` is named rather than "the last
+  // marker" so a reordering of the finalisation cannot bind this to a
+  // different invocation in silence.
+  const marker = (plan.shell.cutPasses || []).find((m) => m && m.pass === "layer7b-inertPrune");
+  if (marker && Number.isInteger(marker.rampartsDeleted)) marker.rampartsDeleted += removed.length;
+  return removed;
+}
+
+/**
+ * ===========================================================================
  * MF5 (round 27) — THE *Basis / *Why FIELDS THIS FILE WRITES, RENDERED.
  * ===========================================================================
  * Six of the eleven prose fields nobody read live in this file, and seven of
@@ -5225,13 +5340,18 @@ export function finalizeRoom(terrain, plan) {
   if (plan.meta?.finalized) return plan;
   const st = plan.wallPassState || { inertPruned: [], unreachableAtLayer2: 0 };
   const inertPrunedLate = pruneInertRamparts(terrain, plan, "layer7b-inertPrune");
-  const allInertPruned = (st.inertPruned || []).concat(inertPrunedLate);
-  if (inertPrunedLate.length) {
+  const rec = reconcileSeal(terrain, plan, "layer7b-reconcileSeal");
+  const adopted = rec?.adopted || [];
+  // ...AND THE ADOPTION ABOVE IS THE LAST THING THAT MOVES THE WALL, so the
+  // cover the room is still carrying is re-tested against it here. See
+  // pruneBuriedCover: the bubbles were priced against layer 2's cut and the
+  // one the room ships is a different set of tiles.
+  const buriedLate = pruneBuriedCover(terrain, plan);
+  const allInertPruned = (st.inertPruned || []).concat(inertPrunedLate, buriedLate);
+  if (inertPrunedLate.length || buriedLate.length) {
     plan.shell.inertPruned = allInertPruned;
     if (plan.meta?.walls) plan.meta.walls.inertPruned = allInertPruned.length;
   }
-  const rec = reconcileSeal(terrain, plan, "layer7b-reconcileSeal");
-  const adopted = rec?.adopted || [];
   // MF5 (round 27): the sentence is generated from this room's own counters —
   // the two hand-written branches were 6 distinct strings over 172 rooms, and
   // the "cut unchanged" branch asserted a thing the counters already say.

@@ -5,6 +5,32 @@
 import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 
+/**
+ * Stable 0..mod-1 offset from a creep name. Copied from Roles/energyMiner —
+ * a bare `Game.time % N` fires for the whole roster on the same tick, which
+ * turns a saving into a periodic spike; hashing the name spreads the re-scans
+ * evenly across the N ticks instead.
+ */
+function nameOffset(name: string, mod: number): number {
+    let h = 0;
+    for(let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+    return h % mod;
+}
+
+/**
+ * How often ONE maintainer re-walks the whole keepTheseRoads id list.
+ *
+ * The walk is a Game.getObjectById per id, and the list is 58-120 ids in a
+ * developed room — so a maintainer paid 58-120 lookups EVERY tick to answer
+ * "which road is worth walking to", against a road that decays at 100 hits per
+ * 1000 ticks and a repair threshold of 500 hits below max. Nothing in that list
+ * can become worth repairing inside ten ticks that was not already close to it,
+ * and the creep spends most of those ten ticks walking to whatever it picked.
+ * Measured shard3 (limit 20, avg 20.6): repair + maintainer 2.81 CPU over 9
+ * creeps.
+ */
+const ROAD_WALK_EVERY = 10;
+
 const run = function (creep) {
     ;
     creep.memory.moving = false;
@@ -45,21 +71,72 @@ const run = function (creep) {
 
     if(creep.memory.repairing) {
         let buildingsToRepair = [];
-        // keepTheseRoads never drops dead ids; prune as we walk or
-        // maintainers keep scanning ghosts forever
         let roadIds = creep.room.memory.keepTheseRoads || [];
-        let liveRoadIds = [];
-        for(let i = 0; i < roadIds.length; i++) {
-            let road:any = Game.getObjectById(roadIds[i]);
-            if(!road) continue;
-            liveRoadIds.push(roadIds[i]);
-            if(road.hits <= road.hitsMax - 500) {
-                buildingsToRepair.push(road);
+        // Resolved ONCE and reused by the walk gate, the hub clip and the
+        // outpost defer below; it used to be asked twice per tick per creep.
+        const danger = dangerNow(creep.room);
+
+        // THE FULL LIST IS WALKED EVERY ROAD_WALK_EVERY TICKS, NOT EVERY TICK.
+        //
+        // Between walks the creep carries ONE id — the road it was closest to
+        // when it last looked — and validates it with a single getObjectById.
+        // While that road is alive and still damaged it is the whole road half
+        // of the target list, which is what the creep was walking to anyway.
+        // The moment it dies (decayed away, replanned) or reaches full hp (we
+        // just finished repairing it) the walk is forced immediately, so the
+        // throttle can never leave a maintainer idle in front of a broken road.
+        //
+        // ...and NEVER under danger. The clip below drops everything further
+        // than 10 from the hub, so a single cached target that happens to sit
+        // outside that ring would empty the list — and an empty list in a room
+        // this module has no interior geometry for sets suicide. Raids are rare
+        // and are not where the 17.55 CPU is; walk the whole list then.
+        //
+        // The offset is hashed off the creep NAME so a room's maintainers do
+        // not all re-walk on the same tick — see nameOffset above.
+        let walkRoads = danger || (Game.time + nameOffset(creep.name, ROAD_WALK_EVERY)) % ROAD_WALK_EVERY == 0;
+        if(!walkRoads) {
+            let held:any = creep.memory._roadTarget ? Game.getObjectById(creep.memory._roadTarget) : null;
+            if(held && held.hits <= held.hitsMax - 500) {
+                buildingsToRepair.push(held);
+            }
+            else {
+                delete creep.memory._roadTarget;
+                walkRoads = true;
             }
         }
-        if(liveRoadIds.length !== roadIds.length) {
-            creep.room.memory.keepTheseRoads = liveRoadIds;
+        if(walkRoads) {
+            // keepTheseRoads never drops dead ids; prune as we walk or
+            // maintainers keep scanning ghosts forever
+            let liveRoadIds = [];
+            let closestRoad:any = null;
+            let closestRange = Infinity;
+            for(let i = 0; i < roadIds.length; i++) {
+                let road:any = Game.getObjectById(roadIds[i]);
+                if(!road) continue;
+                liveRoadIds.push(roadIds[i]);
+                if(road.hits <= road.hitsMax - 500) {
+                    buildingsToRepair.push(road);
+                    let range = creep.pos.getRangeTo(road);
+                    if(range < closestRange) {
+                        closestRange = range;
+                        closestRoad = road;
+                    }
+                }
+            }
+            if(liveRoadIds.length !== roadIds.length) {
+                creep.room.memory.keepTheseRoads = liveRoadIds;
+            }
+            // what the mover below would have picked out of the road half, kept
+            // so the next nine ticks need one lookup instead of a hundred
+            if(closestRoad) {
+                creep.memory._roadTarget = closestRoad.id;
+            }
+            else {
+                delete creep.memory._roadTarget;
+            }
         }
+
         let containers;
         if(creep.room.controller.level <= 6) {
             containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER});
@@ -113,7 +190,7 @@ const run = function (creep) {
         // decays for many ticks after the raid; sit-tight is keyed off
         // dangerNow, so a trailing clip emptied the list and they suicided
         // instead of going back to outpost roads.
-        if(dangerNow(creep.room) && storage) {
+        if(danger && storage) {
             buildingsToRepair = buildingsToRepair.filter(function(b) {return storage.pos.getRangeTo(b) <= 10;});
         }
 
@@ -123,7 +200,7 @@ const run = function (creep) {
         // is under attack those are dropped, and — critically — an empty list
         // for that reason must NOT set suicide, or every siege would recycle
         // the room's maintainers and leave the roads to decay afterwards.
-        const outposted = interiorReady(creep.room) && dangerNow(creep.room);
+        const outposted = interiorReady(creep.room) && danger;
         if (outposted) buildingsToRepair = filterOutposts(creep.room, buildingsToRepair);
 
         if(buildingsToRepair.length > 0) {

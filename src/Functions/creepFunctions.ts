@@ -3877,7 +3877,15 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target, "upg")) {
-            let costMatrix:any = buildRoadPrioUpgraderInPosition;
+            // The MEMOISED builder, not the raw one. `roomCallbackRoadPrio-
+            // UpgraderInPosition` (:4019) is this file's usual memoMatrix wrap
+            // and was referenced NOWHERE — every upgrader that repathed
+            // rebuilt the whole matrix from scratch (hostiles, a
+            // FIND_STRUCTURES walk and a 50x50 border loop) instead of sharing
+            // the room's one instance for the tick. Overlays nothing
+            // per-caller, so it is safe to share exactly like roadPrioFlee and
+            // the four AvoidEnemyCreepsMuch variants.
+            let costMatrix:any = roomCallbackRoadPrioUpgraderInPosition;
 
             let targetPos = goalPos(this, target);
             if(!targetPos) {

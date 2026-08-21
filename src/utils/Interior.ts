@@ -294,8 +294,47 @@ function shellSig(room: Room): string {
   return tiles.length + ":" + tiles[0] + ":" + tiles[tiles.length - 1];
 }
 
+/**
+ * Per-tick memo of the lookup itself — NOT of the fill.
+ *
+ * The heap cache above is keyed on a SIGNATURE, and computing that signature
+ * costs a shellTiles() call in every room without an adopted planV2: shellTiles
+ * rebuilds and re-packs the whole perimeter array (v1 min-cut rooms also merge
+ * the ramp list through a fresh seen-map) FROM MEMORY, EVERY CALL. Nothing here
+ * memoised it, and getCache() is the front door of every entry point in this
+ * file — including outpostDeferred(), filterOutposts() and rampartIsBuried(),
+ * which the repair and maintainer roles call PER STRUCTURE inside a find
+ * filter. Measured shard3 (limit 20, avg 20.6): repair + maintainer 2.81 CPU
+ * over 9 creeps, with a room's shell array being rebuilt dozens of times per
+ * tick to answer a question whose inputs are all in Memory and cannot change.
+ *
+ * So: one lookup per room per tick, exactly the way matrixCache above is
+ * scoped. This changes NO cache semantics — the sig is still computed (once),
+ * still compared, and a changed plan still invalidates on the next tick's first
+ * call, with the same short retry TTL for failures. It only stops the same
+ * answer being re-derived many times inside one tick.
+ *
+ * `null` is memoised as well as a hit: "this room has no usable interior" is
+ * the expensive answer (it costs the sig AND, on a TTL miss, a whole flood
+ * fill), and it is exactly the answer an unplanned room gives every time.
+ */
+let lookupTick = -1;
+let lookupCache: { [roomName: string]: InteriorCache | null } = {};
+
 function getCache(room: Room): InteriorCache | null {
   if (!room) return null;
+  if (lookupTick !== Game.time) {
+    lookupTick = Game.time;
+    lookupCache = {};
+  }
+  const memo = lookupCache[room.name];
+  if (memo !== undefined) return memo;
+  const resolved = resolveCache(room);
+  lookupCache[room.name] = resolved;
+  return resolved;
+}
+
+function resolveCache(room: Room): InteriorCache | null {
   const sig = shellSig(room);
   const cur = cache[room.name];
   // Failures used to sit in the heap for the full 100t TTL, so a room
