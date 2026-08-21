@@ -2659,10 +2659,42 @@ Creep.prototype.recycle = function recycle() {
                     }
                 }
             }
+            /*
+             * No bin, and none derivable — which is EVERY planV2 room (their
+             * bins are not at storage.y+1; the stamp-hub comment above says
+             * as much). This branch used to fall out with NO intent at all,
+             * so recycle() was a permanent no-op in those rooms: a recalled
+             * remote miner arrived home ON the border entry tile, stood
+             * there intentless, the engine handed it back to the remote, the
+             * recall walked it home again — a 3-tick teleport loop for the
+             * creep's whole life. Live shard3, all six of them, filmed at
+             * avg 22.1/20 CPU. Walk to the spawn and recycle there, exactly
+             * like the stale-bin branch above.
+             */
+            if(!StructuresObject.bin) {
+                let spawns = this.room.find(FIND_MY_SPAWNS);
+                if(spawns.length) {
+                    if(this.pos.isNearTo(spawns[0])) {
+                        spawns[0].recycleCreep(this);
+                    }
+                    else {
+                        this.MoveCostMatrixRoadPrio(spawns[0], 1);
+                    }
+                }
+                else {
+                    this.suicide();
+                }
+            }
         }
     }
     else {
         this.room.memory.Structures = {};
+        // Same rule: never leave recycle() intentless on the discovery tick
+        // — the caller may be standing on an exit tile.
+        let spawns = this.room.find(FIND_MY_SPAWNS);
+        if(spawns.length && !this.pos.isNearTo(spawns[0])) {
+            this.MoveCostMatrixRoadPrio(spawns[0], 1);
+        }
     }
 }
 

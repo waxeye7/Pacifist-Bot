@@ -213,6 +213,17 @@ describe("recalled creeps stop drifting back", () => {
             "no bare walk-out may bypass the recall check");
     });
 
+    it("recycle() is never a no-op in a binless (planV2) room", () => {
+        const at = CF.indexOf("Creep.prototype.recycle = function");
+        assert.isAbove(at, -1);
+        const body = CF.slice(at, CF.indexOf("Creep.prototype.RangedAttackFleeFromMelee"));
+        // the derive-a-bin else branch must end in a spawn walk, not fall out
+        assert.match(body, /if\(!StructuresObject\.bin\) \{\s*\n\s*let spawns = this\.room\.find\(FIND_MY_SPAWNS\);/,
+            "an intentless recycle on the border entry tile is the live 3-tick teleport loop");
+        // and the Structures-bootstrap tick moves too
+        assert.match(body, /this\.room\.memory\.Structures = \{\};[\s\S]{0,400}?MoveCostMatrixRoadPrio\(spawns\[0\], 1\);/);
+    });
+
     it("a creep on the border it is crossing HOLDS and lets the engine carry it", () => {
         const at = CF.indexOf("const onCorrectEdge = hop && (");
         assert.isAbove(at, -1);
