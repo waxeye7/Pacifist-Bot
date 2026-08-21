@@ -188,6 +188,16 @@ function findLocked(creep, storage) {
         creep.room.memory.NukeRepair = false;
     }
     if(Game.cpu.bucket < 100 && !creep.memory.boosted)return;
+    // WORK-SIDE BANK FLOOR. The spawn rungs gate on 10k-150k, but a live
+    // repairer kept grinding until death — a thin-bank room sawtoothed to ~0
+    // (spawn at 10k, burn to nothing, starve the fillers, repeat). Pause
+    // under 5k and resume with the bank; a room under attack repairs anyway.
+    if(!creep.room.memory.danger && creep.room.storage && creep.room.storage.my &&
+        creep.room.storage.store[RESOURCE_ENERGY] < 5000 &&
+        creep.store[RESOURCE_ENERGY] === 0) {
+        creep.idlePark();
+        return;
+    }
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {

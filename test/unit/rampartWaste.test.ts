@@ -267,4 +267,11 @@ describe("REPAIR DEMAND: the RCL7 rung opens before the bank is rich", () => {
         assert.match(SPAWNING, /r\.hits <= 500/,
             "a road that reaches 0 is deleted and takes its own respawn trigger with it");
     });
+
+    it("a live repairer pauses under a 5k bank instead of grinding it to zero", () => {
+        // spawn bars are 10k-150k but the WORK loop had no floor: spawn at
+        // 10k, burn to nothing, starve the fillers, repeat (VPS W5N1 pattern)
+        assert.match(REPAIR, /storage\.store\[RESOURCE_ENERGY\] < 5000 &&\s*\n\s*creep\.store\[RESOURCE_ENERGY\] === 0/);
+        assert.match(REPAIR, /creep\.idlePark\(\);\s*\n\s*return;/);
+    });
 });
