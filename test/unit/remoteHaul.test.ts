@@ -96,10 +96,21 @@ describe("remote roads (the disconnected-at-the-border lines)", () => {
     const CONSTR = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.construction.ts"), "utf8");
     const ROOMSF = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.ts"), "utf8");
 
-    it("home tiles pave when on-plan OR exterior — the shell->exit connector exists now", () => {
-        assert.match(CONSTR, /if \(!onPlan && !isExteriorPos\(homeRoom, pos\)\) continue;/);
+    it("home tiles pave when on-plan OR exterior OR on our wall line — the crossing exists now", () => {
+        // a min-cut rampart tile is neither exterior (Interior floods with the
+        // shell solid) nor a plan road (the planner files it under shellCut),
+        // so without onMyRampart every leg lost its road at the wall crossing
+        assert.match(CONSTR, /if \(!onPlan && !onMyRampart && !isExteriorPos\(homeRoom, pos\)\) continue;/);
+        assert.match(CONSTR, /s\.structureType === STRUCTURE_RAMPART && s\.my\);/,
+            "onMyRampart reads the hoisted per-tile lookFor");
         // and the connector bypasses the homeSites ceiling ROAD_DRIP kept full
         assert.match(CONSTR, /if \(onPlan && budget\.homeSites >= HOME_SITE_CEILING\) continue;/);
+    });
+
+    it("the blocker scan reuses one lookFor and lets only OUR ramparts through", () => {
+        assert.match(CONSTR, /for \(const s of here\) \{/);
+        assert.match(CONSTR, /if \(s\.structureType === STRUCTURE_RAMPART && \(s as any\)\.my\) continue;\s*\n\s*blocked = true; break;/,
+            "a hostile rampart is a wall — no doomed createConstructionSite intents");
     });
 
     it("the remote line is sticky: existing roads and road sites cost 1 vs plain 2", () => {

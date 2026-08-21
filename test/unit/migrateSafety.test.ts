@@ -242,28 +242,35 @@ describe("PlanV2 migration safety", () => {
     });
 
     it("broke-bank site strip keeps link and container sites", () => {
+      // the strip delegates to the ONE keep-set both sides read
       assert.match(
         SRC,
-        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,350}?STRUCTURE_LINK \|\| s\.structureType === STRUCTURE_CONTAINER/,
+        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,700}?brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell\)/,
       );
+      assert.include(SRC, "if (type === STRUCTURE_LINK || type === STRUCTURE_CONTAINER) return true;");
     });
 
     it("does not strip a storage site from a broke room", () => {
-      assert.match(
-        SRC,
-        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,250}?STRUCTURE_STORAGE/,
-      );
+      assert.include(SRC, "if (type === STRUCTURE_SPAWN || type === STRUCTURE_STORAGE) return true;");
+    });
+
+    it("a gate road on the wall line survives both migration paths", () => {
+      assert.match(SRC, /onCut\.has\(c\.s\.pos\.x \+ c\.s\.pos\.y \* 50\)/,
+        "gradual migrateClass must not retire the haul crossing");
+      assert.match(SRC, /s\.structureType === STRUCTURE_ROAD && shellRing\.has\(packed\)\) continue;/,
+        "migrateInsta must not either — shellCut is wanted as RAMPART only");
     });
 
     it("does not strip naked-shell road/rampart sites on a standing storage", () => {
       // brokeBank already requires my storage. bankE<1000 cannot free a
       // storage slot; it only reset the 2-slot wall rebuild.
       assert.notInclude(SRC, "brokeBank && bankE < 1000");
+      assert.include(SRC, "if (type === STRUCTURE_RAMPART) return !!nakedShell;");
       const strip = SRC.slice(
         SRC.indexOf("if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete))"),
         SRC.indexOf("existing structures + sites by type"),
       );
-      assert.include(strip, "STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD");
+      assert.include(strip, "nakedShell || dripKept < ROAD_DRIP");
     });
 
     it("incomplete-core strip fires at budget===0 so leftover labs free the 2 slots", () => {

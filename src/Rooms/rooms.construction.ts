@@ -2688,6 +2688,12 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
         const targetRoom = Game.rooms[pos.roomName];
         if (!targetRoom) continue;
 
+        // One lookFor per tile: the clip rule below needs to know whether this
+        // is a wall-line tile and the blocker scan reuses the same list.
+        const here = pos.lookFor(LOOK_STRUCTURES);
+        const onMyRampart = here.some(
+            (s: any) => s.structureType === STRUCTURE_RAMPART && s.my);
+
         const inHome = pos.roomName === homeRoom.name;
         if (inHome) {
             if (homeBudget <= 0) continue;
@@ -2707,7 +2713,13 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
              * permanently (the second half of the dead-end).
              */
             const onPlan = !!planRoads[pos.x + pos.y * 50];
-            if (!onPlan && !isExteriorPos(homeRoom, pos)) continue;
+            // THE WALL LINE IS A CROSSING, NOT A WALL. Interior floods with
+            // the shell treated as solid, so a min-cut rampart tile is never
+            // exterior; the planner files it under shellCut, so it is never a
+            // plan road either — this rule used to skip exactly the gate
+            // tiles, and every remote leg lost its road at each wall crossing,
+            // permanently. Roads and my ramparts stack.
+            if (!onPlan && !onMyRampart && !isExteriorPos(homeRoom, pos)) continue;
             if (onPlan && budget.homeSites >= HOME_SITE_CEILING) continue;
         } else {
             if (remoteBudget <= 0) continue;
@@ -2721,7 +2733,7 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
         if (terrainHere === TERRAIN_MASK_WALL) continue;
 
         let blocked = false;
-        for (const s of pos.lookFor(LOOK_STRUCTURES)) {
+        for (const s of here) {
             if (s.structureType === STRUCTURE_ROAD) {
                 // rooms.ts wipe empties keepTheseRoads; legacy pathBuilder
                 // re-pushed built ids. Without this, RemoteRepair ignores
@@ -2736,7 +2748,10 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
             // Harvest-seat container is a legal road overlay; treating it
             // as blocked left the drop tile unpaved once the box finished.
             if (s.structureType === STRUCTURE_CONTAINER) continue;
-            if (s.structureType !== STRUCTURE_RAMPART) { blocked = true; break; }
+            // Mine conducts (a road overlays it); a hostile rampart is a wall
+            // and createConstructionSite would burn an intent on it.
+            if (s.structureType === STRUCTURE_RAMPART && (s as any).my) continue;
+            blocked = true; break;
         }
         if (blocked) continue;
         if (pos.lookFor(LOOK_CONSTRUCTION_SITES).length) continue;

@@ -2394,6 +2394,12 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
 }
 
 Creep.prototype.Sweep = function Sweep() {
+    // Non-energy loot can only be unloaded into a storage/terminal. Every other
+    // sink the sweeper delivers to either refuses it (spawn/extension/tower) or
+    // swallows it forever — findLocked's rung 5 is the controller depot itself
+    // (live E39N58: 298 power parked in the upgrader box). No bulk sink -> sweep
+    // energy only.
+    const bulkSink = !!(this.room.storage && this.room.storage.my) || !!this.room.terminal;
     if (!this.memory.lockedDropped || Game.getObjectById(this.memory.lockedDropped) == null) {
         const sources = this.room.find(FIND_SOURCES);
         if (!sources.length) return "nothing to sweep";
@@ -2403,7 +2409,9 @@ Creep.prototype.Sweep = function Sweep() {
         // room.find() hands back the engine's own per-tick cache — the array
         // that everything else in this file (and RoomCache) reads. Sorting it
         // silently reordered every later drop scan in the room this tick.
-        let droppedResources = cachedDropped(this.room).slice();
+        let droppedResources = cachedDropped(this.room)
+            .filter((r: any) => bulkSink || r.resourceType === RESOURCE_ENERGY)
+            .slice();
         if (this.room.controller && this.room.controller.level <= 3) {
             droppedResources = droppedResources.filter((resource) => {
                 const src = resource.pos.findClosestByRange(sources);
@@ -2411,12 +2419,10 @@ Creep.prototype.Sweep = function Sweep() {
             });
         }
 
-        const tombs = this.room.find(FIND_TOMBSTONES, {
-            filter: (t) => _.sum(t.store) > 0,
-        });
-        const ruins = this.room.find(FIND_RUINS, {
-            filter: (r) => _.sum(r.store) > 0,
-        });
+        const hasLoot = (s: any) =>
+            bulkSink ? _.sum(s.store) > 0 : (s.store[RESOURCE_ENERGY] || 0) > 0;
+        const tombs = this.room.find(FIND_TOMBSTONES, { filter: hasLoot });
+        const ruins = this.room.find(FIND_RUINS, { filter: hasLoot });
 
         if (!droppedResources.length && !tombs.length && !ruins.length) {
             return "nothing to sweep";
@@ -2468,10 +2474,10 @@ Creep.prototype.Sweep = function Sweep() {
 
     // Ruin / tombstone — withdraw any resource (prefer energy)
     if (target.store) {
-        const resType =
+        const resType: any =
             target.store[RESOURCE_ENERGY] > 0
                 ? RESOURCE_ENERGY
-                : (Object.keys(target.store)[0] as ResourceConstant);
+                : (bulkSink ? (Object.keys(target.store)[0] as ResourceConstant) : undefined);
         if (!resType) {
             this.memory.lockedDropped = false;
             return "nothing to sweep";
@@ -2912,8 +2918,25 @@ Creep.prototype.fleeFromRanged = function(fleeTarget) {
  */
 const STILL_SHOVABLE_AFTER = 2;
 
+/** How long a shove is remembered, so a pair cannot trade the same tile back. */
+const SHOVE_COOLDOWN = 5;
+
+/**
+ * A creep standing on the tile it CHOSE (its mining seat) is at its
+ * destination, not idling. Shoving it is not traffic control: it walks
+ * straight back, and because the shove SUCCEEDS the pathRetry -> _blockedBy
+ * escape that routes one creep around the other never arms (E37N59, two
+ * miners trading one seat forever). seatP is minerSeat.packXY: x + y*50.
+ */
+const onOwnSeat = (other:any):boolean =>
+    typeof other.memory.seatP === "number" &&
+    other.memory.seatP === other.pos.x + other.pos.y * 50;
+
 const canShove = (other:any):boolean => {
     if(!other || !other.my || !other.memory) {
+        return false;
+    }
+    if(onOwnSeat(other)) {
         return false;
     }
     if(!other.memory.moving) {
@@ -3386,9 +3409,16 @@ const stepCachedPath = (creep:any):void => {
      */
     if (!pos.roomName || pos.roomName === creep.room.name) {
         const blockers = creep.room.lookForAt(LOOK_CREEPS, pos.x, pos.y);
-        if (blockers.length && blockers[0].my && !blockers[0].memory.moving &&
+        const b: any = blockers.length ? blockers[0] : null;
+        // Refusing the RETURN shove is what ends a two-creep trade cycle: the
+        // loser stays blocked, reaches PATH_RETRY_MAX and repaths around.
+        const reciprocal = !!b && creep.memory._shovedBy === b.name &&
+            Game.time - (creep.memory._shovedT || 0) <= SHOVE_COOLDOWN;
+        if (b && b.my && !b.memory.moving && !reciprocal && canShove(b) &&
             typeof creep.SwapPositionWithCreep === "function") {
             creep.SwapPositionWithCreep(direction);
+            b.memory._shovedBy = creep.name;
+            b.memory._shovedT = Game.time;
         }
     }
     if(creep.move(direction) === OK) {

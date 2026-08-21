@@ -34,11 +34,60 @@ describe("broke-boundary site churn", () => {
 
     it("what the typed lab grant places, the strip keeps — with a margin below the grant bar", () => {
         assert.match(SRC, /if \(e >= floor \/ 2 && labCap > 0 && labs < labCap\) return grant\("lab"\);/);
-        assert.match(SRC, /if \(s\.structureType === STRUCTURE_LAB && bankE >= brokeFloor \/ 2 - 5000\) continue;/,
+        assert.match(SRC, /if \(type === STRUCTURE_LAB\) return bankE >= brokeFloor \/ 2 - 5000;/,
             "W5N3's 17k bank grazing the 15k bar stripped a 2000-progress lab — the half-floor line flaps like the floor did");
     });
 
     it("exterior connector road sites are the remote system's, not the strip's", () => {
-        assert.match(SRC, /if \(s\.structureType === STRUCTURE_ROAD && isExteriorTile\(room, s\.pos\.x, s\.pos\.y\)\) continue;/);
+        const strip = SRC.indexOf("if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete))");
+        assert.isAbove(strip, -1);
+        const body = SRC.slice(strip, strip + 1800);
+        assert.match(body, /if \(isExteriorTile\(room, s\.pos\.x, s\.pos\.y\)\) continue;/);
+        assert.match(body, /crossSet\.has\(s\.pos\.x \+ s\.pos\.y \* 50\)\) continue;/,
+            "a road site on the wall line is the haul crossing — roads and my ramparts stack");
+    });
+});
+
+describe("a broke room may only place what the strip keeps", () => {
+    it("one keep-set, read by BOTH the placer and the strip", () => {
+        assert.match(SRC, /export function brokeKeepsSite\(/);
+        assert.match(SRC, /if \(brokeBank && !brokeKeepsSite\(type, bankE, brokeFloor, nakedShell\)\) continue;/,
+            "the placement loop must refuse any type the strip would remove");
+        assert.match(SRC, /if \(brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell\)\) \{/,
+            "the strip must decide from the same predicate");
+    });
+
+    it("default-deny: nuker/observer cannot become churn while broke", () => {
+        const at = SRC.indexOf("export function brokeKeepsSite(");
+        const body = SRC.slice(at, at + 1300);
+        assert.include(body, "if (type === STRUCTURE_RAMPART) return !!nakedShell;");
+        assert.match(body, /return false;\s*\n\}/,
+            "a new PLACE_ORDER type must not silently become churn");
+    });
+
+    it("core-incomplete's UNTYPED 2 slots can no longer reach lab (the W5N3 hole)", () => {
+        // coreBuildoutIncomplete returned 2 with _exceptionSlotFor null, so
+        // PLACE_ORDER walked past the capped spawn/ext/tower down to lab, and
+        // brokeBankStripFires fires on coreIncomplete regardless of budget —
+        // place, 15 ticks of builder, strip, repeat.
+        assert.match(SRC, /if \(coreBuildoutIncomplete\(lvl, structs\)\) return 2;/,
+            "the 2-slot core grant still exists and is still untyped...");
+        const grant = SRC.indexOf("if (coreBuildoutIncomplete(lvl, structs)) return 2;");
+        const guard = SRC.indexOf("if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;");
+        assert.isAbove(guard, grant, "...so the keep-set guard is what fences it");
+    });
+
+    it("every strip removal is attributable — room, type, pos, progress, reason", () => {
+        assert.match(SRC, /planV2 \$\{room\.name\}: STRIP \$\{s\.structureType\}@\$\{s\.pos\.x\},\$\{s\.pos\.y\}/);
+        assert.match(SRC, /progress \$\{s\.progress\}\/\$\{s\.progressTotal\} lost/,
+            "the log must carry the energy that was destroyed");
+    });
+
+    it("the drip counts what the strip counts — connectors and crossings are neither's", () => {
+        const drip = SRC.indexOf("THE ROAD DRIP");
+        const block = SRC.slice(drip, drip + 1300);
+        assert.include(block, "if (isExteriorTile(room, s.pos.x, s.pos.y)) continue;",
+            "standing connectors used to suppress the interior drip forever");
+        assert.include(block, "dripCross.has(s.pos.x + s.pos.y * 50)");
     });
 });

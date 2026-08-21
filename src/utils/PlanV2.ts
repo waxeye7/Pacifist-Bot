@@ -53,6 +53,35 @@ export function brokeBankStripFires(
   return budget < 0 || !!nakedShell || !!coreIncomplete;
 }
 
+/**
+ * THE ONE BROKE KEEP-SET. A broke room may only ever hold sites of types the
+ * strip will keep — otherwise the placer and the strip take turns and the
+ * difference is destroyed builder energy (VPS W5N3, a 500-progress lab every
+ * pass: coreBuildoutIncomplete granted 2 UNTYPED slots, PLACE_ORDER walked
+ * them down to `lab`, and the strip — which fires on coreIncomplete
+ * regardless of budget — ate it 15 ticks later, forever).
+ *
+ * DEFAULT-DENY: a type added to PLACE_ORDER cannot silently become churn.
+ * Both callers pass the same bankE and the same brokeFloor.
+ */
+export function brokeKeepsSite(
+  type: string,
+  bankE: number,
+  brokeFloor: number,
+  nakedShell: boolean,
+): boolean {
+  if (type === STRUCTURE_SPAWN || type === STRUCTURE_STORAGE) return true;
+  if (type === STRUCTURE_LINK || type === STRUCTURE_CONTAINER) return true;
+  if (type === STRUCTURE_TOWER || type === STRUCTURE_EXTENSION) return true;
+  if (type === STRUCTURE_TERMINAL || type === STRUCTURE_EXTRACTOR) return true;
+  // same bar as the typed lab grant (e >= floor/2) minus a margin, so a
+  // granted lab is always inside the keep bar and can never be stripped
+  if (type === STRUCTURE_LAB) return bankE >= brokeFloor / 2 - 5000;
+  if (type === STRUCTURE_ROAD) return true;
+  if (type === STRUCTURE_RAMPART) return !!nakedShell;
+  return false;
+}
+
 /** Off-plan last tower on planned storage/spawn/terminal — a swap, not a floor. */
 export function towerOccupiesPlannedHub(
   packed: number,
@@ -1268,15 +1297,22 @@ function rcl3EcoAndTowerRoads(plan: PackedPlan, arterial: number[]): number[] {
 }
 
 function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number[] {
-  if (lvl < 3) return [];
+  if (lvl < 2) return [];
+  // RCL2 GETS THE CORE TRAILS — hub->source and hub->controller, nothing else.
+  // push-plan's roadStage floors at 3, so RCL2 must read the RCL3 stage set
+  // and take the same eco+tower subset; comparing stages against 2 selects
+  // the empty set. ROAD_DRIP (4 sites) is the entire RCL2 road budget —
+  // placement's typeAllowedAtRcl gate stays at 3, so the 5-slot RCL2 site
+  // budget still belongs to the extensions. Haulers can run 2:1 from RCL2.
+  const stageLvl = lvl < 3 ? 3 : lvl;
   const stage = plan.rs;
   const arterial: number[] = [];
   if (!stage || stage.length !== planRoads.length) {
-    if (lvl > 3) return planRoads;
+    if (stageLvl > 3) return planRoads;
     for (let i = 0; i < planRoads.length; i++) arterial.push(planRoads[i]);
   } else {
-    for (let i = 0; i < planRoads.length; i++) if (stage[i] <= lvl) arterial.push(planRoads[i]);
-    if (lvl !== 3) return arterial;
+    for (let i = 0; i < planRoads.length; i++) if (stage[i] <= stageLvl) arterial.push(planRoads[i]);
+    if (stageLvl !== 3) return arterial;
   }
   return rcl3EcoAndTowerRoads(plan, arterial);
 }
@@ -2241,9 +2277,13 @@ function migrateClass(
       // Off-plan roads OUTSIDE the shell are the remote/approach lines, not
       // legacy stamp litter. Retiring those would unpave every hauler route
       // the room owns, so the plan only claims responsibility for the roads
-      // it actually encloses.
+      // it actually encloses. A road ON the cut is the haul crossing —
+      // shellCut is planned as rampart, so it can never be a planTile road
+      // and would otherwise read as squatter litter every pass.
+      const onCut = new Set<number>(plan.t.shellCut || []);
       candidates = interiorReady(room)
-        ? ranked.off.filter((c) => !isExteriorTile(room, c.s.pos.x, c.s.pos.y))
+        ? ranked.off.filter((c) => !isExteriorTile(room, c.s.pos.x, c.s.pos.y)
+            && !onCut.has(c.s.pos.x + c.s.pos.y * 50))
         : [];
       if (!candidates.length) return;
     }
@@ -2613,6 +2653,7 @@ function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], kee
     const asType = type === "shellCut" ? STRUCTURE_RAMPART : type;
     for (const p of plan.t[type] || []) mark(asType, p);
   }
+  const shellRing = new Set<number>(plan.t.shellCut || []);
   let empireSpawns = 0;
   for (const rn in Game.rooms) {
     const rr = Game.rooms[rn];
@@ -2638,6 +2679,9 @@ function migrateInsta(room: Room, plan: PackedPlan, structures: Structure[], kee
     }
     const packed = s.pos.x + s.pos.y * 50;
     if (wanted[packed] && wanted[packed][s.structureType]) continue;
+    // A road under the wall line is the haul crossing, not litter (see
+    // placeClippedRemoteRoads): shellCut is `wanted` as RAMPART only.
+    if (s.structureType === STRUCTURE_ROAD && shellRing.has(packed)) continue;
     if (keepCritical && ALIGN_NEVER_RETIRE[s.structureType]) continue;
     // Source boxes AND source links are income. Align used to delete an
     // off-plan source link (energyMiner range 2) as furniture; RCL5+ then
@@ -2976,6 +3020,10 @@ export function placeFromPlanV2(room: Room): void {
     for (const s of sites) {
       if (extra <= 0) break;
       if (s.structureType !== STRUCTURE_RAMPART) continue;
+      logAlways(
+        `planV2 ${room.name}: STRIP rampart@${s.pos.x},${s.pos.y} ` +
+          `progress ${s.progress}/${s.progressTotal} lost — rampart site cap (${rampartSites}>4)`,
+      );
       s.remove();
       extra--;
     }
@@ -2984,11 +3032,12 @@ export function placeFromPlanV2(room: Room): void {
   const bankE = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
   // Same LATCHED answer maxSitesFor's clamp uses (see bankIsBroke) — a
   // strip that flips a tick ahead of the placer is the churn machine.
-  const brokeBank =
-    lvl >= 6 &&
-    !!room.storage &&
-    room.storage.my &&
-    bankIsBroke(room, bankE, brokeFloor);
+  const brokeQualifies = lvl >= 6 && !!room.storage && !!room.storage.my;
+  // A room that drops out of the clamp's scope (storage destroyed, RCL reset)
+  // never reaches bankIsBroke again and would keep a stale _brokeLatch in
+  // Memory forever — it would then re-enter needing floor + 15000.
+  if (!brokeQualifies && (room.memory as any)._brokeLatch) delete (room.memory as any)._brokeLatch;
+  const brokeBank = brokeQualifies && bankIsBroke(room, bankE, brokeFloor);
   // Spawnless stays on the spawn-first slot; do not spend it on shell tiles.
   const nakedShell = !spawnless && brokeBank && isShellNaked(room, structures);
   let budget = maxSitesFor(lvl, room, structures) - liveSites;
@@ -3004,35 +3053,34 @@ export function placeFromPlanV2(room: Room): void {
     !spawnless && !nakedShell && coreBuildoutIncomplete(lvl, structures);
   if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete)) {
     let dripKept = 0;
+    const crossSet = new Set<number>(plan.t.shellCut || []);
     for (const s of sites) {
-      if (s.structureType === STRUCTURE_SPAWN) continue;
-      if (s.structureType === STRUCTURE_STORAGE) continue;
-      if (s.structureType === STRUCTURE_LINK || s.structureType === STRUCTURE_CONTAINER) continue;
-      if (s.structureType === STRUCTURE_TOWER || s.structureType === STRUCTURE_EXTENSION) continue;
-      // The typed exception slot's own site (terminal/extractor, max 1 each)
-      // must survive the strip — it IS the way back out of broke.
-      if (s.structureType === STRUCTURE_TERMINAL || s.structureType === STRUCTURE_EXTRACTOR) continue;
-      // Same bar as the typed lab grant (e >= floor/2), MINUS a margin: what
-      // the clamp just granted, the strip must not eat — and the half-floor
-      // line flaps exactly like the floor did (W5N3 filmed stripping a
-      // 2000-progress lab as its 17k bank grazed the 15k bar). Grant at
-      // floor/2, keep until clearly below it.
-      if (s.structureType === STRUCTURE_LAB && bankE >= brokeFloor / 2 - 5000) continue;
-      // Exterior connector road sites belong to the REMOTE system
-      // (placeClippedRemoteRoads' shell->exit legs), not the plan flood this
-      // strip polices — eating them undid the connector fix within a few
-      // hundred ticks (filmed: W3N1 13,14 / 12,14 removed at 0 progress).
-      if (s.structureType === STRUCTURE_ROAD && isExteriorTile(room, s.pos.x, s.pos.y)) continue;
-      if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
-        continue;
+      // ONE decision, shared with the placement loop below (brokeKeepsSite):
+      // a broke room can only hold sites the strip keeps, so place-and-strip
+      // cannot churn. Lab keep bar sits under the lab grant bar on purpose —
+      // what the clamp granted, the strip must not eat (W5N3 filmed stripping
+      // a 2000-progress lab as its 17k bank grazed the 15k bar).
+      if (brokeKeepsSite(s.structureType, bankE, brokeFloor, nakedShell)) {
+        if (s.structureType !== STRUCTURE_ROAD) continue;
+        // Exterior connector road sites belong to the REMOTE system
+        // (placeClippedRemoteRoads' shell->exit legs), and a road site ON the
+        // cut is the haul crossing (roads and my ramparts stack) — neither is
+        // the plan flood this strip polices.
+        if (isExteriorTile(room, s.pos.x, s.pos.y)) continue;
+        if (crossSet.has(s.pos.x + s.pos.y * 50)) continue;
+        // The road drip survives the strip (see ROAD_DRIP): removing what
+        // the drip just placed would churn a site per pass.
+        if (nakedShell || dripKept < ROAD_DRIP) {
+          dripKept++;
+          continue;
+        }
       }
-      // The road drip survives the strip (see ROAD_DRIP): 2x300e of haul
-      // efficiency is not the "site flood" this strip exists to stop, and
-      // removing what the drip just placed would churn a site per pass.
-      if (s.structureType === STRUCTURE_ROAD && dripKept < ROAD_DRIP) {
-        dripKept++;
-        continue;
-      }
+      logAlways(
+        `planV2 ${room.name}: STRIP ${s.structureType}@${s.pos.x},${s.pos.y} ` +
+          `progress ${s.progress}/${s.progressTotal} lost — bank ${bankE}/${brokeFloor}` +
+          `${nakedShell ? " nakedShell" : ""}${coreIncomplete ? " coreIncomplete" : ""}` +
+          ` budget ${budget}`,
+      );
       s.remove();
     }
   }
@@ -3091,9 +3139,20 @@ export function placeFromPlanV2(room: Room): void {
   // zero road sites in any room. Up to ROAD_DRIP road sites stand at all
   // times (staged order, so arterials first); the broke strip above keeps the
   // same number, so place-and-strip cannot churn.
-  if (lvl >= 3 && !spawnless && !nakedShell) {
+  if (lvl >= 2 && !spawnless && !nakedShell) {
+    // Count only what the STRIP counts against ROAD_DRIP: exterior connector
+    // sites and wall-crossing sites are kept unconditionally there, so
+    // counting them here let 4 standing connectors suppress the interior
+    // drip forever (live E37N59: decayed plan roads never re-sited).
+    // lvl >= 2: core trails place from RCL2 so haulers can run 2:1.
+    const dripCross = new Set<number>(plan.t.shellCut || []);
     let roadSitesNow = 0;
-    for (const s of sites) if (s.structureType === STRUCTURE_ROAD) roadSitesNow++;
+    for (const s of sites) {
+      if (s.structureType !== STRUCTURE_ROAD) continue;
+      if (isExteriorTile(room, s.pos.x, s.pos.y)) continue;
+      if (dripCross.has(s.pos.x + s.pos.y * 50)) continue;
+      roadSitesNow++;
+    }
     let drip = ROAD_DRIP - roadSitesNow;
     if (drip > 0) {
       const stagedRoads = roadsForRcl(plan, plannedTilesFor(plan, "road", lvl, room), lvl);
@@ -3160,6 +3219,11 @@ export function placeFromPlanV2(room: Room): void {
     if (spawnless && type !== "spawn") continue;
     // Naked-shell budget is road+rampart only — never labs/nuker/terminal.
     if (nakedShell && type !== "road" && type !== "rampart") continue;
+    // NEVER place what the strip above would remove. This is the guard the
+    // untyped coreBuildoutIncomplete grant never had: PLACE_ORDER walked its
+    // 2 slots down to rampart/lab and the strip ate them 15 ticks later
+    // (VPS W5N3, a 500-progress lab, forever).
+    if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;
     // Roads are the one type whose ARRAY is trimmed rather than capped: the
     // RCL selection is a staged subsequence, not a prefix (see roadsForRcl), so
     // the loop below must iterate the selection itself.

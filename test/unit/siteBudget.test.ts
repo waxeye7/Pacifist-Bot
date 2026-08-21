@@ -34,7 +34,16 @@ describe("placement order and the road drip", () => {
         assert.isAbove(drip, -1);
         assert.isBelow(drip, gate, "the drip must run even when the budget is 0");
         // the strip preserves drip-many road sites so place-and-strip cannot churn
-        assert.match(SRC, /STRUCTURE_ROAD && dripKept < ROAD_DRIP/);
+        assert.match(SRC, /nakedShell \|\| dripKept < ROAD_DRIP/);
+    });
+
+    it("core trails start at RCL2 and read the RCL3 stage set", () => {
+        assert.match(SRC, /if \(lvl < 2\) return \[\];/);
+        assert.match(SRC, /const stageLvl = lvl < 3 \? 3 : lvl;/,
+            "plan.rs floors at 3 — comparing against 2 selects nothing");
+        assert.match(SRC, /if \(lvl >= 2 && !spawnless && !nakedShell\) \{/, "the drip gate");
+        assert.match(SRC, /if \(type === "road"\) return lvl >= 3;/,
+            "placement/migration gate stays at 3 — RCL2 roads come from the drip only");
     });
 });
 

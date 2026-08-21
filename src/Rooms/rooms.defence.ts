@@ -5,7 +5,8 @@ import {
     SHELL_MIN_RCL,
 } from "utils/Perimeter";
 import { logVerbose } from "utils/Logger";
-import { rampartIsBuried } from "utils/Interior";
+import { rampartIsBuried, interiorReady } from "utils/Interior";
+import { isSanctionedRampart } from "utils/PlanV2";
 
 /**
  * Ramparts that sit EXACTLY on a planned perimeter tile.
@@ -737,22 +738,45 @@ function roomDefence(room) {
         // a tile nothing can reach without first breaching the actual wall is
         // not a hole in the perimeter, so it gets no save and is allowed to
         // decay away (the plant veto in placePlanSites stops it coming back).
+        // ...but once the planned wall is FINISHED the migration argument
+        // expires. rampartLocations is the cut tiles STILL MISSING a rampart
+        // (PlanV2 syncPlanV2Memory), so empty = every cut tile is walled: an
+        // off-plan rampart is then a leftover, and this save was the only
+        // reason it never decayed — 800 hits every ~667 ticks is immortality
+        // for exactly the tiles the room has abandoned. Legacy rooms publish
+        // the whole ring here and never reach empty, keeping the
+        // save-everything behaviour.
+        const shellDone = interiorReady(room) &&
+            !!(room.memory.construction && room.memory.construction.rampartLocations &&
+               room.memory.construction.rampartLocations.length === 0);
         const dying = room.find(FIND_MY_STRUCTURES, {
             filter: (s: any) => s.structureType === STRUCTURE_RAMPART && s.hits < 2000 &&
-                !rampartIsBuried(room, s.pos),
+                !rampartIsBuried(room, s.pos) &&
+                (!shellDone || isSanctionedRampart(room, s.pos)),
         }) as any[];
+        // ONE INTENT PER TOWER, TWO DUTIES. These were if/else, so ANY rampart
+        // under 2000 — a freshly sited 1-hit tile, or an abandoned off-plan one
+        // pinned at ~1.2k by this very save — took the whole battery and the
+        // planned shell got NO upkeep at all for as long as it lasted.
+        const usedTower: { [id: string]: boolean } = {};
+        const fireRepair = function (target: any): void {
+            for (const towerID of room.memory.Structures.towers) {
+                if (usedTower[towerID]) continue;
+                const tower: any = Game.getObjectById(towerID);
+                // leave a full salvo (10 shots) in the tower for defence
+                if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
+                    tower.repair(target);
+                    usedTower[towerID] = true;
+                    return;
+                }
+            }
+        };
         if (dying.length) {
             let lowest = dying[0];
             for (const r of dying) if (r.hits < lowest.hits) lowest = r;
-            for (const towerID of room.memory.Structures.towers) {
-                const tower: any = Game.getObjectById(towerID);
-                if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
-                    tower.repair(lowest);
-                    break;
-                }
-            }
+            fireRepair(lowest);
         }
-        else {
+        {
         const shell = planShellRamparts(room);
         if (shell.length) {
             let weakest = shell[0];
@@ -770,19 +794,54 @@ function roomDefence(room) {
             // only when the weakest sanctioned tile is under the floor, and
             // only back up to it. A freshly-built 1-hit rampart still gets
             // caught instantly, which is the case this path exists for.
-            const TOWER_SHELL_FLOOR = 10000;
+            // EMERGENCY FLOOR, NOT A LADDER. REPAIR_COST 0.01 => a creep buys
+            // 100 hits per energy; a tower buys 800/10 = 80 at range <= 5,
+            // falling to 20 at range >= 20 — a shell 8-13 tiles out costs
+            // 40-60 hits/energy, paid twice (a filler ferries the 10 back).
+            // 10000 was a growth engine wearing a floor's clothes: with the
+            // repair rungs shut (bank under their floor) this was the ONLY
+            // thing touching the shell, so the wall's ceiling WAS this number
+            // (live E37N59: 77 ramparts pinned at 10k against a 500k target).
+            // 3000 is ~1000 ticks of decay headroom — no tile dies between
+            // creep passes, and the wall's height is decided by the repair
+            // rungs in rooms.spawning.
+            const TOWER_SHELL_FLOOR = 3000;
             const target = Math.min(weakest.hitsMax, maxRepairTower, rampartHitsTarget(room), TOWER_SHELL_FLOOR);
             if (weakest.hits < target) {
-                for (const towerID of room.memory.Structures.towers) {
-                    const tower: any = Game.getObjectById(towerID);
-                    // leave a full salvo (10 shots) in the tower for defence
-                    if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
-                        tower.repair(weakest);
-                        break;
-                    }
-                }
+                fireRepair(weakest);
             }
         }
+        }
+    }
+
+    // ROADS NEVER DECAY TO DEATH. Nothing else in an RCL6+ room repairs a
+    // road: the shell rung above is rampart-only, Roles/repair excludes roads
+    // from RCL6 and goes inert under bucket 100, builders never touch them,
+    // and the ONE maintainer's spawn trigger is dropped while the room is
+    // broke and skipped under bucket 1000 — live E37N59 lost whole plan-road
+    // tiles overnight, and a road that reaches 0 is DELETED: its id leaves
+    // keepTheseRoads, taking the respawn trigger with it. 800 hits for 10
+    // energy on a 15-tick cadence is ~60x road decay for ~0.7 e/tick; a 10%
+    // floor is a death guard, not an upkeep engine. Reads keepTheseRoads, so
+    // trimmed controller roads (utils/roadTrim) still decay away as intended.
+    if (!room.memory.danger &&
+        Game.time % 15 == 1 &&
+        room.memory.Structures.towers && room.memory.Structures.towers.length) {
+        const ROAD_DEATH_FLOOR = 0.1;
+        let worstRoad: any = null;
+        for (const roadID of room.memory.keepTheseRoads || []) {
+            const r: any = Game.getObjectById(roadID);
+            if (!r || r.hits >= r.hitsMax * ROAD_DEATH_FLOOR) continue;
+            if (!worstRoad || r.hits < worstRoad.hits) worstRoad = r;
+        }
+        if (worstRoad) {
+            for (const towerID of room.memory.Structures.towers) {
+                const tower: any = Game.getObjectById(towerID);
+                if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
+                    tower.repair(worstRoad);
+                    break;
+                }
+            }
         }
     }
 

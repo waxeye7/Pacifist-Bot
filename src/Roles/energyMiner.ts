@@ -310,15 +310,26 @@ function ensureMinerSeat(creep: any): "seated" | "moving" | "none" {
         creep.memory.seatFor = linkId;
         creep.memory.seatP = p === null ? false : p;
     }
-    if (creep.memory.seatP === false || creep.memory.seatP === undefined) return "none";
+    if (creep.memory.seatP === false || creep.memory.seatP === undefined) {
+        // A yield is not for life: clearing only seatP leaves seatFor === linkId,
+        // so the recompute above never fires and the survivor stays on legacy
+        // pathing for its whole 1500 ticks after the sibling dies. Retry on a
+        // slow timer — findLiveSeat is a handful of lookForAt.
+        if (creep.memory.seatYieldT && Game.time - creep.memory.seatYieldT > 50) {
+            creep.memory.seatFor = null;
+            delete creep.memory.seatYieldT;
+        }
+        return "none";
+    }
     const seat = unpackXY(creep.memory.seatP);
     if (creep.pos.x === seat.x && creep.pos.y === seat.y) return "seated";
     const occupants = creep.room.lookForAt(LOOK_CREEPS, seat.x, seat.y);
     if (occupants.length && occupants[0].name !== creep.name) {
         const o: any = occupants[0];
         if (o.my && o.memory && o.memory.role === "EnergyMiner") {
-            // a sibling holds the seat — this creep lives with legacy behaviour
+            // a sibling holds the seat — legacy behaviour, retried in 50 ticks
             creep.memory.seatP = false;
+            creep.memory.seatYieldT = Game.time;
             return "none";
         }
         // transient blocker (hauler loading the container): step in anyway,

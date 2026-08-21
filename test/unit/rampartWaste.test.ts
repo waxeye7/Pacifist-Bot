@@ -93,7 +93,7 @@ describe("PLANT side: placePlanSites refuses to site a buried rampart", () => {
 
 describe("SPEND side: towers", () => {
     it("rooms.defence imports the predicate", () => {
-        assert.match(DEFENCE, /import \{ rampartIsBuried \} from "utils\/Interior";/);
+        assert.match(DEFENCE, /import \{ rampartIsBuried, interiorReady \} from "utils\/Interior";/);
     });
 
     it("the peacetime shell top-up drops buried tiles from the candidate set", () => {
@@ -107,8 +107,8 @@ describe("SPEND side: towers", () => {
     it("the sub-2000-hit HOLE PREVENTION save does not rescue a buried rampart", () => {
         const at = DEFENCE.indexOf("const dying = room.find(FIND_MY_STRUCTURES");
         assert.isAbove(at, -1);
-        const block = DEFENCE.slice(at, at + 320);
-        assert.match(block, /s\.hits < 2000 &&\s*\n\s*!rampartIsBuried\(room, s\.pos\),/,
+        const block = DEFENCE.slice(at, at + 400);
+        assert.match(block, /s\.hits < 2000 &&\s*\n\s*!rampartIsBuried\(room, s\.pos\) &&/,
             "a hole in a tile nothing can reach is not a hole in the perimeter");
     });
 
@@ -207,5 +207,64 @@ describe("SPEND side: the energyMiner myRampart machinery (the 13.4M tile)", () 
     it("the miner does not PLANT a link rampart the wall already covers", () => {
         assert.match(MINER, /isSanctionedRampart\(creep\.room, closestLink\.pos\) &&\s*\n\s*!rampartIsBuried\(creep\.room, closestLink\.pos\)\) \{/,
             "this planter is where the W1N1 link ramparts came from");
+    });
+});
+
+describe("TOWER POLICY: creeps raise the wall, towers only stop deaths", () => {
+    // Live E37N59 (RCL7): bank-broke, the 150k repairer floor never opened,
+    // and the towers' 10k "decay floor" was the only thing touching a 77-tile
+    // shell — the wall's ceiling WAS the tower number, bought at 20-80
+    // hits/energy instead of a creep's 100.
+    it("the shell floor is an emergency floor (3000), not a growth ladder", () => {
+        assert.match(DEFENCE, /const TOWER_SHELL_FLOOR = 3000;/);
+        assert.notMatch(DEFENCE, /const TOWER_SHELL_FLOOR = 10000;/);
+    });
+
+    it("one intent per tower, two duties — the <2000 save no longer starves the shell", () => {
+        assert.match(DEFENCE, /if \(usedTower\[towerID\]\) continue;/);
+        assert.match(DEFENCE, /usedTower\[towerID\] = true;/);
+        const at = DEFENCE.indexOf("const dying = room.find");
+        const block = DEFENCE.slice(at, at + 2000);
+        assert.notMatch(block, /\}\s*\n\s*else \{\s*\n\s*const shell = planShellRamparts/,
+            "the two duties must not share an if/else");
+    });
+
+    it("once the planned wall is finished, off-plan ramparts stop being resurrected", () => {
+        assert.match(DEFENCE, /const shellDone = interiorReady\(room\) &&/);
+        assert.match(DEFENCE, /\(!shellDone \|\| isSanctionedRampart\(room, s\.pos\)\)/,
+            "the <2000 save is unfiltered only while the shell is still closing");
+        assert.match(DEFENCE, /import \{ isSanctionedRampart \} from "utils\/PlanV2";/);
+    });
+
+    it("towers hold a road death floor — nothing else repairs a road at RCL6+", () => {
+        assert.match(DEFENCE, /const ROAD_DEATH_FLOOR = 0\.1;/);
+        assert.match(DEFENCE, /Game\.time % 15 == 1 &&/,
+            "own tick phase — never contends with the shell rung's % 3");
+        assert.match(DEFENCE, /for \(const roadID of room\.memory\.keepTheseRoads \|\| \[\]\)/,
+            "kept roads only — trimmed controller roads still decay away by design");
+    });
+});
+
+describe("REPAIR DEMAND: the RCL7 rung opens before the bank is rich", () => {
+    it("shell-critical arm: a wall under a quarter of target unlocks at a 10k bank", () => {
+        assert.match(SPAWNING, /const shellFloor7 = Math\.floor\(rampartHitsTarget\(room\) \/ 4\);/);
+        assert.match(SPAWNING, /shellCritical7 && storage\.store\[RESOURCE_ENERGY\] > 10000/);
+    });
+
+    it("thin bank buys the RCL6 body, not the 4000e 30-WORK one", () => {
+        assert.match(SPAWNING, /const repairBody7 = storage && storage\.store\[RESOURCE_ENERGY\] > 50000/);
+        assert.match(SPAWNING, /spawn_list\.push\(repairBody7, name/);
+    });
+
+    it("maintainer triggers on a FRACTION of hitsMax, not 2000 absolute", () => {
+        // 2000 absolute is 8% of a 25k swamp road — roads died overnight
+        assert.match(SPAWNING, /road\.hits <= Math\.max\(2000, road\.hitsMax \* 0\.5\)/);
+    });
+
+    it("broke-triage keeps the maintainer when a road is about to vanish", () => {
+        assert.match(SPAWNING, /if \(role === 'maintainer' && roadNearDeath\(room\)\) continue;/);
+        assert.match(SPAWNING, /function roadNearDeath\(room: any\): boolean \{/);
+        assert.match(SPAWNING, /r\.hits <= 500/,
+            "a road that reaches 0 is deleted and takes its own respawn trigger with it");
     });
 });

@@ -199,7 +199,12 @@ import { stompForeignSite } from "utils/ForeignSites";
                 if(creep.pos.isNearTo(target)) {
                     // Sweep picks up minerals; energy-only transfer left a
                     // mineral-full sweeper parked on a spawn transferring nothing.
-                    const resource = Object.keys(creep.store)[0];
+                    // Energy FIRST though: every rung of findLocked takes energy,
+                    // but only a storage/terminal takes anything else — key order
+                    // must never put power into the controller depot (E39N58).
+                    const resource = (creep.store[RESOURCE_ENERGY] || 0) > 0
+                        ? RESOURCE_ENERGY
+                        : Object.keys(creep.store)[0];
                     const r = resource ? creep.transfer(target, resource) : ERR_NOT_ENOUGH_RESOURCES;
                     if(creep.store.getUsedCapacity() == 0) {
                         creep.memory.full = false;

@@ -38,9 +38,28 @@ describe("idlePark — the lane discipline", () => {
     it("cached-path walkers shove an idle blocker on the blocked step itself", () => {
         const at = CF.indexOf("const stepCachedPath = (creep:any):void =>");
         assert.isAbove(at, -1);
-        const body = CF.slice(at, at + 1600);
-        assert.match(body, /blockers\[0\]\.my && !blockers\[0\]\.memory\.moving/);
+        const body = CF.slice(at, at + 2200);
+        assert.match(body, /b && b\.my && !b\.memory\.moving && !reciprocal && canShove\(b\)/);
         assert.match(body, /creep\.SwapPositionWithCreep\(direction\);/);
+    });
+
+    it("the shove never evicts a creep standing on its own seat", () => {
+        // E37N59: two miners traded one seat forever — the displaced one walks
+        // straight back, and a SUCCESSFUL shove resets pathRetry so the
+        // _blockedBy route-around escape never arms.
+        const at = CF.indexOf("const canShove = (other:any):boolean =>");
+        assert.isAbove(at, -1);
+        const body = CF.slice(Math.max(0, at - 900), at + 600);
+        assert.match(body, /other\.memory\.seatP === other\.pos\.x \+ other\.pos\.y \* 50/);
+        assert.match(body, /if\(onOwnSeat\(other\)\) \{\s*\n\s*return false;/);
+    });
+
+    it("the shove is never reciprocated — no two-creep swap cycle", () => {
+        const at = CF.indexOf("const stepCachedPath = (creep:any):void =>");
+        const body = CF.slice(at, at + 2200);
+        assert.match(body, /creep\.memory\._shovedBy === b\.name/);
+        assert.match(body, /Game\.time - \(creep\.memory\._shovedT \|\| 0\) <= SHOVE_COOLDOWN/);
+        assert.match(body, /b\.memory\._shovedBy = creep\.name;/);
     });
 });
 

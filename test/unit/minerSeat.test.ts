@@ -39,6 +39,31 @@ describe("minerSeat: chooseSeat", () => {
     });
 });
 
+describe("one miner per seat (the E37N59 swap pair)", () => {
+    const MINER = fs.readFileSync(path.join(__dirname, "../../src/Roles/energyMiner.ts"), "utf8");
+    const SP = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
+
+    it("a seat yield is retried after 50 ticks, not permanent", () => {
+        // clearing only seatP left seatFor === linkId, so the survivor stayed
+        // on legacy pathing for its whole life after the sibling died
+        assert.include(MINER, "creep.memory.seatYieldT = Game.time;");
+        assert.match(MINER, /Game\.time - creep\.memory\.seatYieldT > 50[\s\S]{0,200}?creep\.memory\.seatFor = null;/);
+    });
+
+    it("the leftover 5W top-up is never queued onto a link source", () => {
+        // [5W,MOVE] has no CARRY -> drop-mine branch, standing on the real
+        // miner's seat for 1500 ticks; it is also the only rung that stacks
+        // two live non-stopgap miners on one source (bypasses onTheWay)
+        assert.match(SP, /&& !sourceLinkHaulWorks\(room, sourceId\)\s*\n\s*&& leftoverUpgradeShouldQueue\(/);
+    });
+
+    it("the cap>=750 miner rung latches fiveWQueued so the leftover rung cannot re-arm", () => {
+        assert.match(SP, /\/\/ Latch: without this the leftover-5W rung/);
+        const at = SP.indexOf("// Latch: without this the leftover-5W rung");
+        assert.match(SP.slice(at, at + 500), /values\.fiveWQueued = true;/);
+    });
+});
+
 describe("minerSeat: seatTiles geometry", () => {
     it("returns the tiles adjacent to BOTH source and link (link at range 2 -> the between tiles)", () => {
         // source (10,10), link (10,12): seat ring = (9..11, 11) minus walls

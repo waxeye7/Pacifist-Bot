@@ -147,6 +147,15 @@ const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
 /** Ticks between spawn-triage log lines for one room. */
 const TRIAGE_LOG_EVERY = 100;
 
+/** any kept road inside ~5 decay ticks of vanishing (ROAD_DECAY_AMOUNT = 100) */
+function roadNearDeath(room: any): boolean {
+    for (const roadID of room.memory.keepTheseRoads || []) {
+        const r: any = Game.getObjectById(roadID);
+        if (r && r.hits <= 500) return true;
+    }
+    return false;
+}
+
 function dropNonRecoverySpend(room: any): void {
     const list = room.memory.spawn_list;
     if (!list || list.length < 3) return;
@@ -157,6 +166,10 @@ function dropNonRecoverySpend(room: any): void {
         const opts = list[i + 2];
         const role = opts && opts.memory ? opts.memory.role : undefined;
         if (!role || !NON_RECOVERY_ROLES[role]) continue;
+        // "Roads can wait" (NON_RECOVERY_ROLES) is true of a road at 4000 hits
+        // and false of one at 400: a road that reaches 0 is DELETED, and its
+        // id leaves keepTheseRoads along with the trigger that queued this.
+        if (role === 'maintainer' && roadNearDeath(room)) continue;
         refundBoostOwner(room, list[i + 1]);
         dropped.push(role);
         list.splice(i, 3);
@@ -2161,13 +2174,25 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             // Same 150k floor as RCL6. 500k meant a fresh RCL7 sat on decaying
             // ramparts until the bank was huge; the 1x30W body is unchanged.
-            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
+            // SHELL-CRITICAL ARM: a room that just climbed to RCL7 does not
+            // hold 50-150k — live E37N59 sat bank-broke with its shell pinned
+            // at the towers' decay floor, the only path touching ramparts
+            // buying hits at 20-80/energy instead of a creep's 100. A wall
+            // under a QUARTER of its target is not a luxury purchase.
+            const shellFloor7 = Math.floor(rampartHitsTarget(room) / 4);
+            const shellCritical7 = !!(rampartsInRoom && rampartsInRoom.filter(function(s) {return s.hits < shellFloor7;}).length);
+            // Thin bank buys the RCL6 body (2150e), not the 4000e 30-WORK one:
+            // a broke room must not put 4000e of head-of-line in front of its
+            // own fillers.
+            const repairBody7 = storage && storage.store[RESOURCE_ENERGY] > 50000
+                ? spawnrules[7].repair_creep.body : spawnrules[6].repair_creep.body;
+            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || shellCritical7 && storage.store[RESOURCE_ENERGY] > 10000) && !queuedWithPrefix(room, 'Repair-')) {
                 // Was a hardcoded 4,050,000; rampartHitsTarget() gives 300,000
                 // at RCL7. Same reason as the RCL6 rung above — see there.
                 let rampartsBelowTarget7 = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
                 if(rampartsBelowTarget7.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(spawnrules[7].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
+                    room.memory.spawn_list.push(repairBody7, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
             }
@@ -2231,7 +2256,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 else {
                     for(let roadID of room.memory.keepTheseRoads) {
                         let road:any = Game.getObjectById(roadID);
-                        if(road && road.hits <= 2000 && (!room.memory.danger || room.memory.danger && storage && storage.pos.roomName == road.pos.roomName && storage.pos.getRangeTo(road) <= 10)) {
+                        if(road && road.hits <= Math.max(2000, road.hitsMax * 0.5) && (!room.memory.danger || room.memory.danger && storage && storage.pos.roomName == road.pos.roomName && storage.pos.getRangeTo(road) <= 10)) {
                             let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                             room.memory.spawn_list.push(spawnrules[7].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
                             console.log('Adding Maintainer to Spawn List: ' + name);
@@ -3201,9 +3226,16 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     // Sweep floor loot (drops / tombs / ruins from dead creeps & destroyed structures)
+    // Match Creep.Sweep(): with no storage/terminal the room cannot unload
+    // anything but energy, so a power/mineral pile is not a reason to hatch
+    // (E39N58: a foreign power hauler's loot hatched the sweeper that parked
+    // 298 power in the controller depot).
+    const sweepBulkSink = !!(room.storage && room.storage.my) || !!room.terminal;
+    const sweepLoot = (s: any) =>
+        sweepBulkSink ? _.sum(s.store) > 0 : (s.store[RESOURCE_ENERGY] || 0) > 0;
     const tombRuinLoot =
-        room.find(FIND_TOMBSTONES, { filter: (t) => _.sum(t.store) > 0 }).length +
-        room.find(FIND_RUINS, { filter: (r) => _.sum(r.store) > 0 }).length;
+        room.find(FIND_TOMBSTONES, { filter: sweepLoot }).length +
+        room.find(FIND_RUINS, { filter: sweepLoot }).length;
     // RCL1–3 drop-mine piles sit on the source tile and hit 50e in ~13 ticks
     // of a 2W miner. Carriers already haul those; a sweeper here is a 150e
     // HOL tax on the upgraders. Only tombs/ruins or stray (off-source) piles.
@@ -3212,11 +3244,13 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(looseLootCount === 0) {
             const sources = room.find(FIND_SOURCES);
             looseLootCount = room.find(FIND_DROPPED_RESOURCES, {filter: (r) =>
-                r.amount >= 50 && !sources.some((s) => s.pos.getRangeTo(r) <= 1)}).length;
+                r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) &&
+                !sources.some((s) => s.pos.getRangeTo(r) <= 1)}).length;
         }
     }
     else {
-        looseLootCount += room.find(FIND_DROPPED_RESOURCES, { filter: (r) => r.amount >= 50 }).length;
+        looseLootCount += room.find(FIND_DROPPED_RESOURCES, { filter: (r) =>
+            r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) }).length;
     }
     // RCL1–3: one small sweeper if there's real loot; RCL4+: scale with storage
     const wantSweepers =
@@ -5463,7 +5497,14 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                     return;
                 }
 
+                // Never on a link source: the leftover body is [5W,MOVE] with no
+                // CARRY, which energyMiner routes down the drop-mine branch — a
+                // creep mining onto the floor for 1500 ticks while standing on
+                // the real miner's seat. This is also the only rung that stacks
+                // two live non-stopgap miners on one source (it bypasses
+                // onTheWay in minerReplacementShouldQueue).
                 const leftoverUpgrade = targetRoomName == room.name
+                    && !sourceLinkHaulWorks(room, sourceId)
                     && leftoverUpgradeShouldQueue(
                         room.energyCapacityAvailable,
                         minerWorkOnSource(sourceId),
@@ -5555,6 +5596,11 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             }
                             console.log('Adding Energy Miner to Spawn List: ' + newName);
                             values.lastSpawn = Game.time;
+                            // Latch: without this the leftover-5W rung stays
+                            // armed forever for sources that never pass the
+                            // 550-cap arm, and stacks a second live miner the
+                            // moment this one shrinks below 5 WORK.
+                            values.fiveWQueued = true;
                         }
 
                         else if(room.energyCapacityAvailable >= 550) {
