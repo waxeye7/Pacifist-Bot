@@ -293,9 +293,9 @@ ${script}
     const remote = `/tmp/${path.basename(local)}`;
     fs.writeFileSync(local, body);
     try {
-      execSync(`docker cp "${local}" ${opts.mongoContainer}:${remote}`, { stdio: "pipe" });
-      const raw = execSync(
-        `docker exec ${opts.mongoContainer} mongosh --quiet --file ${remote}`,
+      execFileSync("docker", ["cp", local, `${opts.mongoContainer}:${remote}`], { stdio: "pipe" });
+      const raw = execFileSync(
+        "docker", ["exec", opts.mongoContainer, "mongosh", "--quiet", "--file", remote],
         { encoding: "utf8", maxBuffer: 512e6 },
       );
       const line = raw.split(/\r?\n/).find((l) => l.startsWith(marker));
