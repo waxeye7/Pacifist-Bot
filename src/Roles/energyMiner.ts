@@ -1,5 +1,6 @@
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { isSanctionedRampart } from "utils/PlanV2";
+import { rampartIsBuried } from "utils/Interior";
 import { findLiveSeat, unpackXY } from "utils/minerSeat";
 import { cachedDerived, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
 
@@ -685,9 +686,27 @@ const run = function (creep) {
                 }
             }
 
+            /*
+             * THE 13.4M TILE.
+             *
+             * This is the machinery that adopts the rampart on/next to the
+             * source link and then pumps it toward 50M/100M hits out of
+             * storage. On live VPS W1N1 the plan's cover pass had wrapped the
+             * source link in a bubble that the enclosure trades then pulled
+             * INSIDE the final wall: nothing can shoot it without breaching the
+             * room first, and the miner had quietly fed it to 13.4M hits
+             * (~134k energy, and its twin another 13.1M).
+             *
+             * So the adoption candidates are filtered here, at the one place
+             * that writes memory.myRampart — a buried rampart is never adopted,
+             * and the pump below keeps its existing `myRampart = false` drops
+             * plus one more for a tile that became buried after adoption.
+             */
             if(creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
                 let myRamparts = _.filter(cachedMyStructures(creep.room), (s: any) => s.structureType == STRUCTURE_RAMPART);
-                let rampartsInRangeOne: any[] = creep.pos.findInRange(myRamparts, 1);
+                // buried test AFTER the range narrow — 1-3 candidates, not every
+                // rampart in the room
+                let rampartsInRangeOne: any[] = _.filter(creep.pos.findInRange(myRamparts, 1), (s: any) => !rampartIsBuried(creep.room, s.pos));
 
                 if(rampartsInRangeOne.length > 0) {
                     rampartsInRangeOne.sort((a,b) => a.hits - b.hits);
@@ -725,7 +744,13 @@ const run = function (creep) {
             if(creep.ticksToLive > 275 && creep.memory.myRampart && source && source.ticksToRegeneration * 10.5 > source.energy) {
                 let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
                 let rampart:any = Game.getObjectById(creep.memory.myRampart);
-                if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
+                // adopted before the shell closed around it (replan / adopt /
+                // the wall finally going up) — drop it exactly like the
+                // hits-cap paths below do, and pump nothing this tick
+                if(rampart && rampartIsBuried(creep.room, rampart.pos)) {
+                    creep.memory.myRampart = false;
+                }
+                else if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
 
                     if(rampart && rampart.hits < 100050000) {
                         creep.repair(rampart);
@@ -862,8 +887,12 @@ const run = function (creep) {
                     }
                 }
                 let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                // ...and not one the wall already covers: this is the planter
+                // that put the link rampart on W1N1 there in the first place,
+                // so it gets the same buried veto placePlanSites has.
                 if(!found && storage && closestLink.pos.getRangeTo(storage) > 7 &&
-                    isSanctionedRampart(creep.room, closestLink.pos)) {
+                    isSanctionedRampart(creep.room, closestLink.pos) &&
+                    !rampartIsBuried(creep.room, closestLink.pos)) {
                     closestLink.pos.createConstructionSite(STRUCTURE_RAMPART);
                 }
                 creep.memory.checkedForRampart = true;

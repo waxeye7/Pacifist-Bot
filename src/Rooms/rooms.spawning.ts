@@ -3,6 +3,7 @@ import { remoteIsHot, markRemoteHot, remoteHasHostileTower } from "./rooms.remot
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
+import { rampartIsBuried } from "utils/Interior";
 import { logAlways } from "utils/Logger";
 import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
@@ -1648,7 +1649,22 @@ function add_creeps_to_spawn_list(room, spawn) {
     let rampartsInRoomBelowTwelveMil;
     if(room.controller.level >= 3) {
         if(storage) {
-            rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
+            /*
+             * REPAIR DEMAND ONLY. Every reader of rampartsInRoom below is a
+             * spend decision — the RCL4/5/6/7/8 repairer rungs, spawnMaintainer,
+             * and the SpecialRepair "ramparts in danger of dying" ladder — so a
+             * BURIED rampart is filtered out at the source. Buried = behind the
+             * final wall at depth >= 4, i.e. beyond ranged reach from every
+             * standable exterior tile (utils/Interior rampartIsBuried; fail-open
+             * false in rooms with no usable shell geometry). Such a tile cannot
+             * be shot by anything that has not already breached the room, so it
+             * must neither create demand for a repairer nor count toward
+             * shell-completeness. Audit 2026-08-22: two of these on VPS W1N1 had
+             * been pumped to 13.1M/13.4M hits, ~260k energy on tiles that defend
+             * nothing. Defender-seat logic lives in rooms.defence and is
+             * untouched.
+             */
+            rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && !rampartIsBuried(room, s.pos)});
             rampartsInRoomBelowFiftyK = rampartsInRoom.filter(function(s) {return s.hits < 50000;})
             rampartsInRoomBelowTwelveMil = rampartsInRoom.filter(function(s) {return s.hits < 12000000;})
             for(let rampart of rampartsInRoom) {

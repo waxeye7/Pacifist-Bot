@@ -60,6 +60,8 @@ type InteriorCache = {
   t: number;
   /** 1 = tile is outside the shell */
   ext: Uint8Array;
+  /** chebyshev distance to the nearest exterior (standable) tile; 255 = far */
+  depth: Uint8Array;
   /** packed shell tiles (the min-cut ring itself — neither in nor out) */
   shell: number[];
   /** packed shell tiles a creep of mine can stand on = gates home */
@@ -142,6 +144,7 @@ function build(room: Room): InteriorCache {
   const dead: InteriorCache = {
     t: Game.time,
     ext: new Uint8Array(2500),
+    depth: new Uint8Array(2500),
     shell: [],
     gates: [],
     isGate: new Uint8Array(2500),
@@ -232,9 +235,47 @@ function build(room: Room): InteriorCache {
   const isGate = new Uint8Array(2500);
   for (const p of gates) isGate[p] = 1;
 
+  /*
+   * Depth = chebyshev distance to the nearest EXTERIOR tile. A pure distance
+   * transform, deliberately expanding THROUGH terrain walls: Screeps attacks
+   * have no line-of-sight, only range, so what matters is how far the tile is
+   * from anywhere an enemy can STAND (the ext set is standable by
+   * construction). depth >= 4 means no ranged attacker (range 3) can ever
+   * touch the tile without first breaching the wall — the planner's own
+   * DEPTH_SAFE. This is what rampartIsBuried() reads.
+   */
+  const depth = new Uint8Array(2500).fill(255);
+  const dq: number[] = [];
+  for (let p = 0; p < 2500; p++) {
+    if (ext[p]) {
+      depth[p] = 0;
+      dq.push(p);
+    }
+  }
+  for (let head = 0; head < dq.length; head++) {
+    const p = dq[head];
+    const x = p % 50;
+    const y = (p - x) / 50;
+    const nd = depth[p] + 1;
+    if (nd >= 255) continue;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = packOf(nx, ny);
+        if (depth[np] <= nd) continue;
+        depth[np] = nd;
+        dq.push(np);
+      }
+    }
+  }
+
   return {
     t: Game.time,
     ext: ext,
+    depth: depth,
     shell: shell,
     gates: gates,
     isGate: isGate,
@@ -283,6 +324,35 @@ export function isExteriorTile(room: Room, x: number, y: number): boolean {
 
 export function isExteriorPos(room: Room, pos: { x: number; y: number }): boolean {
   return !!pos && isExteriorTile(room, pos.x, pos.y);
+}
+
+/** ranged range is 3: anything deeper than this cannot be hit over the wall */
+const RAMPART_EXPOSED_DEPTH = 4;
+
+/**
+ * Is a rampart at this tile pure upkeep waste?
+ *
+ * The plan's cover pass wraps source seats/links in rampart "bubbles" priced
+ * against a PROVISIONAL wall; the enclosure trades then pull those lobes
+ * inside the final wall and nothing re-tests the emitted set. Audit
+ * (2026-08-22, both servers): 4 shipped ramparts sit at depth 4-8 behind
+ * their own shell — unreachable by any attacker that has not already
+ * breached the room — two of them pumped to 13M hits by the RCL8 repair
+ * ladder (~260k energy on two tiles that defend nothing).
+ *
+ * Buried = not exterior, and chebyshev-deeper than ranged reach from every
+ * standable exterior tile. Consumers: the placePlanSites plant veto and
+ * every rampart-repair spender. FAIL-OPEN: no usable interior geometry (no
+ * plan, open shell) => false, so nothing changes in rooms this module
+ * cannot reason about.
+ */
+export function rampartIsBuried(room: Room, pos: { x: number; y: number }): boolean {
+  if (!pos || typeof pos.x !== "number") return false;
+  const c = getCache(room);
+  if (!c) return false;
+  const p = packOf(pos.x, pos.y);
+  if (c.ext[p]) return false;
+  return c.depth[p] >= RAMPART_EXPOSED_DEPTH;
 }
 
 /**

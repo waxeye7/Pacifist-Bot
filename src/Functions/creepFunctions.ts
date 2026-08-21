@@ -44,6 +44,7 @@ interface Creep {
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
     stepOffExit: () => boolean;
+    idlePark: () => boolean;
     recycle: () => void;
     RangedAttackFleeFromMelee:any;
     SwapPositionWithCreep:any;
@@ -1406,6 +1407,67 @@ function stepOffExit(creep: any): boolean {
 Creep.prototype.stepOffExit = function () {
     if (this.pos.x !== 0 && this.pos.x !== 49 && this.pos.y !== 0 && this.pos.y !== 49) return false;
     return stepOffExit(this);
+};
+
+/**
+ * Park an IDLE creep somewhere harmless: never on an exit tile, never on a
+ * road, never in the storage approach ring. E37N59 film (2026-08-22): four
+ * idle-branch freezes parked creeps ON the hub's only lanes — an
+ * EnergyManager sat 181 ticks on the artery tile, two ControllerLinkFillers
+ * held storage-adjacent road tiles, a full filler plugged the single-file
+ * NW cut — and every mover in the room stalled 2-4 ticks per trip squeezing
+ * past them (7 of 13 creeps tripped the oscillation damper in one 130-tick
+ * window). Idle branches call this instead of issuing nothing. Cheap when
+ * already parked well: one road lookFor on the own tile and out.
+ */
+Creep.prototype.idlePark = function () {
+    const pos = this.pos;
+    if (pos.x === 0 || pos.x === 49 || pos.y === 0 || pos.y === 49) {
+        stepOffExit(this);
+        return true;
+    }
+    const stor = this.room.storage;
+    const isLane = (x: number, y: number): boolean => {
+        if (stor && Math.abs(x - stor.pos.x) <= 1 && Math.abs(y - stor.pos.y) <= 1) return true;
+        for (const s of this.room.lookForAt(LOOK_STRUCTURES, x, y)) {
+            if (s.structureType === STRUCTURE_ROAD) return true;
+        }
+        return false;
+    };
+    if (!isLane(pos.x, pos.y)) return false;
+    const terrain = this.room.getTerrain();
+    const dxs = [0, 1, 1, 1, 0, -1, -1, -1];
+    const dys = [-1, -1, 0, 1, 1, 1, 0, -1];
+    const dirs = [TOP, TOP_RIGHT, RIGHT, BOTTOM_RIGHT, BOTTOM, BOTTOM_LEFT, LEFT, TOP_LEFT];
+    for (let i = 0; i < 8; i++) {
+        const x = pos.x + dxs[i];
+        const y = pos.y + dys[i];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        if (terrain.get(x, y) & TERRAIN_MASK_WALL) continue;
+        if (isLane(x, y)) continue;
+        if (this.room.lookForAt(LOOK_CREEPS, x, y).length) continue;
+        let blocked = false;
+        for (const s of this.room.lookForAt(LOOK_STRUCTURES, x, y)) {
+            if (s.structureType === STRUCTURE_CONTAINER) continue;
+            if (s.structureType === STRUCTURE_RAMPART && (s as any).my) continue;
+            blocked = true;
+            break;
+        }
+        if (blocked) continue;
+        let siteBlock = false;
+        for (const cs of this.room.lookForAt(LOOK_CONSTRUCTION_SITES, x, y) as any[]) {
+            if (cs.my && cs.structureType !== STRUCTURE_ROAD &&
+                cs.structureType !== STRUCTURE_CONTAINER && cs.structureType !== STRUCTURE_RAMPART) {
+                siteBlock = true;
+                break;
+            }
+        }
+        if (siteBlock) continue;
+        this.move(dirs[i]);
+        this.memory.moving = true;
+        return true;
+    }
+    return false; // boxed in — holding is no worse than before
 };
 
 /** How many exit tiles moveToRoomAvoidEnemyRooms is willing to path-score. */
@@ -3313,6 +3375,22 @@ const stepCachedPath = (creep:any):void => {
     }
     const pos = path[0];
     const direction = creep.pos.getDirectionTo(pos);
+    /*
+     * The shove used to fire only at path-COMPUTATION time, so a creep
+     * walking a CACHED path into an idle squatter burned move intents the
+     * engine silently dropped, 2-4 wasted ticks per trip, until _blockedBy
+     * finally threw the path away (E37N59 film, 2026-08-22). An idle
+     * blocker is exactly what canShove permits — ask on the blocked step
+     * itself. Gated on a my-creep that is not moving this tick, so the
+     * extra lookFor only happens when actually blocked.
+     */
+    if (!pos.roomName || pos.roomName === creep.room.name) {
+        const blockers = creep.room.lookForAt(LOOK_CREEPS, pos.x, pos.y);
+        if (blockers.length && blockers[0].my && !blockers[0].memory.moving &&
+            typeof creep.SwapPositionWithCreep === "function") {
+            creep.SwapPositionWithCreep(direction);
+        }
+    }
     if(creep.move(direction) === OK) {
         path.shift();
         creep.memory.pathStep = pos;

@@ -655,6 +655,16 @@ const run = function (creep) {
                         creep.memory.t = newTarget.id;
                         advanceTo(creep, newTarget);
                     }
+                    else if(result !== 0) {
+                        // Stale FULL target and nothing else hungry: this
+                        // branch used to fall out with the dead `t` kept and
+                        // NO intent — a filler frozen on a hub lane tile for
+                        // its whole life (E37N59: 88 ticks on 37,30 against
+                        // a 1000/1000 tower, then its replacement did the
+                        // same on the artery terminus).
+                        creep.memory.t = false;
+                        creep.idlePark();
+                    }
                 }
                 else {
                     creep.memory.full = false;
@@ -674,9 +684,19 @@ const run = function (creep) {
                     // range 0 because the sitter is a road and standing ON it is
                     // the entire point. Falls back to the old behaviour for a
                     // room with no adopted plan.
-                    const sitter = planSitter(creep.room);
+                    // ...but only while there is (or is about to be) work.
+                    // The sitter is a ROAD tile — in E37N59 it is literally
+                    // the terminus of the single-file NW haul artery — and a
+                    // filler camping it while the room reads FULL plugs the
+                    // lane for hundreds of ticks. One extra step when work
+                    // reappears is cheaper than that.
+                    const sitter = creep.room.energyAvailable < creep.room.energyCapacityAvailable
+                        ? planSitter(creep.room) : null;
                     if(sitter) {
                         creep.MoveCostMatrixRoadPrio(sitter, 0);
+                    }
+                    else if(creep.room.energyAvailable >= creep.room.energyCapacityAvailable) {
+                        creep.idlePark();
                     }
                     else {
                         const storage = homeStorage();
@@ -693,6 +713,11 @@ const run = function (creep) {
                     advanceTo(creep, target);
                 }
             }
+        }
+        else {
+            // Full store, nothing hungry anywhere: do not stand wherever the
+            // last delivery happened to end (that tile is usually a lane).
+            creep.idlePark();
         }
 
     }

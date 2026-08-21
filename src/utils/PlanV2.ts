@@ -22,7 +22,7 @@
  */
 import { logAlways } from "utils/Logger";
 import { isUnreachableTile } from "utils/Reachability";
-import { isExteriorTile, interiorReady } from "utils/Interior";
+import { isExteriorTile, interiorReady, rampartIsBuried } from "utils/Interior";
 import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 import { requestSegments } from "utils/Segments";
 import { incomeRampartAdds, shellExposure } from "utils/minerSeat";
@@ -197,6 +197,30 @@ function coreBuildoutIncomplete(lvl: number, structures: Structure[]): boolean {
  */
 let _exceptionSlotFor: string | null = null;
 
+/** the bank must clear the floor by this much before broke un-latches */
+const BROKE_EXIT_MARGIN = 15000;
+
+/**
+ * Latched broke state, shared by maxSitesFor's clamp and the site strip.
+ *
+ * W1N1 (RCL8) sat with storage oscillating a few hundred energy around the
+ * 150k floor: rich ticks granted the full budget and placed labs + a nuker,
+ * broke ticks ~150 later stripped them — 1-2k of builder progress destroyed
+ * per cycle, indefinitely (filmed 2026-08-22, "clearing construction sites
+ * all the time"). Broke enters the tick the bank dips under the floor and
+ * leaves only once it has CLEARED floor + margin, so the boundary cannot
+ * flap. Both consumers must use this or the placer and the strip disagree.
+ */
+function bankIsBroke(room: any, e: number, floor: number): boolean {
+  const latched = !!(room.memory && room.memory._brokeLatch);
+  const broke = e < floor || (latched && e < floor + BROKE_EXIT_MARGIN);
+  if (room.memory) {
+    if (broke) room.memory._brokeLatch = 1;
+    else delete room.memory._brokeLatch;
+  }
+  return broke;
+}
+
 function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number {
   _exceptionSlotFor = null;
   // Established rooms: do not keep 8 sites open when the bank is thin.
@@ -207,7 +231,7 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
   if (lvl >= 6 && room && room.storage && room.storage.my) {
     const e = room.storage.store[RESOURCE_ENERGY] || 0;
     const floor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
-    if (e < floor) {
+    if (bankIsBroke(room, e, floor)) {
       if (!room.find(FIND_MY_SPAWNS).length) return 1;
       const structs = structures || room.find(FIND_STRUCTURES);
       if (isShellNaked(room, structs)) return 2;
@@ -2957,11 +2981,14 @@ export function placeFromPlanV2(room: Room): void {
     }
   }
   const brokeFloor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+  const bankE = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
+  // Same LATCHED answer maxSitesFor's clamp uses (see bankIsBroke) — a
+  // strip that flips a tick ahead of the placer is the churn machine.
   const brokeBank =
     lvl >= 6 &&
     !!room.storage &&
     room.storage.my &&
-    (room.storage.store[RESOURCE_ENERGY] || 0) < brokeFloor;
+    bankIsBroke(room, bankE, brokeFloor);
   // Spawnless stays on the spawn-first slot; do not spend it on shell tiles.
   const nakedShell = !spawnless && brokeBank && isShellNaked(room, structures);
   let budget = maxSitesFor(lvl, room, structures) - liveSites;
@@ -2985,6 +3012,15 @@ export function placeFromPlanV2(room: Room): void {
       // The typed exception slot's own site (terminal/extractor, max 1 each)
       // must survive the strip — it IS the way back out of broke.
       if (s.structureType === STRUCTURE_TERMINAL || s.structureType === STRUCTURE_EXTRACTOR) continue;
+      // Same bar as the typed lab grant (e >= floor/2): what the clamp just
+      // granted, the strip must not eat. W1N1 filmed placing labs on rich
+      // ticks and stripping them at 1-2k progress ~150t later, forever.
+      if (s.structureType === STRUCTURE_LAB && bankE >= brokeFloor / 2) continue;
+      // Exterior connector road sites belong to the REMOTE system
+      // (placeClippedRemoteRoads' shell->exit legs), not the plan flood this
+      // strip polices — eating them undid the connector fix within a few
+      // hundred ticks (filmed: W3N1 13,14 / 12,14 removed at 0 progress).
+      if (s.structureType === STRUCTURE_ROAD && isExteriorTile(room, s.pos.x, s.pos.y)) continue;
       if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
         continue;
       }
@@ -3169,6 +3205,16 @@ export function placeFromPlanV2(room: Room): void {
       }
       // Cover waits for the thing it covers. Naked-shell budget prefers the wall.
       if (type === "rampart" && plannedOccupancy[packed] && (nakedShell || !builtOn[packed])) continue;
+      // The bot's own veto on the plan data: a rampart the enclosure trades
+      // buried behind the final wall (depth >= 4 — beyond ranged reach from
+      // any standable exterior tile) defends nothing and bills upkeep
+      // forever. The plan-suite's cover pass prices bubbles against a
+      // PROVISIONAL wall and never re-tests, so shipped plans carry these
+      // (audit 2026-08-22: 4 across both servers, two pumped to 13M hits).
+      if (type === "rampart") {
+        const up = unpack(packed);
+        if (rampartIsBuried(room, up)) continue;
+      }
       const { x, y } = unpack(packed);
       if (type === "spawn") clearPlanSpawnTile(room, x, y);
       const res = room.createConstructionSite(x, y, type as BuildableStructureConstant);

@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 import { isSanctionedRampart } from "utils/PlanV2";
+import { rampartIsBuried } from "utils/Interior";
 
 /**
  * Weakest sanctioned rampart under 10k, one answer per room per tick.
@@ -33,9 +34,13 @@ function weakestSanctionedRampart(room): any {
 	let weak = room.find(FIND_MY_STRUCTURES, {filter: (s) =>
 		s.structureType == STRUCTURE_RAMPART && s.hits < 10000});
 	weak.sort((a,b) => a.hits - b.hits);
+	// ...and never a BURIED one (utils/Interior): a rampart the final wall
+	// already covers at depth >= 4 is out of ranged reach from everywhere an
+	// enemy can stand, so an idle builder emptying its carry into it is 100
+	// hits per energy spent on nothing.
 	let pick = null;
 	for(let r of weak) {
-		if(isSanctionedRampart(room, r.pos)) {
+		if(isSanctionedRampart(room, r.pos) && !rampartIsBuried(room, r.pos)) {
 			pick = r;
 			break;
 		}

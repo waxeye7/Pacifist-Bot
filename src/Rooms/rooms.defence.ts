@@ -5,6 +5,7 @@ import {
     SHELL_MIN_RCL,
 } from "utils/Perimeter";
 import { logVerbose } from "utils/Logger";
+import { rampartIsBuried } from "utils/Interior";
 
 /**
  * Ramparts that sit EXACTLY on a planned perimeter tile.
@@ -15,13 +16,20 @@ import { logVerbose } from "utils/Logger";
  * gets a v2 plan adopted over a legacy layout) is left with ramparts on the
  * OLD shell, and the whole point is to let those decay away instead of
  * spending tower energy holding a wall that no longer encloses anything.
+ *
+ * ...and never a BURIED one either: a rampart the plan's cover pass left
+ * behind the final wall (depth >= 4, beyond ranged reach from any standable
+ * exterior tile) cannot be shot by anything that has not already breached the
+ * room, so tower energy spent on it buys nothing. See utils/Interior
+ * rampartIsBuried — it caches per room, so one call per candidate is free.
  */
 function planShellRamparts(room: any): any[] {
     const set = perimeterKeySet(room);
     if (!set.size) return [];
     return room.find(FIND_MY_STRUCTURES, {
         filter: (s: any) =>
-            s.structureType == STRUCTURE_RAMPART && set.has(`${s.pos.x},${s.pos.y}`)
+            s.structureType == STRUCTURE_RAMPART && set.has(`${s.pos.x},${s.pos.y}`) &&
+            !rampartIsBuried(room, s.pos)
     });
 }
 
@@ -725,9 +733,13 @@ function roomDefence(room) {
         // the perimeter (owner report, 2026-08-19). ANY rampart of ours about
         // to decay to death gets one save — 10 energy per 2000-hit reprieve
         // is nothing against a breach. Everything else keeps the plan-only
-        // decay floor below.
+        // decay floor below. The ONE exception is a BURIED rampart: a hole in
+        // a tile nothing can reach without first breaching the actual wall is
+        // not a hole in the perimeter, so it gets no save and is allowed to
+        // decay away (the plant veto in placePlanSites stops it coming back).
         const dying = room.find(FIND_MY_STRUCTURES, {
-            filter: (s: any) => s.structureType === STRUCTURE_RAMPART && s.hits < 2000,
+            filter: (s: any) => s.structureType === STRUCTURE_RAMPART && s.hits < 2000 &&
+                !rampartIsBuried(room, s.pos),
         }) as any[];
         if (dying.length) {
             let lowest = dying[0];

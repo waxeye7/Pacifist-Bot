@@ -763,9 +763,13 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
         }
 
 
-        // if(!creep.memory.target) {
-        //     creep.MoveCostMatrixRoadPrio(storage, 5);
-        // }
+        // No errand this tick. The park fallback here was commented out, so
+        // a manager with no terminal/labs/factory work reached the end of
+        // run() with NO intent and froze wherever it stood — 181 straight
+        // ticks on E37N59's hub artery tile 35,33 (film, 2026-08-22).
+        if(!creep.memory.target) {
+            creep.idlePark();
+        }
 
     }
 

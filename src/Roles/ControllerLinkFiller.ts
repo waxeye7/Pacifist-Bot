@@ -84,9 +84,13 @@ const run = function (creep) {
             creep.memory.bankParked = true;
             // Stay out of the hub lanes while idle; the ladder will not spawn a
             // replacement below the floor, so this creep simply times out.
-            if(storage && !creep.pos.inRangeTo(storage, 3)) {
-                creep.MoveCostMatrixSwampPrio(storage, 3);
-            }
+            //
+            // The old guard did the OPPOSITE of that comment: it moved the
+            // creep TOWARD storage (range 3) and then, once inside, issued
+            // nothing — two 24-part CLFs held storage-adjacent road tiles
+            // for 30+ ticks each in the E37N59 film. idlePark steps off
+            // roads and off the storage ring, then holds.
+            creep.idlePark();
         }
         else if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {

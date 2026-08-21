@@ -476,6 +476,11 @@ const run = function (creep) {
 				else if(!creep.pos.inRangeTo(creep.room.controller, 3)) {
 					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
 				}
+				else {
+					// In range and waiting: same lane discipline as every
+					// other idle branch — never squat a road while parked.
+					creep.idlePark();
+				}
 			}
 			else {
 				if(creep.memory.bankParked) delete creep.memory.bankParked;

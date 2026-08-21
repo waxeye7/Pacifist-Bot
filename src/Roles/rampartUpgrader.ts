@@ -2,6 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { rampartIsBuried } from "utils/Interior";
 
  const run = function (creep) {
     creep.memory.moving = false;
@@ -22,7 +23,12 @@
     }
     if(creep.memory.repairing) {
         if(!creep.memory.locked) {
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
+            // This role's whole job is pumping hits into the weakest rampart,
+            // so it must never be aimed at a BURIED one — a tile at depth >= 4
+            // behind the final wall is out of ranged reach from anywhere an
+            // enemy can stand and every hit put into it is wasted (utils/Interior
+            // rampartIsBuried; fail-open false without usable shell geometry).
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && !rampartIsBuried(creep.room, s.pos)});
             if(rampartsInRoom.length > 0) {
                 rampartsInRoom.sort((a,b) => a.hits - b.hits);
                 creep.memory.locked = rampartsInRoom[0].id

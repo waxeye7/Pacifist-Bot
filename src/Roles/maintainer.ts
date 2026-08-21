@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-import { interiorMove, filterOutposts, dangerNow, interiorReady } from "utils/Interior";
+import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 
 const run = function (creep) {
@@ -81,8 +81,13 @@ const run = function (creep) {
         // means the abandoned off-plan ramparts of the old square stamp get
         // nursed forever and can never decay away. See PlanV2
         // sanctionedRampartKeys.
+        //
+        // Sanctioned is not sufficient: a sanctioned rampart the enclosure
+        // trades left BURIED (depth >= 4 behind the final wall, out of ranged
+        // reach from every standable exterior tile) is upkeep on a tile nothing
+        // can shoot. See utils/Interior rampartIsBuried.
         if(!creep.memory.rampartsToRepair) {
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000 && (!creep.room.storage || creep.room.storage.pos.getRangeTo(s) >= 9) && isSanctionedRampart(creep.room, s.pos)});
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000 && (!creep.room.storage || creep.room.storage.pos.getRangeTo(s) >= 9) && isSanctionedRampart(creep.room, s.pos) && !rampartIsBuried(creep.room, s.pos)});
             let idsOfRamparts = [];
             for(let rampart of rampartsInRoom) {
                 idsOfRamparts.push(rampart.id);
@@ -98,7 +103,7 @@ const run = function (creep) {
                 // creep memory for the creep's whole life, so a creep that
                 // locked its list before the room adopted a plan must not keep
                 // feeding off-plan ramparts for another 1500 ticks
-                if(rampObj && rampObj.hits <= 50000 && isSanctionedRampart(creep.room, rampObj.pos)) {
+                if(rampObj && rampObj.hits <= 50000 && isSanctionedRampart(creep.room, rampObj.pos) && !rampartIsBuried(creep.room, rampObj.pos)) {
                     buildingsToRepair.push(rampObj);
                 }
             }

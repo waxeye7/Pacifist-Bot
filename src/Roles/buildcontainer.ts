@@ -1,4 +1,5 @@
 import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2";
+import { rampartIsBuried } from "utils/Interior";
 
 /**
  * Memory.target_colonise.spawn_pos, or null if it is not a usable tile IN THIS
@@ -391,8 +392,14 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             // perimeter, so the fresh-claim case this was written for still
             // gets its rampart — it is only the planned rooms that now say no.
             // ------------------------------------------------------------------
+            // Buried is the other no: once the shell closes, the spawn tile sits
+            // at depth >= 4 and nothing can shoot it without breaching the wall
+            // first, so neither the site nor the repair below buys anything
+            // (utils/Interior rampartIsBuried, fail-open false — the fresh-claim
+            // room with no usable shell geometry is unaffected).
             if(spawnPos && creep.room.controller && creep.room.controller.level >= 4 &&
-               isSanctionedRampart(creep.room, spawnPos)) {
+               isSanctionedRampart(creep.room, spawnPos) &&
+               !rampartIsBuried(creep.room, spawnPos)) {
                 let lookForBuildings = spawnPos.lookFor(LOOK_STRUCTURES);
                 let standing = false;
                 for(let building of lookForBuildings) {

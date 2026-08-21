@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
+import { interiorMove, filterOutposts, outpostDeferred, rampartIsBuried } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 import { stompForeignSite } from "utils/ForeignSites";
 
@@ -54,11 +54,17 @@ function findLocked(creep, storage) {
         //     buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
         // }
         // else {
+            // ...and never a BURIED rampart. Sanctioned is not enough: the
+            // plan's cover pass emits rampart bubbles priced against a
+            // PROVISIONAL wall, and the enclosure trades then pull some of them
+            // inside the final wall. A rampart at depth >= 4 is beyond ranged
+            // reach from every standable exterior tile, so repairing it buys
+            // nothing (utils/Interior rampartIsBuried; fail-open false).
             if(creep.room.name === "E41N58") {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
             else {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
 
         // }
@@ -158,9 +164,13 @@ function findLocked(creep, storage) {
 
     }
     else {
+        // Desperation fallback: literally anything damaged. Still not a buried
+        // rampart — "nothing else needs repairing" is the exact state in which
+        // an RCL8 room used to discover its 13M-hit interior bubble and keep
+        // feeding it (hits < hitsMax is true up to 300M).
         buildingsToRepair300mil = filterOutposts(
             creep.room,
-            creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000}),
+            creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && (building.structureType !== STRUCTURE_RAMPART || !rampartIsBuried(creep.room, building.pos))}),
         );
         if(buildingsToRepair300mil.length > 0) {
             buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
@@ -312,6 +322,11 @@ function findLocked(creep, storage) {
             creep.memory.locked = findLocked(creep, storage);
         }
         else if(repairTarget.structureType == STRUCTURE_WALL && repairTarget.hits > WALL_HITS_CAP) {
+            creep.memory.locked = findLocked(creep, storage);
+        }
+        // a rampart locked before the shell closed around it (replan, adopt)
+        // is now buried and pure upkeep — drop the lock, same as an off-plan one
+        else if(repairTarget.structureType == STRUCTURE_RAMPART && rampartIsBuried(creep.room, repairTarget.pos)) {
             creep.memory.locked = findLocked(creep, storage);
         }
         else if(repairTarget.structureType == STRUCTURE_RAMPART) {

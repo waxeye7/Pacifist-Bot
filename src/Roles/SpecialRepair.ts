@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
+import { interiorMove, filterOutposts, outpostDeferred, rampartIsBuried } from "utils/Interior";
 import { sanctionedRampartKeys, isSanctionedRampart } from "utils/PlanV2";
 
 const run = function (creep) {
@@ -31,11 +31,18 @@ const run = function (creep) {
         // away. sanctionedRampartKeys returns null ONLY for a room with no
         // plan and no perimeter at all, where repairing everything is still
         // the right answer.
+        //
+        // BURIED ramparts are excluded on top of that, sanctioned or not: a
+        // tile at depth >= 4 behind the final wall cannot be reached by any
+        // attacker who has not already breached the room, so a boosted 36-WORK
+        // siege repairer aimed at it is the most expensive way in the bot to
+        // heat empty space (utils/Interior rampartIsBuried).
         const sanctioned = sanctionedRampartKeys(creep.room);
         let Ramparts: StructureRampart[] = creep.room.find(FIND_MY_STRUCTURES, {
             filter: (s) =>
                 s.structureType === STRUCTURE_RAMPART &&
-                (!sanctioned || sanctioned.has(`${s.pos.x},${s.pos.y}`)),
+                (!sanctioned || sanctioned.has(`${s.pos.x},${s.pos.y}`)) &&
+                !rampartIsBuried(creep.room, s.pos),
         }) as StructureRampart[];
 
         // Outposts (anything the min-cut shell does not enclose) are dropped
@@ -67,8 +74,10 @@ const run = function (creep) {
             return;
         }
 
-        // a target locked before the room adopted its plan may now be off-plan
-        if(target && target.pos.roomName === creep.room.name && !isSanctionedRampart(creep.room, target.pos)) {
+        // a target locked before the room adopted its plan may now be off-plan,
+        // or buried behind the wall the room has since finished
+        if(target && target.pos.roomName === creep.room.name &&
+           (!isSanctionedRampart(creep.room, target.pos) || rampartIsBuried(creep.room, target.pos))) {
             creep.memory.rampart_to_repair = false;
             creep.memory.targets = false;
             return;
@@ -105,8 +114,9 @@ const run = function (creep) {
                 if(!creep.memory.targets || creep.ticksToLive % 44 == 0) {
                     let rampartIDS = [];
                     // same sanction rule as the target pick above: standing next
-                    // to an off-plan rampart must not turn into topping it up
-                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && isSanctionedRampart(creep.room, s.pos)}), 3);
+                    // to an off-plan (or buried) rampart must not turn into
+                    // topping it up
+                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && isSanctionedRampart(creep.room, s.pos) && !rampartIsBuried(creep.room, s.pos)}), 3);
                     if(storage) {
                         rampartsInRange = rampartsInRange.filter(function(building) {return building.pos.getRangeTo(storage) > 4;});
                     }
