@@ -52,6 +52,15 @@ describe("sweeper delivery can never poison a working container", () => {
         assert.match(SWEEPER, /const resource = \(creep\.store\[RESOURCE_ENERGY\] \|\| 0\) > 0/);
     });
 
+    it("the storage-branch bulk unload never puts non-energy into a container", () => {
+        // findStorage returns the hub CONTAINER below RCL4 and memory.storage
+        // can pin a stale container id for the creep's life — the E39N58 loop
+        // where dropped power was re-swept into the controller depot forever
+        assert.match(SWEEPER, /const isRealStore = storage\.structureType === STRUCTURE_STORAGE \|\|\s*\n\s*storage\.structureType === STRUCTURE_TERMINAL;/);
+        assert.match(SWEEPER, /if\(!isRealStore && resourceType !== RESOURCE_ENERGY\) \{\s*\n\s*creep\.drop\(resourceType as ResourceConstant\);/,
+            "without a real store, minerals/power go to the floor and decay");
+    });
+
     it("HAZARD PIN: findLocked rung 5 hands back the controller depot", () => {
         // Structures.controllerLink IS the controller container below RCL7
         // (carry.ts range<=4 candidate write). Any relaxation of the gates

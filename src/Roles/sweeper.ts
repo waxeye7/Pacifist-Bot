@@ -177,7 +177,19 @@ import { stompForeignSite } from "utils/ForeignSites";
         }
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
+                // findStorage resolves to the hub CONTAINER below RCL4, and a
+                // stale memory.storage can pin a container forever: minerals/
+                // power must never enter a container — that is the E39N58 loop
+                // where this sweeper poured 298 power back into the controller
+                // depot faster than it could be drained. Non-energy only goes
+                // to a real store; without one it goes to the floor and decays.
+                const isRealStore = storage.structureType === STRUCTURE_STORAGE ||
+                    storage.structureType === STRUCTURE_TERMINAL;
                 for(let resourceType in creep.store) {
+                    if(!isRealStore && resourceType !== RESOURCE_ENERGY) {
+                        creep.drop(resourceType as ResourceConstant);
+                        continue;
+                    }
                     creep.transfer(storage, resourceType);
                 }
                 if(creep.store.getUsedCapacity() == 0) {
