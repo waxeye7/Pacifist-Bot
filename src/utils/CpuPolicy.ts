@@ -56,25 +56,53 @@ export function getCpuPolicy(): CpuPolicyState {
    */
   const marginFull = lowCpu ? 4 : 8;
   const headroomMargin = bucket >= 8000 ? 0 : bucket >= 6000 ? Math.floor(marginFull / 2) : marginFull;
+  /*
+   * HYSTERESIS: entry and exit are different questions.
+   *
+   * ENTRY (off -> on) demands proven headroom: bucket over the bar AND the
+   * avg clause. EXIT (on -> off) ignores the avg entirely and only fires
+   * when the BUCKET has actually paid — 1000 under the entry bar, or
+   * economyOnly. The bucket is the integral of over-budget spending, so
+   * this is the honest signal; the avg is noisy on exactly the tick scale
+   * manageRemotes runs at. Without the split, live shard3 closed every
+   * remote in one tick each time avg brushed the margin, recalled 15
+   * creeps into a border livelock, and the livelock's own CPU kept the
+   * average pinned so nothing ever reopened: a self-sustaining collapse.
+   */
+  const wasOn = !!(Memory as any)._remotesOnHyst;
+  const entryBar = lowCpu ? 5000 : 4000;
+  const stayBar = entryBar - 1000;
   const allowRemotes =
     !economyOnly &&
-    bucket >= (lowCpu ? 5000 : 4000) &&
-    (bucketPinned || avg === 0 || avg < limit - headroomMargin);
+    (wasOn
+      ? bucket >= stayBar
+      : bucket >= entryBar && (bucketPinned || avg === 0 || avg < limit - headroomMargin));
+  (Memory as any)._remotesOnHyst = allowRemotes;
 
   let maxRemotes = 0;
   if (allowRemotes) {
     // shard3-shaped (limit 20): a pinned bucket means the CPU headroom is real.
     // Measured on E37N59 — limit 20, bucket 10000, 100-tick avg 11 — the cap of 2
     // was the binding constraint on remote income, not CPU. 3 at a full bucket.
-    // Stepped, not a cliff. 3 -> 1 on a single bucket tick means one dip below
-    // 8000 closes two remotes at once, and every close recalls the whole crew
-    // that was working them (rooms.remotes/remoteRecalled). The middle rung
-    // gives the dip somewhere to land: allowRemotes already needs bucket >= 5000
-    // here, so the rungs are 5000-6000 => 1, 6000-8000 => 2, 8000+ => 3.
-    if (limit <= 20) maxRemotes = bucket > 8000 ? 3 : bucket > 6000 ? 2 : 1;
-    else if (limit <= 50) maxRemotes = bucket > 7000 ? 4 : 2;
-    else maxRemotes = bucket > 6000 ? 8 : 4;
+    // Stepped, not a cliff — and with a 700-bucket DEADBAND on top: the VPS
+    // sat exactly on the limit<=50 7000 threshold and closed/reopened its
+    // whole remote set every few hundred ticks as the bucket grazed it.
+    // A rung change must now clear the threshold by 700 in its direction of
+    // travel, so grazing holds the previous answer.
+    const rungs = (b: number) =>
+      limit <= 20 ? (b > 8000 ? 3 : b > 6000 ? 2 : 1)
+      : limit <= 50 ? (b > 7000 ? 4 : 2)
+      : (b > 6000 ? 8 : 4);
+    const raw = rungs(bucket);
+    const prev = Number((Memory as any)._maxRemotesHyst) || 0;
+    if (prev > 0 && raw !== prev) {
+      if (raw > prev) maxRemotes = rungs(bucket - 700) > prev ? raw : prev;
+      else maxRemotes = rungs(bucket + 700) < prev ? raw : prev;
+    } else {
+      maxRemotes = raw;
+    }
   }
+  (Memory as any)._maxRemotesHyst = maxRemotes;
 
   return {
     limit,

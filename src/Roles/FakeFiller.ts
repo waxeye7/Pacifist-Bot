@@ -4,6 +4,26 @@
  **/
 
 import { isUndeliverable } from "utils/Reachability";
+import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
+
+/**
+ * Back to the collect leg — but NEVER step toward a hot/closed remote. The
+ * carry->FakeFiller role flip used to bypass carry.ts's recall checks
+ * entirely: this role stepped out toward the remote on its last delivery
+ * tick, carry.ts pulled the creep back the next, and the pair ratcheted at
+ * the exit for as long as the remote stayed closed. Also guards the
+ * "already in the target room" and "no targetRoom at all" cases the bare
+ * call at line 55 used to miss.
+ */
+function resumeCollectTrip(creep) {
+    const t = creep.memory.targetRoom;
+    if (!t || t === creep.room.name) return;
+    if (creep.memory.homeRoom && t !== creep.memory.homeRoom &&
+        (remoteIsHot(creep.memory.homeRoom, t) || remoteRecalled(creep))) {
+        return;
+    }
+    creep.moveToRoomAvoidEnemyRooms(t);
+}
 
 function findLocked(creep) {
 
@@ -52,7 +72,7 @@ const run = function (creep) {
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
         creep.memory.role = "carry"
-        creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+        resumeCollectTrip(creep);
         return;
     }
 
@@ -78,9 +98,7 @@ const run = function (creep) {
                 // never saw 0 this tick. Flip and walk now.
                 creep.memory.full = false;
                 creep.memory.role = "carry";
-                if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-                    creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
-                }
+                resumeCollectTrip(creep);
             }
             else {
                 creep.MoveCostMatrixRoadPrio(lock, 1);
@@ -96,9 +114,7 @@ const run = function (creep) {
                     creep.drop(RESOURCE_ENERGY);
                     creep.memory.full = false;
                     creep.memory.role = "carry";
-                    if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-                        creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
-                    }
+                    resumeCollectTrip(creep);
                 }
                 else {
                     creep.MoveCostMatrixRoadPrio(storage, 1)

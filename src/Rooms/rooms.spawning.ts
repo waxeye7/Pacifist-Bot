@@ -1,4 +1,4 @@
-import construction from "./rooms.construction";
+import construction, { searchRemoteHaulPath } from "./rooms.construction";
 import { remoteIsHot, markRemoteHot, remoteHasHostileTower } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
@@ -3461,9 +3461,15 @@ function spawnFirstInLine(room, spawn) {
             if(role !== "EnergyMiner" && role !== "carry" &&
                role !== "RemoteRepair" && role !== "reserve") break;
             const t = headMem.targetRoom;
-            if(!remoteIsHot(room, t) &&
-               !(room.memory.resources && room.memory.resources[t] &&
-                 room.memory.resources[t].active === false)) break;
+            // A close only counts once it has HELD for 100 ticks (same
+            // debounce as remoteRecalled). manageRemotes flips active on cap
+            // juggling and bucket steps every 25 ticks; dropping a 1300e
+            // reserver on a one-pass flap was why reservation coverage kept
+            // lapsing right after it was paid for.
+            const ent = room.memory.resources && room.memory.resources[t];
+            const closedLongEnough = !!(ent && ent.active === false &&
+                (!ent.closedAt || Game.time - ent.closedAt >= 100));
+            if(!remoteIsHot(room, t) && !closedLongEnough) break;
             refundBoostOwner(room, room.memory.spawn_list[1]);
             console.log("dropping queued", room.memory.spawn_list[1],
                 "-", headMem.targetRoom, "is hot/closed");
@@ -4984,9 +4990,12 @@ function remotePathIsRoaded(room, targetRoomName, values?, sourceId?):boolean {
     const origin = room.storage || room.find(FIND_MY_SPAWNS)[0];
     const src:any = sourceId ? Game.getObjectById(sourceId) : null;
     if(origin && src && src.pos) {
-        const ret = PathFinder.search(origin.pos, {pos: src.pos, range: 1}, {
-            plainCost: 2, swampCost: 10, maxRooms: 16, maxOps: 4000
-        });
+        // SAME matrix as the placement pass (roads/plan-roads/road-sites 1,
+        // plain 2, swamp 6). The old road-blind terrain search here judged a
+        // DIFFERENT route than the one being paved: two finished VPS legs
+        // (96% road on the real line) read 8-26% and the 85% bar was
+        // unreachable — carriers stayed 1:1 forever.
+        const ret = searchRemoteHaulPath(room, origin.pos, {pos: src.pos, range: 1}, 4000);
         if(!ret.incomplete && ret.path && ret.path.length) {
             /*
              * WHOLE path, high bar. The old walk counted only the REMOTE
@@ -5077,9 +5086,10 @@ function ensureRemotePathLength(room, targetRoomName, values, sourceId?): number
         : blindPos
             ? {pos: blindPos, range: 1}
             : {pos: new RoomPosition(25, 25, targetRoomName), range: 15};
-    const ret = PathFinder.search(origin.pos, goal, {
-        plainCost: 2, swampCost: 10, maxRooms: 16, maxOps: 6000
-    });
+    // Same matrix as placement/roaded-check — pathLength must price the trip
+    // on the line the carriers actually drive, not a road-blind detour (the
+    // measured 75-vs-43 / 100-vs-52 phantom legs oversized two fleets).
+    const ret = searchRemoteHaulPath(room, origin.pos, goal, 6000);
     if(ret.incomplete || !ret.path || !ret.path.length) {
         return values.pathLength != null ? values.pathLength : null;
     }
@@ -5165,6 +5175,36 @@ function homePathIsRoaded(room, targetSource, storage, spawn): boolean {
  * exceeded one body — with no second carrier to make up the difference. Splitting
  * across N carriers is what actually closes the gap.
  */
+/**
+ * Is this remote running at 10 e/t FOR US — now or imminently?
+ *
+ * Blind, `cached.reserved` is not enough on its own. It is only ever written
+ * with vision (rooms.remotes.ts), so it goes stale in exactly the direction
+ * that hurts: it says false for a remote we reserved while nobody was
+ * looking. `rsvEnd`, stamped by the reserver rung from the same vision, is
+ * the one that carries a DEADLINE rather than a bare flag, so a stamp still
+ * in the future outranks a stale `reserved:false`. Plus anything already on
+ * its way to fix it — a reserver alive or merely queued means the source is
+ * 10 e/t well before a 1500-tick body expires. A RIVAL's live reservation
+ * counts as false (their reservation does nothing for our yield).
+ *
+ * Shared by carrier demand AND the miner body: an unreserved 5 e/t source
+ * gets a 3-4 WORK miner, not the 5-6 WORK reserved body wasting half its
+ * harvest ticks.
+ */
+function remoteSourceReserved(room, targetRoomName): boolean {
+    const rr = Game.rooms[targetRoomName];
+    const resMem = room.memory.resources;
+    const cached = resMem && resMem[targetRoomName];
+    const myName = room.controller && room.controller.owner && room.controller.owner.username;
+    const liveRsv = rr && rr.controller ? rr.controller.reservation : null;
+    return liveRsv
+        ? (!myName || liveRsv.username === myName)
+        : !!((cached && cached.reserved)
+            || (cached && (cached.rsvEnd || 0) > Game.time)
+            || reserverPending(room, targetRoomName));
+}
+
 function remoteCarrierDemand(room, targetRoomName, values, sourceId?) {
     // Derive, don't default: the raw read fell back to L=40 for every blind
     // source, so the gate (`have >= want`) and the body (which derives its own
@@ -5172,44 +5212,15 @@ function remoteCarrierDemand(room, targetRoomName, values, sourceId?) {
     // cached (pathLength / 500-tick guess), so this is not a per-pass search.
     const derivedL = values ? ensureRemotePathLength(room, targetRoomName, values, sourceId) : null;
     const L = derivedL != null ? derivedL : (values && values.pathLength != null ? values.pathLength : 40);
-    const rr = Game.rooms[targetRoomName];
-    // Prefer live vision, fall back to the verdict manageRemotes cached. A long
-    // remote spends most of its time unobserved, and sizing must not depend on
-    // whether we happen to have a creep standing there this tick.
-    const resMem = room.memory.resources;
-    const cached = resMem && resMem[targetRoomName];
     /*
      * A source regenerates 1500/300 = 5 e/tick unreserved and 3000/300 = 10
-     * reserved — and only OUR reservation does that for us. Two corrections:
-     *
-     *  - `!!rr.controller.reservation` counted a RIVAL's reservation as ours
-     *    and sized the fleet for 10 e/tick against a source still producing 5,
-     *    i.e. double the carrier bodies for the same delivery.
-     *  - the reverse gap is worse and is the one E37N59 lives in: while a
-     *    reserver is walking out (600-tick creep, up to 120 tiles) there is no
-     *    reservation yet, so the carriers spawned in that window are sized for
-     *    5 and stay undersized for their whole 1500-tick life once the source
-     *    goes to 10. Measured on both of E37N59's remotes: cFull = 0 out of
-     *    234/296 carrier samples — the carriers were NEVER full — with 135,609
-     *    energy dropped on E36N59's floor. Count a committed reserver.
+     * reserved — and only OUR reservation does that for us (a rival's counts
+     * for nothing; a committed reserver counts already — see
+     * remoteSourceReserved). Measured cost of getting this wrong on E37N59:
+     * cFull = 0 out of 234/296 carrier samples with 135,609 energy rotting
+     * on E36N59's floor.
      */
-    const myName = room.controller && room.controller.owner && room.controller.owner.username;
-    const liveRsv = rr && rr.controller ? rr.controller.reservation : null;
-    /*
-     * Blind, `cached.reserved` is not enough on its own. It is only ever written
-     * with vision (rooms.remotes.ts), so it goes stale in exactly the direction
-     * that hurts: it says false for a remote we reserved while nobody was
-     * looking. `rsvEnd`, stamped by the reserver rung from the same vision, is
-     * the one that carries a DEADLINE rather than a bare flag, so a stamp still
-     * in the future outranks a stale `reserved:false`. Plus anything already on
-     * its way to fix it — a reserver alive or merely queued means the source is
-     * 10 e/t well before this carrier's 1500 ticks are up.
-     */
-    const reserved = liveRsv
-        ? (!myName || liveRsv.username === myName)
-        : !!((cached && cached.reserved)
-            || (cached && (cached.rsvEnd || 0) > Game.time)
-            || reserverPending(room, targetRoomName));
+    const reserved = remoteSourceReserved(room, targetRoomName);
     const yieldPerTick = reserved ? 10 : 5;
     const roaded = remotePathIsRoaded(room, targetRoomName, values, sourceId);
     // The body ratio picked in getCarrierBody is always matched to the terrain
@@ -5588,39 +5599,50 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                          * body costs 750 and RCL is a bad proxy for extensions
                          * actually being built.
                          */
-                        else if(room.energyCapacityAvailable >= 750 && storage && storage.store[RESOURCE_ENERGY] > 25000) {
-                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,MOVE];
-                            room.memory.spawn_list.unshift(remoteMinerBody, newName,
-                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Energy Miner to Spawn List: ' + newName);
-                            // Queue lead so the replacement arrives on death:
-                            // lastSpawn-20 left a pathLength-20 unmined gap (R6.157).
-                            const walk = values.pathLength != null ? values.pathLength : 20;
-                            values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
-                        }
-                        else if(room.energyCapacityAvailable >= 650) {
-                            // 5 WORK / 3 MOVE, 650e — exactly the 10 e/t a
-                            // reserved source produces, no waste either way.
-                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,MOVE];
-                            room.memory.spawn_list.unshift(remoteMinerBody, newName,
-                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Energy Miner to Spawn List: ' + newName);
-                            const walk = values.pathLength != null ? values.pathLength : 20;
-                            values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
-                        }
-                        else if(room.energyCapacityAvailable >= 500) {
-                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE];
-                            room.memory.spawn_list.unshift(remoteMinerBody, newName,
-                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Energy Miner to Spawn List: ' + newName);
-                            const walk = values.pathLength != null ? values.pathLength : 20;
-                            values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
-                        }
+                        /*
+                         * Body = f(what the source actually yields, and one
+                         * CARRY). A remote source is 10 e/t reserved, 5 e/t
+                         * not — and reserving is now a POLICY (a CPU-poor
+                         * shard skips it), so unreserved is a steady state to
+                         * size for, not a gap: 5-6 WORK against 5 e/t wastes
+                         * half the body. The single CARRY (50e) is what makes
+                         * the miner the remote's builder and box-keeper: it
+                         * banks harvest and spends it on the container site /
+                         * road sites within build range and on container
+                         * repair, without ever leaving the source
+                         * (Roles/energyMiner). shrinkQueuedBody sheds CARRY
+                         * first, so a broke room degrades back to drop-mining.
+                         */
                         else {
-                            room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
-                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Energy Miner to Spawn List: ' + newName);
-                            values.lastSpawn = Game.time-650;
+                            const reservedSrc = remoteSourceReserved(room, targetRoomName);
+                            const cap = room.energyCapacityAvailable;
+                            const rich = storage && storage.store[RESOURCE_ENERGY] > 25000;
+                            let remoteMinerBody: any[] | null = null;
+                            if (reservedSrc) {
+                                // 6W only as backlog margin over 10 e/t; 5W is the match.
+                                if (cap >= 800 && rich) remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,MOVE,CARRY];
+                                else if (cap >= 700) remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,MOVE,CARRY];
+                                else if (cap >= 450) remoteMinerBody = [WORK,WORK,MOVE,WORK,MOVE,CARRY];
+                            } else {
+                                // 3W = 6 e/t covers a 5 e/t source; 4W only as backlog margin.
+                                if (cap >= 550 && rich) remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,CARRY];
+                                else if (cap >= 450) remoteMinerBody = [WORK,WORK,MOVE,WORK,MOVE,CARRY];
+                            }
+                            if (remoteMinerBody) {
+                                room.memory.spawn_list.unshift(remoteMinerBody, newName,
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                                console.log('Adding Energy Miner to Spawn List: ' + newName);
+                                // Queue lead so the replacement arrives on death:
+                                // lastSpawn-20 left a pathLength-20 unmined gap (R6.157).
+                                const walk = values.pathLength != null ? values.pathLength : 20;
+                                values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
+                            }
+                            else {
+                                room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                                console.log('Adding Energy Miner to Spawn List: ' + newName);
+                                values.lastSpawn = Game.time-650;
+                            }
                         }
                     }
                 }
@@ -5794,6 +5816,15 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
         if(typeof name !== 'string' || name.indexOf('RemoteRepairer-') !== 0) return;
         if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
     });
+    // Game.constructionSites lists MY sites globally, vision or not — the one
+    // work signal a blind pass can still read. The old gate needed live
+    // vision at the exact producer tick (once per 500t with a busy queue), so
+    // remote sites sat unbuilt for thousands of ticks between repairers.
+    const siteCount: { [roomName: string]: number } = {};
+    for (const id in Game.constructionSites) {
+        const p = Game.constructionSites[id].pos;
+        siteCount[p.roomName] = (siteCount[p.roomName] || 0) + 1;
+    }
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
             /*
@@ -5807,13 +5838,16 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
             if(targetRoomName != room.name) {
                 if(covered[targetRoomName]) return;
                 if(remoteIsHot(room, targetRoomName)) return;
+                // Sites are visible blind (Game.constructionSites); decayed
+                // roads/containers need vision. `!rr` no longer vetoes — a
+                // remote with standing sites deserves its builder whether or
+                // not a creep happens to be inside at this instant.
                 const rr = Game.rooms[targetRoomName];
-                if(!rr) return;
                 const hasWork =
-                    rr.find(FIND_MY_CONSTRUCTION_SITES).length > 0 ||
-                    rr.find(FIND_STRUCTURES, {filter: (s:any) =>
+                    (siteCount[targetRoomName] || 0) > 0 ||
+                    (!!rr && rr.find(FIND_STRUCTURES, {filter: (s:any) =>
                         (s.structureType == STRUCTURE_ROAD || s.structureType == STRUCTURE_CONTAINER) &&
-                        s.hits < s.hitsMax * 0.75}).length > 0;
+                        s.hits < s.hitsMax * 0.75}).length > 0);
                 if(!hasWork) return;
             }
             const markSpawned = function(stamp) {
@@ -5826,46 +5860,48 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
                 }
                 if(Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 1.5) {
                     let newName = 'RemoteRepairer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    if(targetRoomName != room.name && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData && !Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps) {
+                    if(targetRoomName != room.name) {
 
                         if(room.memory.danger) {
                             return;
                         }
 
+                        // The stale hostile flag blocks only while FRESH
+                        // (vision now, or stamped within 100t) — the old form
+                        // required live vision AND a clean flag, which a
+                        // blind pass could never satisfy. Memory.rooms, not
+                        // Game.rooms[..].memory: the whole point is blind.
+                        const rdMem: any = Memory.rooms[targetRoomName] && (Memory.rooms[targetRoomName] as any).roomData;
+                        if(rdMem && rdMem.has_hostile_creeps &&
+                           (Game.rooms[targetRoomName] || Game.time - (rdMem.hostile_t || 0) <= 100)) {
+                            return;
+                        }
+
+                        // Sites standing => re-check sooner; pure upkeep trip
+                        // => the full interval. NEVER a future stamp: the old
+                        // +50/+100/+200 made `Game.time - stamp` negative and
+                        // silently stretched the cadence past its nominal
+                        // 2250 ticks.
+                        const building = (siteCount[targetRoomName] || 0) > 0;
                         if(room.controller.level >= 6) {
                             room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 23), newName,
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                            if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                markSpawned(Game.time - 100);
-                            }
-                            else {
-                                markSpawned(Game.time + 50);
-                            }
+                            markSpawned(building ? Game.time - 300 : Game.time);
                         }
 
                         else if(room.energyCapacityAvailable >= 600) {
                             room.memory.spawn_list.push([WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE], newName,
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                            if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                markSpawned(Game.time - 300);
-                            }
-                            else {
-                                markSpawned(Game.time + 200);
-                            }
+                            markSpawned(building ? Game.time - 300 : Game.time);
                         }
 
                         else if(room.energyCapacityAvailable >= 400) {
                             room.memory.spawn_list.push([WORK,CARRY,MOVE,WORK,CARRY,MOVE], newName,
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                            if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                markSpawned(Game.time - 400);
-                            }
-                            else {
-                                markSpawned(Game.time + 100);
-                            }
+                            markSpawned(building ? Game.time - 400 : Game.time);
                         }
                         else {
                             room.memory.spawn_list.push([WORK,CARRY,MOVE], newName,
@@ -5910,6 +5946,21 @@ function reserverGate(room): { ok: boolean; reason: string } {
     const lvl = room.controller ? room.controller.level : 0;
     const owned = _.filter(Game.rooms, (r: any) => r.controller && r.controller.my).length;
     const gcl = Game.gcl ? Game.gcl.level : 1;
+
+    /*
+     * RESERVING IS A POLICY, NOT A REFLEX. Owner rule (2026-08-22): on a
+     * CPU-tight shard, running remotes UNRESERVED is the plan — 1500-cap
+     * sources, 3-WORK miners, half-size carrier fleets — because the
+     * reservation doubles yield but also roughly doubles the creep count and
+     * intent CPU, and 20-CPU shard3 is pinned at its limit. Everything
+     * downstream (remoteSourceReserved -> miner WORK count, carrier demand)
+     * sizes itself off the actual reservation state, so flipping this gate
+     * flips the whole economy coherently. A pegged bucket (>=9500) means CPU
+     * is genuinely spare, and reserving becomes profitable again.
+     */
+    if (Game.cpu.limit < 30 && Game.cpu.bucket < 9500) {
+        return { ok: false, reason: "cpu-tight shard (limit " + Game.cpu.limit + ", bucket " + Game.cpu.bucket + "): running remotes unreserved" };
+    }
 
     if (room.energyCapacityAvailable < 1300) {
         return { ok: false, reason: "cap " + room.energyCapacityAvailable + "<1300 (needs 2xCLAIM; 1 CLAIM is net-zero)" };
@@ -6147,10 +6198,13 @@ function spawn_reserver(resourceData, room, activeRemotes) {
                     // So derive the pairs from the SAME 85% budget the clamp
                     // applies, and the body the room queues is the body the clamp
                     // would have left it with.
-                    const rungPairs = room.controller.level <= 4 ? 2
-                        : room.controller.level == 5 ? 2
-                        : room.controller.level == 6 ? 3
-                        : room.controller.level == 7 ? 7 : 8;
+                    // 3 pairs is the ceiling at ANY level: +2 net/tick against
+                    // the decay, and the reservation caps at 5000 regardless.
+                    // The old 7/8-pair RCL7/8 rungs were 4550-5200e monsters
+                    // (observed live: an 8xCLAIM/8xMOVE reserver) burning 48
+                    // spawn-ticks to overshoot a cap the 3-pair body reaches
+                    // anyway inside one 600-tick life.
+                    const rungPairs = room.controller.level <= 5 ? 2 : 3;
                     const budgetPairs = Math.floor(room.energyCapacityAvailable * 0.85 /
                         (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]));
                     // RCL4-shaped rooms: floor(1105/650) == 1, and one CLAIM part

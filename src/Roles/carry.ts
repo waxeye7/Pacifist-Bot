@@ -81,8 +81,28 @@ function walkToDropoff(creep) {
     if (spawn && !creep.pos.isNearTo(spawn)) creep.MoveCostMatrixRoadPrio(spawn, 1);
 }
 
+/** The dry-room wait: at the assigned source if visible, off the border always. */
+function idleAtSource(creep: any): void {
+    const src: any = creep.memory.sourceId && Game.getObjectById(creep.memory.sourceId);
+    if (src && src.pos && src.pos.roomName === creep.room.name && creep.pos.getRangeTo(src) > 2) {
+        creep.MoveCostMatrixSwampPrio(src, 2);
+        return;
+    }
+    creep.stepOffExit();
+}
+
 function walkToSource(creep) {
     if (creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+        // A hot/closed remote must not be re-entered one delivery-step at a
+        // time: this walk fired on every successful transfer, the recall
+        // branch turned the creep around next tick, and the two ratcheted a
+        // recalled carrier back and forth near the exit forever. Hold
+        // instead (off the border); the recall lift resumes the trip.
+        if (creep.memory.homeRoom && creep.memory.targetRoom !== creep.memory.homeRoom &&
+            (remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom) || remoteRecalled(creep))) {
+            creep.stepOffExit();
+            return;
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
     const pile: any = creep.memory.pickup && Game.getObjectById(creep.memory.pickup.id);
@@ -125,6 +145,14 @@ function deliverIfNear(creep): boolean {
  * all checked upstream every tick at memoised cost).
  */
 function parkFull(creep: any): void {
+    // Never settle on an exit tile: the engine hands the creep to the next
+    // room at tick end, the walk-home branch marches it straight back, and
+    // the pair repeat forever. Get one tile in first, park next tick.
+    if (creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49) {
+        delete creep.memory._pk;
+        creep.stepOffExit();
+        return;
+    }
     const packed = creep.pos.x + creep.pos.y * 50;
     if (creep.memory._pk === packed) return; // settled
     let onRoad = false;
@@ -603,7 +631,7 @@ function depotSink(creep: any): any {
             // Stepping toward home on EVERY collect is the border oscillation
             // the film caught — only a full body starts the trip back.
             if (creep.memory.full) walkToDropoff(creep);
-        } else if (result === "idle" && startedFree > 0 && startedEnergy > 0) {
+        } else if (result === "idle" && startedFree > 0) {
             /*
              * Collect-dry room while holding a partial load. Brief dips (the
              * pile regrowing under a drop-miner) are worth waiting out next to
@@ -611,12 +639,25 @@ function depotSink(creep: any): any {
              * "rooms starve themselves" half of 37dffc94, kept, but time-based
              * instead of crumb-triggered.
              */
-            creep.memory.dry = (creep.memory.dry || 0) + 1;
-            if (creep.memory.dry >= 15) {
-                delete creep.memory.dry;
-                creep.memory.full = true;
-                walkToDropoff(creep);
+            if (startedEnergy > 0) {
+                creep.memory.dry = (creep.memory.dry || 0) + 1;
+                if (creep.memory.dry >= 15) {
+                    delete creep.memory.dry;
+                    creep.memory.full = true;
+                    walkToDropoff(creep);
+                }
             }
+            /*
+             * Whether partial or EMPTY, an idle tick must still wait
+             * SOMEWHERE SANE. acquire() invents no move on idle, so a
+             * carrier that just crossed into a dry remote — or a recalled
+             * one that just crossed back home — stood on the very exit tile
+             * it entered by, and the engine bounced it between the two rooms
+             * every tick: the "balancing on the wall" film. Wait at the
+             * assigned source when it is visible (that is where the miner's
+             * next drop lands); anywhere else just get off the border.
+             */
+            if (!creep.memory.full) idleAtSource(creep);
         } else if (delivered) {
             walkToSource(creep);
         }

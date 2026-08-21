@@ -33,6 +33,16 @@ function findLockedRepair(creep) {
         });
     }
 
+    // Prune ids whose object is gone (a road that decayed away, a container
+    // an invader ate). They used to stay in the list forever, and since the
+    // serviced exit below demands an EMPTY list, a repairer whose targets all
+    // died stood wherever it happened to be, issuing no intent, for life.
+    if(creep.memory.allowed_repairs.length > 0) {
+        creep.memory.allowed_repairs = creep.memory.allowed_repairs.filter(function(id) {
+            return !!Game.getObjectById(id);
+        });
+    }
+
     if(creep.memory.allowed_repairs.length > 0) {
         let buildingsToRepair = [];
         _.forEach(creep.memory.allowed_repairs, function(building) {
@@ -219,7 +229,13 @@ function findLockedBuild(creep) {
 
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom)
         }
-        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        const res = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        if (res === "idle") {
+            // Dry room: acquire invents no move, and a repairer that just
+            // crossed in stands on the exit tile it entered by — the engine
+            // bounces it between rooms every tick until energy appears.
+            creep.stepOffExit();
+        }
     }
 }
 

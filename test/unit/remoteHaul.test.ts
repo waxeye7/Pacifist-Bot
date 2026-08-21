@@ -57,13 +57,17 @@ describe("carry return decision (home with 3 energy)", () => {
 
     it("only a full body walks home; a dry room takes the partial after a wait", () => {
         assert.match(CARRY, /if \(creep\.memory\.full\) walkToDropoff\(creep\);/);
-        assert.match(CARRY, /result === "idle" && startedFree > 0 && startedEnergy > 0/);
+        assert.match(CARRY, /result === "idle" && startedFree > 0/);
         assert.match(CARRY, /creep\.memory\.dry = \(creep\.memory\.dry \|\| 0\) \+ 1;/);
     });
 
     it("HOT no longer strips sourceId — the body keeps counting in liveCarriersForSource", () => {
-        const hot = CARRY.indexOf("remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)");
-        const recall = CARRY.indexOf("remoteRecalled(creep)");
+        // anchor past walkToSource's own hot/recall guard: the branch under
+        // test is the one in run(), after the remoteTrip derivation
+        const trip = CARRY.indexOf("const remoteTrip = !!(");
+        assert.isAbove(trip, -1);
+        const hot = CARRY.indexOf("remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)", trip);
+        const recall = CARRY.indexOf("remoteRecalled(creep)", hot);
         assert.isAbove(hot, -1);
         assert.isAbove(recall, hot);
         const hotBlock = CARRY.slice(hot, recall);
@@ -146,6 +150,47 @@ describe("RemoteRepair border bouncer", () => {
         assert.match(block, /creep\.memory\.suicide = true;/);
         assert.notMatch(block, /allowed_repairs\.length == 0/,
             "the exit must not be gated on a list that cannot empty");
+    });
+});
+
+describe("exit-tile engine bounce (2026-08-22: carriers 'balancing on the walls')", () => {
+    const RR = fs.readFileSync(path.join(__dirname, "../../src/Roles/remoteRepair.ts"), "utf8");
+
+    it("stepOffExit is a prototype no-op off the border, a real move on it", () => {
+        assert.match(CF, /Creep\.prototype\.stepOffExit = function \(\) \{/);
+        assert.match(CF, /if \(this\.pos\.x !== 0 && this\.pos\.x !== 49 && this\.pos\.y !== 0 && this\.pos\.y !== 49\) return false;/);
+    });
+
+    it("the sticky filter only applies IN the source's room — a recalled carrier can work home-side", () => {
+        const at = CF.indexOf("const atMine = (o: any) =>");
+        assert.isAbove(at, -1);
+        const body = CF.slice(at, at + 400);
+        assert.match(body, /stickySrc\.pos\.roomName !== this\.pos\.roomName \|\|/,
+            "with the remote visible, the roomName test rejected every home object and the carrier idled on the exit tile");
+    });
+
+    it("an idle carrier waits at its source or steps off the border — never a bare no-move", () => {
+        assert.match(CARRY, /if \(!creep\.memory\.full\) idleAtSource\(creep\);/);
+        assert.match(CARRY, /function idleAtSource\(creep: any\): void \{/);
+        assert.match(CARRY, /creep\.stepOffExit\(\);/);
+    });
+
+    it("parkFull never settles ON an exit tile", () => {
+        const at = CARRY.indexOf("function parkFull");
+        assert.isAbove(at, -1);
+        const head = CARRY.slice(at, at + 700);
+        assert.match(head, /creep\.pos\.x === 0 \|\| creep\.pos\.x === 49 \|\| creep\.pos\.y === 0 \|\| creep\.pos\.y === 49/);
+        assert.match(head, /creep\.stepOffExit\(\);/);
+    });
+
+    it("a RemoteRepairer in a dry room steps off the border instead of idling on it", () => {
+        assert.match(RR, /const res = creep\.acquireEnergyWithContainersAndOrDroppedEnergy\(\);/);
+        assert.match(RR, /if \(res === "idle"\) \{[\s\S]{0,300}?creep\.stepOffExit\(\);/);
+    });
+
+    it("dead ids are pruned from allowed_repairs so the serviced exit can fire", () => {
+        const at = RR.indexOf("creep.memory.allowed_repairs = creep.memory.allowed_repairs.filter");
+        assert.isAbove(at, -1, "a list of decayed-away roads froze the repairer for life");
     });
 });
 

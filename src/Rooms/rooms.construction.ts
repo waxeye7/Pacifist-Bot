@@ -2529,12 +2529,19 @@ function planRoadSet(room): { [packed: number]: boolean } | null {
 /**
  * Cost matrix for the storage -> remote-source line.
  *
- * Inside a v2-planned home room the plan owns the layout, so the line must
- * ride the plan's own eco roads out to the exit rather than carve a second
- * path across the base. Plan road tiles cost 1, everything else is expensive
- * but passable (the path can still cross a gap — we simply won't pave it).
+ * ONE geometry for everything. This matrix used to price the home room at
+ * plain 10 / swamp 25 so the line would hug the plan's eco roads at any
+ * detour — while the carriers' own travel matrices price plain 2, and
+ * remotePathIsRoaded judged a THIRD, road-blind terrain path. Measured on
+ * the VPS: the roads got built on one line (exit x≈42), the carriers drove
+ * another (exit x≈17), and two fully-paved legs read 8-26% "roaded" so 2:1
+ * bodies never unlocked. Same 2/6/1 pricing as the remote rooms now — plan
+ * roads and built roads still cost 1, so the line prefers them at sane
+ * detours, and the CLIP rule (on-plan or exterior only) is what protects
+ * the base, not path distortion. Exported: rooms.spawning's roaded check
+ * and path-length survey MUST walk this same matrix.
  */
-function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix | undefined {
+export function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix | undefined {
     if (!planRoads || roomName !== homeRoom.name) {
         // No vision: makeStructuresCostMatrixModifiedTest returns `false`, and
         // `false` tells PathFinder the room is IMPASSABLE. Every path to a
@@ -2576,7 +2583,7 @@ function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [pac
     for (let y = 0; y <= 49; y++) {
         for (let x = 0; x <= 49; x++) {
             const t = terrain.get(x, y);
-            costs.set(x, y, t === TERRAIN_MASK_WALL ? 255 : t === TERRAIN_MASK_SWAMP ? 25 : 10);
+            costs.set(x, y, t === TERRAIN_MASK_WALL ? 255 : t === TERRAIN_MASK_SWAMP ? 6 : 2);
         }
     }
     for (const packed of Object.keys(planRoads)) {
@@ -2589,7 +2596,28 @@ function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [pac
         if (s.structureType === STRUCTURE_RAMPART && s.my) continue;
         costs.set(s.pos.x, s.pos.y, 255);
     }
+    // Sticky here too: half-built connectors attract the next pass's line.
+    for (const cs of homeRoom.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (cs.structureType === STRUCTURE_ROAD) costs.set(cs.pos.x, cs.pos.y, 1);
+    }
     return costs;
+}
+
+/**
+ * The canonical haul-line pather for a home room, shared by placement
+ * (Build_Remote_Roads), body sizing (remotePathIsRoaded) and trip pricing
+ * (ensureRemotePathLength). If these ever walk different geometries again,
+ * roads get built where nobody drives — see remoteRoadCostMatrix's header.
+ */
+export function searchRemoteHaulPath(homeRoom: any, originPos: any, goal: any, maxOps: number): any {
+    const planRoads = planRoadSet(homeRoom);
+    return PathFinder.search(originPos, goal, {
+        plainCost: 2,
+        swampCost: 6,
+        roomCallback: (roomName: string) => remoteRoadCostMatrix(roomName, homeRoom, planRoads) as any,
+        maxRooms: 16,
+        maxOps
+    });
 }
 
 /** how many open sites the home room may hold before we stop adding to it */
@@ -2731,17 +2759,8 @@ function buildRemote(room, targetRoomName: string, data: any, ctx: RemoteRoadCtx
             ? source.pos
             : new RoomPosition(values.x, values.y, targetRoomName);
 
-        const pathFromStorageToRemoteSource = PathFinder.search(
-            ctx.storage.pos,
-            {pos: goalPos, range: 1},
-            {
-                plainCost: 1,
-                swampCost: 3,
-                roomCallback: (roomName) => remoteRoadCostMatrix(roomName, room, ctx.planRoads),
-                maxRooms: 16,  // Allow cross-room pathing
-                maxOps: 10000
-            }
-        );
+        const pathFromStorageToRemoteSource = searchRemoteHaulPath(
+            room, ctx.storage.pos, {pos: goalPos, range: 1}, 10000);
 
         if(pathFromStorageToRemoteSource.incomplete) {
             console.log(`Could not find path to remote source in ${targetRoomName}`);
@@ -2754,24 +2773,44 @@ function buildRemote(room, targetRoomName: string, data: any, ctx: RemoteRoadCtx
         // produces, so it is written before any of the site-placement gates
         // below can bail.
         values.pathLength = pathFromStorageToRemoteSource.path.length;
+        // Authoritative stamp: this is the geometry the carriers drive, so
+        // the spawning side's survey (which walks the SAME matrix now) must
+        // not immediately redo the work — or worse, overwrite it from a
+        // different model, which is where the phantom 75/100-tile legs came
+        // from (real: 43/52).
+        values.pathLengthT = Game.time;
 
         // Measure-only pass (no vision, or the global site cap is full).
         if(!ctx.allowSites || !ctx.clipBudget) return;
 
         const containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
         if(!containerSpot || !Game.rooms[containerSpot.roomName]) {
-            console.log(`No visibility in container room ${containerSpot?.roomName}`);
-            return;
+            // No vision at the source end. This used to `return` — a FULL
+            // abort that also skipped the home-side connector roads, so a
+            // pass tick that missed remote vision (recalls, hot spells)
+            // placed nothing at all, every 500 ticks, indefinitely. Place
+            // what we CAN see; only the box needs the far room.
+            console.log(`No visibility in container room ${containerSpot?.roomName} - paving visible leg only`);
         }
         // A source sitting at x/y 1 or 48 puts the last path tile ON the room
         // border, and createConstructionSite refuses border tiles - silently,
         // every single pass, forever. Skip only the box; the roads below and the
         // pathLength above are still worth the pass.
-        if(containerSpot.x < 1 || containerSpot.x > 48 || containerSpot.y < 1 || containerSpot.y > 48) {
+        else if(containerSpot.x < 1 || containerSpot.x > 48 || containerSpot.y < 1 || containerSpot.y > 48) {
             console.log(`Remote container spot ${containerSpot.x},${containerSpot.y} in ${containerSpot.roomName} is a border tile - no container, roads only`);
         }
         else {
             const containerSiteResult = Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
+            if(containerSiteResult === OK && containerSpot.roomName !== room.name) {
+                // The box counts against the remote's site ceiling like
+                // everything else placed there (it never used to).
+                const b = ctx.clipBudget.remoteSites;
+                if(b[containerSpot.roomName] === undefined) {
+                    const vis = Game.rooms[containerSpot.roomName];
+                    b[containerSpot.roomName] = vis ? vis.find(FIND_MY_CONSTRUCTION_SITES).length : 0;
+                }
+                b[containerSpot.roomName]++;
+            }
             if(containerSiteResult !== OK && containerSiteResult !== ERR_FULL && containerSiteResult !== ERR_INVALID_TARGET) {
                 console.log(`Remote container site ${containerSpot.x},${containerSpot.y} in ${containerSpot.roomName} failed: ${containerSiteResult}`);
             }
@@ -2841,6 +2880,53 @@ function Build_Remote_Roads(room, onlyRemote?: string) {
     });
 }
 
+/** ticks a closed remote keeps its sites before the sweep reclaims them */
+const STRANDED_SITE_GRACE = 3000;
+let _strandedSweepAt = 0;
+
+/**
+ * Reclaim MY road/container sites stranded in remote rooms nobody is mining.
+ *
+ * VPS W6N3: an Invader core closed the remote and its 8 sites sat there for
+ * good — pinned at REMOTE_SITE_CEILING, eating the global 100-site cap, and
+ * reading as "the bot is building something" while nothing ever would.
+ * `ConstructionSite.remove()` works WITHOUT vision, and roads/containers are
+ * the only things this bot ever places in unowned rooms, so the sweep is
+ * safe: worst case a re-opened remote re-places them in one pass. A recent
+ * close (hot spell, cap juggle) keeps its sites for STRANDED_SITE_GRACE.
+ */
+function purgeStrandedRemoteSites(): void {
+    if (Game.time - _strandedSweepAt < 500) return;
+    _strandedSweepAt = Game.time;
+    // Scope: only rooms the remote system TRACKS. A room outside every
+    // resources map (a colonise target, a manual RoomLocker job) is none of
+    // this sweep's business.
+    const tracked: { [roomName: string]: boolean } = {};
+    const keep: { [roomName: string]: boolean } = {};
+    for (const home in Memory.rooms) {
+        const res: any = (Memory.rooms[home] as any).resources;
+        if (!res) continue;
+        for (const t in res) {
+            const e = res[t];
+            if (!e || t === home) continue;
+            tracked[t] = true;
+            if (e.active) keep[t] = true;
+            else if (e.closedAt && Game.time - e.closedAt < STRANDED_SITE_GRACE) keep[t] = true;
+        }
+    }
+    const colonise: any = (Memory as any).target_colonise;
+    if (colonise && colonise.room) keep[colonise.room] = true;
+    for (const id in Game.constructionSites) {
+        const s: any = Game.constructionSites[id];
+        if (s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER) continue;
+        const rn = s.pos.roomName;
+        if (!tracked[rn] || keep[rn]) continue;
+        const vis = Game.rooms[rn];
+        if (vis && vis.controller && vis.controller.my) continue;
+        s.remove();
+    }
+}
+
 /**
  * Per-remote, vision-triggered cadence. Call every tick.
  *
@@ -2859,6 +2945,7 @@ function Build_Remote_Roads(room, onlyRemote?: string) {
 function Remote_Roads_Tick(room): void {
     if (!room.controller || room.controller.level < 4) return;
     if (room.memory.danger) return;
+    purgeStrandedRemoteSites(); // module-throttled to one sweep per 500t
     const resources: any = room.memory.resources;
     if (!resources) return;
 

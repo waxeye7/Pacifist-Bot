@@ -1,5 +1,6 @@
 import { logAlways } from "utils/Logger";
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
+import { markRemoteHot } from "Rooms/rooms.remotes";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 import { plannedLinkTile } from "utils/PlanV2";
 import {
@@ -42,6 +43,7 @@ interface Creep {
     fleeFromRanged: (creep:Creep) => void;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
+    stepOffExit: () => boolean;
     recycle: () => void;
     RangedAttackFleeFromMelee:any;
     SwapPositionWithCreep:any;
@@ -1394,6 +1396,18 @@ function stepOffExit(creep: any): boolean {
     return true;
 }
 
+/**
+ * A creep that is about to idle MUST NOT end its tick on an exit tile: the
+ * engine hands it to the neighbouring room at tick end, the caller's own
+ * walk-back logic sends it straight back, and the pair repeat forever — the
+ * "carrier balancing on the wall". No-op (false) anywhere but the border, so
+ * callers can fire it unconditionally on their no-move paths.
+ */
+Creep.prototype.stepOffExit = function () {
+    if (this.pos.x !== 0 && this.pos.x !== 49 && this.pos.y !== 0 && this.pos.y !== 49) return false;
+    return stepOffExit(this);
+};
+
 /** How many exit tiles moveToRoomAvoidEnemyRooms is willing to path-score. */
 const EXIT_CANDIDATES = 5;
 
@@ -1592,6 +1606,25 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
         if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
         let exit;
         let position;
+
+        // Already standing on the border we are trying to cross: the engine
+        // hands us over at tick end — ANY move now is worse than none. The
+        // step-aside/re-roll logic below used to fire here (another creep on
+        // "our" exit tile → re-pick → step sideways along the edge), and with
+        // 2-3 creeps sharing a narrow exit band each re-roll penalised the
+        // tile a peer just took: a mutual livelock the stuck counter can
+        // never see, because everybody keeps moving. Live film: a recalled
+        // miner spent 282+ ticks shuffling 49,12 <-> 48,11 one tile from
+        // home.
+        {
+            const hop = this.memory.route[0];
+            const onCorrectEdge = hop && (
+                (hop.exit === FIND_EXIT_TOP && this.pos.y === 0) ||
+                (hop.exit === FIND_EXIT_RIGHT && this.pos.x === 49) ||
+                (hop.exit === FIND_EXIT_BOTTOM && this.pos.y === 49) ||
+                (hop.exit === FIND_EXIT_LEFT && this.pos.x === 0));
+            if (onCorrectEdge) return;
+        }
 
         // Stuck on border pile-up: re-pick exit if we haven't moved
         if (this.memory._exitStuckPos === this.pos.x + "," + this.pos.y) {
@@ -1919,9 +1952,17 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         this.memory.role === "carry" && this.memory.sourceId
             ? Game.getObjectById(this.memory.sourceId)
             : null;
+    // The sticky filter only applies IN the source's room. A recalled/hot
+    // carrier working home-side still has its remote sourceId, and whenever
+    // any friendly creep kept the remote visible the old form resolved
+    // stickySrc and then rejected every home-room object on the roomName
+    // test — the carrier could acquire NOTHING at home, issued no move, and
+    // if it was still standing on the entry border tile the engine bounced
+    // it between the two rooms indefinitely.
     const atMine = (o: any) =>
         !stickySrc ||
         !stickySrc.pos ||
+        stickySrc.pos.roomName !== this.pos.roomName ||
         !!(o && o.pos &&
             o.pos.roomName === stickySrc.pos.roomName &&
             o.pos.getRangeTo(stickySrc) <= STICKY_SOURCE_RANGE);
@@ -2165,6 +2206,14 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | strin
         && (Game.rooms[this.memory.targetRoom] || Game.time - (rdFlee.hostile_t || 0) <= 100));
     if(this.memory.targetRoom && this.memory.homeRoom && this.memory.targetRoom !== this.memory.homeRoom && hostileFresh) {
         if(this.room.name == this.memory.targetRoom) {
+            // Unify the two threat systems: a flee event IS a hot event.
+            // scanRemoteThreats only sweeps ACTIVE remotes every 5 ticks, so
+            // a fleeing creep could exit a room the hot system considered
+            // fine — and the walk-in logic marched it straight back next
+            // tick (flee, cross, walk in, flee: the 2-tick border film).
+            // With the flag raised, every consumer — spawn gates, the carry
+            // recall branch, walkToSource — stands down together.
+            markRemoteHot(this.memory.homeRoom, this.memory.targetRoom, "flee:" + this.name);
             this.memory.timeOut = 25;
             this.moveToRoom(this.memory.homeRoom);
             return "timeOut";

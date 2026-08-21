@@ -505,6 +505,50 @@ const run = function (creep) {
             if(site) {
                 creep.build(site);
             }
+            /*
+             * REMOTE miners are the remote's whole construction crew (owner
+             * design, 2026-08-22): before this, no remote miner body had a
+             * CARRY part, so the box-building branch above was dead code for
+             * remotes and every site waited ~2150 ticks for a RemoteRepairer.
+             * The seat is in build range (3) of the box site AND of the road
+             * drip placeClippedRemoteRoads lays around it — so build them,
+             * then keep the box alive (unowned-room containers decay 50
+             * hits/tick; repair is 100 hits/WORK/tick, zero travel), and only
+             * then hand the surplus to the box/floor. The miner NEVER moves
+             * for any of this.
+             */
+            else if(creep.memory.targetRoom && creep.memory.targetRoom != creep.memory.homeRoom) {
+                const cachedSite: any = creep.memory._nearSite && Game.getObjectById(creep.memory._nearSite);
+                if(!cachedSite || !creep.memory._nearSiteT || Game.time - creep.memory._nearSiteT > 10) {
+                    creep.memory._nearSiteT = Game.time;
+                    const sites = creep.pos.findInRange(cachedSites(creep.room), 3);
+                    sites.sort((a: any, b: any) =>
+                        ((a.structureType === STRUCTURE_CONTAINER ? 0 : 1) -
+                         (b.structureType === STRUCTURE_CONTAINER ? 0 : 1)) ||
+                        (creep.pos.getRangeTo(a) - creep.pos.getRangeTo(b)));
+                    creep.memory._nearSite = sites.length ? sites[0].id : false;
+                }
+                const near: any = creep.memory._nearSite && Game.getObjectById(creep.memory._nearSite);
+                if(near) {
+                    creep.build(near);
+                }
+                else {
+                    if(!creep.memory._repBoxT || Game.time - creep.memory._repBoxT > 10) {
+                        creep.memory._repBoxT = Game.time;
+                        const boxes = creep.pos.findInRange(
+                            cachedStructures(creep.room).filter((s: any) => s.structureType === STRUCTURE_CONTAINER), 1);
+                        const hurt = boxes.filter((b: any) => b.hits < b.hitsMax * 0.8)[0];
+                        creep.memory._repBox = hurt ? hurt.id : false;
+                    }
+                    const box: any = creep.memory._repBox && Game.getObjectById(creep.memory._repBox);
+                    if(box && box.hits < box.hitsMax) {
+                        creep.repair(box);
+                    }
+                    else {
+                        dumpMinerEnergy(creep);
+                    }
+                }
+            }
             else {
                 dumpMinerEnergy(creep);
             }

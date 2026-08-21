@@ -533,7 +533,14 @@ function rooms() {
             // the outer break were dead code.)
             if (remoteRooms.length > 1) {
               for (let remoteRoom of remoteRooms) {
-                room.memory.resources[remoteRoom].active = false;
+                const e = room.memory.resources[remoteRoom];
+                if (!e) continue;
+                // Stamp the TRANSITION only: remoteRecalled's 100-tick
+                // debounce and the queued-reserver drop both mature against
+                // closedAt, and a valve close without a stamp read as
+                // "closed forever ago" — instant recall, instant drop.
+                if (e.active !== false) e.closedAt = Game.time;
+                e.active = false;
               }
             }
           }
