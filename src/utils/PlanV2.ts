@@ -3012,10 +3012,12 @@ export function placeFromPlanV2(room: Room): void {
       // The typed exception slot's own site (terminal/extractor, max 1 each)
       // must survive the strip — it IS the way back out of broke.
       if (s.structureType === STRUCTURE_TERMINAL || s.structureType === STRUCTURE_EXTRACTOR) continue;
-      // Same bar as the typed lab grant (e >= floor/2): what the clamp just
-      // granted, the strip must not eat. W1N1 filmed placing labs on rich
-      // ticks and stripping them at 1-2k progress ~150t later, forever.
-      if (s.structureType === STRUCTURE_LAB && bankE >= brokeFloor / 2) continue;
+      // Same bar as the typed lab grant (e >= floor/2), MINUS a margin: what
+      // the clamp just granted, the strip must not eat — and the half-floor
+      // line flaps exactly like the floor did (W5N3 filmed stripping a
+      // 2000-progress lab as its 17k bank grazed the 15k bar). Grant at
+      // floor/2, keep until clearly below it.
+      if (s.structureType === STRUCTURE_LAB && bankE >= brokeFloor / 2 - 5000) continue;
       // Exterior connector road sites belong to the REMOTE system
       // (placeClippedRemoteRoads' shell->exit legs), not the plan flood this
       // strip polices — eating them undid the connector fix within a few

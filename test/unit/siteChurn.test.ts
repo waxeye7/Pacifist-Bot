@@ -32,9 +32,10 @@ describe("broke-boundary site churn", () => {
             "no raw unlatched comparison may survive at the strip");
     });
 
-    it("what the typed lab grant places, the strip keeps (same half-floor bar)", () => {
+    it("what the typed lab grant places, the strip keeps — with a margin below the grant bar", () => {
         assert.match(SRC, /if \(e >= floor \/ 2 && labCap > 0 && labs < labCap\) return grant\("lab"\);/);
-        assert.match(SRC, /if \(s\.structureType === STRUCTURE_LAB && bankE >= brokeFloor \/ 2\) continue;/);
+        assert.match(SRC, /if \(s\.structureType === STRUCTURE_LAB && bankE >= brokeFloor \/ 2 - 5000\) continue;/,
+            "W5N3's 17k bank grazing the 15k bar stripped a 2000-progress lab — the half-floor line flaps like the floor did");
     });
 
     it("exterior connector road sites are the remote system's, not the strip's", () => {
