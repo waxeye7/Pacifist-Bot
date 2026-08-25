@@ -8,7 +8,8 @@
 import { assert } from "chai";
 import * as fs from "fs";
 import * as path from "path";
-import { warEconomyBlocked, WAR_MIN_BANK } from "../../src/War/dispatch";
+import { warEconomyBlocked } from "../../src/War/dispatch";
+import { canFund, warMinBank, KIT_COST, WAR_MIN_BANK_HOME } from "../../src/War/kit";
 
 const g: any = global;
 const SRC = fs.readFileSync(path.join(__dirname, "../../src/utils/PlanV2.ts"), "utf8");
@@ -78,9 +79,9 @@ describe("war economy gate", () => {
     beforeEach(() => { prevGame = g.Game; prevMemory = g.Memory; });
     afterEach(() => { g.Game = prevGame; g.Memory = prevMemory; });
 
-    function world(rooms: any, mem: any = {}, bucket = 10000) {
+    function world(rooms: any, mem: any = {}, bucket = 10000, avg = 15) {
         g.Game = { time: 1000, rooms, creeps: {}, cpu: { bucket, limit: 20 } };
-        g.Memory = { rooms: {}, creeps: {}, ...mem };
+        g.Memory = { rooms: {}, creeps: {}, CPU: { hundredTickAvg: { avg } }, ...mem };
     }
     function room(level: number, bank: number | null) {
         return {
@@ -89,28 +90,38 @@ describe("war economy gate", () => {
         };
     }
 
-    it("clear when every owned RCL4+ room holds the bank floor", () => {
-        world({ A: room(6, 50000), B: room(4, WAR_MIN_BANK), C: room(3, null) });
+    it("a broke room no longer switches the EMPIRE off — the bank test is per home", () => {
+        // 2026-08-26: "E37N59 bank 12191 < 20000" held every other room's
+        // offence for days. A broke room is simply not picked as a home.
+        world({ A: room(6, 5000), B: room(7, null) });
         assert.equal(warEconomyBlocked(), "");
     });
 
-    it("blocks on a broke room, a storageless RCL4+ room, a rescue, or a low bucket", () => {
-        world({ A: room(6, 5000) });
-        assert.match(warEconomyBlocked(), /A bank 5000/);
-        world({ A: room(7, null) });
-        assert.match(warEconomyBlocked(), /A bank 0/, "no storage at RCL4+ counts as bank 0 — the W1N2 shape");
+    it("blocks on a rescue, a low bucket, or an average already at the limit", () => {
         world({ A: room(6, 50000) }, { spawnRescue: "X" });
         assert.match(warEconomyBlocked(), /rescue/);
-        world({ A: room(6, 50000) }, {}, 3000);
-        assert.match(warEconomyBlocked(), /bucket 3000/);
+        world({ A: room(6, 50000) }, {}, 2500);
+        assert.match(warEconomyBlocked(), /bucket 2500 < 3000/);
+        world({ A: room(6, 50000) }, {}, 9000, 19.2);
+        assert.match(warEconomyBlocked(), /cpu avg 19.2 >= 19/);
+        world({ A: room(6, 50000) }, {}, 3000, 17);
+        assert.equal(warEconomyBlocked(), "", "3000 is the shard3 bar, avg 17 has headroom");
     });
 
-    it("ignores RCL<4 rooms and foreign rooms; Memory.war.minBank tunes the floor", () => {
-        world({ A: room(3, null), B: { controller: { my: false, level: 8 } }, C: room(6, 9000) },
-            { war: { minBank: 8000 } });
-        assert.equal(warEconomyBlocked(), "");
-        (g.Memory as any).war.minBank = 10000;
-        assert.match(warEconomyBlocked(), /C bank 9000 < 10000/);
+    it("per home: canFund refuses a storage room under warMinBank whatever the kit costs", () => {
+        world({});
+        const home = (bank: number) => ({
+            storage: { my: true, store: { energy: bank } },
+            terminal: null,
+            energyAvailable: 1000, energyCapacityAvailable: 1800,
+            memory: { spawnStall: 0 },
+            find: () => [],
+        }) as any;
+        assert.strictEqual(warMinBank(), WAR_MIN_BANK_HOME);
+        assert.isFalse(canFund(home(9000), KIT_COST.guardPrey), "3*650+2000 = 3950 clears, 10k floor does not");
+        assert.isTrue(canFund(home(10000), KIT_COST.guardPrey));
+        (g.Memory as any).war = { minBank: 20000 };
+        assert.isFalse(canFund(home(15000), KIT_COST.guardPrey), "Memory.war.minBank raises the floor");
     });
 
     it("runDispatch consults the gate before issuing offence (source pin)", () => {

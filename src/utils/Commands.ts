@@ -24,6 +24,7 @@ import { replanRoom, getBasePlan, visualizeBasePlan } from "utils/BasePlan";
 import { getPerimeterTiles } from "utils/Perimeter";
 import { animPlan, animStop } from "utils/PlanAnimator";
 import { canFund, KIT_COST } from "War/kit";
+import { funnelStatus } from "Empire/funnel";
 
 const g = global as any;
 
@@ -393,6 +394,13 @@ global.cpuStatus = function (): string {
 
 global.cpuPolicy = function () {
   return getCpuPolicy();
+};
+
+/** Console: funnel() — who is the RCL8 candidate, who donates, what moved. */
+global.funnel = function (): string {
+  const s = funnelStatus();
+  logAlways(s);
+  return s;
 };
 
 /** A/B profiles: setProfile("optimized"|"baseline") */

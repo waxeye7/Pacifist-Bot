@@ -20,6 +20,7 @@ import { targets, targetTable, scoreRoom, scoutQueue, tuning, allies, isAlly, DE
 import { refreshModes, modeTable } from "./mode";
 import { reinforceStatus } from "./reinforce";
 import { runDispatch, explainKit, dispatchLog, diaryTable } from "./dispatch";
+import { aggressorTable } from "./aggressors";
 
 /** Lazy Memory bootstrap — the codebase convention (there is no central one). */
 function warMemory(): any {
@@ -270,6 +271,10 @@ export function installWarCommands(): void {
 
   g.warDiary = function (): string {
     return diaryTable();
+  };
+
+  g.warAggressors = function (): string {
+    return aggressorTable();
   };
 
   g.warDispatch = function (on?: boolean): string {

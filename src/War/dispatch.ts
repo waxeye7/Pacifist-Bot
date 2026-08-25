@@ -17,9 +17,36 @@ import { countLive, expensiveInFlight, homeHasSquad, guardOnPlayerRoom, ROLES, c
 import { ownedRooms } from "./reach";
 import { roomDistance } from "./geo";
 import { logAlways } from "utils/Logger";
+import { lowCpuShard } from "utils/CpuPolicy";
 
 const ISSUE_PER_TICK = 2;
 const MAX_GUARDS = 6;
+
+function avg100(): number {
+  return Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+}
+
+/** Kits issued per pass: one on a 20-CPU shard. */
+function issuePerTick(): number {
+  return lowCpuShard() ? 1 : ISSUE_PER_TICK;
+}
+
+/**
+ * Live Guards the empire may hold, from CPU headroom. A Guard in a foreign
+ * room is 0.3-0.8 CPU (alone in its room: no shared matrix, no shared finds).
+ * Pure so the test can pin the rungs.
+ */
+export function guardCapFor(limit: number, avg: number, lowCpu: boolean): number {
+  if (!lowCpu) return MAX_GUARDS;
+  const headroom = avg > 0 ? limit - avg : limit;
+  if (headroom >= 3) return 4;
+  if (headroom >= 2) return 2;
+  if (headroom >= 1) return 1;
+  return 0;
+}
+function guardCap(): number {
+  return guardCapFor(Game.cpu.limit || 20, avg100(), lowCpuShard());
+}
 const MAX_CCK = 3;
 const MAX_MOSQUITO = 2;
 const MAX_WAR_SCOUTS = 2;
@@ -65,12 +92,54 @@ const COOLDOWN: { [kind: string]: number } = {
   cck: 150,
   mosquito: 200,
 };
-const issuedAt: { [key: string]: number } = {};
+/*
+ * Issue ledger — Memory.war.issued[kind:target] = {t, n}. This was a heap
+ * map, so every global reset forgot every cooldown; and a kit whose body was
+ * evicted from a broke room's queue (dropNonRecoverySpend) read as "nothing
+ * in flight" and was re-issued on the very next pass. Live diary: guard-prey
+ * to E37N55 every 10 ticks, 21 entries running. Persist it, and back off:
+ * the n-th issue of the same kit at the same room waits base * 2^(n-1), up
+ * to COOLDOWN_MAX. A run is forgotten after ISSUE_FORGET quiet ticks.
+ */
+const COOLDOWN_MAX = 2000;
+const ISSUE_FORGET = 5000;
+const ISSUED_CAP = 40;
+
+function issuedStore(): { [key: string]: { t: number; n: number } } {
+  const mem: any = (Memory as any).war;
+  if (!mem) return {};
+  if (!mem.issued) mem.issued = {};
+  return mem.issued;
+}
+
+/** Pure: how long the n-th issue (1-based) of a kit must wait. */
+export function cooldownFor(kind: string, n: number): number {
+  const base = COOLDOWN[kind] || 50;
+  return Math.min(COOLDOWN_MAX, base * Math.pow(2, Math.max(0, n - 1)));
+}
 
 function onCooldown(k: Kit): boolean {
-  const wait = COOLDOWN[k.kind] || 50;
   const key = k.kind + ":" + k.target;
-  return !!(issuedAt[key] && Game.time - issuedAt[key] < wait);
+  const rec = issuedStore()[key];
+  if (!rec) return false;
+  if (Game.time - rec.t > ISSUE_FORGET) {
+    delete issuedStore()[key];
+    return false;
+  }
+  return Game.time - rec.t < cooldownFor(k.kind, rec.n);
+}
+
+function noteIssued(k: Kit): void {
+  const s = issuedStore();
+  const key = k.kind + ":" + k.target;
+  const rec = s[key];
+  const n = rec && Game.time - rec.t <= ISSUE_FORGET ? rec.n + 1 : 1;
+  s[key] = { t: Game.time, n };
+  const keys = Object.keys(s);
+  if (keys.length > ISSUED_CAP) {
+    keys.sort((a, b) => s[a].t - s[b].t);
+    for (let i = 0; i < keys.length - ISSUED_CAP; i++) delete s[keys[i]];
+  }
 }
 
 function issue(k: Kit): boolean {
@@ -80,12 +149,12 @@ function issue(k: Kit): boolean {
 
   switch (k.kind) {
     case "guard-prey":
-      if (countLive(ROLES.GUARD) >= MAX_GUARDS) return false;
+      if (countLive(ROLES.GUARD) >= guardCap()) return false;
       ok = g.SGD(k.home, k.target, GUARD_PREY) === "Success!";
       if (ok && k.followCck) queueCck(k.home, k.target, 200);
       break;
     case "guard-raid":
-      if (countLive(ROLES.GUARD) >= MAX_GUARDS) return false;
+      if (countLive(ROLES.GUARD) >= guardCap()) return false;
       ok = g.SGD(k.home, k.target, GUARD_RAID) === "Success!";
       if (ok && k.followCck) queueCck(k.home, k.target, 1000);
       break;
@@ -147,7 +216,7 @@ function issue(k: Kit): boolean {
   }
 
   if (ok) {
-    issuedAt[k.kind + ":" + k.target] = Game.time;
+    noteIssued(k);
     patchIntel(k.target, { atk: Game.time });
     noteDiary(k);
     logAlways("[war] dispatch", k.kind, k.target, "from", k.home, "-", k.why);
@@ -290,26 +359,29 @@ function sendWarScout(): boolean {
 const DISPATCH_EVERY = 10;
 
 /**
- * Default per-room bank the empire must hold before OFFENSIVE dispatch runs.
- * Override with Memory.war.minBank. Owner: "we are maybe doing too much war
- * before the own rooms are in a good energy state" — this is that, as a gate:
- * every owned RCL4+ room needs a standing storage with at least this much in
- * it, no spawn rescue in flight, and a healthy bucket. Defence (reinforce,
- * towers, guards already alive) is untouched — this only stops NEW offence.
+ * EMPIRE gate: why offence may not start right now — "" when it may.
+ *
+ * This used to also demand that EVERY owned RCL4+ room hold >= 20k in
+ * storage. One fresh RCL4 room with no storage read as bank 0 and switched
+ * the whole doctrine off; live shard3 sat behind "E37N59 bank 12191 < 20000"
+ * with six other rooms able to pay for a Guard. The bank test is now per
+ * HOME (kit.canFund + warMinBank): a broke room simply is not picked.
+ *
+ * What stays empire-wide is what is genuinely empire-wide: a spawn rescue,
+ * the bucket, and — on a 20-CPU shard — the average. A war creep in a
+ * foreign room is the most expensive creep the bot runs, and an average
+ * already at the limit cannot pay for one. Exported for tests.
  */
-export const WAR_MIN_BANK = 20000;
-
-/** Why offence may not start right now — "" when it may. Exported for tests. */
 export function warEconomyBlocked(): string {
   const M: any = Memory as any;
   if (M.spawnRescue || M._spawnEmergency) return "spawn rescue in flight";
-  if (Game.cpu.bucket < 5000) return "bucket " + Game.cpu.bucket + " < 5000";
-  const min = M.war && typeof M.war.minBank === "number" ? M.war.minBank : WAR_MIN_BANK;
-  for (const rn in Game.rooms) {
-    const r: any = Game.rooms[rn];
-    if (!r.controller || !r.controller.my || r.controller.level < 4) continue;
-    const bank = r.storage && r.storage.my ? r.storage.store[RESOURCE_ENERGY] || 0 : 0;
-    if (bank < min) return rn + " bank " + bank + " < " + min;
+  const lowCpu = lowCpuShard();
+  const bucketBar = lowCpu ? 3000 : 5000;
+  if (Game.cpu.bucket < bucketBar) return "bucket " + Game.cpu.bucket + " < " + bucketBar;
+  if (lowCpu) {
+    const limit = Game.cpu.limit || 20;
+    const avg = avg100();
+    if (avg > 0 && avg >= limit - 1) return "cpu avg " + avg.toFixed(1) + " >= " + (limit - 1);
   }
   return "";
 }
@@ -337,7 +409,8 @@ export function runDispatch(): void {
   lastIssued = [];
   lastTick = Game.time;
 
-  for (let i = 0; i < list.length && issued < ISSUE_PER_TICK; i++) {
+  const perTick = issuePerTick();
+  for (let i = 0; i < list.length && issued < perTick; i++) {
     const s = list[i];
     const rec = getIntel(s.room);
     if (!rec) continue;

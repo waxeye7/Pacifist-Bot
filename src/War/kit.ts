@@ -98,6 +98,25 @@ const WAR_BANK_FLOOR = 2000;
 const WAR_STALL_BLOCK = 40;
 /** Below this a kit is funded out of income and a pre-storage room may pay it. */
 const CHEAP_KIT = 1000;
+/**
+ * Duos and quads spawn from RCL7+ only. The one RCL6 room on live shard3
+ * was the home for 604 ranged-quad dispatches (Memory.war.stats) — 7000
+ * energy a time out of a 12-46k bank, on a 20-CPU shard — and the bucket
+ * went to 1000. Owner (2026-08-26): "rcl 6 should be pretty lowkey, just
+ * cheap attackers wherever possible". Guards (650 / 3170) stay at RCL1+.
+ */
+export const WAR_HEAVY_MIN_RCL = 7;
+/**
+ * A storage room must hold at least this much before it funds ANY offence,
+ * whatever the kit costs. Memory.war.minBank overrides. This used to be an
+ * EMPIRE-wide gate (every RCL4+ room >= 20k or nobody fights) — one fresh
+ * RCL4 room switched the whole doctrine off. Now it is per home.
+ */
+export const WAR_MIN_BANK_HOME = 10000;
+export function warMinBank(): number {
+  const m: any = (Memory as any).war;
+  return m && typeof m.minBank === "number" ? m.minBank : WAR_MIN_BANK_HOME;
+}
 
 function bankEnergy(room: Room): number {
   return storeOf(room, RESOURCE_ENERGY);
@@ -142,7 +161,7 @@ export function canFund(room: Room, cost: number): boolean {
     if (room.energyAvailable < room.energyCapacityAvailable * 0.5) return false;
     return cost <= CHEAP_KIT && room.energyCapacityAvailable >= cost;
   }
-  return bankEnergy(room) >= cost * WAR_BANK_MULTIPLE + WAR_BANK_FLOOR;
+  return bankEnergy(room) >= Math.max(cost * WAR_BANK_MULTIPLE + WAR_BANK_FLOOR, warMinBank());
 }
 
 /**
@@ -279,7 +298,7 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
 
   // Towers: send something that can take fire. Naked CCK is not that.
   if (towers > 0) {
-    const quadHome = pickHome(target, 6, KIT_COST.quad);
+    const quadHome = pickHome(target, WAR_HEAVY_MIN_RCL, KIT_COST.quad);
     // Boosted quads are RCL8-only (canBoost* both require level 8) and cost
     // materially more than the plain one, so they get their own solvency test.
     const boostHome = pickHome(target, 8, KIT_COST.quadBoost);
@@ -298,7 +317,7 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
   // Spawn, no towers: walk in. Armed defenders → duo; else fat Guard.
   if (spawns > 0) {
     if (armed) {
-      const duoHome = pickHome(target, 6, KIT_COST.duo);
+      const duoHome = pickHome(target, WAR_HEAVY_MIN_RCL, KIT_COST.duo);
       if (duoHome && !duoInFlight(target)) {
         return kit("duo", duoHome, target, "spawn-armed", { followCck: wantCck });
       }
@@ -314,7 +333,7 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
 
   // Creeps only.
   if (armed) {
-    const duoHome = pickHome(target, 6, KIT_COST.duo);
+    const duoHome = pickHome(target, WAR_HEAVY_MIN_RCL, KIT_COST.duo);
     if (duoHome) return kit("duo", duoHome, target, "armed-leftovers", { followCck: wantCck });
   }
   if (hostiles || prey) {

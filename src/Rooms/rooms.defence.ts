@@ -6,6 +6,7 @@ import {
 } from "utils/Perimeter";
 import { logVerbose } from "utils/Logger";
 import { cachedHostileCreeps } from "utils/RoomCache";
+import { noteAggressor } from "War/aggressors";
 import { rampartIsBuried, interiorReady } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 
@@ -540,6 +541,11 @@ function roomDefence(room) {
             if(hostileThreatCount(HostileCreeps) > 0) {
                 if(!room.memory.danger) room.memory.shellMinAtDanger = perimeterMinHits(room);
                 room.memory.danger = true;
+                // Retaliation ledger (doctrine §4.6): every player whose creep
+                // threatens an owned room is promoted in War/score.
+                for(const h of HostileCreeps) {
+                    if(h.owner && hostileIsThreat(h)) noteAggressor(h.owner.username, room.name);
+                }
             }
             else if(room.memory.danger) {
                 // Only harmless creeps left (the raid walked out, a scout

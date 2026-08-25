@@ -18,6 +18,7 @@
  */
 
 import { allIntel, RoomIntel, getIntel } from "./intel";
+import { isAggressor, AGGRESSOR_MUL } from "./aggressors";
 import { getReach, myUsername } from "./reach";
 import { roomKind, ROOM_NORMAL, isEnterable } from "./geo";
 
@@ -383,6 +384,11 @@ export function scoreRoom(roomName: string): TargetScore | null {
   const df = 1 / (1 + t.decay * d);
   let score = value * vres.v * df;
 
+  // §4.6 retaliation: a player who threatened an owned room is promoted, hard,
+  // in every room they own inside reach. See War/aggressors.
+  const retaliate = !!(rec.o && isAggressor(rec.o));
+  if (retaliate) score *= AGGRESSOR_MUL;
+
   // Core-only rooms (no owner, no prey) look "free" because nobody is home.
   // That 1.6x no-creeps bonus is exactly why they steal the next Guard.
   if (rec.inv && !rec.o && !rec.he) score *= 0.35;
@@ -397,6 +403,7 @@ export function scoreRoom(roomName: string): TargetScore | null {
   if (!isFinite(score) || score < 0) score = 0;
 
   const why: string[] = [];
+  if (retaliate) why.push("AGGRESSOR");
   if (selfRemote) why.push("self-remote");
   if (rec.o) why.push(`owner=${rec.o}(RCL${rec.l || "?"})`);
   else if (rec.rv && !selfRemote) why.push(`res=${rec.rv}`);

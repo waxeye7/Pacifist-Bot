@@ -141,6 +141,7 @@ declare global {
     var cpuStatus: () => string;
     // eslint-disable-next-line no-var
     var cpuPolicy: () => any;
+    var funnel: () => string;
     // eslint-disable-next-line no-var
     var _cpuPolicy: any;
 

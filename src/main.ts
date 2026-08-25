@@ -389,8 +389,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
   /*
    * WAR — intel ingest + target scoring. See docs/AGGRESSION-DOCTRINE.md.
    *
-   * Currently OBSERVE-ONLY: it records, ranks and explains, but issues no
-   * orders and changes no existing behaviour.
+   * Records, ranks, and — through War/dispatch — issues kits: Guards from
+   * any RCL, duos/quads from RCL7+ (kit.WAR_HEAVY_MIN_RCL), each home judged
+   * on its own bank (kit.canFund). Memory.war.dispatch = false freezes it.
    *
    * Placed after the other segment users. That used to be load-bearing —
    * AutoExpand and MapViz each carried a private setActiveSegments that only
