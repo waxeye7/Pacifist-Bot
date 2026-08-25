@@ -199,35 +199,41 @@ describe("6. the upgrader CPU clamp (10.9 upgraders across 6 rooms at limit 20)"
     it("is one helper: limit <= 20 and bucket < 6000 => want is at most 1", () => {
         assert.match(SPAWNING, /const UPGRADER_CLAMP_LIMIT = 20;/);
         assert.match(SPAWNING, /const UPGRADER_CLAMP_BUCKET = 6000;/);
-        const fn = bodyOf(SPAWNING, "function upgraderCpuCap(want: number): number {", 300);
-        assert.match(fn, /if\(Game\.cpu\.limit <= UPGRADER_CLAMP_LIMIT && Game\.cpu\.bucket < UPGRADER_CLAMP_BUCKET\) \{\s*\n\s*return Math\.min\(want, 1\);\s*\n\s*\}\s*\n\s*return want;/);
+        const fn = bodyOf(SPAWNING, "function upgraderCpuCap(room, want: number): number {", 1400);
+        // 2026-08-26: the clamp keeps ONE upgrader by default, but a bank at
+        // or above UPGRADE_MID buys a second (energy to good use), and the
+        // funnel mother may run three. Outside the clamp, want is untouched.
+        assert.match(fn, /if\(Game\.cpu\.limit <= UPGRADER_CLAMP_LIMIT && Game\.cpu\.bucket < UPGRADER_CLAMP_BUCKET\) \{/);
+        assert.match(fn, /room\.name === funnelMother\(\) && bank >= UPGRADE_MID\) return Math\.min\(want, 3\);/);
+        assert.match(fn, /if\(bank >= UPGRADE_MID\) return Math\.min\(want, 2\);/);
+        assert.match(fn, /return Math\.min\(want, 1\);\s*\n\s*\}\s*\n\s*return want;/);
     });
 
     it("self-releases: it reads Game.cpu.bucket live and latches nothing", () => {
-        const fn = bodyOf(SPAWNING, "function upgraderCpuCap(want: number): number {", 300);
+        const fn = bodyOf(SPAWNING, "function upgraderCpuCap(room, want: number): number {", 1400);
         assert.notMatch(fn, /Memory|room\.memory|upLatch/,
             "a latched clamp could not release itself as the bucket recovers");
     });
 
     it("every non-downgrade rung goes through it (RCL1-7, all thirteen wants)", () => {
         const wants = [
-            "upgraderCpuCap(spawnrules[1].upgrade_creep.amount)",
-            "upgraderCpuCap(spawnrules[1].upgrade_creep.amount + 6)",
-            "upgraderCpuCap(spawnrules[2].upgrade_creep.amount + pressure.burn)",
-            "upgraderCpuCap(spawnrules[2].upgrade_creep.amount + 6)",
-            "upgraderCpuCap(spawnrules[3].upgrade_creep.amount + pressure.burn)",
-            "upgraderCpuCap(spawnrules[3].upgrade_creep.amount + 6)",
-            "upgraderCpuCap(upgraderTarget(room, spawnrules[4].upgrade_creep.amount",
-            "upgraderCpuCap(upgraderTarget(room, spawnrules[5].upgrade_creep.amount",
-            "upgraderCpuCap(upgraderTarget(room, spawnrules[6].upgrade_creep.amount",
-            "upgraderCpuCap(spawnrules[6].upgrade_creep.amount + surplusUpgraders)",
-            "upgraderCpuCap(spawnrules[7].upgrade_creep_spend.amount)",
-            "upgraderCpuCap(upgraderTarget(room, spawnrules[7].upgrade_creep.amount",
-            "upgraderCpuCap(spawnrules[7].upgrade_creep.amount + surplusUpgraders)",
+            "upgraderCpuCap(room, spawnrules[1].upgrade_creep.amount)",
+            "upgraderCpuCap(room, spawnrules[1].upgrade_creep.amount + 6)",
+            "upgraderCpuCap(room, spawnrules[2].upgrade_creep.amount + pressure.burn)",
+            "upgraderCpuCap(room, spawnrules[2].upgrade_creep.amount + 6)",
+            "upgraderCpuCap(room, spawnrules[3].upgrade_creep.amount + pressure.burn)",
+            "upgraderCpuCap(room, spawnrules[3].upgrade_creep.amount + 6)",
+            "upgraderCpuCap(room, upgraderTarget(room, spawnrules[4].upgrade_creep.amount",
+            "upgraderCpuCap(room, upgraderTarget(room, spawnrules[5].upgrade_creep.amount",
+            "upgraderCpuCap(room, upgraderTarget(room, spawnrules[6].upgrade_creep.amount",
+            "upgraderCpuCap(room, spawnrules[6].upgrade_creep.amount + surplusUpgraders)",
+            "upgraderCpuCap(room, spawnrules[7].upgrade_creep_spend.amount)",
+            "upgraderCpuCap(room, upgraderTarget(room, spawnrules[7].upgrade_creep.amount",
+            "upgraderCpuCap(room, spawnrules[7].upgrade_creep.amount + surplusUpgraders)",
         ];
         for (const w of wants) assert.include(SPAWNING, w, `unclamped upgrader rung: ${w}`);
         // both keepOneUpgrader floors (RCL6 and RCL7)
-        assert.lengthOf(SPAWNING.match(/upgraderCpuCap\(keepOneUpgrader\(room, EnergyMinersInRoom\)\)/g) || [], 2);
+        assert.lengthOf(SPAWNING.match(/upgraderCpuCap\(room, keepOneUpgrader\(room, EnergyMinersInRoom\)\)/g) || [], 2);
     });
 
     it("leaves every downgrade-emergency arm able to spawn its own", () => {

@@ -500,7 +500,10 @@ export function manageRemotes(room: any): void {
         return;
     }
     if (room.memory.danger) return;
-    if (Game.cpu.bucket < 4000) return;
+    // CpuPolicy.allowRemotes carries the real bar (entry 4000, stay 3000,
+    // plus the headroom rung). A flat 4000 here sat ABOVE that bar and
+    // silently overrode it.
+    if (Game.cpu.bucket < 2500) return;
     if ((Game.time + roomTickOffset(room.name)) % MANAGE_EVERY !== 0) return;
 
     const policy = getCpuPolicy();

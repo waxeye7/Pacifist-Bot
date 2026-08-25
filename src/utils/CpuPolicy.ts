@@ -69,7 +69,10 @@ export function getCpuPolicy(): CpuPolicyState {
    * a cliff does. A rising bucket earns permission; a falling one loses it well
    * before economyOnly trips.
    */
-  const marginFull = lowCpu ? 4 : 8;
+  // shard3 after the billed-CPU fix: avg100 is the honest number (parse
+  // included), so 4 CPU of margin on a 20 limit demanded avg < 16 for an
+  // empire that idles at 17 — remotes could never open. 2 / 1 / 0.
+  const marginFull = lowCpu ? 2 : 8;
   const headroomMargin = bucket >= 8000 ? 0 : bucket >= 6000 ? Math.floor(marginFull / 2) : marginFull;
   /*
    * HYSTERESIS: entry and exit are different questions.
@@ -85,7 +88,7 @@ export function getCpuPolicy(): CpuPolicyState {
    * average pinned so nothing ever reopened: a self-sustaining collapse.
    */
   const wasOn = !!(Memory as any)._remotesOnHyst;
-  const entryBar = lowCpu ? 5000 : 4000;
+  const entryBar = 4000;
   const stayBar = entryBar - 1000;
   const allowRemotes =
     !economyOnly &&
@@ -108,7 +111,17 @@ export function getCpuPolicy(): CpuPolicyState {
       limit <= 20 ? (b > 8000 ? 3 : b > 6000 ? 2 : 1)
       : limit <= 50 ? (b > 7000 ? 4 : 2)
       : (b > 6000 ? 8 : 4);
-    const raw = rungs(bucket);
+    /*
+     * HEADROOM RUNG (20-CPU shards). The bucket says how much reserve there
+     * is; it says nothing about the RATE. Live shard3 opened 3 remotes per
+     * room at bucket 8000, the average went to 18+, the bucket drained to
+     * 1000, remotes closed, income fell, CPU did not — the bot lived at the
+     * bottom of that cycle for days. A remote is ~1 CPU (miner 0.25, carriers
+     * 0.5, pathing); the rung is what the average can actually pay for.
+     */
+    const headroom = avg > 0 ? limit - avg : limit;
+    const headroomRung = !lowCpu ? 99 : headroom >= 4 ? 3 : headroom >= 2.5 ? 2 : 1;
+    const raw = Math.min(rungs(bucket), headroomRung);
     const prev = Number((Memory as any)._maxRemotesHyst) || 0;
     if (prev > 0 && raw !== prev) {
       if (raw > prev) maxRemotes = rungs(bucket - 700) > prev ? raw : prev;

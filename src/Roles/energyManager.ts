@@ -1,3 +1,5 @@
+import { funnelDonorTerminalTarget } from "Empire/funnel";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -522,6 +524,9 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
         if(energyBank >= 200000) terminalEnergyTarget = 40000;      // unchanged high-bank behaviour
         else if(energyBank >= 100000) terminalEnergyTarget = 20000;
         else if(energyBank >= 20000) terminalEnergyTarget = 5000;
+        // A funnel donor stocks its terminal with the surplus it is about to
+        // ship to the mother room (Empire/funnel). Never below the ladder.
+        terminalEnergyTarget = Math.max(terminalEnergyTarget, funnelDonorTerminalTarget(creep.room));
 
         // Drain back to storage. 5000 of hysteresis above the target keeps this
         // from fighting the fill rung.

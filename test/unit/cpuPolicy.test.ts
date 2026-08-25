@@ -57,8 +57,8 @@ describe("utils/CpuPolicy", () => {
     });
 
     it("still refuses remotes when the bucket is genuinely low", () => {
-      withCpu(20, 4000, 10, () => {
-        assert.isFalse(getCpuPolicy().allowRemotes, "4000 bucket is below the shard3 floor");
+      withCpu(20, 3500, 10, () => {
+        assert.isFalse(getCpuPolicy().allowRemotes, "3500 bucket is below the shard3 entry bar");
       });
       withCpu(20, 1500, 5, () => {
         const p = getCpuPolicy();

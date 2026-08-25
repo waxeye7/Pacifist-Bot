@@ -8,6 +8,7 @@ import { logAlways } from "utils/Logger";
 import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { optionalRosterOpen, lowCpuShard } from "utils/CpuPolicy";
+import { funnelMother } from "Empire/funnel";
 import { getCensus, presentCount, presentRealCount } from "Empire/census";
 import { rescueJob } from "Empire/empire";
 import { empireBrainEnabled, spawnLadderEnabled } from "utils/Features";
@@ -492,6 +493,10 @@ function clampSpawnListToCapacity(room) {
         // 85% exists for is an RCL5+ maintainer, not a 500-energy upgrader.
         if(name && name.startsWith("Upgrader") && hardCap <= 550) {
             budget = hardCap;
+        }
+        // The clamped single upgrader is sized at 95% on purpose (bigUpgraderBody).
+        if(name && name.startsWith("Upgrader") && bigUpgraderBinds(room)) {
+            budget = Math.max(budget, Math.floor(hardCap * BIG_UPGRADER_BUDGET));
         }
         // BOOTSTRAP budget. Everything above assumes the room can eventually
         // fill its extensions - but filling them is exactly what a miner pays
@@ -1431,8 +1436,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                 amount: 3,
                 // [12W,3C,3M] at 2200 capacity (getBody's 85% budget, 3
                 // segments). 1500e amortised over 1500 ticks is 1 e/tick of
-                // overhead for 12 e/tick of upgrade.
-                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                // overhead for 12 e/tick of upgrade. Under the CPU clamp with
+                // a surplus bank: [18W,3C,3M] — see bigUpgraderBody.
+                body:   bigUpgraderBody(room, () => getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50)),
 
             },
 
@@ -1485,7 +1491,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 // 6->7 with a sub-surplus bank. maxLength 18 pins it at three
                 // segments; an uncapped getBody at RCL7 capacity would stack
                 // to 32W and HOL-block this very rung.
-                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 18),
+                body:   bigUpgraderBody(room, () => getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 18)),
 
             },
 
@@ -1802,12 +1808,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[1].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < upgraderCpuCap(spawnrules[1].upgrade_creep.amount) && !room.memory.danger) {
+            if(upgraders < upgraderCpuCap(room, spawnrules[1].upgrade_creep.amount) && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[1].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < upgraderCpuCap(spawnrules[1].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < upgraderCpuCap(room, spawnrules[1].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[1].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1835,12 +1841,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[2].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < upgraderCpuCap(spawnrules[2].upgrade_creep.amount + pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
+            if(upgraders < upgraderCpuCap(room, spawnrules[2].upgrade_creep.amount + pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < upgraderCpuCap(spawnrules[2].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < upgraderCpuCap(room, spawnrules[2].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1874,12 +1880,12 @@ function add_creeps_to_spawn_list(room, spawn) {
             // in steady state, destroying 18.7 energy/tick to decay while its
             // controller took 2.19/tick. Upgraders are the only sink that
             // scales, so the roster grows with the pile.
-            if(upgraders < upgraderCpuCap(spawnrules[3].upgrade_creep.amount + pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
+            if(upgraders < upgraderCpuCap(room, spawnrules[3].upgrade_creep.amount + pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < upgraderCpuCap(spawnrules[3].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < upgraderCpuCap(room, spawnrules[3].upgrade_creep.amount + 6) && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1932,7 +1938,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // the hysteresis that stops the 0-upgrader cycle; the surplus tier
             // is folded into it. Deliberately NOT gated on
             // constructionSitesAmount — that gate is what froze E11S5 at 778k.
-            if(upgraders < upgraderCpuCap(upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
+            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
@@ -1992,7 +1998,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // sitesMayNotVetoUpgraders was wired into RCL4/6 and skipped here,
             // so a planned RCL5 with permanent sites burned its bank on
             // upgraders while the economy was still climbing (R6.33).
-            if(upgraders < upgraderCpuCap(upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
                 // the two downgrade arms below are NOT clamped — see upgraderCpuCap
                 || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger
                 || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
@@ -2083,7 +2089,7 @@ function add_creeps_to_spawn_list(room, spawn) {
              * against energyCapacityAvailable, so they can never outgrow the
              * spawn. The downgrade arm is unchanged.
              */
-            if(upgraders < upgraderCpuCap(upgraderTarget(room, spawnrules[6].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
+            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[6].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
                     && !room.memory.danger
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
                 // downgrade arm, deliberately unclamped — see upgraderCpuCap
@@ -2094,7 +2100,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             // Surplus tier: >120k banked at RCL6. upgraderTarget only pays the
             // surplus out while the surge latch is on; this is the unlatched arm.
-            else if(surplusUpgraders > 0 && upgraders < upgraderCpuCap(spawnrules[6].upgrade_creep.amount + surplusUpgraders) && !room.memory.danger) {
+            else if(surplusUpgraders > 0 && upgraders < upgraderCpuCap(room, spawnrules[6].upgrade_creep.amount + surplusUpgraders) && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Surplus Upgrader to Spawn List: ' + name);
@@ -2111,7 +2117,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // reason the builder gate's bank floor was never reached. The
             // downgrade rungs above (and the < 21000 escape here) still fire the
             // moment the controller is actually at risk.
-            else if(upgraders < upgraderCpuCap(keepOneUpgrader(room, EnergyMinersInRoom))
+            else if(upgraders < upgraderCpuCap(room, keepOneUpgrader(room, EnergyMinersInRoom))
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
@@ -2200,7 +2206,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(!room.memory.danger && room.memory.danger_timer == 0) {
                 queueBuilder(room, spawnrules[7], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 15000);
             }
-            if((upgraders < upgraderCpuCap(spawnrules[7].upgrade_creep_spend.amount) && room.name !== Memory.targetRampRoom.room || upgraders < upgraderCpuCap(spawnrules[7].upgrade_creep_spend.amount + 3) && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
+            if((upgraders < upgraderCpuCap(room, spawnrules[7].upgrade_creep_spend.amount) && room.name !== Memory.targetRampRoom.room || upgraders < upgraderCpuCap(room, spawnrules[7].upgrade_creep_spend.amount + 3) && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -2212,7 +2218,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // and everything under that ran on keepOneUpgrader's floor of one
             // 12-WORK body. base 3 => >=30k banked buys 3, >=120k buys 4,
             // >=250k buys 5. The downgrade clause is kept as a hard floor.
-            else if(upgraders < upgraderCpuCap(upgraderTarget(room, spawnrules[7].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
+            else if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[7].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
                     && !room.memory.danger
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
                 // downgrade arm, deliberately unclamped — see upgraderCpuCap
@@ -2226,7 +2232,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // only comes out near a downgrade — so a room like live E2S7 sits
             // on 384k with no upgrader at all. Use the SPEND body: at this RCL
             // the point is to burn the bank, not to tick the controller over.
-            else if(surplusUpgraders > 0 && upgraders < upgraderCpuCap(spawnrules[7].upgrade_creep.amount + surplusUpgraders) && !room.memory.danger) {
+            else if(surplusUpgraders > 0 && upgraders < upgraderCpuCap(room, spawnrules[7].upgrade_creep.amount + surplusUpgraders) && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Surplus Upgrader to Spawn List: ' + name);
@@ -2240,7 +2246,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // is the guarantee that an owned room below RCL8 never does that; it
             // was only ever wired into the RCL4/5 gates, so RCL6/7 never had it.
             // Same veto as RCL6 above — see the note there.
-            else if(upgraders < upgraderCpuCap(keepOneUpgrader(room, EnergyMinersInRoom))
+            else if(upgraders < upgraderCpuCap(room, keepOneUpgrader(room, EnergyMinersInRoom))
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
@@ -4027,11 +4033,44 @@ const UPGRADER_CLAMP_LIMIT = 20;
 /** ...and the bucket has to be under this for it to bite */
 const UPGRADER_CLAMP_BUCKET = 6000;
 
-function upgraderCpuCap(want: number): number {
+function upgraderCpuCap(room, want: number): number {
     if(Game.cpu.limit <= UPGRADER_CLAMP_LIMIT && Game.cpu.bucket < UPGRADER_CLAMP_BUCKET) {
+        /*
+         * ENERGY TO GOOD USE. The clamp is right about CPU and wrong about a
+         * bank that has nowhere to go: live shard3 held 31-46k in four RCL5
+         * rooms behind a single 12W upgrader each. One extra intent (0.2 CPU)
+         * is a fair price for a surplus that is otherwise idle, and the
+         * 15k sustain latch (upgradeLatch) takes it back as the bank drains.
+         * The funnel mother (Empire/funnel) is the room the whole empire is
+         * feeding by terminal; it may run three.
+         */
+        const bank = bankEnergy(room);
+        if(room && room.name === funnelMother() && bank >= UPGRADE_MID) return Math.min(want, 3);
+        if(bank >= UPGRADE_MID) return Math.min(want, 2);
         return Math.min(want, 1);
     }
     return want;
+}
+
+/**
+ * The single clamped upgrader should be as big as the spawn can buy. Under the
+ * clamp an RCL6 room ran one [12W,3C,3M] (85% of 2300 = 3 segments) against a
+ * 30k+ bank: 4 WORK and a fifth of the income left on the table for no CPU
+ * saving at all. [6W,C,M] at a 95% budget is 18W at RCL6 and 24W at RCL7+
+ * (32-part cap — half the spawn, so it can never head-of-line block).
+ * Only while the clamp binds AND there is a real surplus to spend.
+ */
+function bigUpgraderBinds(room): boolean {
+    if(!(Game.cpu.limit <= UPGRADER_CLAMP_LIMIT && Game.cpu.bucket < UPGRADER_CLAMP_BUCKET)) return false;
+    if(!room || !room.controller || room.controller.level < 6) return false;
+    return bankEnergy(room) >= UPGRADE_MID;
+}
+const BIG_UPGRADER_BUDGET = 0.95;
+function bigUpgraderBody(room, fallback: () => string[]): string[] {
+    if(!bigUpgraderBinds(room)) return fallback();
+    const maxLen = room.controller.level >= 7 ? 32 : 50;
+    const body = getBody([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, maxLen, BIG_UPGRADER_BUDGET);
+    return body && body.length ? body : fallback();
 }
 
 const UPGRADE_FLOOR = 10000;
@@ -4538,7 +4577,7 @@ function repairRosterOpen(repairers:number): boolean {
     return true;
 }
 
-function getBody(segment:string[], room, bodyMaxLength=50) {
+function getBody(segment:string[], room, bodyMaxLength=50, budgetFrac=0.85) {
     let body = [];
     if(!segment || !segment.length) return body;
     let segmentCost = _.sum(segment, s => BODYPART_COST[s]);
@@ -4551,7 +4590,7 @@ function getBody(segment:string[], room, bodyMaxLength=50) {
     // cannot buy. A single segment that overshoots 85% still ships if it fits
     // capacity; otherwise the largest prefix that fits, or empty.
     let capacity = room.energyCapacityAvailable;
-    let budget = Math.min(capacity, Math.floor(capacity * 0.85));
+    let budget = Math.min(capacity, Math.floor(capacity * budgetFrac));
     let maxSegments = Math.floor(capacity / segmentCost);
     if(budget > 0) {
         maxSegments = Math.min(maxSegments, Math.floor(budget / segmentCost));

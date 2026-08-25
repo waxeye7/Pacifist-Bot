@@ -20,6 +20,7 @@ import { publishAllyNeed } from "utils/AllyNeedSegment";
 import { refreshModes } from "War/mode";
 import { runReinforce } from "War/reinforce";
 import { runEmpire } from "Empire/empire";
+import { runFunnel } from "Empire/funnel";
 import { empireBrainEnabled } from "utils/Features";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
@@ -323,6 +324,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
   phase("rooms", () => rooms());
   // Defence just raised/cleared distress this tick — send help if anyone shouted.
   phase("reinforce", () => runReinforce());
+  // Terminal energy to the room closest to RCL8. O(rooms), every 20 ticks,
+  // one intent — not shed on economyOnly (docs/EMPIRE-LAYER.md, funnel).
+  phase("funnel", () => runFunnel());
   refreshModes();
 
   // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
