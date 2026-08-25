@@ -45,14 +45,16 @@ export interface MotherCandidate {
   hasSpawn: boolean;
 }
 
-/** Pure: which room receives. null when nobody qualifies. */
+/**
+ * Pure: which room receives. null when nobody qualifies — including when
+ * every room is already RCL8: GCL credits energy wherever it is upgraded, so
+ * moving it then only pays the fee.
+ */
 export function pickMother(rooms: MotherCandidate[]): string | null {
   let best: MotherCandidate | null = null;
-  const allEight = rooms.length > 0 && rooms.every((r) => r.level >= 8);
   for (const r of rooms) {
     if (!r.hasStorage || !r.hasSpawn) continue;
-    if (r.level < 5) continue;
-    if (r.level >= 8 && !allEight) continue;
+    if (r.level < 5 || r.level >= 8) continue;
     if (!best || r.level > best.level || (r.level === best.level && r.progress > best.progress)) best = r;
   }
   return best ? best.name : null;

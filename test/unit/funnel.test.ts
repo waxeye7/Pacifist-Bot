@@ -15,7 +15,7 @@ describe("Empire/funnel", () => {
   it("picks the highest RCL, ties broken by progress; RCL8 rooms never receive", () => {
     assert.strictEqual(pickMother([c("A", 6, 1000), c("B", 5, 900000), c("C", 6, 2000)]), "C");
     assert.strictEqual(pickMother([c("A", 8, 0), c("B", 6, 10)]), "B");
-    assert.strictEqual(pickMother([c("A", 8, 0), c("B", 8, 10)]), "B", "all RCL8: still funnel (GCL)");
+    assert.isNull(pickMother([c("A", 8, 0), c("B", 8, 10)]), "all RCL8: nothing to funnel for");
   });
 
   it("needs a storage and a spawn, and RCL5 or better", () => {

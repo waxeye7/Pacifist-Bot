@@ -144,3 +144,22 @@ rooms run the legacy rescue path exactly as before (helpers are the same functio
    links over legs), `war-support` (economy rooms fund the war). The empire pass already publishes
    `postureOf(room)`; the ladder is the floor every posture sits on.
 3. **Delete the legacy rescue path** once `empireBrain` has soaked on live.
+
+
+## Funnel (2026-08-26) — energy to the RCL8 candidate
+
+`src/Empire/funnel.ts`, `phase("funnel")` in `main.ts` after `reinforce`, every
+20 ticks, not shed on `economyOnly`.
+
+- **Mother** = the owned room with the highest RCL below 8 (ties: highest
+  progress) that has a storage and a spawn. None when every room is RCL8 —
+  GCL credits energy wherever it is upgraded, so moving it then only pays fee.
+- **Donor** = every other owned room with a terminal and a storage. It keeps a
+  reserve (`donorReserve`: 30k RCL≤6, 50k RCL7, 100k RCL8) and ships the rest
+  by `terminal.send`, ≤ 10k per send, one send per pass, ≥ 2k or nothing.
+- `energyManager` stocks a donor's terminal with its surplus
+  (`funnelDonorTerminalTarget`), never below the existing bank ladder.
+- `rooms.spawning.upgraderCpuCap(room, want)`: under the 20-CPU clamp a room
+  runs 1 upgrader, 2 with a bank ≥ 30k, and the mother 3. `bigUpgraderBody`
+  makes the clamped RCL6/7 upgrader [18W,3C,3M] / [24W,4C,4M].
+- Console: `funnel()` — mother, banks, terminals, surplus per room, total sent.

@@ -433,6 +433,27 @@ arming the animator needs a clean slate for 89 + up to 10 data segments against
 a cap of 10. It evicts the intel segment for one tick; `saveIntel` correctly
 refuses to write while evicted and the slot is recovered on the next tick.
 
+### 2026-08-26 — RCL6 is lowkey; the economy comes first
+
+Owner direction: *stable, smooth eco until RCL7/8, then war. RCL6 stays
+lowkey — cheap attackers wherever possible. Main focus: energy to good use.*
+What changed (see the four commits of that day):
+
+| Piece | State now |
+|---|---|
+| Empire gate (`dispatch.warEconomyBlocked`) | spawn rescue, bucket ≥ 3000 (shard3), avg100 < limit−1. **No longer** "every RCL4+ room ≥ 20k" — one fresh RCL4 room switched the doctrine off for days. |
+| Home gate (`kit.canFund`) | per home: bank ≥ max(3×cost + 2000, `warMinBank()` = 10k, `Memory.war.minBank`). |
+| Heavy kits | duos / quads need an **RCL7+** home (`kit.WAR_HEAVY_MIN_RCL`). 604 quads out of one RCL6 room drained the live bucket to 1000. |
+| Caps | one issue per pass and a Guard cap from CPU headroom (4/2/1/0) on a 20-CPU shard (`dispatch.guardCapFor`). |
+| Cooldowns | `Memory.war.issued` — persistent, exponential back-off per kit:room (80→2000). The heap map forgot on every reset and re-issued an evicted Guard every 10 ticks. |
+| §4.6 retaliation | **landed**: `War/aggressors` remembers every player whose creep threatened an owned room (50k ticks); `score.ts` ×3 on their rooms. `warAggressors()`. |
+| Tier 2 / 3 (mosquito, CCK) | still RCL8. Unchanged. |
+| Tier 4-6 | still missing. Unchanged. |
+| Turtle (§4.7) | solo-breach safe mode, threat-only `danger`, defender rung over the whole room, RCL6 repair rung reachable — `fix(defence)` of the same day. |
+| Economy under the doctrine | `Empire/funnel`: terminal energy to the room closest to RCL8; `upgraderCpuCap(room, want)` 1/2/3; headroom-keyed remotes. `funnel()`. |
+
+Live re-enable is `warDispatch(true)` (or `delete Memory.war.dispatch`).
+
 ### Not yet wired (next)
 
 - **Aiming the observer with `scoutQueue()`.** It is built and inspectable via
