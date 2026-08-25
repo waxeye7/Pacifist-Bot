@@ -9,7 +9,7 @@
  * against a limit of 20, bucket climbing, and every remote disabled.
  */
 import { assert } from "chai";
-import { getCpuPolicy } from "../../src/utils/CpuPolicy";
+import { getCpuPolicy, billedTickCpu, skipOptionalCreep, creepRoleIsOptional } from "../../src/utils/CpuPolicy";
 
 /** Minimal Game/Memory good enough for getCpuPolicy, which reads only these. */
 function withCpu(limit: number, bucket: number, avg100: number, fn: () => void): void {
@@ -116,4 +116,96 @@ describe("utils/CpuPolicy", () => {
       withCpu(20, 2001, 10, () => assert.isFalse(getCpuPolicy().economyOnly));
     });
   });
+
+  describe("billedTickCpu", () => {
+    it("is the shard bill (endUsed), not the loop-start delta", () => {
+      // LIVE: parse ≈ 2, logic ≈ 18.2, billed ≈ 20.2. Subtracting startUsed
+      // reports 18.2, allowExpensive thinks there is headroom, bucket falls.
+      assert.strictEqual(billedTickCpu(20.1, 4.0), 20.1);
+      assert.notStrictEqual(billedTickCpu(20.1, 4.0), 20.1 - 4.0);
+    });
+
+    it("does not go negative or NaN on junk", () => {
+      assert.strictEqual(billedTickCpu(NaN, 0), 0);
+      assert.strictEqual(billedTickCpu(-1, 0), 0);
+    });
+  });
+
+  describe("skipOptionalCreep", () => {
+    it("never skips miners, carries, fillers or upgraders", () => {
+      for (const role of ["EnergyMiner", "carry", "filler", "FakeFiller", "upgrader", "ControllerLinkFiller", "EnergyManager"]) {
+        assert.isFalse(creepRoleIsOptional(role), role + " is income/defence");
+        assert.isFalse(
+          skipOptionalCreep({ role, usedCpu: 50, limit: 20, bucket: 0, danger: false }),
+          role + " must still run on a dead bucket",
+        );
+      }
+    });
+
+    it("skips repair/maintainer/sweeper when the bucket is in economyOnly", () => {
+      // LIVE latch: bucket 1012, limit 20, those three roles were leftover
+      // bodies spawn crisis could not retire until TTL.
+      assert.isTrue(creepRoleIsOptional("repair"));
+      assert.isTrue(skipOptionalCreep({ role: "repair", usedCpu: 5, limit: 20, bucket: 1012, danger: false }));
+      assert.isTrue(skipOptionalCreep({ role: "maintainer", usedCpu: 5, limit: 20, bucket: 1012, danger: false }));
+      assert.isTrue(skipOptionalCreep({ role: "sweeper", usedCpu: 5, limit: 20, bucket: 1012, danger: false }));
+    });
+
+    it("skips optional roles when this tick is already over 90% of the limit", () => {
+      assert.isTrue(skipOptionalCreep({ role: "builder", usedCpu: 18.5, limit: 20, bucket: 8000, danger: false }));
+      assert.isFalse(skipOptionalCreep({ role: "builder", usedCpu: 10, limit: 20, bucket: 8000, danger: false }));
+    });
+
+    it("never skips in a room under attack", () => {
+      assert.isFalse(skipOptionalCreep({ role: "repair", usedCpu: 50, limit: 20, bucket: 0, danger: true }));
+    });
+
+    it("fails open on unknown or missing roles", () => {
+      assert.isFalse(skipOptionalCreep({ role: undefined, usedCpu: 50, limit: 20, bucket: 0, danger: false }));
+      assert.isFalse(skipOptionalCreep({ role: "BrandNewRole", usedCpu: 50, limit: 20, bucket: 0, danger: false }));
+    });
+
+    it("does not skip remote/war roles that work in rooms with no danger flag", () => {
+      for (const role of ["scout", "RemoteRepair", "Priest", "Escort", "SneakyControllerUpgrader", "goblin", "Convoy"]) {
+        assert.isFalse(creepRoleIsOptional(role), role + " must run where danger is never set");
+        assert.isFalse(
+          skipOptionalCreep({ role, usedCpu: 50, limit: 20, bucket: 0, danger: false }),
+          role + " must still flee / work on a dead bucket",
+        );
+      }
+    });
+  });
+
+  describe("RunAllCreepsManager two-pass", () => {
+    it("runs essential creeps before optional ones so miners cannot starve", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const src = fs.readFileSync(path.join(__dirname, "../../src/Managers/RunAllCreepsManager.ts"), "utf8");
+      assert.match(src, /skipOptionalCreep/);
+      assert.match(src, /essentialNames/);
+      assert.match(src, /optionalNames/);
+      const ess = src.indexOf("for (const name of essentialNames)");
+      const opt = src.indexOf("for (const name of optionalNames)");
+      assert.isAbove(ess, -1, "essential pass missing");
+      assert.isAbove(opt, ess, "optional pass must be after essential pass");
+      const memlessSweep = src.indexOf("Sweep Game.creeps for names the loop missed");
+      assert.isAbove(memlessSweep, -1, "memoryless sweep comment missing");
+      const memless = src.indexOf("essentialNames.push(name)", memlessSweep);
+      assert.isAbove(memless, memlessSweep, "memoryless creeps must queue as essential, not run inline");
+      assert.notMatch(src, /if\(name in Memory\.creeps\) continue;\s*if\(skipHighRclCreep\(Game\.creeps\[name\]\)\) continue;\s*RunCreepManager\(name\);/s);
+    });
+  });
+
+  describe("main.ts wiring", () => {
+    it("feeds CPUmanager billed CPU, not the loop-start delta", () => {
+      const fs = require("fs");
+      const path = require("path");
+      const main = fs.readFileSync(path.join(__dirname, "../../src/main.ts"), "utf8");
+      assert.match(main, /billedTickCpu\(endUsed,\s*startTotal\)/);
+      assert.match(main, /CPUmanager\(tickTotal\)/);
+      assert.notMatch(main, /let tickTotal = tickCpu\.toFixed\(2\)/);
+    });
+  });
 });
+
+

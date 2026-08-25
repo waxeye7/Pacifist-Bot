@@ -1,4 +1,4 @@
-﻿// Regenerable / junk â€” keep source, .git, and local screeps.json
+// Regenerable / junk — keep source, .git, and local screeps.json
 node_modules
 dist
 .rpt2_cache

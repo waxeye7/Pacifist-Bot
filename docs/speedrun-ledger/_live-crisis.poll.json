@@ -1,17 +1,20 @@
 {
-  "polled": "2026-08-17T04:42:24.630Z",
-  "tick": 82305272,
+  "polled": "2026-08-23T11:23:36.664Z",
+  "tick": 82456026,
   "me": {
     "username": "PacifistBot",
-    "gcl": 356969062,
+    "gcl": 361382502,
     "cpu": 20,
     "id": "62f89e0d84c31c184db79629"
   },
   "owned": [
     "E37N59",
+    "E35N58",
     "E36N57",
     "E37N58",
-    "E39N58"
+    "E39N58",
+    "E35N59",
+    "E38N56"
   ],
   "autoExpand": null,
   "target_colonise": {},
@@ -25,88 +28,50 @@
     "squareWalls": false,
     "pickupLock": true,
     "sourceMaps": false,
-    "expandMinRcl": 7
+    "expandMinRcl": 0,
+    "empireBrain": true,
+    "spawnLadder": true
   },
-  "CanClaimRemote": 7,
+  "CanClaimRemote": 5,
   "war": {
     "off": false,
     "dispatch": "OFF",
     "stats": {
-      "n": 927,
+      "n": 1087,
       "started": 82293998,
-      "scout": 322,
-      "ranged-quad": 603,
-      "guard-prey": 2
+      "scout": 457,
+      "ranged-quad": 604,
+      "guard-prey": 26
     }
   },
   "cpu": {
-    "bucket": 9270,
+    "bucket": 1068,
     "five": {
-      "data": [
-        17.113599999999998,
-        15.562300000000002
-      ],
-      "avg": 17.82062
+      "data": [],
+      "avg": 18.10294
     }
   },
   "roles": {
-    "builder": 4,
-    "upgrader": 6,
-    "FakeFiller": 8,
-    "EnergyMiner": 7,
-    "repair": 2,
-    "carry": 5,
-    "RampartDefender": 5,
-    "filler": 7,
-    "maintainer": 2,
-    "RampartErector": 1,
-    "sweeper": 3,
-    "buildcontainer": 1
+    "EnergyMiner": 14,
+    "filler": 6,
+    "upgrader": 7,
+    "carry": 16,
+    "ControllerLinkFiller": 5,
+    "FakeFiller": 2,
+    "maintainer": 1,
+    "EnergyManager": 1,
+    "repair": 4,
+    "sweeper": 6
   },
-  "combat": [
-    {
-      "name": "Guard-40535816-E37N58-E37N59",
-      "role": "RampartDefender",
-      "home": "E37N58",
-      "target": "E37N59"
-    },
-    {
-      "name": "Guard-7909045-E37N58-E37N59",
-      "role": "RampartDefender",
-      "home": "E37N58",
-      "target": "E37N59"
-    },
-    {
-      "name": "RampartErector-48329091-E37N58",
-      "role": "RampartErector"
-    },
-    {
-      "name": "Guard-67333656-E37N58-E37N59",
-      "role": "RampartDefender",
-      "home": "E37N58",
-      "target": "E37N59"
-    },
-    {
-      "name": "Guard-29406895-E37N58-E37N59",
-      "role": "RampartDefender",
-      "home": "E37N58",
-      "target": "E37N59"
-    },
-    {
-      "name": "Guard-32960128-E37N58-E37N59",
-      "role": "RampartDefender",
-      "home": "E37N58",
-      "target": "E37N59"
-    }
-  ],
+  "combat": [],
   "rooms": {
     "E37N59": {
       "mine": true,
       "owner": "PacifistBot",
       "rcl": 6,
-      "p": 345978,
+      "p": 1139078,
       "pt": 0,
-      "dg": 117414,
+      "dg": 120001,
       "sm": 81901441,
       "sma": 5,
       "smc": null,
@@ -115,27 +80,27 @@
         {
           "x": 9,
           "y": 20,
-          "e": 3000
+          "e": 2140
         },
         {
           "x": 27,
           "y": 41,
-          "e": 3000
+          "e": 2240
         }
       ],
       "mySpawns": [
         {
           "name": "Spawn1",
-          "x": 21,
-          "y": 24,
-          "e": 13,
+          "x": 34,
+          "y": 33,
+          "e": 300,
           "hits": 5000,
           "hitsMax": 5000,
           "spawning": null
         }
       ],
       "foreignSpawns": [],
-      "ext": 37,
+      "ext": 40,
       "towers": [
         {
           "x": 36,
@@ -144,7 +109,7 @@
           "mine": true,
           "hits": 3000,
           "hitsMax": 3000,
-          "e": 4,
+          "e": 1000,
           "border": false,
           "nearBorder": false,
           "onRampart": false
@@ -156,64 +121,76 @@
           "mine": true,
           "hits": 3000,
           "hitsMax": 3000,
-          "e": 0,
+          "e": 1000,
           "border": false,
           "nearBorder": false,
           "onRampart": false
         }
       ],
-      "ramparts": 73,
+      "ramparts": 44,
       "walls": 0,
-      "storageE": 0,
+      "storageE": 12191,
       "storageHits": 10000,
-      "terminalE": 133,
+      "terminalE": 141,
       "sites": 0,
       "siteTypes": {},
-      "creeps": 7,
+      "creeps": 10,
       "roles": {
-        "Guard": 5,
-        "EmergencyFiller": 1,
-        "Filler": 1
+        "EnergyMiner": 2,
+        "Filler": 2,
+        "Carrier": 2,
+        "Maintainer": 1,
+        "ControllerLinkFiller": 1,
+        "EnergyManager": 1,
+        "Upgrader": 1
       },
       "hostiles": [],
       "damaged": [
         {
           "type": "rampart",
-          "x": 24,
-          "y": 22,
-          "hits": 48561,
+          "x": 45,
+          "y": 39,
+          "hits": 3101,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 24,
-          "y": 26,
-          "hits": 64361,
+          "x": 45,
+          "y": 38,
+          "hits": 3401,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 24,
-          "y": 25,
-          "hits": 80481,
+          "x": 45,
+          "y": 37,
+          "hits": 3421,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 47,
-          "y": 33,
-          "hits": 94661,
+          "x": 35,
+          "y": 18,
+          "hits": 13281,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 47,
-          "y": 34,
-          "hits": 94681,
+          "x": 36,
+          "y": 18,
+          "hits": 45021,
+          "hitsMax": 30000000,
+          "pct": 0
+        },
+        {
+          "type": "rampart",
+          "x": 34,
+          "y": 18,
+          "hits": 46261,
           "hitsMax": 30000000,
           "pct": 0
         },
@@ -221,55 +198,47 @@
           "type": "rampart",
           "x": 32,
           "y": 18,
-          "hits": 94681,
+          "hits": 46801,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 45,
-          "y": 39,
-          "hits": 94701,
-          "hitsMax": 30000000,
-          "pct": 0
-        },
-        {
-          "type": "rampart",
-          "x": 24,
-          "y": 21,
-          "hits": 94701,
-          "hitsMax": 30000000,
-          "pct": 0
-        },
-        {
-          "type": "rampart",
-          "x": 24,
+          "x": 33,
           "y": 18,
-          "hits": 94701,
+          "hits": 46821,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 45,
-          "y": 40,
-          "hits": 94801,
+          "x": 31,
+          "y": 18,
+          "hits": 47361,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 47,
-          "y": 27,
-          "hits": 94881,
+          "x": 30,
+          "y": 18,
+          "hits": 47561,
           "hitsMax": 30000000,
           "pct": 0
         },
         {
           "type": "rampart",
-          "x": 45,
-          "y": 43,
-          "hits": 94901,
+          "x": 29,
+          "y": 18,
+          "hits": 49681,
+          "hitsMax": 30000000,
+          "pct": 0
+        },
+        {
+          "type": "rampart",
+          "x": 25,
+          "y": 18,
+          "hits": 49791,
           "hitsMax": 30000000,
           "pct": 0
         }
@@ -277,77 +246,219 @@
       "borderStructs": [],
       "borderSites": [],
       "planTowers": [
-        {
-          "x": 22,
-          "y": 24
-        },
-        {
-          "x": 18,
-          "y": 24
-        },
-        {
-          "x": 20,
-          "y": 26
-        },
-        {
-          "x": 20,
-          "y": 22
-        },
-        {
-          "x": 22,
-          "y": 26
-        },
-        {
-          "x": 18,
-          "y": 22
-        }
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
       ],
       "planSpawns": [
+        {},
+        {},
+        {}
+      ],
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "keep": false
+    },
+    "E35N58": {
+      "mine": true,
+      "owner": "PacifistBot",
+      "rcl": 5,
+      "p": 70168,
+      "pt": 0,
+      "dg": 80001,
+      "sm": 82389840,
+      "sma": 3,
+      "smc": 82419840,
+      "sources": 2,
+      "sourceTiles": [
         {
-          "x": 21,
-          "y": 25
+          "x": 4,
+          "y": 4,
+          "e": 860
         },
         {
-          "x": 19,
-          "y": 25
+          "x": 29,
+          "y": 18,
+          "e": 390
         }
+      ],
+      "mySpawns": [
+        {
+          "name": "Spawn6",
+          "x": 22,
+          "y": 21,
+          "e": 300,
+          "hits": 5000,
+          "hitsMax": 5000,
+          "spawning": null
+        }
+      ],
+      "foreignSpawns": [],
+      "ext": 30,
+      "towers": [
+        {
+          "x": 26,
+          "y": 24,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        },
+        {
+          "x": 26,
+          "y": 26,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        }
+      ],
+      "ramparts": 61,
+      "walls": 0,
+      "storageE": 31638,
+      "storageHits": 10000,
+      "terminalE": null,
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 8,
+      "roles": {
+        "Upgrader": 1,
+        "ControllerLinkFiller": 1,
+        "filler": 1,
+        "EnergyMiner": 2,
+        "Carrier": 2,
+        "Sweeper": 1
+      },
+      "hostiles": [],
+      "damaged": [
+        {
+          "type": "rampart",
+          "x": 20,
+          "y": 10,
+          "hits": 220781,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 27,
+          "hits": 223001,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 6,
+          "y": 5,
+          "hits": 223701,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 11,
+          "y": 33,
+          "hits": 224401,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 11,
+          "y": 32,
+          "hits": 225101,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 22,
+          "hits": 225661,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 24,
+          "hits": 226761,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 21,
+          "hits": 228061,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 18,
+          "hits": 229281,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 11,
+          "y": 31,
+          "hits": 231201,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 37,
+          "y": 17,
+          "hits": 232701,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 11,
+          "y": 14,
+          "hits": 233401,
+          "hitsMax": 10000000,
+          "pct": 2
+        }
+      ],
+      "borderStructs": [],
+      "borderSites": [],
+      "planTowers": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "planSpawns": [
+        {},
+        {},
+        {}
       ],
       "danger": false,
       "blown_fuse": false,
       "spawn_list": [
         [
-          "work",
-          "work",
-          "carry",
-          "move"
-        ],
-        "EnergyMiner-9297302-E37N59",
-        {
-          "memory": {
-            "role": "EnergyMiner",
-            "sourceId": "5bbcaf189099fc012e63a27e",
-            "targetRoom": "E37N59",
-            "homeRoom": "E37N59",
-            "danger": false
-          }
-        },
-        [
-          "work",
-          "work",
-          "carry",
-          "move"
-        ],
-        "EnergyMiner-32005951-E37N59",
-        {
-          "memory": {
-            "role": "EnergyMiner",
-            "sourceId": "5bbcaf189099fc012e63a27c",
-            "targetRoom": "E37N59",
-            "homeRoom": "E37N59",
-            "danger": false
-          }
-        },
-        [
           "carry",
           "carry",
           "carry",
@@ -355,57 +466,13 @@
           "move",
           "move"
         ],
-        "Filler-48213928-E37N59",
+        "Feed-E35N59-82455989",
         {
           "memory": {
-            "role": "filler"
-          }
-        },
-        [
-          "carry",
-          "carry",
-          "carry",
-          "carry",
-          "move",
-          "move"
-        ],
-        "EnergyManager-77046457-E37N59",
-        {
-          "memory": {
-            "role": "EnergyManager"
-          }
-        },
-        [
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "work",
-          "carry",
-          "carry",
-          "carry",
-          "carry",
-          "move",
-          "move",
-          "move",
-          "move",
-          "move",
-          "move",
-          "move",
-          "move"
-        ],
-        "Maintainer-34133242-E37N59",
-        {
-          "memory": {
-            "role": "maintainer",
-            "homeRoom": "E37N59"
+            "role": "carry",
+            "homeRoom": "E35N58",
+            "targetRoom": "E35N59",
+            "emergencyFeed": "E35N59"
           }
         }
       ],
@@ -414,30 +481,30 @@
     "E36N57": {
       "mine": true,
       "owner": "PacifistBot",
-      "rcl": 4,
-      "p": 66851,
-      "dg": 39204,
+      "rcl": 5,
+      "p": 479291,
+      "dg": 80001,
       "sm": 82270833,
-      "sma": 2,
+      "sma": 3,
       "smc": 82300833,
       "sources": 2,
       "sourceTiles": [
         {
           "x": 10,
           "y": 7,
-          "e": 264
+          "e": 1560
         },
         {
           "x": 7,
           "y": 42,
-          "e": 0
+          "e": 930
         }
       ],
       "mySpawns": [
         {
           "name": "Spawn5",
-          "x": 21,
-          "y": 27,
+          "x": 20,
+          "y": 26,
           "e": 300,
           "hits": 5000,
           "hitsMax": 5000,
@@ -445,11 +512,11 @@
         }
       ],
       "foreignSpawns": [],
-      "ext": 20,
+      "ext": 30,
       "towers": [
         {
-          "x": 18,
-          "y": 20,
+          "x": 22,
+          "y": 30,
           "user": "62f89e0d84c31c184db79629",
           "mine": true,
           "hits": 3000,
@@ -457,163 +524,151 @@
           "e": 1000,
           "border": false,
           "nearBorder": false,
-          "onRampart": true
+          "onRampart": false
+        },
+        {
+          "x": 24,
+          "y": 30,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
         }
       ],
-      "ramparts": 37,
+      "ramparts": 44,
       "walls": 0,
-      "storageE": 3783,
+      "storageE": 46732,
       "storageHits": 10000,
       "terminalE": null,
-      "sites": 6,
-      "siteTypes": {
-        "road": 6
-      },
-      "creeps": 10,
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 9,
       "roles": {
+        "Carrier": 2,
+        "Upgrader": 1,
         "EnergyMiner": 2,
-        "Filler": 2,
-        "Carrier": 3,
-        "Sweeper": 1,
-        "Maintainer": 1,
-        "Builder": 1
+        "filler": 1,
+        "ControllerLinkFiller": 1,
+        "Repair": 1,
+        "Sweeper": 1
       },
       "hostiles": [],
       "damaged": [
         {
           "type": "rampart",
-          "x": 21,
-          "y": 27,
-          "hits": 1,
-          "hitsMax": 3000000,
-          "pct": 0
-        },
-        {
-          "type": "rampart",
-          "x": 13,
-          "y": 32,
-          "hits": 61901,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 30,
-          "y": 29,
-          "hits": 61921,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 13,
-          "y": 33,
-          "hits": 61941,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 23,
-          "y": 36,
-          "hits": 62001,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 17,
-          "y": 36,
-          "hits": 62001,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 15,
-          "y": 36,
-          "hits": 62001,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 15,
-          "y": 20,
-          "hits": 62001,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
-          "x": 13,
-          "y": 35,
-          "hits": 62001,
-          "hitsMax": 3000000,
-          "pct": 2
-        },
-        {
-          "type": "rampart",
           "x": 28,
-          "y": 34,
-          "hits": 62041,
-          "hitsMax": 3000000,
+          "y": 38,
+          "hits": 143321,
+          "hitsMax": 10000000,
+          "pct": 1
+        },
+        {
+          "type": "rampart",
+          "x": 20,
+          "y": 38,
+          "hits": 144961,
+          "hitsMax": 10000000,
+          "pct": 1
+        },
+        {
+          "type": "rampart",
+          "x": 14,
+          "y": 23,
+          "hits": 146061,
+          "hitsMax": 10000000,
+          "pct": 1
+        },
+        {
+          "type": "rampart",
+          "x": 32,
+          "y": 28,
+          "hits": 146601,
+          "hitsMax": 10000000,
+          "pct": 1
+        },
+        {
+          "type": "rampart",
+          "x": 32,
+          "y": 29,
+          "hits": 146971,
+          "hitsMax": 10000000,
+          "pct": 1
+        },
+        {
+          "type": "rampart",
+          "x": 32,
+          "y": 36,
+          "hits": 150101,
+          "hitsMax": 10000000,
           "pct": 2
         },
         {
           "type": "rampart",
           "x": 14,
-          "y": 36,
-          "hits": 62061,
-          "hitsMax": 3000000,
+          "y": 33,
+          "hits": 152041,
+          "hitsMax": 10000000,
           "pct": 2
         },
         {
           "type": "rampart",
-          "x": 20,
+          "x": 14,
+          "y": 32,
+          "hits": 157241,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 14,
+          "y": 38,
+          "hits": 159441,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 32,
+          "y": 35,
+          "hits": 160801,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 19,
+          "y": 38,
+          "hits": 160801,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 15,
           "y": 20,
-          "hits": 62101,
-          "hitsMax": 3000000,
+          "hits": 161801,
+          "hitsMax": 10000000,
           "pct": 2
         }
       ],
       "borderStructs": [],
       "borderSites": [],
       "planTowers": [
-        {
-          "x": 23,
-          "y": 28
-        },
-        {
-          "x": 19,
-          "y": 28
-        },
-        {
-          "x": 21,
-          "y": 30
-        },
-        {
-          "x": 21,
-          "y": 26
-        },
-        {
-          "x": 23,
-          "y": 30
-        },
-        {
-          "x": 19,
-          "y": 26
-        }
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
       ],
       "planSpawns": [
-        {
-          "x": 22,
-          "y": 29
-        },
-        {
-          "x": 20,
-          "y": 29
-        }
+        {},
+        {},
+        {}
       ],
       "danger": false,
       "blown_fuse": false,
@@ -623,47 +678,55 @@
     "E37N58": {
       "mine": true,
       "owner": "PacifistBot",
-      "rcl": 4,
-      "p": 293687,
+      "rcl": 5,
+      "p": 922078,
       "pt": 0,
-      "dg": 40001,
+      "dg": 80001,
       "sm": null,
-      "sma": 3,
+      "sma": 4,
       "smc": 79924442,
       "sources": 2,
       "sourceTiles": [
         {
           "x": 12,
           "y": 12,
-          "e": 2484
+          "e": 1550
         },
         {
           "x": 26,
           "y": 24,
-          "e": 0
+          "e": 2750
         }
       ],
       "mySpawns": [
         {
-          "name": "Spawn4",
-          "x": 24,
-          "y": 15,
+          "name": "Spawn3",
+          "x": 20,
+          "y": 17,
           "e": 300,
           "hits": 5000,
           "hitsMax": 5000,
-          "spawning": {
-            "name": "Carrier-37187498-E37N58",
-            "needTime": 66,
-            "spawnTime": 82305286
-          }
+          "spawning": null
         }
       ],
       "foreignSpawns": [],
-      "ext": 20,
+      "ext": 30,
       "towers": [
         {
-          "x": 27,
-          "y": 14,
+          "x": 21,
+          "y": 18,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        },
+        {
+          "x": 21,
+          "y": 22,
           "user": "62f89e0d84c31c184db79629",
           "mine": true,
           "hits": 3000,
@@ -674,211 +737,480 @@
           "onRampart": false
         }
       ],
-      "ramparts": 21,
+      "ramparts": 28,
       "walls": 0,
-      "storageE": 14357,
+      "storageE": 31242,
       "storageHits": 10000,
       "terminalE": null,
-      "sites": 3,
-      "siteTypes": {
-        "road": 3
-      },
-      "creeps": 15,
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 8,
       "roles": {
-        "Builder": 3,
-        "Repair": 1,
-        "Upgrader": 1,
-        "Maintainer": 1,
-        "RampartErector": 1,
-        "Carrier": 3,
-        "Filler": 2,
         "EnergyMiner": 2,
+        "filler": 1,
+        "Carrier": 2,
+        "ControllerLinkFiller": 1,
+        "Upgrader": 1,
         "Sweeper": 1
       },
       "hostiles": [],
       "damaged": [
         {
           "type": "rampart",
-          "x": 9,
-          "y": 18,
-          "hits": 212841,
-          "hitsMax": 3000000,
-          "pct": 7
+          "x": 13,
+          "y": 19,
+          "hits": 202941,
+          "hitsMax": 10000000,
+          "pct": 2
         },
         {
           "type": "rampart",
-          "x": 21,
-          "y": 25,
-          "hits": 218341,
-          "hitsMax": 3000000,
-          "pct": 7
+          "x": 13,
+          "y": 12,
+          "hits": 206241,
+          "hitsMax": 10000000,
+          "pct": 2
         },
         {
           "type": "rampart",
-          "x": 19,
-          "y": 25,
-          "hits": 228861,
-          "hitsMax": 3000000,
-          "pct": 8
-        },
-        {
-          "type": "rampart",
-          "x": 34,
-          "y": 24,
-          "hits": 236201,
-          "hitsMax": 3000000,
-          "pct": 8
-        },
-        {
-          "type": "rampart",
-          "x": 17,
-          "y": 25,
-          "hits": 238701,
-          "hitsMax": 3000000,
-          "pct": 8
-        },
-        {
-          "type": "rampart",
-          "x": 23,
-          "y": 25,
-          "hits": 240901,
-          "hitsMax": 3000000,
-          "pct": 8
-        },
-        {
-          "type": "rampart",
-          "x": 9,
-          "y": 17,
-          "hits": 242121,
-          "hitsMax": 3000000,
-          "pct": 8
+          "x": 31,
+          "y": 20,
+          "hits": 213961,
+          "hitsMax": 10000000,
+          "pct": 2
         },
         {
           "type": "rampart",
           "x": 20,
-          "y": 25,
-          "hits": 248641,
-          "hitsMax": 3000000,
-          "pct": 8
+          "y": 28,
+          "hits": 226641,
+          "hitsMax": 10000000,
+          "pct": 2
         },
         {
           "type": "rampart",
-          "x": 24,
-          "y": 25,
-          "hits": 249721,
-          "hitsMax": 3000000,
-          "pct": 8
+          "x": 13,
+          "y": 14,
+          "hits": 242841,
+          "hitsMax": 10000000,
+          "pct": 2
         },
         {
           "type": "rampart",
-          "x": 30,
+          "x": 31,
+          "y": 21,
+          "hits": 243621,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 31,
+          "y": 23,
+          "hits": 246701,
+          "hitsMax": 10000000,
+          "pct": 2
+        },
+        {
+          "type": "rampart",
+          "x": 13,
+          "y": 15,
+          "hits": 253781,
+          "hitsMax": 10000000,
+          "pct": 3
+        },
+        {
+          "type": "rampart",
+          "x": 13,
+          "y": 16,
+          "hits": 256911,
+          "hitsMax": 10000000,
+          "pct": 3
+        },
+        {
+          "type": "rampart",
+          "x": 31,
           "y": 22,
-          "hits": 251861,
-          "hitsMax": 3000000,
-          "pct": 8
+          "hits": 265941,
+          "hitsMax": 10000000,
+          "pct": 3
         },
         {
           "type": "rampart",
-          "x": 35,
-          "y": 24,
-          "hits": 257701,
-          "hitsMax": 3000000,
-          "pct": 9
+          "x": 19,
+          "y": 28,
+          "hits": 272301,
+          "hitsMax": 10000000,
+          "pct": 3
         },
         {
           "type": "rampart",
-          "x": 33,
-          "y": 24,
-          "hits": 263701,
-          "hitsMax": 3000000,
-          "pct": 9
+          "x": 14,
+          "y": 28,
+          "hits": 275201,
+          "hitsMax": 10000000,
+          "pct": 3
         }
       ],
       "borderStructs": [],
       "borderSites": [],
       "planTowers": [
-        {
-          "x": 26,
-          "y": 14
-        },
-        {
-          "x": 22,
-          "y": 14
-        },
-        {
-          "x": 24,
-          "y": 16
-        },
-        {
-          "x": 24,
-          "y": 12
-        },
-        {
-          "x": 26,
-          "y": 16
-        },
-        {
-          "x": 22,
-          "y": 12
-        }
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
       ],
       "planSpawns": [
-        {
-          "x": 25,
-          "y": 15
-        },
-        {
-          "x": 23,
-          "y": 15
-        }
+        {},
+        {},
+        {}
       ],
       "danger": false,
       "blown_fuse": false,
-      "spawn_list": [
-        [
-          "claim",
-          "move",
-          "claim",
-          "move"
-        ],
-        "Reserver-21256931-E37N58",
-        {
-          "memory": {
-            "role": "reserve",
-            "targetRoom": "E36N58",
-            "homeRoom": "E37N58"
-          }
-        }
-      ],
+      "spawn_list": [],
       "keep": false
     },
     "E39N58": {
       "mine": true,
       "owner": "PacifistBot",
-      "rcl": 2,
-      "p": 30037,
+      "rcl": 5,
+      "p": 319234,
       "pt": 0,
-      "dg": 10001,
-      "sm": null,
-      "sma": 1,
-      "smc": 82330948,
+      "dg": 80001,
+      "sm": 82351853,
+      "sma": 3,
+      "smc": 82381853,
       "sources": 2,
       "sourceTiles": [
         {
           "x": 22,
           "y": 7,
-          "e": 2328
+          "e": 1290
         },
         {
           "x": 3,
           "y": 41,
-          "e": 2560
+          "e": 850
         }
       ],
       "mySpawns": [
         {
-          "name": "Spawn3",
-          "x": 22,
+          "name": "Spawn4",
+          "x": 14,
+          "y": 24,
+          "e": 300,
+          "hits": 5000,
+          "hitsMax": 5000,
+          "spawning": null
+        }
+      ],
+      "foreignSpawns": [],
+      "ext": 30,
+      "towers": [
+        {
+          "x": 15,
+          "y": 29,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        },
+        {
+          "x": 20,
+          "y": 23,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        }
+      ],
+      "ramparts": 44,
+      "walls": 0,
+      "storageE": 45275,
+      "storageHits": 10000,
+      "terminalE": null,
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 9,
+      "roles": {
+        "EnergyMiner": 2,
+        "Carrier": 2,
+        "Repair": 2,
+        "filler": 1,
+        "Upgrader": 1,
+        "ControllerLinkFiller": 1
+      },
+      "hostiles": [],
+      "damaged": [
+        {
+          "type": "rampart",
+          "x": 6,
+          "y": 33,
+          "hits": 470421,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 18,
+          "y": 37,
+          "hits": 470501,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 28,
+          "y": 17,
+          "hits": 470641,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 23,
+          "y": 9,
+          "hits": 471501,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 15,
+          "y": 15,
+          "hits": 478101,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 13,
+          "y": 15,
+          "hits": 481221,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 25,
+          "y": 35,
+          "hits": 483401,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 28,
+          "y": 23,
+          "hits": 485421,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 28,
+          "y": 26,
+          "hits": 485801,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 28,
+          "y": 30,
+          "hits": 486721,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 19,
+          "y": 15,
+          "hits": 487441,
+          "hitsMax": 10000000,
+          "pct": 5
+        },
+        {
+          "type": "rampart",
+          "x": 28,
+          "y": 18,
+          "hits": 494961,
+          "hitsMax": 10000000,
+          "pct": 5
+        }
+      ],
+      "borderStructs": [],
+      "borderSites": [],
+      "planTowers": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "planSpawns": [
+        {},
+        {},
+        {}
+      ],
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [],
+      "keep": false
+    },
+    "E35N59": {
+      "mine": true,
+      "owner": "PacifistBot",
+      "rcl": 3,
+      "p": 55714,
+      "pt": 0,
+      "dg": 19825,
+      "sm": null,
+      "sma": 2,
+      "smc": 82351646,
+      "sources": 2,
+      "sourceTiles": [
+        {
+          "x": 18,
+          "y": 6,
+          "e": 1090
+        },
+        {
+          "x": 37,
+          "y": 20,
+          "e": 1510
+        }
+      ],
+      "mySpawns": [
+        {
+          "name": "Spawn2",
+          "x": 28,
+          "y": 21,
+          "e": 275,
+          "hits": 5000,
+          "hitsMax": 5000,
+          "spawning": null
+        }
+      ],
+      "foreignSpawns": [],
+      "ext": 5,
+      "towers": [
+        {
+          "x": 25,
+          "y": 12,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        }
+      ],
+      "ramparts": 0,
+      "walls": 0,
+      "storageE": null,
+      "storageHits": null,
+      "terminalE": null,
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 7,
+      "roles": {
+        "EnergyMiner": 2,
+        "Carrier": 4,
+        "Upgrader": 1
+      },
+      "hostiles": [],
+      "damaged": [],
+      "borderStructs": [],
+      "borderSites": [],
+      "planTowers": [
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
+      ],
+      "planSpawns": [
+        {},
+        {},
+        {}
+      ],
+      "danger": false,
+      "blown_fuse": false,
+      "spawn_list": [
+        [
+          "work",
+          "work",
+          "work",
+          "work",
+          "work",
+          "move"
+        ],
+        "EnergyMiner-43590466-E35N59",
+        {
+          "memory": {
+            "role": "EnergyMiner",
+            "sourceId": "5bbcaef69099fc012e639e07",
+            "targetRoom": "E35N59",
+            "homeRoom": "E35N59"
+          }
+        },
+        [
+          "work",
+          "carry",
+          "move"
+        ],
+        "Repair-76542191-E35N59",
+        {
+          "memory": {
+            "role": "repair",
+            "homeRoom": "E35N59"
+          }
+        }
+      ],
+      "keep": false
+    },
+    "E38N56": {
+      "mine": true,
+      "owner": "PacifistBot",
+      "rcl": 3,
+      "p": 93822,
+      "pt": 0,
+      "dg": 20002,
+      "sm": null,
+      "sma": 2,
+      "smc": null,
+      "sources": 2,
+      "sourceTiles": [
+        {
+          "x": 45,
+          "y": 18,
+          "e": 680
+        },
+        {
+          "x": 45,
+          "y": 40,
+          "e": 2980
+        }
+      ],
+      "mySpawns": [
+        {
+          "name": "Spawn7",
+          "x": 37,
           "y": 29,
           "e": 300,
           "hits": 5000,
@@ -887,8 +1219,21 @@
         }
       ],
       "foreignSpawns": [],
-      "ext": 0,
-      "towers": [],
+      "ext": 5,
+      "towers": [
+        {
+          "x": 36,
+          "y": 28,
+          "user": "62f89e0d84c31c184db79629",
+          "mine": true,
+          "hits": 3000,
+          "hitsMax": 3000,
+          "e": 1000,
+          "border": false,
+          "nearBorder": false,
+          "onRampart": false
+        }
+      ],
       "ramparts": 0,
       "walls": 0,
       "storageE": null,
@@ -896,13 +1241,12 @@
       "terminalE": null,
       "sites": 0,
       "siteTypes": {},
-      "creeps": 17,
+      "creeps": 9,
       "roles": {
-        "Upgrader": 5,
-        "Carrier": 7,
-        "Repair": 1,
-        "filler": 1,
         "EnergyMiner": 2,
+        "Carrier": 4,
+        "Repair": 1,
+        "Upgrader": 1,
         "Sweeper": 1
       },
       "hostiles": [],
@@ -910,28 +1254,18 @@
       "borderStructs": [],
       "borderSites": [],
       "planTowers": [
-        {
-          "x": 23,
-          "y": 28
-        },
-        {
-          "x": 19,
-          "y": 28
-        },
-        {
-          "x": 21,
-          "y": 26
-        },
-        {
-          "x": 23,
-          "y": 30
-        },
-        {
-          "x": 19,
-          "y": 26
-        }
+        {},
+        {},
+        {},
+        {},
+        {},
+        {}
       ],
-      "planSpawns": [],
+      "planSpawns": [
+        {},
+        {},
+        {}
+      ],
       "danger": false,
       "blown_fuse": false,
       "spawn_list": [],
@@ -963,14 +1297,10 @@
       "storageE": null,
       "storageHits": null,
       "terminalE": null,
-      "sites": 2,
-      "siteTypes": {
-        "container": 2
-      },
-      "creeps": 1,
-      "roles": {
-        "EnergyMiner": 1
-      },
+      "sites": 0,
+      "siteTypes": {},
+      "creeps": 0,
+      "roles": {},
       "hostiles": [],
       "damaged": [],
       "borderStructs": [],
@@ -1006,11 +1336,8 @@
       "storageE": null,
       "storageHits": null,
       "terminalE": null,
-      "sites": 8,
-      "siteTypes": {
-        "road": 7,
-        "container": 1
-      },
+      "sites": 0,
+      "siteTypes": {},
       "creeps": 0,
       "roles": {},
       "hostiles": [],
@@ -1035,53 +1362,6 @@
         {
           "x": 45,
           "y": 25,
-          "e": 1500
-        }
-      ],
-      "mySpawns": [],
-      "foreignSpawns": [],
-      "ext": 0,
-      "towers": [],
-      "ramparts": 0,
-      "walls": 0,
-      "storageE": null,
-      "storageHits": null,
-      "terminalE": null,
-      "sites": 8,
-      "siteTypes": {
-        "container": 1,
-        "road": 7
-      },
-      "creeps": 0,
-      "roles": {},
-      "hostiles": [],
-      "damaged": [],
-      "borderStructs": [],
-      "borderSites": [],
-      "planTowers": [],
-      "planSpawns": [],
-      "keep": false
-    },
-    "E38N56": {
-      "mine": false,
-      "owner": null,
-      "rcl": 0,
-      "p": 0,
-      "pt": 0,
-      "dg": null,
-      "sm": null,
-      "sma": 0,
-      "smc": null,
-      "sources": 2,
-      "sourceTiles": [
-        {
-          "x": 45,
-          "y": 18,
-          "e": 1500
-        },
-        {
-          "x": 45,
-          "y": 40,
           "e": 1500
         }
       ],

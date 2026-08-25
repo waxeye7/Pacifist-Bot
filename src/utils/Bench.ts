@@ -1,6 +1,10 @@
 /**
  * A/B CPU proof for optimizations.
  *
+ * recordTick() is fed the loop-start *delta* (logic CPU). Memory.CPU /
+ * heartbeat use billedTickCpu() (end-of-loop getUsed, includes parse).
+ * They will disagree by ~2 CPU; that is intentional, not a broken gauge.
+ *
  * Profiles:
  *   optimized — goTo replace + matrix cache + expensive gate + silent logs
  *   baseline  — native moveTo + no matrix cache + always mosquito + (verbose off still)

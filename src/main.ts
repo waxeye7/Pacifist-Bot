@@ -5,7 +5,7 @@ import global from "./utils/Global";
 import { installLogger, logAlways } from "utils/Logger";
 import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
-import { getCpuPolicy } from "utils/CpuPolicy";
+import { getCpuPolicy, billedTickCpu } from "utils/CpuPolicy";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
@@ -419,13 +419,16 @@ export const loop = ErrorMapper.wrapLoop(() => {
     phase("remoteStats", () => sampleRemoteStats());
   }
 
-  const tickCpu = Game.cpu.getUsed() - startTotal;
+  const endUsed = Game.cpu.getUsed();
+  const tickCpu = endUsed - startTotal;
+  // Logic delta only — parse is constant across A/B variants. See Bench.ts.
   recordTick(tickCpu);
 
-  let tickTotal = tickCpu.toFixed(2);
+  const billed = billedTickCpu(endUsed, startTotal);
+  let tickTotal = billed.toFixed(2);
   console.log(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
 
-  heartbeat(tickCpu);
+  heartbeat(billed);
 
   phase("CPUmanager", () => CPUmanager(tickTotal));
   global.buildRemoteRoads = function (roomName) {

@@ -3,6 +3,26 @@ import RunCreepManager from "./RunCreepManager";
 import RunPowerCreepManager from "./RunPowerCreepManager";
 import { powerDisabled } from "utils/Features";
 import { skipHighRclCreep } from "utils/Speedrun";
+import { creepRoleIsOptional, skipOptionalCreep } from "utils/CpuPolicy";
+
+function noteOptionalSkip(role: string | undefined): void {
+    const m: any = Memory;
+    const prev = m.cpuSkip;
+    if (!prev || prev.tick !== Game.time) {
+      m.cpuSkip = {
+        tick: Game.time,
+        tickN: 0,
+        n: prev && prev.n ? prev.n : 0,
+        last: Game.time,
+        roles: prev && prev.roles ? prev.roles : {},
+      };
+    }
+    m.cpuSkip.tickN++;
+    m.cpuSkip.n++;
+    m.cpuSkip.last = Game.time;
+    const r = role || "?";
+    m.cpuSkip.roles[r] = (m.cpuSkip.roles[r] || 0) + 1;
+}
 
 function RunAllCreepsManager() {
 
@@ -39,6 +59,25 @@ function RunAllCreepsManager() {
     }
 
     let executeCreepScriptsLaterList = [];
+    // Two-pass: income/defence first, then discretionary roles while the
+    // tick is still under budget. Object.keys order is arbitrary — running
+    // optional creeps first would spend the 20-CPU limit on repair and
+    // starve the miners. Spawn crisis only ages surplus out; this skips
+    // their run() the same tick the bucket is sick.
+    const essentialNames: string[] = [];
+    const optionalNames: string[] = [];
+    function queueCreep(name: string): void {
+      if (name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ") || name.startsWith("DuoCreepA") || name.startsWith("DuoCreepB")) {
+        executeCreepScriptsLaterList.push(name);
+        return;
+      }
+      const creep = Game.creeps[name];
+      const role = creep && creep.memory && creep.memory.role;
+      const danger = !!(creep && creep.room && creep.room.memory && creep.room.memory.danger);
+      if (danger || !creepRoleIsOptional(role)) essentialNames.push(name);
+      else optionalNames.push(name);
+    }
+
     const creepNames = Object.keys(Memory.creeps);
     for(let name of creepNames) {
       if(!Game.creeps[name]) {
@@ -62,21 +101,39 @@ function RunAllCreepsManager() {
         delete (Memory.creeps[name] as any)._sweep;
       }
       if(skipHighRclCreep(Game.creeps[name])) continue;
-      if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ") || name.startsWith("DuoCreepA") || name.startsWith("DuoCreepB")) {
-        executeCreepScriptsLaterList.push(name);
-      }
-      else {
-        RunCreepManager(name);
-      }
+      queueCreep(name);
     }
 
     // A creep with NO Memory.creeps entry is invisible to the loop above, so
     // RunCreepManager's `role == undefined -> suicide()` guard can never fire for
     // the exact case it exists for: the creep idles forever as an obstacle
     // (live: Filler-1014650-E17S4). Sweep Game.creeps for names the loop missed.
+    // Queue as essential: they have no role yet and must hit the restore path,
+    // and must not run ahead of miners on a 20-CPU tick.
     for(const name of Object.keys(Game.creeps)) {
       if(name in Memory.creeps) continue;
       if(skipHighRclCreep(Game.creeps[name])) continue;
+      essentialNames.push(name);
+    }
+
+    for (const name of essentialNames) RunCreepManager(name);
+
+    const limit = Game.cpu.limit || 20;
+    const bucket = Game.cpu.bucket;
+    for (const name of optionalNames) {
+      const creep = Game.creeps[name];
+      if (!creep) continue;
+      const role = creep.memory && creep.memory.role;
+      if (skipOptionalCreep({
+        role,
+        usedCpu: Game.cpu.getUsed(),
+        limit,
+        bucket,
+        danger: !!(creep.room.memory && creep.room.memory.danger),
+      })) {
+        noteOptionalSkip(role);
+        continue;
+      }
       RunCreepManager(name);
     }
 

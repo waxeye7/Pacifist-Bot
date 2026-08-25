@@ -18,6 +18,21 @@ export interface CpuPolicyState {
   economyOnly: boolean;
 }
 
+/**
+ * CPU the shard actually bills this tick.
+ *
+ * `Game.cpu.getUsed() - startOfLoop` is logic-only. Parse and Memory
+ * deserialize happen before that snapshot, still drain the bucket, and are
+ * why LIVE can log avg100 ≈ 18 while the bucket falls on a 20 limit.
+ * `startUsed` is accepted so a future editor cannot "fix" this by subtracting
+ * it without breaking the unit test.
+ */
+export function billedTickCpu(endUsed: number, startUsed: number): number {
+  void startUsed;
+  if (typeof endUsed !== "number" || !isFinite(endUsed) || endUsed < 0) return 0;
+  return endUsed;
+}
+
 export function getCpuPolicy(): CpuPolicyState {
   const limit = Game.cpu.limit || 20;
   const bucket = Game.cpu.bucket;
@@ -113,6 +128,49 @@ export function getCpuPolicy(): CpuPolicyState {
     allowExpensive,
     economyOnly,
   };
+}
+
+/**
+ * Roles the 20-CPU latch may idle THIS TICK without killing income or
+ * defence. Spawn already refuses replacements under CPU_CRISIS_BUCKET;
+ * leftover bodies still run until TTL. Skipping their run() is the only
+ * immediate CPU cut. Fail-open: unknown / missing roles always run.
+ *
+ * Owned-room economy only. `room.memory.danger` is set solely in the
+ * owned-room defence pass, so skipping RemoteRepair / Priest / Escort /
+ * SneakyControllerUpgrader / scout would freeze them in rooms that never
+ * get that flag — they would not flee. Scout is both a remote-room
+ * economy body and a war-layer lookout (`warScout`); it stays fail-open.
+ *
+ * LIVE shard3 bucket ~1012, economyOnly: Repair + Maintainer + Sweeper
+ * were the remaining discretionary CPU after miners/carries/upgraders.
+ */
+const OPTIONAL_CREEP_ROLES: { [role: string]: true } = {
+  repair: true,
+  maintainer: true,
+  builder: true,
+  sweeper: true,
+  MineralMiner: true,
+};
+
+export function creepRoleIsOptional(role: string | undefined): boolean {
+  return !!role && OPTIONAL_CREEP_ROLES[role] === true;
+}
+
+export function skipOptionalCreep(opts: {
+  role: string | undefined;
+  usedCpu: number;
+  limit: number;
+  bucket: number;
+  danger: boolean;
+}): boolean {
+  if (opts.danger) return false;
+  if (!creepRoleIsOptional(opts.role)) return false;
+  const limit = opts.limit > 0 ? opts.limit : 20;
+  if (opts.usedCpu >= limit * 0.9) return true;
+  const lowCpu = limit <= 30;
+  if (opts.bucket < (lowCpu ? 2000 : 1000)) return true;
+  return false;
 }
 
 export function cpuStatusString(): string {
