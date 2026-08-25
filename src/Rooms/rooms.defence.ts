@@ -297,6 +297,52 @@ function towerDamageAt(towers: any[], pos: RoomPosition): number {
  * chewed off - but "hold fire?" is a question you want to be wrong about in the
  * cautious direction, and it keeps us off boosted tanks we cannot actually kill.
  */
+/**
+ * Can this creep hurt the room? NPC invaders always; a player creep only
+ * with ATTACK / RANGED_ATTACK / WORK / CLAIM / HEAL. A 50-energy MOVE scout
+ * used to set `danger` like a siege: after 125 ticks every remote closed,
+ * after 350 Memory.CPU.reduce, and RCL2-3 rooms burned a safe mode on it.
+ */
+export function hostileIsThreat(hostile: any): boolean {
+    if (hostile.owner && hostile.owner.username === "Invader") return true;
+    const body = hostile.body || [];
+    for (const part of body) {
+        if (part.hits !== undefined && part.hits <= 0) continue;
+        const t = part.type;
+        if (t == ATTACK || t == RANGED_ATTACK || t == WORK || t == CLAIM || t == HEAL) return true;
+    }
+    return false;
+}
+
+function hostileThreatCount(hostiles: any[]): number {
+    let n = 0;
+    for (const h of hostiles) if (hostileIsThreat(h)) n++;
+    return n;
+}
+
+/** Lowest perimeter rampart hits right now; 0 when there is no shell. */
+function perimeterMinHits(room: any): number {
+    const ramps = findPerimeterRamparts(room);
+    let min = Infinity;
+    for (const r of ramps) if (r.hits < min) min = r.hits;
+    return isFinite(min) ? min : 0;
+}
+
+/**
+ * Pure: has the shell lost real height since the raid began? 15% or 1500
+ * hits, whichever is more — decay alone is 300 per 100 ticks, so a camp that
+ * breaks nothing can never trip this; one 20W dismantler does in two ticks.
+ */
+export function shellBreached(startMin: number, nowMin: number): boolean {
+    if (!(startMin > 0)) return false;
+    return nowMin < startMin - Math.max(1500, startMin * 0.15);
+}
+
+function shellBreachedSinceDanger(room: any): boolean {
+    const start = room.memory && room.memory.shellMinAtDanger;
+    return shellBreached(start, perimeterMinHits(room));
+}
+
 function hostileProfile(hostile: any) {
     let heal = 0;
     let armed = false;
@@ -491,7 +537,17 @@ function roomDefence(room) {
     {
         let HostileCreeps = cachedHostileCreeps(room);
         if(HostileCreeps.length > 0) {
-            room.memory.danger = true;
+            if(hostileThreatCount(HostileCreeps) > 0) {
+                if(!room.memory.danger) room.memory.shellMinAtDanger = perimeterMinHits(room);
+                room.memory.danger = true;
+            }
+            else if(room.memory.danger) {
+                // Only harmless creeps left (the raid walked out, a scout
+                // stayed): unwind exactly like the no-hostiles branch does.
+                room.memory.danger = false;
+                room.memory.rampartToMan = false;
+                clearCivilianFleeing(room);
+            }
 
             // Man-able shell = planned perimeter (min-cut), not "range <= 10 from storage"
             let MyRamparts: any[] = findPerimeterRamparts(room);
@@ -631,15 +687,22 @@ function roomDefence(room) {
     // Spawn conjunct no-op'd the tick the last spawn died — the one tick
     // safemode is supposed to fire. Failed activate still reset the timer,
     // which reopened remotes and blocked CPU.reduce for the rest of the raid.
-    if(room.memory.danger && room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name)) {
-        let enemyCreepsInRoom = cachedHostileCreeps(room);
-        if(enemyCreepsInRoom.length >= 2) {
-            for(let eCreep of enemyCreepsInRoom) {
-                if(eCreep.owner.username !== "Invader") {
-                    if(room.controller.activateSafeMode() === OK) {
-                        room.memory.danger_timer = 1;
-                    }
-                }
+    // Two arms. WAVE: two or more player threats, 50 ticks in, shell under
+    // the breach bar (the battle-tested rule). SOLO: ONE player threat is
+    // enough once the shell has visibly lost height since the raid started —
+    // a 25W dismantler removes 1,250 hits a tick, and an RCL4-6 shell
+    // (3k tower floor) was gone before the old 50-tick / 2-creep arm could
+    // ever fire. Both still require a damaged perimeter rampart.
+    if(room.memory.danger && room.memory.danger_timer >= 15 && Game.time % 5 === 0 && hasDamagedRamparts(room.name)) {
+        const enemyCreepsInRoom = cachedHostileCreeps(room).filter(function(c: any) {
+            return c.owner && c.owner.username !== "Invader" && hostileIsThreat(c);
+        });
+        const wave = enemyCreepsInRoom.length >= 2 && room.memory.danger_timer >= 50;
+        const solo = enemyCreepsInRoom.length >= 1 && shellBreachedSinceDanger(room);
+        if(wave || solo) {
+            if(room.controller.activateSafeMode() === OK) {
+                room.memory.danger_timer = 1;
+                console.log("[defence]", room.name, "SAFE MODE —", wave ? "wave" : "solo breach", "by", enemyCreepsInRoom[0].owner.username);
             }
         }
     }

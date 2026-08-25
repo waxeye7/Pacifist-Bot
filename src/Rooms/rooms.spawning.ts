@@ -2062,7 +2062,11 @@ function add_creeps_to_spawn_list(room, spawn) {
              * top-up now aims at exactly the same figure.
              */
             let rampartsBelowTarget = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
-            if(repairRosterOpen(repairers) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
+            // Fourth arm (2026-08-26): the first three were all dead on live
+            // (banks 12-46k), so an RCL6 shell sat at the 3k tower floor. One
+            // repairer (the low-CPU cap) walks it toward 100k off a 20k bank.
+            const shellThin = rampartsInRoom?.filter(function(s) {return s.hits < 100000;}).length > 0;
+            if(repairRosterOpen(repairers) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 20000 && shellThin) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2867,14 +2871,19 @@ function add_creeps_to_spawn_list(room, spawn) {
     // its neighbour's reinforce Guard. Under actual danger a bankless room
     // may spend its spawn network instead — half-full is the same bar the
     // starve clamps use everywhere else.
-    if(room.memory.danger == true && room.memory.danger_timer >= 35 && fillers >= 2 && storage &&
-        (storage.store[RESOURCE_ENERGY] > 10000 || room.energyAvailable * 2 >= room.energyCapacityAvailable)) {
+    // 2026-08-26: `fillers >= 2` and a 10k bank kept every live RCL5-6 room
+    // (banks 12-46k, one filler) from queueing a defender at all, and the
+    // range-14 test below missed an attacker chewing the far side of a
+    // legacy shell 8-13 out. One filler and 5k is enough to hatch a 4A/M.
+    if(room.memory.danger == true && room.memory.danger_timer >= 20 && fillers >= 1 && storage &&
+        (storage.store[RESOURCE_ENERGY] > 5000 || room.energyAvailable * 2 >= room.energyCapacityAvailable)) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 350;});
         let inRangeFourteen = false;
         if(HostileCreeps.length > 0) {
-            if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 14) {
+            // Whole room, not range 14 of storage — see the note above.
+            if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 30) {
 
 
                 // `room.memory.labs &&`: both bodies below read
