@@ -5,6 +5,7 @@ import {
     SHELL_MIN_RCL,
 } from "utils/Perimeter";
 import { logVerbose } from "utils/Logger";
+import { cachedHostileCreeps } from "utils/RoomCache";
 import { rampartIsBuried, interiorReady } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 
@@ -488,7 +489,7 @@ function roomDefence(room) {
     // before the first volley. Power-creep last-intent stays after the
     // tower loop so it still overwrites a volley/repair the same way.
     {
-        let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+        let HostileCreeps = cachedHostileCreeps(room);
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;
 
@@ -631,7 +632,7 @@ function roomDefence(room) {
     // safemode is supposed to fire. Failed activate still reset the timer,
     // which reopened remotes and blocked CPU.reduce for the rest of the raid.
     if(room.memory.danger && room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name)) {
-        let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
+        let enemyCreepsInRoom = cachedHostileCreeps(room);
         if(enemyCreepsInRoom.length >= 2) {
             for(let eCreep of enemyCreepsInRoom) {
                 if(eCreep.owner.username !== "Invader") {

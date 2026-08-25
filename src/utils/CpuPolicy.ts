@@ -153,6 +153,41 @@ const OPTIONAL_CREEP_ROLES: { [role: string]: true } = {
   MineralMiner: true,
 };
 
+/** A ~20 CPU shard (shard3). Private servers and shard0-2 read false. */
+export function lowCpuShard(): boolean {
+  return (Game.cpu.limit || 20) <= 30;
+}
+
+/**
+ * May the spawn buy a NEW body for an optional role right now?
+ *
+ * skipOptionalCreep idles Repair / Maintainer / Builder / Sweeper on a sick
+ * tick, but the rungs that QUEUE them read only the bank — so live shard3 paid
+ * 1800 energy for 7W7C7M repairers (E39N58: two of them, one upgrader) and
+ * then never ran them. The body is paid; the work is not done. This is the
+ * spawn-side twin of that latch: closed when the bucket is sick or the
+ * 100-tick average sits near the limit, with hysteresis so a roster does not
+ * flap on a lifetime cadence (close at 92%, reopen below 85%).
+ *
+ * Only a 20-CPU shard ever closes. Builders are deliberately NOT routed
+ * through here: a site left unbuilt is a storage / terminal / tower the room
+ * is waiting on, and queueBuilder has its own bank gates.
+ */
+export function optionalRosterOpen(): boolean {
+  if (!lowCpuShard()) return true;
+  const limit = Game.cpu.limit || 20;
+  const M: any = Memory as any;
+  if (Game.cpu.bucket < 2000) {
+    M._optRosterOpen = false;
+    return false;
+  }
+  const avg = Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+  const wasOpen = M._optRosterOpen !== false;
+  const open = wasOpen ? avg < limit * 0.92 : avg < limit * 0.85;
+  M._optRosterOpen = open;
+  return open;
+}
+
 export function creepRoleIsOptional(role: string | undefined): boolean {
   return !!role && OPTIONAL_CREEP_ROLES[role] === true;
 }

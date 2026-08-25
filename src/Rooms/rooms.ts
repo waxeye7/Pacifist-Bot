@@ -17,6 +17,7 @@ import { forwardToControllerLink } from "../Roles/energyMiner";
 import { logAlways } from "utils/Logger";
 import { isSkeleton } from "War/mode";
 import { wipeForeignSites } from "utils/ForeignSites";
+import { cachedHostileCreeps } from "utils/RoomCache";
 
 /*
  * PER-ROOM FAULT ISOLATION.
@@ -92,13 +93,12 @@ function rooms() {
       }
 
       if (room.memory.danger) {
-        console.log(room.name, room.memory.danger_timer);
+        if (room.memory.danger_timer % 50 === 0) console.log(room.name, "danger", room.memory.danger_timer);
         room.memory.danger_timer++;
         if (room.memory.danger_timer > 10000) {
           room.memory.danger_timer = 0;
         }
       } else if (!room.memory.danger && room.memory.danger_timer !== 0) {
-        console.log(room.name, room.memory.danger_timer);
         if (room.memory.danger_timer > 5) {
           room.memory.danger_timer -= 5;
         } else {
@@ -330,7 +330,9 @@ function rooms() {
         applySpeedrunSpawnHints(room);
       }
       spawning(room);
-      if (room.controller && room.controller.my) wipeForeignSites(room);
+      // Every 20 ticks: foreign sites only exist right after a claim, and the
+      // find behind this ran in every owned room every tick.
+      if (room.controller && room.controller.my && Game.time % 20 === 0) wipeForeignSites(room);
       // Orphan migrate flag after a stripped plan keeps siting the old bunker.
       if ((room.memory as any).planMigration && !room.memory.planV2) {
         delete (room.memory as any).planMigration;
@@ -599,7 +601,7 @@ function establishMemory(room) {
     // console.log(JSON.stringify(Memory.tasks))
 
     let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
-    let HostileCreeps: Array<Creep> = room.find(FIND_HOSTILE_CREEPS);
+    let HostileCreeps: Array<Creep> = cachedHostileCreeps(room);
     let isArmed = false;
 
     // check if has attacking parts.

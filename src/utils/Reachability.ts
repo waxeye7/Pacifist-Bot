@@ -60,6 +60,8 @@ const SINK_TYPES: { [k: string]: boolean } = {
   [STRUCTURE_FACTORY]: true,
 };
 
+import { cachedStructures } from "./RoomCache";
+
 const packOf = (x: number, y: number) => x + y * 50;
 
 /**
@@ -72,11 +74,16 @@ const packOf = (x: number, y: number) => x + y * 50;
 export function refreshUnreachable(room: Room): void {
   if (!room || !room.controller || !room.controller.my) return;
 
-  const structures = room.find(FIND_STRUCTURES);
   const prev = room.memory.unreach;
   if (prev) {
     const age = Game.time - (prev.t || 0);
+    // Age first: this used to run FIND_STRUCTURES every tick in every owned
+    // room and then throw the answer away for MIN_REFRESH-1 of those ticks.
     if (age < MIN_REFRESH) return;
+  }
+  const structures = cachedStructures(room);
+  if (prev) {
+    const age = Game.time - (prev.t || 0);
     // structure count is a cheap change detector: a destroy or a completed
     // build is exactly what can open or close a pocket
     if (age < REFRESH_EVERY && prev.n === structures.length) return;

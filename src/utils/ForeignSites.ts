@@ -1,9 +1,27 @@
+import { cachedDerived } from "./RoomCache";
+
+/**
+ * Tick a room last answered "no foreign sites". Foreign sites only exist for a
+ * few hundred ticks after a claim, but stompForeignSite ran a fresh
+ * FIND_CONSTRUCTION_SITES for every empty carry / repair / sweeper EVERY tick,
+ * for the life of the room (live shard3: ~15 creeps x 7 rooms). A room that
+ * answered empty is not re-searched for EMPTY_FOR ticks.
+ */
+const lastEmpty: { [room: string]: number } = Object.create(null);
+const EMPTY_FOR = 50;
+
 /** Leftover sites from the previous owner. remove() only works on ours;
  *  hostile ones die when a creep steps on the tile (range 0). */
 export function foreignSites(room: Room): ConstructionSite[] {
-  return room.find(FIND_CONSTRUCTION_SITES, {
-    filter: (s: ConstructionSite) => !s.my,
-  });
+  const seen = lastEmpty[room.name];
+  if (seen !== undefined && Game.time - seen < EMPTY_FOR) return [];
+  const sites = cachedDerived(room, "foreignSites", () =>
+    room.find(FIND_CONSTRUCTION_SITES, {
+      filter: (s: ConstructionSite) => !s.my,
+    }),
+  );
+  if (!sites.length) lastEmpty[room.name] = Game.time;
+  return sites;
 }
 
 export function wipeForeignSites(room: Room): number {
