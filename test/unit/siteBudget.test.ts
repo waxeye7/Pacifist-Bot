@@ -55,10 +55,10 @@ describe("broke-clamp income exceptions", () => {
         // that would fix that (market + neighbor energy arrive through it).
         const term = SRC.indexOf('termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");');
         const extr = SRC.indexOf('extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");');
-        const lab = SRC.indexOf('e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");');
         assert.isAbove(term, -1, "terminal slot at the 3k bank floor");
         assert.isAbove(extr, term, "extractor slot at 5k, after terminal");
-        assert.isAbove(lab, extr, "lab slot still needs half the floor");
+        assert.equal(SRC.indexOf('e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");'), -1,
+            "labs wait for LAB_PLACE_BANK, not the half-floor broke grant");
     });
 });
 

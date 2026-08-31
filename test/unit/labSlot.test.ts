@@ -15,23 +15,24 @@ const PLAN = fs.readFileSync(path.join(__dirname, "../../src/utils/PlanV2.ts"), 
 const BUILDER = fs.readFileSync(path.join(__dirname, "../../src/Roles/builder.ts"), "utf8");
 
 describe("broke-clamp lab slot (W1N1 7/10 labs)", () => {
-    it("grants typed slots: terminal at 3k, extractor at 5k, lab at half the floor", () => {
+    it("grants typed slots: terminal at 3k, extractor at 5k; labs wait for LAB_PLACE_BANK", () => {
         const start = PLAN.indexOf("function maxSitesFor");
         assert.isAbove(start, -1);
         const body = PLAN.slice(start, PLAN.indexOf("\nconst SYNC_EVERY", start));
         const core = body.indexOf("coreBuildoutIncomplete(lvl, structs)) return 2;");
         // Split, TYPED guards (E37N59 deadlock + W5N1's stolen slot): the
         // terminal — the structure that un-breaks a room — opens at 3k, the
-        // extractor at 5k, labs keep half the RCL floor.
+        // extractor at 5k. Labs are 50k furniture and are not a broke grant
+        // (live RCL6 sited them at 15-22k on the old half-floor bar).
         const termGrant = body.indexOf('termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");');
         const extrGrant = body.indexOf('extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");');
-        const labGrant = body.indexOf('e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");');
         assert.isAbove(core, -1, "core drip still present");
         assert.isAbove(termGrant, core, "terminal exception sits after the core drip");
         assert.isAbove(extrGrant, termGrant, "extractor grant after terminal");
-        assert.isAbove(labGrant, extrGrant, "lab grant stays behind the half-floor guard");
-        // still fully clamped when genuinely broke: the final return 0 survives
-        assert.isAbove(body.indexOf("return 0;", labGrant), -1);
+        assert.equal(body.indexOf('grant("lab")'), -1, "labs are not a broke-clamp exception");
+        assert.isAbove(body.indexOf("return 0;", extrGrant), -1);
+        assert.match(PLAN, /export const LAB_PLACE_BANK = 100000;/);
+        assert.match(PLAN, /if \(furnitureNeed && lb < furnitureNeed\) continue;/);
     });
 
     it("the exception slot is typed — PLACE_ORDER cannot hand it to a container", () => {

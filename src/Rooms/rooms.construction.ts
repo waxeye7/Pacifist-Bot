@@ -1,6 +1,6 @@
 import { getBasePlan, placeFromBasePlan, visualizeBasePlan, haulRoadTiles, haulRoadsIncomplete } from "utils/BasePlan";
 import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
-import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile } from "utils/PlanV2";
+import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile, labBank, furnitureBankNeeded } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
 import { isExteriorPos } from "utils/Interior";
 import { logAlways } from "utils/Logger";
@@ -1122,7 +1122,7 @@ function construction(room) {
 
                 }
 
-                if(room.controller.level >= 6 && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
+                if(room.controller.level >= 6 && labBank(room) >= furnitureBankNeeded(STRUCTURE_LAB, room.controller.level >= 8 ? 150000 : room.controller.level >= 7 ? 80000 : 30000) && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
 
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
@@ -1419,14 +1419,16 @@ function construction(room) {
                 }
 
                 if(room.controller.level == 8 && myConstructionSites == 0) {
+                    const luxuryBank = labBank(room);
+                    const rcl8Floor = 150000;
                     let observers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_OBSERVER});
-                    if(observers.length == 0) {
+                    if(observers.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_OBSERVER, rcl8Floor)) {
                         let listOfObserverPosition = [new RoomPosition(storage.pos.x - 2, storage.pos.y + 1, room.name)]
                         DestroyAndBuild(room, listOfObserverPosition, STRUCTURE_OBSERVER);
                     }
 
                     let nukers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_NUKER});
-                    if(nukers.length == 0) {
+                    if(nukers.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_NUKER, rcl8Floor)) {
                         let listOfNukerPositions = [new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name)]
                         DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_NUKER);
                     }
@@ -1438,7 +1440,7 @@ function construction(room) {
                     //     }
                     // }
                     let powerSpawns = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_POWER_SPAWN});
-                    if(powerSpawns.length == 0) {
+                    if(powerSpawns.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_POWER_SPAWN, rcl8Floor)) {
                         let listOfPowerSpawnPositions = [new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name)]
                         DestroyAndBuild(room, listOfPowerSpawnPositions, STRUCTURE_POWER_SPAWN);
                     }

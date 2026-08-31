@@ -63,6 +63,10 @@ export function brokeBankStripFires(
  *
  * DEFAULT-DENY: a type added to PLACE_ORDER cannot silently become churn.
  * Both callers pass the same bankE and the same brokeFloor.
+ *
+ * Labs are NOT a broke exception. One lab is 50k to build; the half-floor
+ * grant (15k at RCL6) sited them on live shard3 at 15-22k storage. They
+ * wait for furnitureBankNeeded (storage only) and are stripped below keep.
  */
 export function brokeKeepsSite(
   type: string,
@@ -70,16 +74,52 @@ export function brokeKeepsSite(
   brokeFloor: number,
   nakedShell: boolean,
 ): boolean {
+  void bankE;
+  void brokeFloor;
   if (type === STRUCTURE_SPAWN || type === STRUCTURE_STORAGE) return true;
   if (type === STRUCTURE_LINK || type === STRUCTURE_CONTAINER) return true;
   if (type === STRUCTURE_TOWER || type === STRUCTURE_EXTENSION) return true;
   if (type === STRUCTURE_TERMINAL || type === STRUCTURE_EXTRACTOR) return true;
-  // same bar as the typed lab grant (e >= floor/2) minus a margin, so a
-  // granted lab is always inside the keep bar and can never be stripped
-  if (type === STRUCTURE_LAB) return bankE >= brokeFloor / 2 - 5000;
+  if (type === STRUCTURE_LAB) return false;
   if (type === STRUCTURE_ROAD) return true;
   if (type === STRUCTURE_RAMPART) return !!nakedShell;
   return false;
+}
+
+/** One lab is 50k. Do not site any until storage can absorb that. */
+export const LAB_PLACE_BANK = 100000;
+
+/** Nuker is 100k. Same class of furniture as labs, one RCL later. */
+export const NUKER_PLACE_BANK = 200000;
+
+/** the bank must clear the floor by this much before broke un-latches */
+const BROKE_EXIT_MARGIN = 15000;
+
+/**
+ * Spendable energy for expensive sites. Builders withdraw from storage;
+ * terminal energy is not `build()` fuel. Counting it let a 35k storage +
+ * 70k terminal room pass LAB_PLACE_BANK and site labs the freeze cannot pay.
+ */
+export function labBank(room: any): number {
+  return room && room.storage && room.storage.my ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+}
+
+/**
+ * Storage the room must hold to PLACE this type. 0 = no extra gate.
+ *
+ * Lab/nuker/power-spawn use 2× build cost, then the freeze-exit margin so a
+ * never-latched room sitting ON the floor cannot site them — one withdraw
+ * punches through, the next pass strips. Observer is cheap (8k) so it only
+ * needs that unlatch bar.
+ */
+export function furnitureBankNeeded(type: string, brokeFloor: number): number {
+  let bar = 0;
+  if (type === STRUCTURE_LAB || type === "lab") bar = LAB_PLACE_BANK;
+  else if (type === STRUCTURE_NUKER || type === "nuker") bar = NUKER_PLACE_BANK;
+  else if (type === STRUCTURE_POWER_SPAWN || type === "powerSpawn") bar = NUKER_PLACE_BANK;
+  else if (type === STRUCTURE_OBSERVER || type === "observer") bar = 1;
+  else return 0;
+  return Math.max(bar, brokeFloor + BROKE_EXIT_MARGIN);
 }
 
 /** Off-plan last tower on planned storage/spawn/terminal — a swap, not a floor. */
@@ -226,9 +266,6 @@ function coreBuildoutIncomplete(lvl: number, structures: Structure[]): boolean {
  */
 let _exceptionSlotFor: string | null = null;
 
-/** the bank must clear the floor by this much before broke un-latches */
-const BROKE_EXIT_MARGIN = 15000;
-
 /**
  * Latched broke state, shared by maxSitesFor's clamp and the site strip.
  *
@@ -268,24 +305,17 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // bleeding itself on optional structures, not at one that never finished
       // its own energy network. Two slots — a drip, not the RCL4-5 dump.
       if (coreBuildoutIncomplete(lvl, structs)) return 2;
-      // LABS AND THE TERMINAL ARE THE INCOME MULTIPLIERS, NOT FURNITURE.
-      // VPS W1N1 (RCL8) sat at 7/10 labs with the bank oscillating 130-165k
-      // around the 150k floor; live E37N59 (RCL6) sat with NO TERMINAL at a
-      // 10-30k bank — the clamp was holding back the exact structures whose
-      // reactions/boosts/market refill the bank. One slot for a missing lab
-      // once the room holds at least HALF the floor (the cushion survives
-      // the build); PLACE_ORDER hands a shared slot to the terminal first.
+      // TERMINAL / EXTRACTOR are income. Labs are 50k furniture — they wait
+      // for LAB_PLACE_BANK, they are not a broke exception (live RCL6 sat
+      // lab sites at 15-22k storage on the old half-floor grant).
       const caps: any = CONTROLLER_STRUCTURES as any;
-      const labCap = (caps[STRUCTURE_LAB] || {})[lvl] || 0;
       const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
       const extrCap = (caps[STRUCTURE_EXTRACTOR] || {})[lvl] || 0;
-      let labs = 0;
       let terms = 0;
       let extrs = 0;
       for (const s of structs) {
         if (!(s as any).my) continue;
-        if (s.structureType === STRUCTURE_LAB) labs++;
-        else if (s.structureType === STRUCTURE_TERMINAL) terms++;
+        if (s.structureType === STRUCTURE_TERMINAL) terms++;
         else if (s.structureType === STRUCTURE_EXTRACTOR) extrs++;
       }
       const grant = (type: string): number => {
@@ -299,11 +329,9 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // 5k sat just above its 4.7k steady state. 3k is scraping but the
       // builder rungs throttle the spend anyway (thin-bank want=1).
       // EXTRACTOR next: 5k build cost, unlocks the mineral the room already
-      // paid a container for. Lab keeps the half-floor bar. All three grants
-      // are TYPED — see _exceptionSlotFor.
+      // paid a container for. Both grants are TYPED — see _exceptionSlotFor.
       if (termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");
       if (extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");
-      if (e >= floor / 2 && labCap > 0 && labs < labCap) return grant("lab");
       return 0;
     }
   }
@@ -3030,6 +3058,7 @@ export function placeFromPlanV2(room: Room): void {
   }
   const brokeFloor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
   const bankE = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
+  const lb = labBank(room);
   // Same LATCHED answer maxSitesFor's clamp uses (see bankIsBroke) — a
   // strip that flips a tick ahead of the placer is the churn machine.
   const brokeQualifies = lvl >= 6 && !!room.storage && !!room.storage.my;
@@ -3057,9 +3086,7 @@ export function placeFromPlanV2(room: Room): void {
     for (const s of sites) {
       // ONE decision, shared with the placement loop below (brokeKeepsSite):
       // a broke room can only hold sites the strip keeps, so place-and-strip
-      // cannot churn. Lab keep bar sits under the lab grant bar on purpose —
-      // what the clamp granted, the strip must not eat (W5N3 filmed stripping
-      // a 2000-progress lab as its 17k bank grazed the 15k bar).
+      // cannot churn. Labs are false in the keep-set (50k furniture).
       if (brokeKeepsSite(s.structureType, bankE, brokeFloor, nakedShell)) {
         if (s.structureType !== STRUCTURE_ROAD) continue;
         // Exterior connector road sites belong to the REMOTE system
@@ -3080,6 +3107,24 @@ export function placeFromPlanV2(room: Room): void {
           `progress ${s.progress}/${s.progressTotal} lost — bank ${bankE}/${brokeFloor}` +
           `${nakedShell ? " nakedShell" : ""}${coreIncomplete ? " coreIncomplete" : ""}` +
           ` budget ${budget}`,
+      );
+      s.remove();
+    }
+  }
+  // Expensive furniture waits for furnitureBankNeeded even when the room
+  // is not broke. Empty AND in-progress go below keep — one build() used
+  // to switch a lab onto the freeze-floor keep (30k/80k/150k) and finish
+  // it from containers. The freeze comment was false: findLocked sticks
+  // and the closest-site fallback still picks hub labs.
+  if (lvl >= 6) {
+    for (const s of sites) {
+      const needed = furnitureBankNeeded(s.structureType, brokeFloor);
+      if (!needed) continue;
+      const keep = needed - BROKE_EXIT_MARGIN;
+      if (lb >= keep) continue;
+      logAlways(
+        `planV2 ${room.name}: STRIP ${s.structureType}@${s.pos.x},${s.pos.y} ` +
+          `progress ${s.progress}/${s.progressTotal} lost — labBank ${lb}/${needed}`,
       );
       s.remove();
     }
@@ -3206,7 +3251,7 @@ export function placeFromPlanV2(room: Room): void {
   for (const type of placeOrderFor(lvl)) {
     if (budget <= 0) break;
     // The broke-clamp exception slot is TYPED (see _exceptionSlotFor): it
-    // exists to site exactly one missing terminal/extractor/lab, and letting
+    // exists to site exactly one missing terminal/extractor, and letting
     // the normal priority order spend it on a container/extension defeats it.
     // Only ever set when the room has spawns and a complete core, so nothing
     // urgent is being skipped.
@@ -3224,6 +3269,14 @@ export function placeFromPlanV2(room: Room): void {
     // 2 slots down to rampart/lab and the strip ate them 15 ticks later
     // (VPS W5N3, a 500-progress lab, forever).
     if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;
+    // Core-incomplete's 2 slots are untyped. PLACE_ORDER puts terminal
+    // before link, so a broke RCL6 with spawn/ext/tower at cap and no
+    // source income spent those slots on a 50k terminal — bypassing the
+    // typed 3k grant and starving the missing source link. Terminal is
+    // income, but not core; it waits for its own grant once core is done.
+    if (brokeBank && coreIncomplete && type === "terminal") continue;
+    const furnitureNeed = furnitureBankNeeded(type, brokeFloor);
+    if (furnitureNeed && lb < furnitureNeed) continue;
     // Roads are the one type whose ARRAY is trimmed rather than capped: the
     // RCL selection is a staged subsequence, not a prefix (see roadsForRcl), so
     // the loop below must iterate the selection itself.

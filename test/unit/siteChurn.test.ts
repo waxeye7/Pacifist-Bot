@@ -32,10 +32,15 @@ describe("broke-boundary site churn", () => {
             "no raw unlatched comparison may survive at the strip");
     });
 
-    it("what the typed lab grant places, the strip keeps — with a margin below the grant bar", () => {
-        assert.match(SRC, /if \(e >= floor \/ 2 && labCap > 0 && labs < labCap\) return grant\("lab"\);/);
-        assert.match(SRC, /if \(type === STRUCTURE_LAB\) return bankE >= brokeFloor \/ 2 - 5000;/,
-            "W5N3's 17k bank grazing the 15k bar stripped a 2000-progress lab — the half-floor line flaps like the floor did");
+    it("labs are not a broke grant; they wait for furnitureBankNeeded with a keep margin", () => {
+        assert.notMatch(SRC, /if \(e >= floor \/ 2 && labCap > 0 && labs < labCap\) return grant\("lab"\);/);
+        assert.match(SRC, /if \(type === STRUCTURE_LAB\) return false;/);
+        assert.match(SRC, /export const LAB_PLACE_BANK = 100000;/);
+        assert.match(SRC, /export const NUKER_PLACE_BANK = 200000;/);
+        assert.match(SRC, /const keep = needed - BROKE_EXIT_MARGIN;/);
+        assert.match(SRC, /if \(furnitureNeed && lb < furnitureNeed\) continue;/);
+        assert.notMatch(SRC, /if \(s\.progress > 0 && !brokeBank\) continue;/,
+            "one build() must not switch a lab onto freeze-floor keep");
     });
 
     it("exterior connector road sites are the remote system's, not the strip's", () => {
@@ -57,6 +62,13 @@ describe("a broke room may only place what the strip keeps", () => {
             "the strip must decide from the same predicate");
     });
 
+    it("legacy DestroyAndBuild waits for furnitureBankNeeded too", () => {
+        const CONSTR = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.construction.ts"), "utf8");
+        assert.match(CONSTR, /luxuryBank >= furnitureBankNeeded\(STRUCTURE_NUKER/);
+        assert.match(CONSTR, /luxuryBank >= furnitureBankNeeded\(STRUCTURE_OBSERVER/);
+        assert.match(CONSTR, /luxuryBank >= furnitureBankNeeded\(STRUCTURE_POWER_SPAWN/);
+    });
+
     it("default-deny: nuker/observer cannot become churn while broke", () => {
         const at = SRC.indexOf("export function brokeKeepsSite(");
         const body = SRC.slice(at, at + 1300);
@@ -75,6 +87,8 @@ describe("a broke room may only place what the strip keeps", () => {
         const grant = SRC.indexOf("if (coreBuildoutIncomplete(lvl, structs)) return 2;");
         const guard = SRC.indexOf("if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;");
         assert.isAbove(guard, grant, "...so the keep-set guard is what fences it");
+        assert.match(SRC, /if \(brokeBank && coreIncomplete && type === "terminal"\) continue;/,
+            "PLACE_ORDER puts terminal before link; the 2 slots must not walk to a 50k terminal");
     });
 
     it("every strip removal is attributable — room, type, pos, progress, reason", () => {

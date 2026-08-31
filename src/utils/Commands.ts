@@ -843,67 +843,10 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
 
 
 global.SMDP = function (roomName, targetRoomName) {
-    let room = Game.rooms[roomName];
-    if (!room) return "Fail";
-    // Guard/RampartDefender call this; missing labs/status used to throw
-    // and abort that role. Spawn unboosted (empty boostlabs) instead.
-    let labsReady = !!(room.memory.labs && room.memory.labs.status);
-    if (Game.rooms[targetRoomName] && Game.rooms[targetRoomName].storage && Game.rooms[targetRoomName].controller && Game.rooms[targetRoomName].controller.level >= 4) {
-        let storage: any = Game.getObjectById(room.memory.Structures.storage);
-        if (storage && Game.rooms[targetRoomName].controller.my &&
-            Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode &&
-            // This body is 40A+10M — no TOUGH — so outputLab7 (XGHO2) is not
-            // a boost slot and must not veto the spawn.
-            (!labsReady || (storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 1200 &&
-            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 &&
-            room.memory.labs.outputLab3 && room.memory.labs.outputLab2))) {
-
-            let body = [
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                MOVE, MOVE, MOVE, MOVE, MOVE, MOVE,MOVE, MOVE, MOVE, MOVE
-            ];
-
-            let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-            let smdpBoostLabs = labsReady ? [room.memory.labs.outputLab3, room.memory.labs.outputLab2] : [];
-            if (labsReady && room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName, smdpBoostLabs);
-            if (labsReady && room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 1200, newName, smdpBoostLabs);
-            room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: smdpBoostLabs, again: true } });
-            console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
-            return "Success";
-
-        }
-    }
-    else {
-        let storage: any = Game.getObjectById(room.memory.Structures.storage);
-        if (storage && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller && Game.rooms[targetRoomName].controller.my &&
-            Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode &&
-            (!labsReady || (storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 300 && storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 900 &&
-            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 &&
-            room.memory.labs.outputLab3 && room.memory.labs.outputLab2 && room.memory.labs.outputLab7))) {
-
-            let body = [
-                TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
-                MOVE, MOVE, MOVE, MOVE,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
-                MOVE, MOVE, MOVE, MOVE, MOVE, MOVE
-            ];
-
-            let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-            let smdpBoostLabs = labsReady ? [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7] : [];
-            if (labsReady && room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName, smdpBoostLabs);
-            if (labsReady && room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 900, newName, smdpBoostLabs);
-            if (labsReady && room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 300, newName, smdpBoostLabs);
-            room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: smdpBoostLabs, again: true } });
-            console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
-            return "Success";
-
-        }
-    }
+    // 2026-09-01 owner: SMDP only ever spawned Guards INTO our RCL3-5 rooms.
+    // Towers handle that; Guard is the wrong home-defence body.
+    void roomName;
+    void targetRoomName;
     return "Fail";
 }
 
@@ -2180,6 +2123,10 @@ global.SCK = function (homeRoom, targetRoomName) {
 global.SGD = function (homeRoom, targetRoomName, body) {
     if (Game.rooms[homeRoom]) {
         if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && targetRoomName !== homeRoom) {
+            // Home defence is towers / RampartDefender. SGD is offence into
+            // someone else's room — never ours (live Guard-…-E35N58-E35N59).
+            const dest = Game.rooms[targetRoomName];
+            if (dest && dest.controller && dest.controller.my) return "Failed to spawn";
 
             let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding Guard to Spawn List: ' + newName);

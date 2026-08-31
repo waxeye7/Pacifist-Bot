@@ -5,6 +5,16 @@
 const run = function (creep) {
     creep.memory.moving = false;
 
+    // SGD/SMDP leftovers aimed at a room we own: recycle. Towers (and
+    // RampartDefender on the shell) are home defence; this body is not.
+    if (creep.memory.targetRoom) {
+        const dest = Game.rooms[creep.memory.targetRoom];
+        if (dest && dest.controller && dest.controller.my) {
+            creep.recycle();
+            return;
+        }
+    }
+
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {

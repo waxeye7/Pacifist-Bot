@@ -16,7 +16,7 @@
 import { RoomIntel } from "./intel";
 import { TOWER_FLOOR } from "Roles/filler";
 import { TargetScore, TIER_NONE } from "./score";
-import { ownedRooms } from "./reach";
+import { ownedRooms, myUsername } from "./reach";
 import { roomDistance } from "./geo";
 import {
   guardInFlight,
@@ -234,6 +234,7 @@ function kit(kind: KitKind, home: string, target: string, why: string, extra?: P
 const NONE: Kit = { kind: "none", home: "", target: "", boosted: false, followCck: false, why: "" };
 
 export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | null): Kit {
+  if (rec.o && rec.o === myUsername()) return kit("none", "", target, "self");
   if (scored && scored.tier === TIER_NONE && scored.why && scored.why.indexOf("ally") === 0) {
     return kit("none", "", target, scored.why);
   }

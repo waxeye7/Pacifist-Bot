@@ -62,9 +62,11 @@ describe("reinforce and mosquito use canFund, not energyAvailable", () => {
     const SPAWNING = fs.readFileSync(
         path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
 
-    it("pickHelper calls canFund with the prey-guard kit", () => {
-        assert.include(REINFORCE, "canFund(room, KIT_COST.guardPrey)");
-        assert.notInclude(REINFORCE, "energyAvailable < GUARD_COST");
+    it("does not SGD a Guard into an owned room", () => {
+        // 2026-09-01: home defence is towers. pickHelper/SGD path is gone.
+        assert.notInclude(REINFORCE, "global.SGD(");
+        assert.notInclude(REINFORCE, "KIT_COST.guardPrey");
+        assert.include(REINFORCE, "export function runReinforce(): void {");
     });
 
     it("spawn_mosquito funds from the bank", () => {
