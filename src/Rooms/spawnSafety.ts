@@ -82,6 +82,26 @@ export function isLastHatchery(room: any): boolean {
     return true;
 }
 
+/** Site-placement freeze by RCL. Builders must not loot containers below this. */
+export function siteFreezeBank(lvl: number): number {
+    if (lvl >= 8) return 150000;
+    if (lvl >= 7) return 80000;
+    if (lvl >= 6) return 30000;
+    return 0;
+}
+
+/** Labs/nuker/terminal/observer — furniture, not the energy network. */
+export function isExpensiveFurniture(type: string): boolean {
+    return (
+        type === STRUCTURE_LAB ||
+        type === STRUCTURE_NUKER ||
+        type === STRUCTURE_TERMINAL ||
+        type === STRUCTURE_OBSERVER ||
+        type === STRUCTURE_POWER_SPAWN ||
+        type === STRUCTURE_FACTORY
+    );
+}
+
 /**
  * Broke = no bank to fall back on AND the extension network is on fumes.
  * A room mid-spawn-cycle dips on energyAvailable every purchase; a room with

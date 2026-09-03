@@ -1,4 +1,5 @@
 import { cachedDerived, cachedDropped, cachedMyCreeps, cachedRuins, cachedSites, cachedSources, cachedStructures, cachedTombstones } from "utils/RoomCache";
+import { upgradeParkBand } from "Empire/funnel";
 
 /**
  * The controller depot — the structure an upgrader draws from while it works.
@@ -450,43 +451,34 @@ const run = function (creep) {
 					}
 				}
 			}
-			// Same bank floor as the ControllerLinkFiller / upgraderTarget
-			// (UPGRADE_FLOOR = 10k): the ladder stops SPAWNING upgraders below
-			// it, but a live one shuttling from storage drains the bank to zero
-			// anyway (E37N59: 27k -> 3.4k). Below the floor, wait by the
-			// controller for whatever the source links push into the depot;
-			// downgrade danger overrides.
-			//
-			// Hysteresis: park at < 10k, resume at >= 12k. Without it every trip
-			// flips the creep across the line (withdraw 800 -> bank dips under ->
-			// park -> income lifts it over -> withdraw ...) and in a room whose
-			// depot is a CONTAINER (no link income) that reads as "upgrading
-			// stopped" while the bank hovers a few hundred under the floor.
-			// While parked, floor loot / a stocked container within 12 of the
-			// controller is still fair game — that is not the bank.
+			// Same bank floor as the ControllerLinkFiller (upgradeParkBand):
+			// mother burns at 10k so funnelled energy becomes GCL; donors
+			// park at donorReserve (30k RCL6) so they stop eating the freeze.
 			else if(storage.structureType === STRUCTURE_STORAGE
-				&& creep.room.controller.ticksToDowngrade > 10000
-				&& (creep.memory.bankParked
-					? storage.store[RESOURCE_ENERGY] < 12000
-					: storage.store[RESOURCE_ENERGY] < 10000)) {
-				creep.memory.bankParked = true;
-				if(energyNearController(creep.room)) {
-					creep.acquireEnergyWithContainersAndOrDroppedEnergy();
-				}
-				else if(!creep.pos.inRangeTo(creep.room.controller, 3)) {
-					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+				&& creep.room.controller.ticksToDowngrade > 10000) {
+				const band = upgradeParkBand(creep.room);
+				if (creep.memory.bankParked
+					? storage.store[RESOURCE_ENERGY] < band.resume
+					: storage.store[RESOURCE_ENERGY] < band.floor) {
+					creep.memory.bankParked = true;
+					if(energyNearController(creep.room)) {
+						creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+					}
+					else if(!creep.pos.inRangeTo(creep.room.controller, 3)) {
+						creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+					}
+					else {
+						// In range and waiting: same lane discipline as every
+						// other idle branch — never squat a road while parked.
+						creep.idlePark();
+					}
 				}
 				else {
-					// In range and waiting: same lane discipline as every
-					// other idle branch — never squat a road while parked.
-					creep.idlePark();
-				}
-			}
-			else {
-				if(creep.memory.bankParked) delete creep.memory.bankParked;
-				let result = creep.withdrawStorage(storage);
-				if(result == 0) {
-					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
+					if(creep.memory.bankParked) delete creep.memory.bankParked;
+					let result = creep.withdrawStorage(storage);
+					if(result == 0) {
+						creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
+					}
 				}
 			}
 

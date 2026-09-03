@@ -3,6 +3,7 @@ import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { markRemoteHot } from "Rooms/rooms.remotes";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 import { plannedLinkTile } from "utils/PlanV2";
+import { siteFreezeBank } from "Rooms/spawnSafety";
 import {
     cachedDerived,
     cachedDropped,
@@ -1052,6 +1053,28 @@ function _roomShellSitesOnly(room: any): boolean {
     return true;
 }
 
+/** Spawn/ext/tower/link/container/storage — finish these below the freeze. */
+function _roomHasCriticalBuildSite(room: any): boolean {
+    if (room._pacCritSite !== undefined) return room._pacCritSite;
+    const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
+    for (let i = 0; i < sites.length; i++) {
+        const t = sites[i].structureType;
+        if (
+            t === STRUCTURE_SPAWN ||
+            t === STRUCTURE_EXTENSION ||
+            t === STRUCTURE_TOWER ||
+            t === STRUCTURE_LINK ||
+            t === STRUCTURE_CONTAINER ||
+            t === STRUCTURE_STORAGE
+        ) {
+            room._pacCritSite = true;
+            return true;
+        }
+    }
+    room._pacCritSite = false;
+    return false;
+}
+
 /** The storage floor this creep must respect, by role and room state. */
 function _storageFloorFor(creep: any): number {
     const role = creep.memory && creep.memory.role;
@@ -1061,13 +1084,16 @@ function _storageFloorFor(creep: any): number {
         if (_roomHasSites(room) && _roomHasEnergyIncome(room)) {
             const lvl = room.controller && room.controller.level;
             if (lvl >= 6) {
-                const freeze = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+                const freeze = siteFreezeBank(lvl);
                 const store = room.storage && room.storage.my
                     ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
                 // Broke + only road/rampart sites: spend the thin bank.
                 // 80k here is why W2N1's 8k sat unused while the token
                 // builder stood 0e next to 5 road sites.
                 if (_roomShellSitesOnly(room) && store < freeze) return STORAGE_FLOOR_BUILD;
+                // Spawn/ext/tower/link are the energy network. Finish them
+                // from storage; do not loot source containers for a terminal.
+                if (_roomHasCriticalBuildSite(room) && store < freeze) return STORAGE_FLOOR_BUILD;
                 return freeze;
             }
             return STORAGE_FLOOR_BUILD;
@@ -1102,6 +1128,10 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
             if(Game.time % 50 == 1) {
                 console.log("Storage requires", StorageGate, "energy for role", Role, "- try again later.", this.room.name)
             }
+            // Builders must not loot source containers while a real storage
+            // sits under the freeze (live RCL6 12-22k). Drops next to us
+            // are fine; acquireEnergyWithContainers is the leak.
+            if (STORAGE_BUILD_ROLES[Role]) return;
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }

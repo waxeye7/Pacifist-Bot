@@ -5,7 +5,7 @@ import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.lab
 import { rampartHitsTarget } from "./rooms.defence";
 import { rampartIsBuried } from "utils/Interior";
 import { logAlways } from "utils/Logger";
-import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable } from "./spawnSafety";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { optionalRosterOpen, lowCpuShard } from "utils/CpuPolicy";
 import { funnelMother } from "Empire/funnel";
@@ -1907,7 +1907,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 !!(room.memory.danger && room.energyAvailable < room.energyCapacityAvailable/1.5));
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairRosterOpen(repairers) && (repairers < spawnrules[4].repair_creep.amount + 6 && room.energyAvailable > room.energyCapacityAvailable / 1.3 || room.memory.danger && repairers < spawnrules[4].repair_creep.amount + 10) && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[4].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 20000 && repairers < spawnrules[4].repair_creep.amount ||  (storage.store[RESOURCE_ENERGY] > 15000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 5000) && repairers < spawnrules[4].repair_creep.amount + 1 && (rampartsInRoom.filter(function(s) {return s.hits < 60000}).length || room.memory.danger_timer > 50))) {
+            if(repairRosterOpen(repairers, rampartsInRoom) && (repairers < spawnrules[4].repair_creep.amount + 6 && room.energyAvailable > room.energyCapacityAvailable / 1.3 || room.memory.danger && repairers < spawnrules[4].repair_creep.amount + 10) && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[4].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 20000 && repairers < spawnrules[4].repair_creep.amount ||  (storage.store[RESOURCE_ENERGY] > 15000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 5000) && repairers < spawnrules[4].repair_creep.amount + 1 && (rampartsInRoom.filter(function(s) {return s.hits < 60000}).length || room.memory.danger_timer > 50))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -1977,7 +1977,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             // (the dropped middle arm was `Game.time % 2000 < 400 && > 50000 &&
             // repairers < amount`, strictly narrower than the first arm)
-            if(repairRosterOpen(repairers) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
+            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2066,13 +2066,14 @@ function add_creeps_to_spawn_list(room, spawn) {
             // (banks 12-46k), so an RCL6 shell sat at the 3k tower floor. One
             // repairer (the low-CPU cap) walks it toward 100k off a 20k bank.
             const shellThin = rampartsInRoom?.filter(function(s) {return s.hits < 100000;}).length > 0;
-            if(repairRosterOpen(repairers) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 20000 && shellThin) && !queuedWithPrefix(room, 'Repair-')) {
+            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 10000 && shellThin) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            // Was 120k, then 8k — both floors soft-bricked a poor RCL6 room. See queueBuilder().
-            queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 8000);
+            // Was 120k, then 8k. 8k spawned builders the 30k freeze then
+            // refused to feed from storage, so they looted source containers.
+            queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(6));
             /*
              * BANDED BANK LADDER — the same one RCL4/5 have run since
              * upgraderTarget() landed, finally wired into RCL6.
@@ -2208,7 +2209,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
             }
             if(!room.memory.danger && room.memory.danger_timer == 0) {
-                queueBuilder(room, spawnrules[7], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 15000);
+                queueBuilder(room, spawnrules[7], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(7));
             }
             if((upgraders < upgraderCpuCap(room, spawnrules[7].upgrade_creep_spend.amount) && room.name !== Memory.targetRampRoom.room || upgraders < upgraderCpuCap(room, spawnrules[7].upgrade_creep_spend.amount + 3) && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2388,7 +2389,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // Same gate as RCL6/7: EnergyMinersInRoom > 1 is impossible in a
             // 1-source room, so this rung never fired there. queueBuilder uses
             // miners > 0 || bankCanBuild and the thin-bank / rampart split.
-            queueBuilder(room, spawnrules[8], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 50000);
+            queueBuilder(room, spawnrules[8], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(8));
             // RCL8's only upgrader rung IS the downgrade rung (gated on
             // ticksToDowngrade against a 200k maximum) and its want is 1, so
             // upgraderCpuCap would be a no-op here even if it were applied.
@@ -4394,18 +4395,21 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
     const rich = !realBank || storage.store[RESOURCE_ENERGY] > bankFloor;
 
     let usefulSites = 0;
+    let shellSites = 0;
+    let expensiveSites = 0;
     const mature = room.controller && room.controller.level >= 6;
     for(const site of sites) {
-        if(site.structureType === STRUCTURE_RAMPART) continue;
-        if(mature && site.structureType === STRUCTURE_ROAD) continue;
+        if(site.structureType === STRUCTURE_RAMPART) { shellSites++; continue; }
+        if(mature && site.structureType === STRUCTURE_ROAD) { shellSites++; continue; }
+        if(!rich && isExpensiveFurniture(site.structureType)) { expensiveSites++; continue; }
         usefulSites++;
     }
-    const hasUsefulSite = usefulSites > 0;
 
-    if(!hasUsefulSite) {
+    if(usefulSites <= 0) {
+        if(expensiveSites > 0 && shellSites <= 0) return;
         // rampart/road-only (naked shell). One token builder even on a 0
         // bank — PlanV2 opens those slots precisely when storage is empty.
-        if(builders < 1) {
+        if(shellSites > 0 && builders < 1) {
             const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
             console.log('Adding Builder to Spawn List: ' + name + ' (ramparts only)');
@@ -4580,10 +4584,15 @@ function drainPressure(room): any {
  * room does the same wall for a third of the CPU of three. The bank gates in
  * each rung still decide WHETHER to repair; this decides how many bodies.
  */
-function repairRosterOpen(repairers:number): boolean {
-    if(!optionalRosterOpen()) return false;
+function repairRosterOpen(repairers:number, ramparts?: any[]): boolean {
     if(lowCpuShard() && repairers >= 1) return false;
-    return true;
+    if(optionalRosterOpen()) return true;
+    // Shell at the peacetime tower floor: one repairer even when CPU skip is on.
+    if(!ramparts) return false;
+    for(let i = 0; i < ramparts.length; i++) {
+        if((ramparts[i].hits || 0) < 10000) return true;
+    }
+    return false;
 }
 
 function getBody(segment:string[], room, bodyMaxLength=50, budgetFrac=0.85) {

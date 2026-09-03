@@ -4,7 +4,7 @@
  */
 import { assert } from "chai";
 import * as fs from "fs";
-import { pickMother, donorSurplus, sendAmount, donorReserve, FUNNEL_MIN_SEND, FUNNEL_MAX_SEND } from "../../src/Empire/funnel";
+import { pickMother, donorSurplus, sendAmount, donorReserve, FUNNEL_MIN_SEND, FUNNEL_MAX_SEND, upgradeParkBand } from "../../src/Empire/funnel";
 import { getCpuPolicy } from "../../src/utils/CpuPolicy";
 
 function c(name: string, level: number, progress: number, hasStorage = true, hasSpawn = true) {
@@ -44,6 +44,19 @@ describe("Empire/funnel", () => {
     assert.notInclude(src, "upgraderCpuCap(upgraderTarget(", "every call site passes the room");
     assert.notInclude(src, "upgraderCpuCap(spawnrules");
     assert.include(src, "budget = Math.max(budget, Math.floor(hardCap * BIG_UPGRADER_BUDGET))", "the queue clamp agrees with the 95% upgrader");
+  });
+
+  it("donors park at donorReserve; the funnel mother stays on the 10k burn floor", () => {
+    const g: any = global;
+    const prev = g.Memory;
+    g.Memory = { funnel: { mother: "E37N59" } };
+    try {
+      assert.deepEqual(upgradeParkBand({ name: "E37N59", controller: { level: 7 } }), { floor: 10000, resume: 12000 });
+      assert.deepEqual(upgradeParkBand({ name: "E36N57", controller: { level: 6 } }), { floor: donorReserve(6), resume: donorReserve(6) + 5000 });
+      assert.deepEqual(upgradeParkBand({ name: "E35N58", controller: { level: 7 } }), { floor: donorReserve(7), resume: donorReserve(7) + 5000 });
+    } finally {
+      g.Memory = prev;
+    }
   });
 });
 

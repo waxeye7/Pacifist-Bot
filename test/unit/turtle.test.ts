@@ -52,6 +52,6 @@ describe("defence: solo-breach safe mode", () => {
     const src = fs.readFileSync(__dirname + "/../../src/Rooms/rooms.spawning.ts", "utf8").replace(/\r\n/g, "\n");
     assert.include(src, "room.memory.danger_timer >= 20 && fillers >= 1 && storage &&\n        (storage.store[RESOURCE_ENERGY] > 5000");
     assert.include(src, "storage.pos.findClosestByRange(HostileCreeps)) <= 30");
-    assert.include(src, "storage.store[RESOURCE_ENERGY] > 20000 && shellThin", "RCL6 repair rung reachable off a 20k bank");
+    assert.include(src, "storage.store[RESOURCE_ENERGY] > 10000 && shellThin", "RCL6 repair rung reachable off a 10k bank");
   });
 });

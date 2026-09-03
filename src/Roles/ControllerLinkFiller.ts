@@ -4,6 +4,7 @@
  * @param {Creep} creep
  **/
 import { pruneReserveFill } from "Roles/filler";
+import { upgradeParkBand } from "Empire/funnel";
 
 const run = function (creep) {
     creep.memory.moving = false;
@@ -69,12 +70,11 @@ const run = function (creep) {
          * upgraders live on what the source links push into the controller
          * link — that is income, not savings. Downgrade danger overrides.
          */
-        // Hysteresis: park under 10k, resume at 12k — one 800-energy trip
-        // must not flip the creep back and forth across the line every cycle.
-        const CLF_BANK_FLOOR = 10000;
-        const CLF_BANK_RESUME = 12000;
+        // Hysteresis: mother parks under 10k / 12k; donors park at
+        // donorReserve so they stop eating the funnel/build reserve.
+        const band = upgradeParkBand(creep.room);
         const bankLow = storage && storage.structureType === STRUCTURE_STORAGE
-            && storage.store[RESOURCE_ENERGY] < (creep.memory.bankParked ? CLF_BANK_RESUME : CLF_BANK_FLOOR)
+            && storage.store[RESOURCE_ENERGY] < (creep.memory.bankParked ? band.resume : band.floor)
             && creep.room.controller
             && creep.room.controller.ticksToDowngrade > 10000;
         if(!bankLow && creep.memory.bankParked) {

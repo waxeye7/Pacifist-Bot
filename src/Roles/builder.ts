@@ -4,6 +4,7 @@
  **/
 import { isSanctionedRampart } from "utils/PlanV2";
 import { rampartIsBuried } from "utils/Interior";
+import { siteFreezeBank, isExpensiveFurniture } from "Rooms/spawnSafety";
 
 /**
  * Weakest sanctioned rampart under 10k, one answer per room per tick.
@@ -124,6 +125,20 @@ function tapStillGood(creep): any {
 	if(buildingsToBuild.length == 0) {
 		creep.memory.suicide = true;
 		return;
+	}
+
+	const lvl = creep.room.controller && creep.room.controller.level;
+	const freeze = siteFreezeBank(lvl || 0);
+	const store = creep.room.storage && creep.room.storage.my
+		? (creep.room.storage.store[RESOURCE_ENERGY] || 0) : 0;
+	if (freeze && store < freeze) {
+		buildingsToBuild = buildingsToBuild.filter(function(s) {
+			return !isExpensiveFurniture(s.structureType);
+		});
+		if(buildingsToBuild.length == 0) {
+			creep.memory.suicide = true;
+			return;
+		}
 	}
 
 	// ------------------------------------------------------------------
@@ -422,9 +437,12 @@ function tapStillGood(creep): any {
 			}
 		} else {
             // Real storage exists but is below the withdraw floor. Do not
-            // drain the extension net the fillers are trying to fill
-            // (E36N57: storage 104, 8 sites, builders emptying 450/450).
-            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+            // drain source containers — that was the live 12-22k leak.
+            // Drops next to us are still fair game.
+            const drop = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+                filter: (r: any) => r.resourceType === RESOURCE_ENERGY && r.amount >= 50,
+            })[0];
+            if (drop) creep.pickup(drop);
         }
     }
 

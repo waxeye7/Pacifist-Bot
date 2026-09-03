@@ -46,8 +46,8 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
     const fs = require("fs");
     const src: string = fs.readFileSync(__dirname + "/../../src/Rooms/rooms.spawning.ts", "utf8").replace(/\r\n/g, "\n");
     assert.strictEqual((src.match(/optionalRosterOpen\(\) && maintainers </g) || []).length, 5);
-    assert.include(src, "repairRosterOpen(repairers) && repairers < spawnrules[5]");
-    assert.include(src, "repairRosterOpen(repairers) && repairers < spawnrules[6]");
+    assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5]");
+    assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6]");
     assert.include(src, "optionalRosterOpen() &&\n        wantSweepers > 0");
   });
 });

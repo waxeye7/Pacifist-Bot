@@ -152,8 +152,14 @@ describe("utils/CpuPolicy", () => {
     });
 
     it("skips optional roles when this tick is already over 90% of the limit", () => {
-      assert.isTrue(skipOptionalCreep({ role: "builder", usedCpu: 18.5, limit: 20, bucket: 8000, danger: false }));
-      assert.isFalse(skipOptionalCreep({ role: "builder", usedCpu: 10, limit: 20, bucket: 8000, danger: false }));
+      assert.isTrue(skipOptionalCreep({ role: "repair", usedCpu: 18.5, limit: 20, bucket: 8000, danger: false }));
+      assert.isFalse(skipOptionalCreep({ role: "repair", usedCpu: 10, limit: 20, bucket: 8000, danger: false }));
+    });
+
+    it("never skips builders — a site left unbuilt is the energy network", () => {
+      assert.isFalse(creepRoleIsOptional("builder"));
+      assert.isFalse(skipOptionalCreep({ role: "builder", usedCpu: 18.5, limit: 20, bucket: 8000, danger: false }));
+      assert.isFalse(skipOptionalCreep({ role: "builder", usedCpu: 50, limit: 20, bucket: 0, danger: false }));
     });
 
     it("never skips in a room under attack", () => {

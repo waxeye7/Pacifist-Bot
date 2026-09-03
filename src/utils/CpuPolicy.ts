@@ -161,7 +161,6 @@ export function getCpuPolicy(): CpuPolicyState {
 const OPTIONAL_CREEP_ROLES: { [role: string]: true } = {
   repair: true,
   maintainer: true,
-  builder: true,
   sweeper: true,
   MineralMiner: true,
 };
@@ -174,7 +173,7 @@ export function lowCpuShard(): boolean {
 /**
  * May the spawn buy a NEW body for an optional role right now?
  *
- * skipOptionalCreep idles Repair / Maintainer / Builder / Sweeper on a sick
+ * skipOptionalCreep idles Repair / Maintainer / Sweeper on a sick
  * tick, but the rungs that QUEUE them read only the bank — so live shard3 paid
  * 1800 energy for 7W7C7M repairers (E39N58: two of them, one upgrader) and
  * then never ran them. The body is paid; the work is not done. This is the
@@ -182,9 +181,9 @@ export function lowCpuShard(): boolean {
  * 100-tick average sits near the limit, with hysteresis so a roster does not
  * flap on a lifetime cadence (close at 92%, reopen below 85%).
  *
- * Only a 20-CPU shard ever closes. Builders are deliberately NOT routed
- * through here: a site left unbuilt is a storage / terminal / tower the room
- * is waiting on, and queueBuilder has its own bank gates.
+ * Only a 20-CPU shard ever closes. Builders are not optional: a site left
+ * unbuilt is a spawn / extension / tower the room is waiting on, and
+ * queueBuilder has its own bank gates.
  */
 export function optionalRosterOpen(): boolean {
   if (!lowCpuShard()) return true;

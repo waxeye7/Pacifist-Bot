@@ -35,6 +35,8 @@ import {
     resourceNamesHomeLast,
     promoteHomeSlamFiveHol,
     idleQueueShouldWipe,
+    siteFreezeBank,
+    isExpensiveFurniture,
 } from "../../src/Rooms/spawnSafety";
 import * as fs from "fs";
 import * as path from "path";
@@ -1063,5 +1065,32 @@ describe("stripKeepsRescueRole", () => {
         const SPAWNING = fs.readFileSync(
             path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
         assert.include(SPAWNING, "stripKeepsRescueRole(");
+    });
+});
+
+describe("site freeze vs expensive furniture", () => {
+    it("RCL6/7/8 freeze matches PlanV2 broke floors", () => {
+        assert.equal(siteFreezeBank(6), 30000);
+        assert.equal(siteFreezeBank(7), 80000);
+        assert.equal(siteFreezeBank(8), 150000);
+        assert.equal(siteFreezeBank(5), 0);
+    });
+
+    it("labs nukers terminals are furniture; spawn/ext/link are not", () => {
+        assert.isTrue(isExpensiveFurniture(STRUCTURE_LAB));
+        assert.isTrue(isExpensiveFurniture(STRUCTURE_TERMINAL));
+        assert.isTrue(isExpensiveFurniture(STRUCTURE_NUKER));
+        assert.isFalse(isExpensiveFurniture(STRUCTURE_SPAWN));
+        assert.isFalse(isExpensiveFurniture(STRUCTURE_LINK));
+        assert.isFalse(isExpensiveFurniture(STRUCTURE_EXTENSION));
+    });
+
+    it("queueBuilder RCL6+ uses the freeze, not the old 8k/15k/50k floors", () => {
+        const SPAWNING = fs.readFileSync(
+            path.join(__dirname, "../../src/Rooms/rooms.spawning.ts"), "utf8");
+        assert.include(SPAWNING, "queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(6))");
+        assert.include(SPAWNING, "queueBuilder(room, spawnrules[7], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(7))");
+        assert.include(SPAWNING, "queueBuilder(room, spawnrules[8], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, siteFreezeBank(8))");
+        assert.notInclude(SPAWNING, "queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 8000)");
     });
 });

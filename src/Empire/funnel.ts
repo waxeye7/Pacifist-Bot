@@ -81,6 +81,22 @@ export function funnelMother(): string | null {
   return m && m.mother ? m.mother : null;
 }
 
+/**
+ * Where a live upgrader / CLF parks instead of draining storage.
+ * Mother keeps the 10k burn floor so funnelled energy becomes GCL;
+ * donors park at donorReserve so they stop eating the build/funnel reserve.
+ */
+export function upgradeParkBand(room: { name?: string; controller?: { level?: number } }): { floor: number; resume: number } {
+  const mother = funnelMother();
+  if (mother && room.name === mother) return { floor: 10000, resume: 12000 };
+  const lvl = (room.controller && room.controller.level) || 0;
+  if (lvl >= 6) {
+    const floor = donorReserve(lvl);
+    return { floor, resume: floor + 5000 };
+  }
+  return { floor: 10000, resume: 12000 };
+}
+
 /** What energyManager should keep in a donor's terminal: its surplus, capped. */
 export function funnelDonorTerminalTarget(room: Room): number {
   const mother = funnelMother();
