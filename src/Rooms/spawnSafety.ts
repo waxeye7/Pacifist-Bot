@@ -583,15 +583,44 @@ export function cullSurplusBuildersOnce(): void {
  *
  * PART CAP, not an energy cap. Bigger is strictly better for CPU (intent cost
  * is per creep, not per part) but spawn TIME is 3 ticks/part, and a filler is
- * the one creep whose absence stops the room refilling its own spawn. 12/18/24
- * parts is 36/54/72 ticks of hatch — long enough to be worth it, short enough
- * that the gap after a death is survivable.
+ * the one creep whose absence stops the room refilling its own spawn.
+ *
+ * ── THE CAP WAS THE BINDING CONSTRAINT, AND IT WAS SET TOO LOW ──────────────
+ *
+ * The rungs ask for `amount: 1` at RCL6, 7 AND 8, and fillersWanted() returns
+ * max(1, base) — so with no remotes open a developed room runs ONE filler.
+ * At 12 parts that is 8 CARRY, i.e. 400 energy a load, against an extension
+ * network of 2,000 at RCL6 and 5,000 at RCL7. Five to twelve round trips to
+ * refill, and the room cannot spawn anything big until it has.
+ *
+ * Measured live shard3 2026-09-10, every room holding plenty of bank:
+ *   E38N56  ext   650/2000   storage 12,404
+ *   E35N59  ext  1000/2000   storage  ~9,200
+ *   E36N57  ext  1100/2000   storage 16,808
+ *   E39N58  ext  1350/2000   storage 20,107
+ * The owner's words: "rooms arent refilling the extensions fast enough".
+ *
+ * The wallet was never the limit — at RCL6 the 85% budget is 1,955 and the cap
+ * bound at 600. So buy the throughput with BODY, not with a second creep: a
+ * filler costs 0.33-0.51 CPU per tick whatever its size, and this bot spends
+ * 14 of its 20 CPU inside the creep loop. Doubling the carry of one filler is
+ * free in CPU; a second filler is not.
+ *
+ * New ladder sizes each level to roughly three or four loads of its own
+ * network, with hatch time as the ceiling (the last-filler handoff in
+ * Roles/filler re-queues before it dies, so the hatch window is covered):
+ *
+ *   RCL5   15 parts  10C  500 carry    45t hatch   network 1,800
+ *   RCL6   18 parts  12C  600 carry    54t hatch   network 2,300
+ *   RCL7   30 parts  20C 1000 carry    90t hatch   network 5,300
+ *   RCL8   36 parts  24C 1200 carry   108t hatch
  * ------------------------------------------------------------------------- */
 /** Max body parts for a hatchery filler at `lvl`. */
 export function fillerPartCap(lvl: number): number {
-    if (lvl >= 8) return 24;
-    if (lvl >= 7) return 18;
-    return 12;
+    if (lvl >= 8) return 36;
+    if (lvl >= 7) return 30;
+    if (lvl >= 6) return 18;
+    return 15;
 }
 
 /** The one body a hatchery filler is ever built with. */
