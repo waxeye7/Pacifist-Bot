@@ -8,7 +8,7 @@ import data from "./rooms.data";
 import remotes, { manageRemotes, scanRemoteThreats, roomTickOffset } from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
-import { getCpuPolicy } from "utils/CpuPolicy";
+import { getCpuPolicy, REMOTE_INFRA_BUCKET } from "utils/CpuPolicy";
 import { powerDisabled, speedrunEnabled } from "utils/Features";
 import { applySpeedrunSpawnHints, skipHighRclRoom } from "utils/Speedrun";
 import { placeFromPlanV2 } from "utils/PlanV2";
@@ -416,9 +416,14 @@ function rooms() {
       // Low RCL: build more often so extensions/containers aren't stuck waiting 1000 ticks.
       // High RCL keeps the old expensive cadence.
       const constructionInterval = room.controller.level < 4 ? 100 : 1000;
+      // Same recalibration as the remote-roads gate below: `bucket > 3500`
+      // against a live bucket that sits at 3,357-3,595 made this a COIN FLIP
+      // once per 1,000 ticks, which is how a room ends up carrying a plan it
+      // never finishes. One pass per room per 1,000 ticks is affordable at any
+      // bucket that is not an actual emergency.
       if (
         !isSkeleton(room.name) &&
-        ((Game.time % constructionInterval == 0 && bucket > 3500) ||
+        ((Game.time % constructionInterval == 0 && bucket > REMOTE_INFRA_BUCKET) ||
           room.memory.data.DOB == 2 ||
           room.memory.data.DOBug == 2)
       ) {
@@ -444,7 +449,25 @@ function rooms() {
       // forever. Remote_Roads_Tick is a for-in over room.memory.resources with
       // early continues (no find, no PathFinder) when nothing is due, and does
       // at most one remote's PathFinder work per room per tick.
-      if (bucket > 5000 && room.controller.level >= 4 && getCpuPolicy().allowRemotes) {
+      // BUCKET GATE: 5000 -> REMOTE_INFRA_BUCKET. Live shard3 runs a stable
+      // bucket of 3,357-3,595 (limit 20, 100-tick avg 17.3), so `> 5000` meant
+      // this pass had not executed in months: no remote was ever paved and no
+      // per-source pathLength was ever derived — and pathLength is the ONLY
+      // input to remote scoring and carrier sizing, per Build_Remote_Roads.
+      //
+      // The gate was also wildly out of proportion to the cost. Remote_Roads_-
+      // Tick does at most ONE Build_Remote_Roads per room per tick (it returns
+      // straight after), and each remote is stamped with a 500-tick cadence
+      // (REMOTE_ROAD_PASS_EVERY / REMOTE_PATH_PASS_EVERY), so a three-remote
+      // room averages 0.006 PathFinder passes a tick. That is a rounding error
+      // guarded by a threshold the bot cannot reach.
+      //
+      // Which made it self-defeating: roads are what REDUCE the CPU this gate
+      // is protecting. A loaded hauler pays 1 fatigue per non-MOVE part on
+      // road against 2 on plain, so paving a remote lane halves the MOVE parts
+      // (or the creep count) needed for the same throughput — and creep
+      // headcount is where 10.4 of this bot's 17.3 CPU goes.
+      if (bucket > REMOTE_INFRA_BUCKET && room.controller.level >= 4 && getCpuPolicy().allowRemotes) {
         Remote_Roads_Tick(room);
       }
       Situational_Building(room);

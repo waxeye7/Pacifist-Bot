@@ -5,6 +5,7 @@
 import { interiorMove, filterOutposts, outpostDeferred, rampartIsBuried } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
 import { stompForeignSite } from "utils/ForeignSites";
+import { rampartHitsTargetForRcl } from "Rooms/rooms.defence";
 
 const STEP_DX = [0, 0, 1, 1, 1, 0, -1, -1, -1];
 const STEP_DY = [0, -1, -1, 0, 1, 1, 1, 0, -1];
@@ -24,6 +25,77 @@ function stepIfWalkable(creep, dir) {
 
 const WALL_HITS_CAP = 50050000;
 const NUKE_SAFE_REMAINDER = 175000;
+
+/* -------------------------------------------------------------------------
+ * THE REPAIR CEILING — the number the SPAWN RUNG already believed in.
+ *
+ * rooms.spawning's RCL6 repair rung queues a repairer when
+ * `rampartsBelowTarget.length > 0`, i.e. when something is under
+ * rampartHitsTarget() — 250k at RCL6, 500k at RCL7 (rooms.defence). That is
+ * the per-RCL wall policy and every OTHER spend decision routes through it.
+ *
+ * This role never read it. Its target filter was `hits < hitsMax`, and an
+ * RCL6 rampart's hitsMax is 30,000,000 (100,000,000 at RCL7) — so once a
+ * repairer existed it ground the shell upward forever, sorted weakest-first,
+ * with no stop condition at all. Its ONLY brake was the work-side 5k bank
+ * floor in run(), which is not a policy, it is a stall: the room sawtoothed
+ * between 5k and ~20k for as long as a repairer was alive.
+ *
+ * Measured on live shard3 (tick 82,860,768), five of seven rooms had ground
+ * their shells to 90k-170k per rampart while every bank in the empire sat
+ * between 6.9k and 21.7k — under the 30k floor that gates construction sites,
+ * upgrader park bands and expensive furniture. The walls were being paid for
+ * out of the money the rest of the bot was waiting on.
+ *
+ * DANGER LIFTS THE CAP. Under attack the shell is the room, and
+ * rampartHitsTarget stops being the right ceiling — repair to hitsMax.
+ *
+ * ── UPKEEP vs INVESTMENT, AND WHY THE CEILING IS BANK-KEYED ─────────────────
+ *
+ * The full ladder is not affordable at RCL6 out of an RCL6 income. E38N56 has
+ * 58 planned ramparts; at rampartHitsTargetForRcl(6) = 250,000 apiece that is
+ * 14.5M hits, and a creep buys 100 hits per energy, so the shell alone is
+ * 145,000 energy for a two-source room that banks 13,846. The ladder is
+ * reachable for a room with remotes and a fat bank and nowhere near reachable
+ * for one without — which is exactly why the RCL6 spawn rung has FOUR arms
+ * with four different bank bars.
+ *
+ * So the ceiling follows the same split the spawn rung already makes:
+ *
+ *   UPKEEP     — always. SHELL_UPKEEP_HITS is the bar the rung's own
+ *                thin-shell arm triggers on (`hits < 100000` with a 10k bank)
+ *                and its comment says out loud what it wants: "One repairer
+ *                walks it toward 100k off a 20k bank". The role then ignored
+ *                that and walked it toward 30,000,000.
+ *   INVESTMENT — the rest of the ladder, once the bank clears the bar the
+ *                rung's FIRST arm uses for exactly this purpose (150k). A
+ *                room that rich is not choosing between walls and progress.
+ *
+ * Ratchet, not a flap: ramparts decay at 300 hits per 100 ticks, so a bank
+ * dipping back under 150k leaves the height it already bought alone.
+ * ------------------------------------------------------------------------- */
+/** Peacetime shell height every room maintains, whatever its bank. */
+const SHELL_UPKEEP_HITS = 100000;
+/** Bank at which the full per-RCL ladder becomes the ceiling (rung arm 1). */
+const SHELL_INVEST_BANK = 150000;
+
+export function repairCeiling(room: any): number {
+    if(room.memory && room.memory.danger) return Infinity;
+    const rcl = (room.controller && room.controller.level) || 0;
+    const target = rampartHitsTargetForRcl(rcl);
+    const bank = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
+    if(bank >= SHELL_INVEST_BANK) return target;
+    return Math.min(target, SHELL_UPKEEP_HITS);
+}
+
+/** True when `building` still wants repair under the peacetime wall policy. */
+export function wantsRepair(room: any, building: any): boolean {
+    if(building.hits >= building.hitsMax) return false;
+    if(building.structureType !== STRUCTURE_RAMPART && building.structureType !== STRUCTURE_WALL) {
+        return true;
+    }
+    return building.hits < repairCeiling(room);
+}
 
 function nukeRemainder(rampart, nukes) {
     let hits = rampart.hits;
@@ -61,19 +133,19 @@ function findLocked(creep, storage) {
             // reach from every standable exterior tile, so repairing it buys
             // nothing (utils/Interior rampartIsBuried; fail-open false).
             if(creep.room.name === "E41N58") {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
             else {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_RAMPART || isSanctionedRampart(creep.room, building.pos) && !rampartIsBuried(creep.room, building.pos)) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
 
         // }
     }
     else if(creep.room.controller.level > 2) {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
     }
     else {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits + 1000 < building.hitsMax && building.hits < 300000000});
     }
 
 
@@ -170,7 +242,7 @@ function findLocked(creep, storage) {
         // feeding it (hits < hitsMax is true up to 300M).
         buildingsToRepair300mil = filterOutposts(
             creep.room,
-            creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && (building.structureType !== STRUCTURE_RAMPART || !rampartIsBuried(creep.room, building.pos))}),
+            creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits < 300000000 && (building.structureType !== STRUCTURE_RAMPART || !rampartIsBuried(creep.room, building.pos))}),
         );
         if(buildingsToRepair300mil.length > 0) {
             buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
@@ -331,6 +403,13 @@ function findLocked(creep, storage) {
         else if(repairTarget.hits == repairTarget.hitsMax) {
             creep.memory.locked = findLocked(creep, storage);
         }
+        // ...and once it reaches the PEACETIME ceiling. hitsMax alone is not a
+        // stop condition for a wall: an RCL6 rampart caps at 30,000,000, so a
+        // lock taken at 3k was held for the creep's whole life and the ceiling
+        // in findLocked only ever applied to targets it had to go and pick.
+        else if(!wantsRepair(creep.room, repairTarget)) {
+            creep.memory.locked = findLocked(creep, storage);
+        }
         else if(repairTarget.structureType == STRUCTURE_WALL && repairTarget.hits > WALL_HITS_CAP) {
             creep.memory.locked = findLocked(creep, storage);
         }
@@ -354,6 +433,15 @@ function findLocked(creep, storage) {
         // no-op even if a rampart object existed, so the siege re-lock is gone.
 
 
+        // NOTHING LEFT UNDER THE CEILING. Falling through used to reach the
+        // tower/link top-up below, so a repairer with no job pulled a load out
+        // of a TOWER and stood there holding it — energy taken off the defence
+        // salvo for work that does not exist. Park; the spawn rungs stop
+        // replacing it and it ages out.
+        if(!creep.memory.locked) {
+            creep.idlePark();
+            return;
+        }
         if(creep.memory.locked) {
             let repairTarget = Game.getObjectById(creep.memory.locked);
             // a target locked before the siege started may now be an outpost

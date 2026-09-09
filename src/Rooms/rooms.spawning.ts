@@ -5,7 +5,7 @@ import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.lab
 import { rampartHitsTarget } from "./rooms.defence";
 import { rampartIsBuried } from "utils/Interior";
 import { logAlways } from "utils/Logger";
-import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture } from "./spawnSafety";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture, fillerBody, fillerName } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { optionalRosterOpen, lowCpuShard } from "utils/CpuPolicy";
 import { funnelMother } from "Empire/funnel";
@@ -1225,7 +1225,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,MOVE],
+                body:   fillerBody(room),
 
             },
 
@@ -1273,7 +1273,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,MOVE],
+                body:   fillerBody(room),
 
             },
 
@@ -1307,7 +1307,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,MOVE],
+                body:   fillerBody(room),
 
             },
             repair_creep: {
@@ -1364,8 +1364,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                  * stayed at zero while 11.8k rotted on the floor. 400e for 200
                  * carry at full speed is the cheapest fix; fillersWanted now
                  * actually lets the roster reach `amount` in a storage-less room.
+                 *
+                 * The 1:1 rule now lives in fillerBody (Rooms/spawnSafety), so
+                 * the self-replacement path in Roles/filler gets it too — that
+                 * path used to carry its own body table and hand RCL4 a 2:1
+                 * shuttle on an unpaved ring.
                  */
-                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
+                body:   fillerBody(room),
 
             },
             repair_creep: {
@@ -1397,8 +1402,40 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             filler_creep: {
 
+                /*
+                 * ONE FILLER, SIZED TO THE ROOM — not a hardcoded 200 carry.
+                 *
+                 * This was `[CARRY,CARRY,CARRY,CARRY,MOVE,MOVE]` at RCL5 AND
+                 * RCL6, i.e. the same 200-carry shuttle for a 1,800-capacity
+                 * network and a 2,300-capacity one, while the rung two levels
+                 * up hand-wrote [8C,4M] and RCL8 hand-wrote [16C,8M]. The
+                 * ladder stepped everywhere except across the level where the
+                 * extension count goes 30 -> 40.
+                 *
+                 * It is also the one body in the room that never scaled while
+                 * everything it competes with did: the ControllerLinkFiller in
+                 * the same room is `getBody([4C,MOVE], room, 20)` — 800 carry.
+                 * Live shard3 E35N59 ran TWO 800-carry CLFs feeding the
+                 * controller and ONE 200-carry filler feeding the hatchery: its
+                 * spawn sat on 15 energy with 995 on the floor and 1,086 in
+                 * containers. The room could upgrade and could not spawn.
+                 *
+                 * BODY, NOT HEADCOUNT, and that is the whole point. Creep
+                 * intents are where a 20-CPU shard's budget goes (~0.2+ per
+                 * creep per tick, and this empire runs 62 creeps at an 18.1
+                 * average), so a second filler costs CPU the bot does not have
+                 * while a bigger one costs none. 2:1 keeps road speed loaded.
+                 * maxLength 12 lands [8C,4M] — 600 energy for 400 carry, ~0.4
+                 * e/tick amortised, about a quarter of the room's capacity so
+                 * the queue can still buy it after one fill pass.
+                 *
+                 * The empty-room case is already covered and must stay that
+                 * way: the bare-spawn rung below hatches a cheap filler when
+                 * the roster is at zero and energyAvailable is 100-1000, and
+                 * the head-shrink rung trims a stalled `Filler-` head.
+                 */
                 amount: 1,
-                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE],
+                body:   fillerBody(room),
 
             },
             repair_creep: {
@@ -1444,8 +1481,11 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             filler_creep: {
 
+                // See the RCL5 rung for why this is getBody and not a
+                // hardcoded 200 carry. RCL6 is where the network goes 30 -> 40
+                // extensions, so it is the level the flat body hurt most.
                 amount: 1,
-                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE],
+                body:   fillerBody(room),
 
             },
 
@@ -1458,10 +1498,38 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             repair_creep: {
 
-                amount: 4,
-                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                /*
+                 * A BODY THE ROOM CAN ACTUALLY BUY, AND ONE OF THEM.
+                 *
+                 * This was `amount: 4` and a hardcoded 30-part [13W,7C,10M] —
+                 * 2,150 energy. An RCL6 room's capacity is 40 extensions at 50
+                 * plus a spawn: 2,300. So the head of the queue was 93% of
+                 * everything the room can hold, in a room whose one filler
+                 * carried 200 at a time, and `Repair-` is NOT on the
+                 * head-of-line exemption list — so it stalled and the shredder
+                 * ate it at 60 ticks (SHRED_STALLED_HEAD_AFTER).
+                 *
+                 * That made shell upkeep a COIN FLIP, and the live shard3
+                 * divergence is the tell: at tick 82,860,768 five rooms had
+                 * ground their shells to 90k-170k per rampart while E38N56 sat
+                 * with all 58 of its ramparts at ~3,000 — the peacetime TOWER
+                 * floor, i.e. no repairer had ever hatched there. Same code,
+                 * same RCL, opposite outcomes.
+                 *
+                 * Not exempting it from the shredder is deliberate: a repairer
+                 * IS optional and must not block the hatchery. The fix is to
+                 * make it affordable. getBody sizes off capacity, so RCL6 gets
+                 * ~[10W,5C,5M] (1,250e, 54% of capacity) and the RCL7 rung's
+                 * thin-bank fallback to this body scales with ITS room instead
+                 * of being pinned at 2,150.
+                 *
+                 * amount 1 matches RCL5 and RCL7, and matches what the RCL6
+                 * spawn rung's own comment asks for: "One repairer (the low-CPU
+                 * cap) walks it toward 100k off a 20k bank". Four of these was
+                 * 8,600 energy of bodies for a room that banks 13k.
+                 */
+                amount: 1,
+                body:   getBody([WORK,WORK,CARRY,MOVE], room, 20),
 
             },
 
@@ -1505,7 +1573,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
+                body:   fillerBody(room),
 
             },
 
@@ -1563,7 +1631,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                body:   fillerBody(room),
 
             },
 
@@ -1763,7 +1831,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     // as the planner kept sites open, i.e. permanently: live E2S7 sat at ZERO
     // upgraders for ~2,500 ticks with four sites and a full hub container.
     //
-    // Real storage  -> bankEnergy(), which reads room.storage ONLY (same number
+    // Real storage  -> storageEnergy(), which reads room.storage ONLY (same number
     //                  upgraderTarget()/upgradeLatch() budget from, so the floor
     //                  and the target can no longer disagree about what "the
     //                  bank" is).
@@ -1777,7 +1845,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     const hasRealBank = !!(room.storage && room.storage.my);
     const hubFallback = !hasRealBank && storage && storage.store ? storage : null;
     let upgraderEnergyFloor = hasRealBank
-        ? bankEnergy(room) > UPGRADE_FLOOR
+        ? storageEnergy(room) > UPGRADE_FLOOR
         : !!hubFallback && hubFallback.store[RESOURCE_ENERGY] * 2 >= hubFallback.store.getCapacity(RESOURCE_ENERGY)
             || pressure.onFloor >= FLOOR_PILE_SMALL
             || room.energyCapacityAvailable > 0 && room.energyAvailable * 10 >= room.energyCapacityAvailable * 9;
@@ -1941,7 +2009,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
             if(optionalRosterOpen() && maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
@@ -2004,7 +2072,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
             if(optionalRosterOpen() && maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
@@ -2035,17 +2103,17 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
             if((fillers < spawnrules[6].filler_creep.amount || fillers < spawnrules[6].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[6].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
@@ -2101,7 +2169,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 || room.controller.ticksToDowngrade < 80000 && upgraders < spawnrules[6].upgrade_creep.amount) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
             }
             // Surplus tier: >120k banked at RCL6. upgraderTarget only pays the
             // surplus out while the surge latch is on; this is the unlatched arm.
@@ -2126,7 +2194,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
+                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
             }
 
 
@@ -2166,19 +2234,19 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
             }
             if((fillers < spawnrules[7].filler_creep.amount || fillers < spawnrules[7].filler_creep.amount + 1 && activeRemotes.length > 2 || fillers < spawnrules[7].filler_creep.amount + 2 && activeRemotes.length > 3) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 let fillerBody = (room.energyCapacityAvailable < 500 || room.energyAvailable <= 300 && room.energyAvailable < room.energyCapacityAvailable * 0.5)
                     ? spawnrules[6].filler_creep.body : spawnrules[7].filler_creep.body;
                 room.memory.spawn_list.unshift(fillerBody, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[7].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[7].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
@@ -2230,7 +2298,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 || upgraders < spawnrules[7].upgrade_creep.amount && room.controller.ticksToDowngrade < 110000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 80000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
             }
             // Surplus tier: >120k (+1) / >250k (+2) banked at RCL7. Below 400k
             // the spend branch above never fires and the small upgrade_creep
@@ -2255,7 +2323,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
+                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
             }
 
 
@@ -2294,24 +2362,24 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
             }
             if((fillers < spawnrules[8].filler_creep.amount || fillers < spawnrules[8].filler_creep.amount + 1 && repairers > 1 ||fillers < spawnrules[8].filler_creep.amount + 2 && repairers > 3 || fillers < spawnrules[8].filler_creep.amount + 1 && repairers > 2 ||  fillers < spawnrules[8].filler_creep.amount + 1 && activeRemotes.length > 2 || fillers < spawnrules[8].filler_creep.amount + 2 && activeRemotes.length > 3) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 let fillerBody = (room.energyCapacityAvailable < 500 || room.energyAvailable <= 300 && room.energyAvailable < room.energyCapacityAvailable * 0.5)
                     ? spawnrules[6].filler_creep.body : spawnrules[8].filler_creep.body;
                 room.memory.spawn_list.unshift(fillerBody, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[8].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[8].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers<1 && room.energyAvailable === 300 && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
@@ -2441,7 +2509,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     if(room.memory.danger && room.memory.danger_timer > 35 && fillers < 2) {
-        let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+        let name = fillerName(room);
         room.memory.spawn_list.unshift(getBody([CARRY,CARRY,MOVE], room, 12), name, {memory: {role: 'filler'}});
         console.log('Adding filler to Spawn List: ' + name);
     }
@@ -4054,7 +4122,7 @@ function upgraderCpuCap(room, want: number): number {
          * The funnel mother (Empire/funnel) is the room the whole empire is
          * feeding by terminal; it may run three.
          */
-        const bank = bankEnergy(room);
+        const bank = storageEnergy(room);
         if(room && room.name === funnelMother() && bank >= UPGRADE_MID) return Math.min(want, 3);
         if(bank >= UPGRADE_MID) return Math.min(want, 2);
         return Math.min(want, 1);
@@ -4073,7 +4141,7 @@ function upgraderCpuCap(room, want: number): number {
 function bigUpgraderBinds(room): boolean {
     if(!(Game.cpu.limit <= UPGRADER_CLAMP_LIMIT && Game.cpu.bucket < UPGRADER_CLAMP_BUCKET)) return false;
     if(!room || !room.controller || room.controller.level < 6) return false;
-    return bankEnergy(room) >= UPGRADE_MID;
+    return storageEnergy(room) >= UPGRADE_MID;
 }
 const BIG_UPGRADER_BUDGET = 0.95;
 function bigUpgraderBody(room, fallback: () => string[]): string[] {
@@ -4095,8 +4163,22 @@ const UPGRADE_MID = 30000;
  * Energy in the room's REAL storage. Deliberately not the `storage` local the
  * gates use — that one falls back to the hub CONTAINER, which caps at 2,000, so
  * every `> 10000` test against it is unsatisfiable by construction.
+ *
+ * NAMED `storageEnergy`, NOT `bankEnergy`, and that is the point. There were
+ * three functions called `bankEnergy` in this bot and they did not agree:
+ * Rooms/spawnSafety and War/kit both mean storage PLUS TERMINAL, and this one
+ * — the one every upgrader, builder and repair rung in this file reads — means
+ * storage alone. Both are individually right (an upgrader withdraws from
+ * storage; a terminal send ships out of the terminal), but they were compared
+ * against THE SAME CONSTANTS.
+ *
+ * Live E35N58 is what that looks like: storage 21,737 + terminal 9,225 =
+ * 30,962. Against the same 30,000, Empire/funnel saw a solvent room with a
+ * (sub-minimum) surplus to ship while every rung in this file saw a room too
+ * poor to upgrade, build furniture or hold a construction site. One number,
+ * two measurements, opposite conclusions.
  */
-function bankEnergy(room): number {
+function storageEnergy(room): number {
     const s = room.storage;
     if(!s || !s.my) return 0;
     return s.store[RESOURCE_ENERGY] || 0;
@@ -4104,7 +4186,7 @@ function bankEnergy(room): number {
 
 /** Sticky surge flag: on at UPGRADE_SURGE_ON, off only below UPGRADE_SUSTAIN_OFF. */
 function upgradeLatch(room): boolean {
-    const e = bankEnergy(room);
+    const e = storageEnergy(room);
     if(e >= UPGRADE_SURGE_ON) room.memory.upLatch = true;
     else if(e < UPGRADE_SUSTAIN_OFF) room.memory.upLatch = false;
     return !!room.memory.upLatch;
@@ -4144,14 +4226,14 @@ function upgradeLatch(room): boolean {
  * DOES NOT TOUCH THE HYSTERESIS. It only ever raises the result (it is folded
  * in through the same Math.max as `emergency`, replacing it as the hard floor),
  * it reads nothing the latch reads, and it writes nothing. The surge latch is
- * still driven purely by bankEnergy through upgradeLatch().
+ * still driven purely by storageEnergy through upgradeLatch().
  */
 function keepOneUpgrader(room, miners:number): number {
     if(!room.controller || !room.controller.my) return 0;
     if(room.controller.level >= 8) return 0;
     if(room.memory.danger) return 0;
     // "can pay for it": live income, or a bank worth spending.
-    if(miners <= 0 && bankEnergy(room) < UPGRADE_FLOOR) return 0;
+    if(miners <= 0 && storageEnergy(room) < UPGRADE_FLOOR) return 0;
     return 1;
 }
 
@@ -4380,7 +4462,7 @@ function queueEarlyFiller(room, storage, fillers: number, base: number, body, re
         if(remotes > 2) want = base + 2;
     }
     if(fillers >= want) return;
-    let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+    let name = fillerName(room);
     room.memory.spawn_list.unshift(body, name, {memory: {role: 'filler'}});
     console.log('Adding filler to Spawn List: ' + name);
 }
@@ -4433,7 +4515,7 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
     const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
     room.memory.spawn_list.push(rules.build_creep.body, name, {memory: {role: 'builder'}});
     console.log('Adding Builder to Spawn List: ' + name +
-        ' (' + (builders+1) + '/' + want + ', ' + usefulSites + ' sites, bank ' + bankEnergy(room) +
+        ' (' + (builders+1) + '/' + want + ', ' + usefulSites + ' sites, bank ' + storageEnergy(room) +
         ', miners ' + miners + (rich ? '' : ', THIN BANK') + ')');
 }
 
@@ -4464,7 +4546,7 @@ function upgraderTarget(room, base:number, surplus:number, burn:number, miners:n
     // BUILDING its storage, and the full base-5 roster (live E39N58) drinks
     // the exact energy the storage site is waiting on.
     if(!room.storage || !room.storage.my) return Math.max(Math.min(base, 3) + burn, floor);
-    const bank = bankEnergy(room);
+    const bank = storageEnergy(room);
     // Full roster while the surge is latched AND there is still a real bank to
     // spend. Below the middle band the latch only guarantees that the roster
     // never reaches zero — draining a room to 15k at 48 energy/tick would starve

@@ -454,9 +454,14 @@ const run = function (creep) {
 			// Same bank floor as the ControllerLinkFiller (upgradeParkBand):
 			// mother burns at 10k so funnelled energy becomes GCL; donors
 			// park at donorReserve (30k RCL6) so they stop eating the freeze.
+			//
+			// `controllerLink` is the resolved depot (controllerDepot, null when
+			// the room has none). A room with no depot has no income path to
+			// wait for, so the donor floor there is a full stop rather than a
+			// throttle — see upgradeParkBand's note on E35N58.
 			else if(storage.structureType === STRUCTURE_STORAGE
 				&& creep.room.controller.ticksToDowngrade > 10000) {
-				const band = upgradeParkBand(creep.room);
+				const band = upgradeParkBand(creep.room, !!controllerLink);
 				if (creep.memory.bankParked
 					? storage.store[RESOURCE_ENERGY] < band.resume
 					: storage.store[RESOURCE_ENERGY] < band.floor) {

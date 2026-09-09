@@ -552,3 +552,68 @@ export function cullSurplusBuildersOnce(): void {
     // the old ones to the ladder / empire readers this tick (review O9).
     if (converted) invalidateCensus();
 }
+
+
+/* -------------------------------------------------------------------------
+ * THE FILLER LADDER — ONE definition, because there were two.
+ *
+ * The hatchery filler was sized in two places that had drifted apart:
+ *
+ *   rooms.spawning spawnrules[lvl].filler_creep.body  — the producer rung
+ *   Roles/filler.ts last-filler handoff               — the self-replacement
+ *
+ * ...and they disagreed on BOTH the body and the NAME. The handoff hardcoded
+ * its own four-rung ladder and named the creep `filler-` (lowercase) while
+ * every producer rung named it `Filler-`. Live shard3 E37N59 was running both
+ * at once: `filler(9p/300c)` from the handoff and `Filler(12p/400c)` from the
+ * rung, in the same room, doing the same job at different sizes.
+ *
+ * The name is not cosmetic. Every head-of-line safety net in rooms.spawning is
+ * `spawn_list[1].startsWith("Filler")` — case-sensitive — so a handoff-queued
+ * filler was NOT exempt from the stalled-head shredder (SHRED_STALLED_HEAD_-
+ * AFTER, 60 ticks) and NOT covered by the head-shrink rung, which is exactly
+ * the protection whose comment reads "Fillers are the -6 cure and are not on
+ * the HOL shrink rung". The one path that re-queues the room's LAST filler was
+ * the one path the shredder could eat.
+ *
+ * RATIO. 2:1 CARRY:MOVE is road speed loaded (non-MOVE parts pay 1 fatigue per
+ * road tile, each MOVE relieves 2), which is what the hub ring is paved for
+ * from RCL5. RCL4 keeps 1:1 deliberately — see the note on that rung: its
+ * extension ring is not paved yet, so a 2:1 shuttle walks at 2 ticks/tile.
+ *
+ * PART CAP, not an energy cap. Bigger is strictly better for CPU (intent cost
+ * is per creep, not per part) but spawn TIME is 3 ticks/part, and a filler is
+ * the one creep whose absence stops the room refilling its own spawn. 12/18/24
+ * parts is 36/54/72 ticks of hatch — long enough to be worth it, short enough
+ * that the gap after a death is survivable.
+ * ------------------------------------------------------------------------- */
+/** Max body parts for a hatchery filler at `lvl`. */
+export function fillerPartCap(lvl: number): number {
+    if (lvl >= 8) return 24;
+    if (lvl >= 7) return 18;
+    return 12;
+}
+
+/** The one body a hatchery filler is ever built with. */
+export function fillerBody(room: any): any[] {
+    const lvl = (room && room.controller && room.controller.level) || 0;
+    if (lvl <= 3) return [CARRY, MOVE];
+    // Unpaved ring: 1:1 so a loaded shuttle is not 2 ticks/tile.
+    if (lvl === 4) return [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE];
+    const capacity = (room && room.energyCapacityAvailable) || 0;
+    const segment = [CARRY, CARRY, MOVE];
+    const segmentCost = 150;
+    const maxSegments = Math.floor(fillerPartCap(lvl) / segment.length);
+    // 85% of capacity, the same budget getBody() uses, so the queue can still
+    // buy this after one fill pass rather than only when the room is brimming.
+    const affordable = Math.floor(Math.floor(capacity * 0.85) / segmentCost);
+    const segments = Math.max(1, Math.min(maxSegments, affordable));
+    const body: any[] = [];
+    for (let i = 0; i < segments; i++) for (const part of segment) body.push(part);
+    return body;
+}
+
+/** The one name a hatchery filler is ever given. See the ladder note above. */
+export function fillerName(room: any): string {
+    return "Filler-" + Math.floor(Math.random() * Game.time) + "-" + room.name;
+}

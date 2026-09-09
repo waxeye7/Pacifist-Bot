@@ -5,6 +5,7 @@
 import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Reachability";
 import { planSitter } from "utils/PlanV2";
 import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
+import { fillerBody, fillerName } from "Rooms/spawnSafety";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -462,20 +463,15 @@ const run = function (creep) {
        creep.room.memory.spawn_list &&
        lastFillerIn(creep.room)) {
         creep.memory._fillerQueued = true;
-        let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
-        if(creep.room.controller.level <= 3) {
-            creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level == 7) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level == 8) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        console.log("added filler to spawn queue", creep.room.name)
+        // ONE ladder, ONE name — see Rooms/spawnSafety fillerBody/fillerName.
+        // This branch used to carry its own four-rung body table AND name the
+        // creep `filler-` in lowercase, which is the one spelling every
+        // head-of-line safety net in rooms.spawning (all `startsWith("Filler")`)
+        // fails to match. The path that replaces a room's LAST filler was
+        // therefore the only filler the stalled-head shredder could eat.
+        const newName = fillerName(creep.room);
+        creep.room.memory.spawn_list.unshift(fillerBody(creep.room), newName, {memory: {role: 'filler'}});
+        console.log("added filler to spawn queue", creep.room.name, newName)
     }
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;

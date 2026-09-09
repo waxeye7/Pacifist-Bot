@@ -81,20 +81,47 @@ export function funnelMother(): string | null {
   return m && m.mother ? m.mother : null;
 }
 
+/** The floor every OTHER subsystem calls "not poor" (rooms.spawning UPGRADE_FLOOR). */
+export const PARK_FLOOR_MIN = 10000;
+
 /**
  * Where a live upgrader / CLF parks instead of draining storage.
  * Mother keeps the 10k burn floor so funnelled energy becomes GCL;
  * donors park at donorReserve so they stop eating the build/funnel reserve.
+ *
+ * ── `hasDepot` — WHY A DONOR FLOOR IS CONDITIONAL ───────────────────────────
+ *
+ * The donor floor is only defensible because parking is not the same as
+ * stopping: a parked upgrader still lives on whatever the controller link
+ * pushes at it, which is INCOME rather than savings, so the room keeps
+ * progressing while its bank rebuilds toward the funnel's reserve.
+ *
+ * That argument needs a depot to be true, and it is not checked anywhere.
+ * Live shard3 E35N58: RCL6, controller at 17,42, plan link at 18,40 NEVER
+ * BUILT (its site budget was clamped to zero — see PlanV2 maxSitesFor), so
+ * `controllerDepot()` returned null, the storage branch was the upgrader's
+ * ONLY path to energy, and this band switched it off at 21.7k against a 30k
+ * floor. The creep stood in upgrade range doing nothing for its whole life
+ * and the room ran at 1.6 energy/tick against 9-11 for its siblings.
+ *
+ * With no depot there is nothing to wait for, so the donor floor is not a
+ * throttle, it is a stop. Fall back to the floor the rest of the bot agrees
+ * on. The funnel is unharmed: donorSurplus() already refuses to ship anything
+ * below donorReserve, so an upgrader burning down to 10k can never spend
+ * energy the funnel had earmarked.
  */
-export function upgradeParkBand(room: { name?: string; controller?: { level?: number } }): { floor: number; resume: number } {
+export function upgradeParkBand(
+  room: { name?: string; controller?: { level?: number } },
+  hasDepot = true,
+): { floor: number; resume: number } {
   const mother = funnelMother();
-  if (mother && room.name === mother) return { floor: 10000, resume: 12000 };
+  if (mother && room.name === mother) return { floor: PARK_FLOOR_MIN, resume: PARK_FLOOR_MIN + 2000 };
   const lvl = (room.controller && room.controller.level) || 0;
-  if (lvl >= 6) {
+  if (lvl >= 6 && hasDepot) {
     const floor = donorReserve(lvl);
     return { floor, resume: floor + 5000 };
   }
-  return { floor: 10000, resume: 12000 };
+  return { floor: PARK_FLOOR_MIN, resume: PARK_FLOOR_MIN + 2000 };
 }
 
 /** What energyManager should keep in a donor's terminal: its surplus, capped. */

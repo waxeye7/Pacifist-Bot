@@ -311,12 +311,15 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       const caps: any = CONTROLLER_STRUCTURES as any;
       const termCap = (caps[STRUCTURE_TERMINAL] || {})[lvl] || 0;
       const extrCap = (caps[STRUCTURE_EXTRACTOR] || {})[lvl] || 0;
+      const linkCap = (caps[STRUCTURE_LINK] || {})[lvl] || 0;
       let terms = 0;
       let extrs = 0;
+      let myLinks = 0;
       for (const s of structs) {
         if (!(s as any).my) continue;
         if (s.structureType === STRUCTURE_TERMINAL) terms++;
         else if (s.structureType === STRUCTURE_EXTRACTOR) extrs++;
+        else if (s.structureType === STRUCTURE_LINK) myLinks++;
       }
       const grant = (type: string): number => {
         _exceptionSlotFor = type;
@@ -332,6 +335,21 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // paid a container for. Both grants are TYPED — see _exceptionSlotFor.
       if (termCap > 0 && terms < termCap && e >= 3000) return grant("terminal");
       if (extrCap > 0 && extrs < extrCap && e >= 5000) return grant("extractor");
+      // LINKS, for the same reason and by the same rule. A link is 5,000 —
+      // the extractor's bar — and the plan's link array is emitted
+      // [hub, source, CONTROLLER, ...] precisely so the controller link lands
+      // at RCL6 (see packPlanPayload). It is the structure that turns a parked
+      // upgrader into a working one: without it Roles/upgrader has no depot to
+      // wait at, falls through to the storage branch, and is then held by the
+      // bank park band (Empire/funnel upgradeParkBand).
+      //
+      // Live shard3 E35N58 is the room this is for. RCL6, core-complete
+      // (40/40 extensions, 2/2 towers, 1/1 spawn), terminal and extractor both
+      // standing, bank latched at ~21.7k against a 30k floor: budget 0,
+      // FOREVER. Its planned controller link at 18,40 could never be sited, so
+      // its upgrader did nothing and the room ran at 1.6 energy/tick of
+      // controller progress while its six siblings ran at 9-11.
+      if (linkCap > 0 && myLinks < linkCap && e >= 5000) return grant("link");
       return 0;
     }
   }

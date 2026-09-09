@@ -165,6 +165,28 @@ const OPTIONAL_CREEP_ROLES: { [role: string]: true } = {
   MineralMiner: true,
 };
 
+/**
+ * Bucket floor for BOUNDED, PERIODIC INFRASTRUCTURE work — the plan pass and
+ * the remote road/pathLength pass.
+ *
+ * These used to carry their own numbers (3,500 and 5,000) and both were above
+ * the bucket this bot actually runs at: live shard3 holds a stable 3,357-3,595
+ * on a 20 CPU limit. So the remote road pass had not fired in months and the
+ * construction pass was a coin flip once per 1,000 ticks — the growth
+ * machinery was switched off while the maintenance machinery kept running.
+ *
+ * Both callers are self-throttled to at most one pass per room per 1,000 ticks
+ * (construction) or one PathFinder search per room per tick with a 500-tick
+ * per-remote stamp (Remote_Roads_Tick), so the honest bar is "not an actual
+ * emergency" rather than "comfortably rich". 2,500 sits well clear of the
+ * CPU_CRISIS_BUCKET of 1,500 that spawn policy uses for that.
+ *
+ * DO NOT reuse this for anything unbounded or per-creep. It is deliberately
+ * low BECAUSE these two passes are cheap and because what they build — roads —
+ * is what reduces the creep headcount that costs 10.4 of the bot's 17.3 CPU.
+ */
+export const REMOTE_INFRA_BUCKET = 2500;
+
 /** A ~20 CPU shard (shard3). Private servers and shard0-2 read false. */
 export function lowCpuShard(): boolean {
   return (Game.cpu.limit || 20) <= 30;
