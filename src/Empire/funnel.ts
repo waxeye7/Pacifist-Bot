@@ -86,41 +86,50 @@ export const PARK_FLOOR_MIN = 10000;
 
 /**
  * Where a live upgrader / CLF parks instead of draining storage.
- * Mother keeps the 10k burn floor so funnelled energy becomes GCL;
- * donors park at donorReserve so they stop eating the build/funnel reserve.
  *
- * ── `hasDepot` — WHY A DONOR FLOOR IS CONDITIONAL ───────────────────────────
+ * ── SHIPPING AND UPGRADING ARE DIFFERENT QUESTIONS ──────────────────────────
  *
- * The donor floor is only defensible because parking is not the same as
- * stopping: a parked upgrader still lives on whatever the controller link
- * pushes at it, which is INCOME rather than savings, so the room keeps
- * progressing while its bank rebuilds toward the funnel's reserve.
+ * This used to return donorReserve() for a donor — the same number
+ * donorSurplus() uses — and that conflated two decisions that point opposite
+ * ways when a room is thin:
  *
- * That argument needs a depot to be true, and it is not checked anywhere.
- * Live shard3 E35N58: RCL6, controller at 17,42, plan link at 18,40 NEVER
- * BUILT (its site budget was clamped to zero — see PlanV2 maxSitesFor), so
- * `controllerDepot()` returned null, the storage branch was the upgrader's
- * ONLY path to energy, and this band switched it off at 21.7k against a 30k
- * floor. The creep stood in upgrade range doing nothing for its whole life
- * and the room ran at 1.6 energy/tick against 9-11 for its siblings.
+ *   SHIPPING   exports energy. A thin room must not do it, which is exactly
+ *              what donorReserve is for, and donorSurplus enforces alone.
+ *   UPGRADING  converts energy to GCL in place. It is the entire point of the
+ *              empire, and it is the LAST thing a thin room should stop doing.
  *
- * With no depot there is nothing to wait for, so the donor floor is not a
- * throttle, it is a stop. Fall back to the floor the rest of the bot agrees
- * on. The funnel is unharmed: donorSurplus() already refuses to ship anything
- * below donorReserve, so an upgrader burning down to 10k can never spend
- * energy the funnel had earmarked.
+ * Reusing one number for both meant a thin donor stopped upgrading and kept
+ * everything else running. The justification given was that parking is not
+ * stopping — a parked upgrader still lives on what the controller link pushes
+ * at it, which is income rather than savings. That is true only when a SOURCE
+ * link feeds the controller link. Where the depot is fed from the bank, the
+ * creep doing the feeding is the ControllerLinkFiller — which parks on this
+ * very same band.
+ *
+ * So the two creeps deadlocked each other. Live shard3, 2026-09-09: E38N56,
+ * E36N57, E35N59 and E37N58 each had BOTH their upgrader and their CLF flagged
+ * bankParked at once. The CLF is the only thing that stocks the depot the
+ * upgrader is waiting at, so the depot stayed empty, the upgrader fell through
+ * to the storage branch, and this band switched that off too. E38N56's
+ * controller progress did not move at all between two polls 45 ticks apart,
+ * with 16,254 banked and a healthy roster of nine creeps.
+ *
+ * ONE FLOOR FOR EVERY ROOM, and it costs the funnel nothing: donorSurplus()
+ * independently refuses to ship below donorReserve, so an upgrader burning
+ * down to PARK_FLOOR_MIN can never spend energy the funnel had earmarked. A
+ * room above donorReserve is above this floor anyway, so nothing changes for a
+ * rich donor — the fix only reaches the rooms that were frozen.
+ *
+ * PARK_FLOOR_MIN is the number the rest of the bot already means by "not
+ * poor": rooms.spawning UPGRADE_FLOOR, the floor its own comment calls "the
+ * real floor". Below it the upgraders live on link and container income while
+ * the bank rebuilds, which is the behaviour this band was always described as
+ * having.
  */
 export function upgradeParkBand(
   room: { name?: string; controller?: { level?: number } },
-  hasDepot = true,
 ): { floor: number; resume: number } {
-  const mother = funnelMother();
-  if (mother && room.name === mother) return { floor: PARK_FLOOR_MIN, resume: PARK_FLOOR_MIN + 2000 };
-  const lvl = (room.controller && room.controller.level) || 0;
-  if (lvl >= 6 && hasDepot) {
-    const floor = donorReserve(lvl);
-    return { floor, resume: floor + 5000 };
-  }
+  void room;
   return { floor: PARK_FLOOR_MIN, resume: PARK_FLOOR_MIN + 2000 };
 }
 

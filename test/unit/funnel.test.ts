@@ -46,17 +46,38 @@ describe("Empire/funnel", () => {
     assert.include(src, "budget = Math.max(budget, Math.floor(hardCap * BIG_UPGRADER_BUDGET))", "the queue clamp agrees with the 95% upgrader");
   });
 
-  it("donors park at donorReserve; the funnel mother stays on the 10k burn floor", () => {
+  it("every room burns to the 10k floor — donors included (see upgradeParkBand)", () => {
+    // WAS "donors park at donorReserve". That reused the SHIPPING floor as the
+    // UPGRADING floor, and the two point opposite ways when a room is thin:
+    // shipping exports energy, upgrading converts it to GCL in place. The
+    // upgrader and the ControllerLinkFiller share this band, and the CLF is
+    // what stocks the depot the upgrader waits at — so on live shard3
+    // (2026-09-09) E38N56, E36N57, E35N59 and E37N58 each had BOTH flagged
+    // bankParked at once and E38N56's controller progress stopped dead.
     const g: any = global;
     const prev = g.Memory;
     g.Memory = { funnel: { mother: "E37N59" } };
     try {
-      assert.deepEqual(upgradeParkBand({ name: "E37N59", controller: { level: 7 } }), { floor: 10000, resume: 12000 });
-      assert.deepEqual(upgradeParkBand({ name: "E36N57", controller: { level: 6 } }), { floor: donorReserve(6), resume: donorReserve(6) + 5000 });
-      assert.deepEqual(upgradeParkBand({ name: "E35N58", controller: { level: 7 } }), { floor: donorReserve(7), resume: donorReserve(7) + 5000 });
+      const mother = upgradeParkBand({ name: "E37N59", controller: { level: 7 } });
+      assert.deepEqual(mother, { floor: 10000, resume: 12000 });
+      for (const lvl of [6, 7, 8]) {
+        const donor = upgradeParkBand({ name: "E36N57", controller: { level: lvl } });
+        assert.deepEqual(donor, mother, "RCL" + lvl + " donor shares the mother's floor");
+        // The park floor must stay strictly BELOW the shipping floor, or a
+        // thin room stops upgrading before it stops exporting.
+        assert.isBelow(donor.floor, donorReserve(lvl));
+      }
     } finally {
       g.Memory = prev;
     }
+  });
+
+  it("the shipping floor is untouched, so the funnel cannot over-ship", () => {
+    // donorSurplus never read the park band, which is why lowering the park
+    // floor is safe: the reserve still gates every send.
+    assert.strictEqual(donorSurplus(donorReserve(6) - 1, 6), 0);
+    assert.strictEqual(donorSurplus(10000, 6), 0);
+    assert.strictEqual(donorSurplus(donorReserve(6) + 4000, 6), 4000);
   });
 });
 

@@ -16,7 +16,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { repairCeiling, wantsRepair } from "../../src/Roles/repair";
 import { fillerBody, fillerPartCap, fillerName } from "../../src/Rooms/spawnSafety";
-import { upgradeParkBand, donorReserve, PARK_FLOOR_MIN } from "../../src/Empire/funnel";
+import { upgradeParkBand, donorReserve, donorSurplus, PARK_FLOOR_MIN } from "../../src/Empire/funnel";
 import { rampartHitsTargetForRcl } from "../../src/Rooms/rooms.defence";
 
 const g: any = global;
@@ -174,39 +174,53 @@ describe("the filler ladder (there were two, and they disagreed)", () => {
     });
 });
 
-describe("the upgrader park band must not strand a room with no depot", () => {
+describe("the upgrader and the CLF must not park each other into a deadlock", () => {
     before(() => {
         g.Memory = g.Memory || {};
         (g.Memory as any).funnel = { mother: "E37N59" };
     });
 
-    it("a donor WITH a depot still parks at donorReserve — the funnel is unharmed", () => {
-        assert.deepEqual(upgradeParkBand({ name: "E35N58", controller: { level: 6 } }, true), {
-            floor: donorReserve(6),
-            resume: donorReserve(6) + 5000,
-        });
-    });
-
-    it("a donor with NO depot falls back to the floor the rest of the bot agrees on", () => {
-        // Live E35N58: controller at 17,42, planned link at 18,40 never built,
-        // so controllerDepot() was null and the storage branch was the only
-        // path its upgrader had. The band switched it off at 21,737 against a
-        // 30,000 floor and it did nothing for its whole life.
-        assert.deepEqual(upgradeParkBand({ name: "E35N58", controller: { level: 6 } }, false), {
+    it("a thin donor keeps upgrading — the park floor is not the SHIPPING floor", () => {
+        // Live E38N56, E36N57, E35N59 and E37N58 each had BOTH their upgrader
+        // and their ControllerLinkFiller flagged bankParked at once. The CLF is
+        // the only thing that stocks the depot the upgrader waits at, so the
+        // "parked creeps still live on link income" premise was false and
+        // E38N56's controller progress did not move at all.
+        assert.deepEqual(upgradeParkBand({ name: "E38N56", controller: { level: 6 } }), {
             floor: PARK_FLOOR_MIN,
             resume: PARK_FLOOR_MIN + 2000,
         });
     });
 
-    it("the mother is unchanged either way", () => {
-        for (const depot of [true, false]) {
-            assert.strictEqual(upgradeParkBand({ name: "E37N59", controller: { level: 7 } }, depot).floor, PARK_FLOOR_MIN);
+    it("every room shares one floor — mother and donor, RCL6 and RCL7 alike", () => {
+        const bands = [
+            upgradeParkBand({ name: "E37N59", controller: { level: 7 } }),
+            upgradeParkBand({ name: "E38N56", controller: { level: 6 } }),
+            upgradeParkBand({ name: "E35N58", controller: { level: 8 } }),
+        ];
+        for (const b of bands) assert.deepEqual(b, bands[0]);
+    });
+
+    it("the park floor is BELOW the shipping floor, or a thin room stops upgrading", () => {
+        // This is the whole bug in one assertion: reusing donorReserve as the
+        // park floor made a room stop converting energy to GCL before it
+        // stopped exporting it.
+        for (const lvl of [6, 7, 8]) {
+            assert.isBelow(upgradeParkBand({ name: "E38N56", controller: { level: lvl } }).floor, donorReserve(lvl));
         }
     });
 
-    it("the upgrader passes its RESOLVED depot, not a constant", () => {
-        const SRC = fs.readFileSync(path.join(__dirname, "../../src/Roles/upgrader.ts"), "utf8");
-        assert.include(SRC, "upgradeParkBand(creep.room, !!controllerLink)");
+    it("the funnel is unharmed: donorSurplus still refuses to ship below the reserve", () => {
+        // Lowering the PARK floor cannot cause over-shipping, because the
+        // shipping decision never read the park band.
+        assert.strictEqual(donorSurplus(donorReserve(6) - 1, 6), 0);
+        assert.strictEqual(donorSurplus(PARK_FLOOR_MIN, 6), 0);
+        assert.strictEqual(donorSurplus(donorReserve(6) + 5000, 6), 5000);
+    });
+
+    it("the hysteresis band still has width, so the floor cannot flap", () => {
+        const b = upgradeParkBand({ name: "E38N56", controller: { level: 6 } });
+        assert.isAbove(b.resume, b.floor);
     });
 });
 
