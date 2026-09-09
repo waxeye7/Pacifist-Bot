@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
-import { isSanctionedRampart } from "utils/PlanV2";
+import { isSanctionedRampart, isPlannedContainer } from "utils/PlanV2";
 
 /**
  * Stable 0..mod-1 offset from a creep name. Copied from Roles/energyMiner —
@@ -137,13 +137,36 @@ const run = function (creep) {
             }
         }
 
-        let containers;
-        if(creep.room.controller.level <= 6) {
-            containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER});
-        }
-        else {
-            containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER && s.id == creep.room.memory.Structures.bin});
-        }
+        /*
+         * EVERY CONTAINER THE PLAN WANTS, AT EVERY LEVEL.
+         *
+         * This used to narrow to the hub BIN ALONE from RCL7 — and no other
+         * role covers the difference: Roles/repair excludes containers outright
+         * from RCL6 (see its three RCL6+ filters), builders only build sites,
+         * and the miner merely stands on its box. So from the tick a room hit
+         * RCL7 its SOURCE containers had nothing repairing them.
+         *
+         * A container in an owned room decays 5,000 hits per 500 ticks — 10 a
+         * tick against a 250,000 max — so it dies in 25,000 ticks, and a dead
+         * source container means the miner drop-mines onto the floor where the
+         * pile decays at 1/1000 per tick. Live shard3 E37N59 is RCL7 with a
+         * four-container plan and ZERO containers standing.
+         *
+         * The upkeep is negligible and always was: 10 hits/tick at REPAIR_COST
+         * 0.01 is 0.1 energy/tick per container, 0.4 for a whole plan.
+         *
+         * Plan membership, not a range test, so a box left over from an old
+         * layout still decays away — that is the thing the RCL7 narrowing was
+         * actually reaching for. A room with no adopted plan keeps the old
+         * take-everything behaviour, which is correct for a room whose layout
+         * nothing has an opinion about yet.
+         */
+        const allContainers = creep.room.find(FIND_STRUCTURES,
+            {filter: s => s.structureType == STRUCTURE_CONTAINER});
+        const bin = creep.room.memory.Structures && creep.room.memory.Structures.bin;
+        const containers = creep.room.memory.planV2
+            ? allContainers.filter((s:any) => s.id === bin || isPlannedContainer(creep.room, s.pos))
+            : allContainers;
 
         if(containers.length > 0) {
             for(let container of containers) {

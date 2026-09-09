@@ -535,6 +535,31 @@ export function plannedSpawnTile(room: Room): { x: number; y: number } | null {
   return unpack(spawns[0]);
 }
 
+/**
+ * Is `pos` a tile the room's plan wants a CONTAINER on?
+ *
+ * The upkeep question, and the reason it needs answering: Roles/repair excludes
+ * containers outright from RCL6, and Roles/maintainer narrowed its container
+ * list to the hub bin alone from RCL7 — so an RCL7 room's SOURCE containers had
+ * nothing repairing them at all. A container in an owned room decays 5,000 hits
+ * per 500 ticks (10/tick) against a 250,000 max, so it dies in 25,000 ticks and
+ * its source goes back to dropping on the floor. Live shard3 E37N59 is RCL7
+ * with a four-container plan and ZERO containers standing.
+ *
+ * Answers against the plan rather than a range test so an abandoned box from an
+ * old layout still decays away, which is the behaviour the RCL7 narrowing was
+ * reaching for. Fails CLOSED (false) for a room with no adopted plan — such a
+ * room keeps whatever the caller's own fallback is.
+ */
+export function isPlannedContainer(room: Room, pos: { x: number; y: number }): boolean {
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  const tiles = plan && plan.t ? plan.t[STRUCTURE_CONTAINER] : undefined;
+  if (!tiles || !tiles.length) return false;
+  const packed = pos.x + pos.y * 50;
+  for (const t of tiles) if (t === packed) return true;
+  return false;
+}
+
 /** Packed link order is hub, first source, controller, … */
 export function plannedLinkTile(room: Room, index: number): { x: number; y: number } | null {
   const plan = room.memory.planV2 as PackedPlan | undefined;
