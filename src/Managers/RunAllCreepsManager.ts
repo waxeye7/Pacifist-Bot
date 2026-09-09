@@ -5,23 +5,32 @@ import { powerDisabled } from "utils/Features";
 import { skipHighRclCreep } from "utils/Speedrun";
 import { creepRoleIsOptional, skipOptionalCreep } from "utils/CpuPolicy";
 
+/**
+ * How many ticks of skip history to keep. Unbounded lifetime totals answer no
+ * question anyone asks: live shard3 read `n: 1,480,607` with
+ * `roles: { builder: 776367, ... }` — and `builder` has not been an optional
+ * role for long enough that nobody could say when it stopped, because the
+ * counter had no clock on it. A windowed count says "is the latch biting NOW",
+ * which is the only thing this record is ever consulted for.
+ */
+const CPU_SKIP_WINDOW = 1000;
+
 function noteOptionalSkip(role: string | undefined): void {
     const m: any = Memory;
-    const prev = m.cpuSkip;
-    if (!prev || prev.tick !== Game.time) {
-      m.cpuSkip = {
-        tick: Game.time,
-        tickN: 0,
-        n: prev && prev.n ? prev.n : 0,
-        last: Game.time,
-        roles: prev && prev.roles ? prev.roles : {},
-      };
+    let rec = m.cpuSkip;
+    // Roll the window: past CPU_SKIP_WINDOW ticks since it opened, start clean.
+    if (!rec || typeof rec.since !== "number" || Game.time - rec.since >= CPU_SKIP_WINDOW) {
+      rec = m.cpuSkip = { since: Game.time, tick: Game.time, tickN: 0, n: 0, last: Game.time, roles: {} };
     }
-    m.cpuSkip.tickN++;
-    m.cpuSkip.n++;
-    m.cpuSkip.last = Game.time;
+    if (rec.tick !== Game.time) {
+      rec.tick = Game.time;
+      rec.tickN = 0;
+    }
+    rec.tickN++;
+    rec.n++;
+    rec.last = Game.time;
     const r = role || "?";
-    m.cpuSkip.roles[r] = (m.cpuSkip.roles[r] || 0) + 1;
+    rec.roles[r] = (rec.roles[r] || 0) + 1;
 }
 
 function RunAllCreepsManager() {

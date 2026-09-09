@@ -1,5 +1,6 @@
 import { logAlways } from "utils/Logger";
 import { isUndeliverable, blacklistFillTarget } from "utils/Reachability";
+import { setPathRole } from "utils/PathStats";
 
 /**
  * ---------------------------------------------------------------------------
@@ -626,6 +627,10 @@ function RunCreepManager(name) {
         }
 
         let creepUsed = Game.cpu.getUsed();
+        // Attribute every PathFinder.search this role makes to the role. See
+        // utils/PathStats: Memory.CPU.roles says WHICH role is expensive,
+        // Memory.CPU.path says whether the answer is our own A*.
+        setPathRole(creep.memory.role);
         global.ROLES[creep.memory.role].run(creep);
         const roleUsed = Game.cpu.getUsed() - creepUsed;
         noteRoleCpu(creep.memory.role, roleUsed);

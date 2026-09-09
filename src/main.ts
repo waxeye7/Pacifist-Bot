@@ -2,10 +2,11 @@ import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
 import global from "./utils/Global";
-import { installLogger, logAlways } from "utils/Logger";
+import { installLogger, logAlways, logVerbose } from "utils/Logger";
 import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
 import { getCpuPolicy, billedTickCpu } from "utils/CpuPolicy";
+import { installPathStats } from "utils/PathStats";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
@@ -291,6 +292,7 @@ function heartbeat(tickCpu: number): void {
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
   installLogger();
+  installPathStats();
   installRemoteStatsCommand();
   installWarCommands();
   installSegmentCommands();
@@ -431,7 +433,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   const billed = billedTickCpu(endUsed, startTotal);
   let tickTotal = billed.toFixed(2);
-  console.log(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
+  // logVerbose, not console.log. This was the ONE line in the bot that spoke
+  // on every tick whatever Memory.verbose said — the thing installLogger()
+  // exists to prevent — and it is also invisible in every CPU figure the bot
+  // reports, because `endUsed` above is sampled BEFORE it runs. The heartbeat
+  // (every 100 ticks, logAlways) is the line that is meant to prove the bot is
+  // alive; this one only ever restated a number already in Memory.CPU.
+  logVerbose(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
 
   heartbeat(billed);
 
