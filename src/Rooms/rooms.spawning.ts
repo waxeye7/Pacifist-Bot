@@ -5,7 +5,7 @@ import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.lab
 import { rampartHitsTarget } from "./rooms.defence";
 import { rampartIsBuried } from "utils/Interior";
 import { logAlways } from "utils/Logger";
-import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture, fillerBody, fillerName } from "./spawnSafety";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture, fillerBody, fillerName, homeMinerBody, builderPartCap } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { optionalRosterOpen, lowCpuShard } from "utils/CpuPolicy";
 import { funnelMother } from "Empire/funnel";
@@ -4515,7 +4515,13 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
     const want = Math.min(rich ? rules.build_creep.amount : 1, usefulSites, liveBuilderKeep(sites.length));
     if(builders >= want) return;
     const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-    room.memory.spawn_list.push(rules.build_creep.body, name, {memory: {role: 'builder'}});
+    // ...and a body the BANK can pay for, not one the extension ring can.
+    // rules.build_creep.body is getBody([W,W,C,C,M], room, 50) — sized off
+    // energyCapacityAvailable alone, so live E37N58 queued a 3,500e builder
+    // against a 388e storage. See spawnSafety builderPartCap.
+    const body = getBody([WORK,WORK,CARRY,CARRY,MOVE], room,
+                         builderPartCap(rich, realBank ? (storage.store[RESOURCE_ENERGY] || 0) : 0));
+    room.memory.spawn_list.push(body, name, {memory: {role: 'builder'}});
     console.log('Adding Builder to Spawn List: ' + name +
         ' (' + (builders+1) + '/' + want + ', ' + usefulSites + ' sites, bank ' + storageEnergy(room) +
         ', miners ' + miners + (rich ? '' : ', THIN BANK') + ')');
@@ -5713,13 +5719,9 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                     // guard the repair rung uses in the other
                                     // direction.)
                                     const uoBoosted = chargeBoostSlot(room, "lab8", 360, newName);
-                                    let body;
-                                    if(danger) {
-                                        body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE]
-                                    }
-                                    else {
-                                        body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE]
-                                    }
+                                    // 12W/5C was 1,750e for a tap that 5 WORK
+                                    // already empties (spawnSafety homeMinerBody).
+                                    const body = homeMinerBody(room.energyCapacityAvailable, danger);
                                     const minerMem: any = {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger:danger};
                                     if(uoBoosted) {
                                         minerMem.boostlabs = [room.memory.labs.outputLab8];
@@ -5730,16 +5732,12 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                 else {
                                     // Do not wipe lab8 — that stomped any other
                                     // live reservation on the same slot.
-                                    let body;
-                                    if(danger) {
-                                        body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,CARRY,MOVE]
-                                    }
-                                    else if(room.energyAvailable > 3000 && Game.cpu.bucket < 9000) {
-                                        body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,WORK,WORK,CARRY,MOVE]
-                                    }
-                                    else {
-                                        body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,WORK,WORK,CARRY,MOVE]
-                                    }
+                                    // WAS 18W (2,500e), 10W (1,500e) and a 12W
+                                    // danger body. A home source is a 10 e/t tap
+                                    // and HARVEST_POWER is 2, so everything past
+                                    // the 5th WORK harvested nothing for 1,500
+                                    // ticks. See spawnSafety homeMinerBody.
+                                    const body = homeMinerBody(room.energyCapacityAvailable, danger);
                                     room.memory.spawn_list.unshift(body, newName,
                                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger: danger}});
                                 }

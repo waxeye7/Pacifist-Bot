@@ -468,6 +468,32 @@ export function yieldStopgaps(room: any, census: EmpireCensus, sources: any[]): 
 let lastFailLog: { [room: string]: number } = {};
 
 /**
+ * Retire finished stopgaps. Runs EVERY tick for every owned room, and is
+ * deliberately NOT part of runSpawnLadder.
+ *
+ * yieldStopgaps used to be reachable only from inside runSpawnLadder, which
+ * returns immediately when `spawn.spawning` — i.e. exactly whenever the room
+ * is hatching something, which for a one-spawn RCL6/7 room is most of the
+ * time. So a stopgap the ladder built to cover an unstaffed source outlived
+ * the real miner's arrival by however long the spawn stayed busy, and the two
+ * shared one 10 e/t source: the room paid two miner annuities for one tap.
+ *
+ * Live shard3 2026-09-10, E37N58: source ...a282 carried BOTH
+ * EnergyMiner-L82862274 (the [5W,1C,2M] stopgap, `stopgap: true`, seated on
+ * the source and pulling the full 10 e/t on its own) and the real
+ * EnergyMiner-47297331 ([18W,5C,9M], 2,500e) — in the room with 388 energy in
+ * storage. The owner's report: "there's three energy miners in my room ...
+ * there should only be two".
+ *
+ * Retirement costs one census lookup and a walk over the (few) stopgap names,
+ * so it does not belong behind a spawn-idle gate in the first place.
+ */
+export function retireStopgapsFor(room: any): void {
+    if (!room || !room.controller || !room.controller.my || !room.memory) return;
+    yieldStopgaps(room, getCensus(), room.find(FIND_SOURCES) || []);
+}
+
+/**
  * Runs the ladder for one room with an idle spawn. Returns true when it took
  * the spawn this tick (the caller returns; the queue does not also spawn).
  */

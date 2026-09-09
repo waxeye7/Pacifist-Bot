@@ -199,27 +199,65 @@ export function lowCpuShard(): boolean {
  * tick, but the rungs that QUEUE them read only the bank — so live shard3 paid
  * 1800 energy for 7W7C7M repairers (E39N58: two of them, one upgrader) and
  * then never ran them. The body is paid; the work is not done. This is the
- * spawn-side twin of that latch: closed when the bucket is sick or the
- * 100-tick average sits near the limit, with hysteresis so a roster does not
- * flap on a lifetime cadence (close at 92%, reopen below 85%).
+ * spawn-side twin of that latch: closed when the bucket is sick, with a
+ * deadband so a roster whose members live 1,500 ticks does not flap.
  *
  * Only a 20-CPU shard ever closes. Builders are not optional: a site left
  * unbuilt is a spawn / extension / tower the room is waiting on, and
  * queueBuilder has its own bank gates.
  */
+/** Bucket at which the optional roster CLOSES — the server is near skipping ticks. */
+export const OPT_ROSTER_CLOSE_BUCKET = 2000;
+/** Bucket at which it REOPENS. Between the two, the previous answer holds. */
+export const OPT_ROSTER_OPEN_BUCKET = 3000;
+
 export function optionalRosterOpen(): boolean {
   if (!lowCpuShard()) return true;
-  const limit = Game.cpu.limit || 20;
   const M: any = Memory as any;
-  if (Game.cpu.bucket < 2000) {
+  const bucket = Game.cpu.bucket;
+  /*
+   * ── THE BUCKET IS THE RESOURCE. THE AVERAGE IS NOT. ───────────────────────
+   *
+   * This closed at avg >= limit * 0.92 and reopened at avg < limit * 0.85 —
+   * on shard3 that is close at 18.4, reopen at 17.0. The bot's natural floor
+   * is 18.1: measured over 40 consecutive live ticks (2026-09-10, tick
+   * 82,861,848+) it ran 17.85-18.80 with this roster ALREADY shut and every
+   * remote in the empire ALREADY closed. The reopen bar sat below the
+   * cheapest the bot can physically be, so once closed it could never open
+   * again. Live memory read `_optRosterOpen: false` against a stable 3,354
+   * bucket, and the roles it withholds had not been buyable for as long as
+   * that had been true.
+   *
+   * What it withholds is repair, maintainer and sweeper — the room's ONLY
+   * creep-side upkeep for walls and roads. The towers hold a 3,000-hit decay
+   * floor on the shell (rooms.defence TOWER_SHELL_FLOOR) and a 10% floor on
+   * roads, and NOTHING else touches either. So "closed forever" means every
+   * rampart in the empire converges on 3,000 hits and stays there while the
+   * bot reports itself healthy — which is exactly what live E38N56 showed
+   * (58 ramparts, minRampart 2,981). That is not a CPU saving. It is a
+   * structural loss taken on a signal that cannot clear.
+   *
+   * A 100-tick average of 18.3 against a limit of 20, with a bucket that is
+   * NOT falling, is a bot paying its way — it is what "at budget" looks like,
+   * not what "over budget" looks like. The bucket is the integral of exactly
+   * that question, and it is the only signal here that can move in both
+   * directions. Same conclusion getCpuPolicy already reached for remotes; see
+   * the hysteresis note there.
+   *
+   * The per-tick brake is untouched: skipOptionalCreep still idles all three
+   * roles the moment a tick crosses 90% of the limit, so a genuinely bad tick
+   * still costs them their run(). This gate only decides whether a room may
+   * ever BUY one.
+   */
+  if (bucket < OPT_ROSTER_CLOSE_BUCKET) {
     M._optRosterOpen = false;
     return false;
   }
-  const avg = Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
-  const wasOpen = M._optRosterOpen !== false;
-  const open = wasOpen ? avg < limit * 0.92 : avg < limit * 0.85;
-  M._optRosterOpen = open;
-  return open;
+  if (bucket >= OPT_ROSTER_OPEN_BUCKET) {
+    M._optRosterOpen = true;
+    return true;
+  }
+  return M._optRosterOpen !== false;
 }
 
 export function creepRoleIsOptional(role: string | undefined): boolean {

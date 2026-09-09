@@ -617,3 +617,126 @@ export function fillerBody(room: any): any[] {
 export function fillerName(room: any): string {
     return "Filler-" + Math.floor(Math.random() * Game.time) + "-" + room.name;
 }
+
+/* -------------------------------------------------------------------------
+ * THE HOME MINER — a source is a 10 energy/tick tap, and no body can open it
+ * further.
+ *
+ * SOURCE_ENERGY_CAPACITY (3,000) / ENERGY_REGEN_TIME (300) = 10 e/t in an
+ * owned room, and HARVEST_POWER is 2, so FIVE WORK parts take everything the
+ * source has. Every WORK part past the fifth harvests nothing, ever: it is
+ * paid for at spawn, carried around for 1,500 ticks, and returns zero.
+ *
+ * The RCL6+ rungs in rooms.spawning did not know this. They built:
+ *
+ *   [18W, 5C, 9M]   2,500e, 32 parts, 96 ticks of hatch   (energyAvailable>3000)
+ *   [12W, 5C, 8M]   1,750e, 25 parts, 75 ticks            (danger / boosted)
+ *   [10W, 5C, 5M]   1,500e, 20 parts, 60 ticks            (the common case)
+ *
+ * against a body that saturates the source at [5W, 4C, 5M] — 950e, 14 parts,
+ * 42 ticks. The 18-WORK body is 3.6x the WORK the tap can supply.
+ *
+ * This is not a rounding error in a room's budget, it IS the budget. A miner
+ * is replaced every CREEP_LIFE_TIME, so its cost is an annuity against the one
+ * source it sits on:
+ *
+ *   [18W,5C,9M]  2,500 / 1,500 = 1.67 e/t  =  17% of everything the source makes
+ *   [10W,5C,5M]  1,500 / 1,500 = 1.00 e/t  =  10%
+ *   [5W,4C,5M]     950 / 1,500 = 0.63 e/t  =   6%
+ *
+ * ...plus 96 ticks of hatch per life on the ONE spawn an RCL6/7 room has,
+ * which is 6.4% of that spawn's entire uptime spent rebuilding a creep three
+ * quarters of which does nothing.
+ *
+ * Measured, live shard3 2026-09-10: E37N58 (RCL7, storage 388 — the most
+ * broke room in the empire) had just paid 2,500 energy for an [18W,5C,9M]
+ * miner for source ...a282, a source that ALREADY had a working [5W,1C,2M]
+ * ladder stopgap sitting on it and pulling the full 10 e/t.
+ *
+ * CARRY, not WORK, is what a miner is actually short of: it buffers between
+ * deposits into the link or container. 4 CARRY (200) is 20 ticks of output.
+ * MOVE is ceil(nonMove / 2) — road speed for the one walk out to the seat,
+ * which is where seat discipline then parks it for life (utils/minerSeat).
+ * ------------------------------------------------------------------------- */
+
+/** Energy an owned-room source yields per tick: SOURCE_ENERGY_CAPACITY / ENERGY_REGEN_TIME. */
+export const HOME_SOURCE_ENERGY_PER_TICK = 10;
+
+/**
+ * WORK parts that take 100% of a home source. HARVEST_POWER is 2 per WORK per
+ * tick, so this is 5 — a hard property of the game, not a tuning knob.
+ */
+export const MINER_WORK_SATURATES = Math.ceil(HOME_SOURCE_ENERGY_PER_TICK / 2);
+
+/**
+ * The body for a miner on a HOME source, sized to the tap rather than to the
+ * room's wallet.
+ *
+ * `capacity` is energyCapacityAvailable. `danger` buys a 1:1 MOVE ratio so the
+ * creep can actually leave when the room is under attack — the only reason to
+ * spend past the saturating body.
+ */
+export function homeMinerBody(capacity: number, danger = false): any[] {
+    const cap = typeof capacity === "number" && capacity > 0 ? capacity : 0;
+    const partCost = (w: number, c: number, m: number) => w * 100 + c * 50 + m * 50;
+    const build = (w: number, c: number, m: number) => {
+        const body: any[] = [];
+        for (let i = 0; i < w; i++) body.push(WORK);
+        for (let i = 0; i < c; i++) body.push(CARRY);
+        for (let i = 0; i < m; i++) body.push(MOVE);
+        return body;
+    };
+    // Shrink WORK first, then CARRY, until the room can pay. Never below the
+    // [1W,1M] that still mines something.
+    for (let work = MINER_WORK_SATURATES; work >= 1; work--) {
+        for (let carry = work >= MINER_WORK_SATURATES ? 4 : 1; carry >= 0; carry--) {
+            const nonMove = work + carry;
+            const move = danger ? nonMove : Math.max(1, Math.ceil(nonMove / 2));
+            if (partCost(work, carry, move) <= cap) return build(work, carry, move);
+        }
+    }
+    return [WORK, MOVE];
+}
+
+/* -------------------------------------------------------------------------
+ * THE THIN-BANK BUILDER — `rich` gated the COUNT and forgot the BODY.
+ *
+ * queueBuilder already knows when a room cannot afford to build: `rich` is
+ * `storage > siteFreezeBank(lvl)` (30k / 80k / 150k), and a room that fails it
+ * is cut back to ONE builder instead of the roster's 2-3. But the body it then
+ * queues is `rules.build_creep.body`, which is
+ * `getBody([W,W,C,C,M], room, 50)` — and getBody sizes off
+ * energyCapacityAvailable, never the bank. So a poor room got one builder at
+ * the same price a rich room pays.
+ *
+ * Live shard3 2026-09-10, E37N58: RCL7, energyCapacityAvailable 4,700, storage
+ * 388. The 50-part cap binds at ten [W,W,C,C,M] segments = 20W 20C 10M =
+ * 3,500 energy — a builder costing NINE TIMES the room's entire bank, queued
+ * to finish a spawn site that needs 3,779 more progress. The owner's words:
+ * "it's like spawning a builder when I have barely any energy in my storage".
+ *
+ * A builder is not an investment that pays itself back the way a miner is; it
+ * converts bank into structure at a fixed 1 energy per point either way. Twice
+ * the WORK finishes the site twice as fast and costs twice as much to put in
+ * the field, so on a thin bank the big body buys nothing but a longer hatch
+ * (3 ticks/part: 150 ticks for the 50-part body) and a deeper hole.
+ *
+ * Part cap rather than an energy cap so this composes with getBody's own
+ * budget clamp, and so the shape of the body — the 1:1 WORK:CARRY that lets a
+ * builder run a full load into a site — is left exactly as the rung wrote it.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Body-part ceiling for a builder, given whether the room cleared
+ * `siteFreezeBank` (`rich`) and what it actually holds.
+ *
+ * 10 parts is two [W,W,C,C,M] segments: 4 WORK (20 progress/tick), 4 CARRY,
+ * 700 energy, 30 ticks of hatch. That finishes a 3,000-point extension in 150
+ * ticks of work, which is the right pace for a room living on income.
+ */
+export function builderPartCap(rich: boolean, bank: number): number {
+    if (rich) return 50;
+    const held = typeof bank === "number" && bank > 0 ? bank : 0;
+    if (held >= 10000) return 20;
+    return 10;
+}

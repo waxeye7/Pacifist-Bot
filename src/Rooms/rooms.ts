@@ -14,6 +14,7 @@ import { applySpeedrunSpawnHints, skipHighRclRoom } from "utils/Speedrun";
 import { placeFromPlanV2 } from "utils/PlanV2";
 import { refreshUnreachable, pruneBadFill } from "utils/Reachability";
 import { forwardToControllerLink } from "../Roles/energyMiner";
+import { retireStopgapsFor } from "./spawnLadder";
 import { logAlways } from "utils/Logger";
 import { isSkeleton } from "War/mode";
 import { wipeForeignSites } from "utils/ForeignSites";
@@ -183,6 +184,13 @@ function rooms() {
       if (room.controller.level >= 5) {
         forwardToControllerLink(room);
       }
+
+      // Stopgaps yield to the real creep — room-level for the same reason as
+      // the link forward above. This used to live inside runSpawnLadder, which
+      // bails the moment `spawn.spawning` is true, so a one-spawn room retired
+      // nothing while it was busy and paid two miner annuities for one 10 e/t
+      // source. See Rooms/spawnLadder.ts retireStopgapsFor().
+      retireStopgapsFor(room);
 
       if (room.controller.level >= 5 && room.memory.Structures.container) {
         delete room.memory.Structures.container;

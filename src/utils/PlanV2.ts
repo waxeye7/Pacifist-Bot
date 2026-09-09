@@ -287,6 +287,22 @@ function bankIsBroke(room: any, e: number, floor: number): boolean {
   return broke;
 }
 
+/**
+ * How many tiles of `type` the room's plan wants AT THIS RCL — the same staged
+ * list placePlanSites works from, so a caller can ask "is the plan finished for
+ * this type" without re-deriving the staging (mineral container deferred,
+ * extension prefix, and so on).
+ *
+ * Zero when the room has no adopted plan, which makes every caller fail closed.
+ */
+function plannedCountOf(room: Room | undefined, type: string): number {
+  if (!room || !room.memory) return 0;
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  if (!plan || !plan.t) return 0;
+  const lvl = (room.controller && room.controller.level) || 0;
+  return plannedTilesFor(plan, type, lvl, room).length;
+}
+
 function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number {
   _exceptionSlotFor = null;
   // Established rooms: do not keep 8 sites open when the bank is thin.
@@ -315,7 +331,14 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       let terms = 0;
       let extrs = 0;
       let myLinks = 0;
+      // Containers are NEUTRAL structures — `.my` is undefined on them — so
+      // they are counted outside the ownership filter below, not inside it.
+      let containers = 0;
       for (const s of structs) {
+        if (s.structureType === STRUCTURE_CONTAINER) {
+          containers++;
+          continue;
+        }
         if (!(s as any).my) continue;
         if (s.structureType === STRUCTURE_TERMINAL) terms++;
         else if (s.structureType === STRUCTURE_EXTRACTOR) extrs++;
@@ -350,6 +373,33 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
       // its upgrader did nothing and the room ran at 1.6 energy/tick of
       // controller progress while its six siblings ran at 9-11.
       if (linkCap > 0 && myLinks < linkCap && e >= 5000) return grant("link");
+      /*
+       * CONTAINERS, and for a blunter reason than any of the above: without one
+       * a source's energy goes ON THE FLOOR AND DECAYS.
+       *
+       * A miner harvests 10 e/t. It holds 200-250. Everything past that is
+       * dropped, and a dropped pile loses 1/1000 of itself per tick — so an
+       * unserviced source does not bank slowly, it bleeds. The container is the
+       * buffer that makes the miner/carrier pair work at all, and it is the
+       * cheapest structure in the plan that changes a room's income (5,000,
+       * the extractor's bar).
+       *
+       * Measured live shard3 2026-09-10, and this one is exact: E35N59's plan
+       * wants containers at 19,6 / 38,19 / 16,17 / 30,14. Three are standing;
+       * 38,19 has never been built. The room had 798 energy lying on the floor
+       * AT 38,19 — the precise tile — with a miner sitting on top of it and a
+       * 9,248 bank latched under the 30,000 floor, so the site budget was zero
+       * and always would be. E36N57 the same: plan container at 6,43, ZERO
+       * containers built in the whole room, 1,455 energy on the ground at 7,43.
+       *
+       * Counted against the plan's own container list rather than
+       * CONTROLLER_STRUCTURES (5 at every level): the cap is not what is
+       * missing here, the budget is.
+       */
+      const planContainers = plannedCountOf(room, STRUCTURE_CONTAINER);
+      if (planContainers > 0 && containers < planContainers && e >= 5000) {
+        return grant("container");
+      }
       return 0;
     }
   }
