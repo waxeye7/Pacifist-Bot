@@ -1518,10 +1518,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                  *
                  * Not exempting it from the shredder is deliberate: a repairer
                  * IS optional and must not block the hatchery. The fix is to
-                 * make it affordable. getBody sizes off capacity, so RCL6 gets
-                 * ~[10W,5C,5M] (1,250e, 54% of capacity) and the RCL7 rung's
-                 * thin-bank fallback to this body scales with ITS room instead
-                 * of being pinned at 2,150.
+                 * make it affordable: the 20-part cap binds before capacity
+                 * does, so this is [10W,5C,5M] — 1,500e, 65% of an RCL6 network
+                 * rather than 93%, and 27% at RCL7 where the same body is the
+                 * thin-bank fallback. 10 WORK is 1,000 hits/tick for 10 e/tick,
+                 * so one lifetime buys ~1.5M hits: E38N56's 58-rampart shell
+                 * reaches the 100k upkeep bar in about four of them.
                  *
                  * amount 1 matches RCL5 and RCL7, and matches what the RCL6
                  * spawn rung's own comment asks for: "One repairer (the low-CPU
