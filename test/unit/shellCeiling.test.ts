@@ -88,9 +88,12 @@ describe("the repair ceiling (walls were unbounded)", () => {
 
     it("no target under the ceiling parks instead of draining a tower to stand still", () => {
         const SRC = fs.readFileSync(path.join(__dirname, "../../src/Roles/repair.ts"), "utf8");
-        const park = SRC.indexOf("if(!creep.memory.locked) {\n            creep.idlePark();");
+        // Newline-agnostic: git normalises this repo's LF to CRLF on checkout,
+        // so a literal "\n" in the needle fails on a fresh clone.
+        const park = SRC.search(/if\(!creep\.memory\.locked\)\s*\{\s*creep\.idlePark\(\);/);
         const towerTopUp = SRC.indexOf("!creep.memory.repairing && (!creep.room.memory.danger");
         assert.isAbove(park, -1, "an idle repairer must park");
+        assert.isAbove(towerTopUp, -1, "the tower top-up block should still exist");
         assert.isBelow(park, towerTopUp, "...before it can reach the tower top-up");
     });
 });
