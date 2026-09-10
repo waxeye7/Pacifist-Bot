@@ -445,25 +445,6 @@ function rooms() {
         // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
       }
 
-      if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500 && !room.memory.danger) {
-        _.forEach(Game.rooms, function (everyRoom) {
-          guarded(everyRoom, function () {
-            if (
-              everyRoom &&
-              everyRoom.memory &&
-              !everyRoom.memory.danger &&
-              // OWNED rooms only. For a REMOTE this list is RemoteRepair's
-              // entire repair enrollment; wiping it made the repairer arrive,
-              // find nothing repairable, latch serviced and recycle — while
-              // the rung kept re-spawning it for the still-decaying roads.
-              everyRoom.controller && everyRoom.controller.my &&
-              everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0
-            ) {
-              everyRoom.memory.keepTheseRoads = [];
-            }
-          });
-        });
-      }
       let bucket = Game.cpu.bucket;
 
       // v2-planned rooms: keep the 4 site slots recycling. placeFromPlanV2 is
@@ -576,6 +557,41 @@ function rooms() {
       eachVisibleRoom(room);
     });
   });
+
+  /*
+   * ONCE PER EMPIRE, NOT ONCE PER ROOM PER EMPIRE.
+   *
+   * This sweep lived inside the per-visible-room body while iterating
+   * Game.rooms itself, so with seven communes it ran the whole-empire pass
+   * seven times on the same tick and did a FIND_MY_CONSTRUCTION_SITES in every
+   * visible room seven times over. The result was identical after the first
+   * pass — the list is set to [] and re-reading it changes nothing — so six
+   * sevenths of the work was pure waste, spent as a spike on one tick.
+   *
+   * Hoisted verbatim; the inner guards are unchanged and still do the real
+   * filtering. The outer `!room.memory.danger` term is dropped because it was
+   * the CURRENT room's flag deciding whether to sweep the OTHER six, which was
+   * never the intent — each room's own danger flag is already checked inside.
+   */
+  if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500) {
+    _.forEach(Game.rooms, function (everyRoom) {
+      guarded(everyRoom, function () {
+        if (
+          everyRoom &&
+          everyRoom.memory &&
+          !everyRoom.memory.danger &&
+          // OWNED rooms only. For a REMOTE this list is RemoteRepair's
+          // entire repair enrollment; wiping it made the repairer arrive,
+          // find nothing repairable, latch serviced and recycle — while
+          // the rung kept re-spawning it for the still-decaying roads.
+          everyRoom.controller && everyRoom.controller.my &&
+          everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0
+        ) {
+          everyRoom.memory.keepTheseRoads = [];
+        }
+      });
+    });
+  }
 
   if (Game.time % 300 == 0) {
     if (Game.gcl.level > roomsIController) {

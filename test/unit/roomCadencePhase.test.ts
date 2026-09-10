@@ -68,7 +68,11 @@ describe("per-room cadences are phased so seven rooms do not spike together", ()
         // once per period, which is seven times the work, not one seventh.
         assert.include(RT, "if (Game.time % 400 == 0) {");
         assert.include(RT, "if (Game.time % 25000 === 0) {");
-        assert.include(RT, "if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500 && !room.memory.danger) {");
+        // The keepTheseRoads sweep kept its synchronised residue but was
+        // hoisted out of the per-room body in the same push, so the current
+        // room's danger flag no longer gates the empire-wide pass. See
+        // cpuAttribution.test.ts for that half.
+        assert.include(RT, "if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500) {");
         // labs() documents its own reason for staying on the plain residue:
         // its internal %120/%500/%21000 cadences sit on absolute Game.time.
         assert.include(RT, "if (Game.time % 10 === 0) {\n          labs(room);");

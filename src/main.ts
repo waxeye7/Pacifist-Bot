@@ -200,6 +200,28 @@ function notePhaseCpu(name: string, used: number): void {
   }
 }
 
+/**
+ * Timing only — same EMA sink as phase(), but it does NOT catch. Boot-critical
+ * work (memHack, MemoryManager, RoomCache) must keep propagating to ErrorMapper
+ * exactly as before; the only thing added is a number.
+ *
+ * Why it exists: the phases in Memory.CPU summed to ~16.3 against a 100-tick
+ * average of 18.0, and the missing ~1.7 was everything between the start
+ * sample and the first phase() call — i.e. the prologue below. On a 20 CPU
+ * limit, 1.7 unattributed is more than the entire rooms() budget minus one,
+ * and the bucket's climb stalled at ~3,650 with the roster bar at 5,000 and
+ * the remote bar at 4,000 still out of reach. Guessing at it is how the last
+ * three CPU hunts went; measure it instead.
+ */
+function mark<T>(name: string, fn: () => T): T {
+  const before = Game.cpu.getUsed();
+  try {
+    return fn();
+  } finally {
+    notePhaseCpu(name, Game.cpu.getUsed() - before);
+  }
+}
+
 function phase(name: string, fn: () => void): void {
   const before = Game.cpu.getUsed();
   try {
@@ -297,22 +319,22 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   const startTotal = Game.cpu.getUsed();
   // ensureBench (via getOpts) boots A/B on version bump
-  const opts = getOpts();
+  const opts = mark("boot.opts", () => getOpts());
 
-  memHack.run();
-  runDropRooms();
+  mark("boot.memHack", () => memHack.run());
+  mark("boot.dropRooms", () => runDropRooms());
 
-  MemoryManager();
-  publishAllyNeed();
+  mark("boot.memoryManager", () => MemoryManager());
+  mark("boot.allyNeed", () => publishAllyNeed());
   if (opts.roomCache) {
-    RoomCache.tick();
+    mark("boot.roomCache", () => RoomCache.tick());
   }
 
-  const policy = getCpuPolicy();
+  const policy = mark("boot.policy", () => getCpuPolicy());
   global._cpuPolicy = policy;
 
   // Modes from last tick's danger flags (refresh again after rooms).
-  refreshModes();
+  mark("boot.modes", () => refreshModes());
   // The empire looks at everything ONCE, before any room acts: shared creep
   // census, the spawn-rescue job (target, mother, retasks), room postures.
   // Rooms read it; nothing in a room writes empire state. docs/EMPIRE-LAYER.md.
@@ -327,7 +349,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // Terminal energy to the room closest to RCL8. O(rooms), every 20 ticks,
   // one intent — not shed on economyOnly (docs/EMPIRE-LAYER.md, funnel).
   phase("funnel", () => runFunnel());
-  refreshModes();
+  mark("modes.post", () => refreshModes());
 
   // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
   if (!powerDisabled()) {
