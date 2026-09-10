@@ -74,6 +74,20 @@ describe("a creep takes a pile it is already standing next to", () => {
         assert.isAbove(flip, call, "before the flips, where the store is still last tick's");
     });
 
+    it("a PARKED upgrader takes it instead of topping up from the depot", () => {
+        // A parked upgrader against a stocked depot never reaches an empty
+        // store — it tops up at `store <= WORK`, so `upgrading` never flips
+        // false and the fetch-leg grab above can never fire. Live E36N57: the
+        // upgrader cycled 126 -> 18 -> 126 out of the controller link with 371
+        // energy rotting one tile away.
+        assert.include(UP, "creep.store[RESOURCE_ENERGY] <= creep.getActiveBodyparts(WORK) && !creep.grabAdjacentPile()");
+        const at = UP.indexOf("!creep.grabAdjacentPile()");
+        const block = UP.slice(at, at + 220);
+        // ...and the depot top-up is the fallback, not the other way round
+        assert.include(block, "creep.withdraw(controllerLink, RESOURCE_ENERGY);");
+        assert.include(block, "creep.pos.isNearTo(controllerLink)");
+    });
+
     it("the ControllerLinkFiller takes it on its collect leg too", () => {
         // It crosses the whole base twice a trip, storage to controller link
         // and back, which is exactly the route the live E37N58 pile sits on.

@@ -382,8 +382,22 @@ const run = function (creep) {
 			creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
 		}
 
-		if(controllerLink && creep.pos.isNearTo(controllerLink) && creep.store[RESOURCE_ENERGY] <= creep.getActiveBodyparts(WORK)) {
-			creep.withdraw(controllerLink, RESOURCE_ENERGY);
+		/*
+		 * A decaying pile within reach outranks the depot on the top-up: same
+		 * transfer-class intent, same tick, and the depot loses nothing by
+		 * waiting while the pile loses ceil(amount/1000) every tick.
+		 *
+		 * This has to live HERE and not only on the fetch leg, because a parked
+		 * upgrader against a stocked depot never goes empty — it tops up at
+		 * `store <= WORK` and so `upgrading` never flips false. Live E36N57
+		 * 2026-09-10: the upgrader cycled 126 -> 18 -> 126 out of the
+		 * controller link with 371 energy rotting one tile away, for as long as
+		 * the link kept up.
+		 */
+		if(creep.store[RESOURCE_ENERGY] <= creep.getActiveBodyparts(WORK) && !creep.grabAdjacentPile()) {
+			if(controllerLink && creep.pos.isNearTo(controllerLink)) {
+				creep.withdraw(controllerLink, RESOURCE_ENERGY);
+			}
 		}
 
 	}
