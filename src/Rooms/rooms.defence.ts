@@ -9,6 +9,7 @@ import { cachedHostileCreeps } from "utils/RoomCache";
 import { noteAggressor } from "War/aggressors";
 import { rampartIsBuried, interiorReady } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
+import { roomTickOffset } from "./rooms.remotes";
 
 /**
  * Ramparts that sit EXACTLY on a planned perimeter tile.
@@ -514,7 +515,7 @@ function roomDefence(room) {
     // if(room.name == "E42N59") {
     //     room.controller.activateSafeMode();
     // }
-    if(Game.time % 250 == 0) {
+    if((Game.time + roomTickOffset(room.name)) % 250 == 0) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {
             room.memory.defence.nuke = true;
@@ -795,7 +796,7 @@ function roomDefence(room) {
     // left over from an old layout are abandoned and allowed to decay.
     if (!room.memory.danger &&
         room.controller.level >= SHELL_MIN_RCL &&
-        Game.time % 3 == 0 &&
+        (Game.time + roomTickOffset(room.name)) % 3 == 0 &&
         room.memory.Structures.towers && room.memory.Structures.towers.length) {
 
         // HOLE PREVENTION comes first, and it is NOT sanction-filtered: while
@@ -895,7 +896,7 @@ function roomDefence(room) {
     // floor is a death guard, not an upkeep engine. Reads keepTheseRoads, so
     // trimmed controller roads (utils/roadTrim) still decay away as intended.
     if (!room.memory.danger &&
-        Game.time % 15 == 1 &&
+        (Game.time + roomTickOffset(room.name)) % 15 == 1 &&
         room.memory.Structures.towers && room.memory.Structures.towers.length) {
         const ROAD_DEATH_FLOOR = 0.1;
         let worstRoad: any = null;
@@ -915,7 +916,7 @@ function roomDefence(room) {
         }
     }
 
-    if(Game.time % 100 == 0) {
+    if((Game.time + roomTickOffset(room.name)) % 100 == 0) {
         room.memory.Structures.towers = [];
 
         let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
@@ -928,6 +929,34 @@ function roomDefence(room) {
 
 
     if(room.memory.Structures.towers && room.memory.Structures.towers.length > 0) {
+        /*
+         * THE HEAL SCAN, HOISTED AND MADE ROOM-LOCAL.
+         *
+         * It used to sit inside the per-tower loop as
+         * `_.filter(Game.creeps, c => c.hits < c.hitsMax && c.room.name == room.name ...)`,
+         * so on every `% 12` tick the bot walked its ENTIRE creep list once per
+         * tower per room and threw away everything outside the room. Seven
+         * communes at up to six towers each is ~40 full-empire scans of ~46
+         * creeps landing on one tick, for a list that is identical across all
+         * of them - every tower then healed damagedCreeps[0], the same creep.
+         *
+         * Now: computed at most once per room per tick, lazily (nothing is
+         * scanned on the 11 ticks in 12 when the gate is shut), and through
+         * room.find, which the engine caches per tick and which never looks at
+         * a creep outside the room in the first place.
+         *
+         * The residue is phased by room like the rest of this pass, so the
+         * seven rooms no longer all scan on the same tick either.
+         *
+         * FIND_MY_POWER_CREEPS replaces `_.filter(Game.powerCreeps, ...)`:
+         * Game.powerCreeps includes UNSPAWNED power creeps, whose `.room` is
+         * undefined, so the old predicate was one unspawned PC away from
+         * throwing inside the tower loop.
+         */
+        const healTick = (Game.time + roomTickOffset(room.name)) % 12 == 0;
+        let damagedCreeps: any[] | null = null;
+        let damagedForDanger: any[] | null = null;
+        let damagedPowerCreeps: any[] | null = null;
         let towerCount = -1;
         // let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
 
@@ -965,9 +994,17 @@ function roomDefence(room) {
                         }
                     }
 
-                    let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits+300 < damagedCreep.hitsMax && damagedCreep.room.name == room.name && damagedCreep.memory.role !== "attacker");
-                    if(damagedCreeps.length > 0) {
-                        tower.heal(damagedCreeps[0]);
+                    // Same hoist as the peacetime scan below, and it matters more
+                    // here: this arm has no tick gate at all, so under siege it
+                    // walked the whole empire's creep list once per tower EVERY
+                    // tick. Its predicate is deliberately different - a 300-hit
+                    // margin, and no suicide term - so it keeps its own list.
+                    if(damagedForDanger === null) {
+                        damagedForDanger = room.find(FIND_MY_CREEPS, {filter: (c:any) =>
+                            c.hits + 300 < c.hitsMax && c.memory.role !== "attacker"});
+                    }
+                    if(damagedForDanger.length > 0) {
+                        tower.heal(damagedForDanger[0]);
                         return;
                     }
                 }
@@ -991,14 +1028,20 @@ function roomDefence(room) {
                     }
                 }
 
-                if(Game.time % 12 == 0) {
-                    let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name && !damagedCreep.memory.suicide && damagedCreep.memory.role !== "attacker");
+                if(healTick) {
+                    if(damagedCreeps === null) {
+                        damagedCreeps = room.find(FIND_MY_CREEPS, {filter: (c:any) =>
+                            c.hits < c.hitsMax && !c.memory.suicide && c.memory.role !== "attacker"});
+                    }
                     if(damagedCreeps.length > 0) {
                         tower.heal(damagedCreeps[0]);
                         return;
                     }
                     if(room.controller.level == 8) {
-                        let damagedPowerCreeps = _.filter(Game.powerCreeps, (damagedPowerCreep) => damagedPowerCreep.hits < damagedPowerCreep.hitsMax && damagedPowerCreep.room.name == room.name);
+                        if(damagedPowerCreeps === null) {
+                            damagedPowerCreeps = room.find(FIND_MY_POWER_CREEPS, {filter: (pc:any) =>
+                                pc.hits < pc.hitsMax});
+                        }
                         if(damagedPowerCreeps.length > 0) {
                             tower.heal(damagedPowerCreeps[0]);
                             return;

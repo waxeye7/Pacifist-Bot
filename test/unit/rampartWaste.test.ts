@@ -238,8 +238,13 @@ describe("TOWER POLICY: creeps raise the wall, towers only stop deaths", () => {
 
     it("towers hold a road death floor — nothing else repairs a road at RCL6+", () => {
         assert.match(DEFENCE, /const ROAD_DEATH_FLOOR = 0\.1;/);
-        assert.match(DEFENCE, /Game\.time % 15 == 1 &&/,
+        // Both rungs now carry the same per-room offset (towerHealScan.test.ts),
+        // and the invariant this pin exists for still holds: (t + off) % 15 == 1
+        // implies (t + off) % 3 == 1, so the road rung can never land on the
+        // shell rung's residue 0 whatever the offset is.
+        assert.match(DEFENCE, /\(Game\.time \+ roomTickOffset\(room\.name\)\) % 15 == 1 &&/,
             "own tick phase — never contends with the shell rung's % 3");
+        assert.match(DEFENCE, /\(Game\.time \+ roomTickOffset\(room\.name\)\) % 3 == 0 &&/);
         assert.match(DEFENCE, /for \(const roadID of room\.memory\.keepTheseRoads \|\| \[\]\)/,
             "kept roads only — trimmed controller roads still decay away by design");
     });
