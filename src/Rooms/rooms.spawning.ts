@@ -20,6 +20,7 @@ import {
 } from "Empire/rescueLib";
 import { roomNeedsManager } from "Roles/energyManager";
 import { roomFeedsController } from "Roles/energyMiner";
+import { cachedStructures } from "utils/RoomCache";
 
 /**
  * Boostable stock is storage + TERMINAL.
@@ -1765,6 +1766,36 @@ function add_creeps_to_spawn_list(room, spawn) {
                     spawnMaintainer = true;
                 }
             }
+            /*
+             * CONTAINERS DIE, AND THE MAINTAINER IS THEIR ONLY COVER.
+             *
+             * Roles/repair excludes containers from RCL6 up; the towers hold a
+             * decay floor on ramparts and roads and nothing at all on these.
+             * test/unit/containerUpkeep pins the maintainer as the sole cover —
+             * and the maintainer rungs are all behind optionalRosterOpen(),
+             * which on this shard has been shut for as long as the bucket has
+             * been under 5,000. Nothing was raising the room's own demand flag
+             * for a container, so the roster gate never even got the question.
+             *
+             * Live shard3 2026-09-11, worst container per owned room as a
+             * fraction of its 250,000 maximum: E37N59 26%, E35N58 24%, E36N57
+             * 26%, E39N58 26%, E35N59 22%, E37N58 42%, E38N56 72%. An owned-room
+             * container loses CONTAINER_DECAY every CONTAINER_DECAY_TIME_OWNED,
+             * i.e. 10 hits a tick, so 22% is about 5,500 ticks from gone — and
+             * gone means the source seat, the hub bin or the controller depot
+             * simply stops existing and has to be rebuilt at 5,000 energy with a
+             * builder the room also has to buy.
+             *
+             * Deliberately a LOW bar. A maintainer repairs 100 hits per WORK per
+             * tick, so one takes a container from this bar back to full in a few
+             * hundred ticks and then the room is quiet again for ~20,000. That is
+             * a cheap duty cycle, not a standing roster.
+             */
+            const worstBox = cachedStructures(room).filter((st:any) =>
+                st.structureType == STRUCTURE_CONTAINER && st.hits < st.hitsMax * CONTAINER_CRITICAL);
+            if(worstBox.length) {
+                spawnMaintainer = true;
+            }
         }
 
     }
@@ -2015,7 +2046,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if(optionalRosterOpen() && maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
+            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[4].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2078,7 +2109,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if(optionalRosterOpen() && maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
+            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[5].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[5].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2202,7 +2233,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if(optionalRosterOpen() && maintainers < spawnrules[6].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
+            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[6].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[6].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2331,7 +2362,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if(optionalRosterOpen() && maintainers < spawnrules[7].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
+            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[7].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[7].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2471,7 +2502,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
 
-            if(optionalRosterOpen() && maintainers < spawnrules[8].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
+            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[8].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -4198,6 +4229,13 @@ function bigUpgraderBody(room, fallback: () => string[]): string[] {
     const body = getBody([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, maxLen, BIG_UPGRADER_BUDGET);
     return body && body.length ? body : fallback();
 }
+
+/**
+ * A container under this fraction of its maximum is dying, not merely worn.
+ * 15% of 250,000 is 37,500 hits, and an owned-room container decays 10 a tick:
+ * ~3,750 ticks of life left, which is two creep lifetimes of margin.
+ */
+const CONTAINER_CRITICAL = 0.15;
 
 /** Ticks a controller LINK must stay short before it is worth a 1,200e body. */
 const CLF_SHORT_GRACE = 150;

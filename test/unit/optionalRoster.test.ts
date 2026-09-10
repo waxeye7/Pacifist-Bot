@@ -61,7 +61,16 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
   it("the spawn rungs for repair, maintainer and sweeper read the gate", () => {
     const fs = require("fs");
     const src: string = fs.readFileSync(__dirname + "/../../src/Rooms/rooms.spawning.ts", "utf8").replace(/\r\n/g, "\n");
-    assert.strictEqual((src.match(/optionalRosterOpen\(\) && maintainers </g) || []).length, 5);
+    // The maintainer rungs read it for ORDINARY wear only. The room's own
+    // critical flag (a rampart at the tower floor, a container near death)
+    // jumps the gate — see test/unit/upkeepFloor and repairRosterOpen below,
+    // which has carried the same escape for the shell all along. Without it
+    // live shard3 held zero maintainers across seven rooms for as long as the
+    // bucket stayed under 5,000, while its containers decayed toward 22%.
+    assert.strictEqual(
+      (src.match(/\(optionalRosterOpen\(\) && room\.memory\.keepTheseRoads && room\.memory\.keepTheseRoads\.length > 0 \|\| spawnMaintainer\) && maintainers </g) || []).length,
+      5
+    );
     assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5]");
     assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6]");
     assert.include(src, "optionalRosterOpen() &&\n        wantSweepers > 0");
