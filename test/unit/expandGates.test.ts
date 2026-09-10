@@ -53,8 +53,16 @@ describe("AutoExpand.blockedReason", () => {
   });
 
   it("uses CPU headroom as the binding constraint", () => {
+    /*
+     * UPDATED 2026-09-11: the headroom is measured against the BILLED average
+     * now, not hundredTickAvg. avg100 is end-of-loop getUsed(), and Memory is
+     * serialised after main() returns, so it understates the real cost by 1.33
+     * on this bot. Live, that gap armed a claim on E39N56 — avg100 read ~17.0,
+     * 17.0 + 3 did not exceed the 20 limit, while the billed figure was
+     * 18.6-19.3 and the honest test refuses. See expandHeadroom.test.ts.
+     */
     assert.match(EXPAND, /const CPU_HEADROOM = 3/);
-    assert.include(EXPAND, "avg + CPU_HEADROOM > limit");
+    assert.include(EXPAND, "billed + CPU_HEADROOM > limit");
   });
 
   it("holds the queue while a claimed room is still spawnless", () => {

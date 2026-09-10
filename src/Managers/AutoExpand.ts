@@ -137,10 +137,34 @@ function blockedReason(): string | null {
   if (minRcl > 0 && owned.length >= 3 &&
       !owned.some((r) => (r.controller as StructureController).level >= minRcl))
     return `expandMinRcl ${minRcl}: ${owned.length} owned rooms and none at RCL${minRcl}+`;
-  const avg = Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+  /*
+   * MEASURE THE HEADROOM WITH THE HONEST NUMBER.
+   *
+   * hundredTickAvg is end-of-loop getUsed(). Memory is serialised AFTER main()
+   * returns and the server bills us for it, so avg100 understates the real
+   * cost — measured on this bot at 1.33 CPU, every tick, invisibly.
+   *
+   * That gap decided an eighth room. Live shard3 2026-09-11: the bucket
+   * crossed MIN_BUCKET, avg100 read about 17.0 in a quiet window, 17.0 + 3 =
+   * 20.0 did not exceed the 20 limit, and the bot armed a claim on E39N56 and
+   * sent a claimer twelve rooms around the map. The BILLED average at the same
+   * moment was 18.6-19.3, so the honest test is 19.3 + 3 = 22.3 against 20 and
+   * this gate would have refused — which is exactly what it was written to do,
+   * on an account permanently capped at 20 CPU already running seven rooms at
+   * 19+ billed.
+   *
+   * CpuPolicy.sampleBilledFromBucket recovers the real number from the one
+   * meter that sees everything: the bucket moves by limit minus what was
+   * billed. Use it when it exists and fall back to avg100 only before the
+   * first sample lands.
+   */
+  const M2: any = Memory as any;
+  const billed = M2.CPU && typeof M2.CPU.trueAvg === "number" && M2.CPU.trueAvg > 0
+    ? M2.CPU.trueAvg
+    : Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
   const limit = Game.cpu.limit || 20;
-  if (avg > 0 && avg + CPU_HEADROOM > limit)
-    return `CPU ${avg.toFixed(1)}/${limit} — no headroom for another room (need ${CPU_HEADROOM} spare)`;
+  if (billed > 0 && billed + CPU_HEADROOM > limit)
+    return `CPU ${billed.toFixed(1)}/${limit} billed — no headroom for another room (need ${CPU_HEADROOM} spare)`;
   // hold the queue: finish() without this just pick()s the next leftover
   if (spawnlessOwned())
     return "spawnless owned room — bootstrap before next claim";
