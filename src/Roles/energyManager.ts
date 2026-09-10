@@ -200,9 +200,31 @@ export function hubWorkPending(creep: any): boolean {
  *
  * `fillers` is load-bearing: with no filler alive there is nobody to inherit
  * the duty, so the manager IS the duty and the rung must stay open.
+ *
+ * But "no filler alive" is normally a SPAWN GAP, not an outage. The filler
+ * rung sits right below this one and unshifts ahead of it, so the tick that
+ * sees zero fillers already queues the replacement; it is walking the hub
+ * again inside ~60 ticks. Answering true on that tick bought E36N57 a whole
+ * extra 1,500-tick manager body for a few ticks of nothing (live shard3
+ * 2026-09-11: E36N57 with no labs configured and one filler was still
+ * carrying a manager, and the settle watch caught the two NO FILLER ticks
+ * that ordered it). So the fillerless arm is latched: the room has to have
+ * been fillerless for NO_FILLER_GRACE ticks, which no spawn gap survives and
+ * no real outage clears. A room in genuine collapse cannot afford the bigger
+ * manager body either, so waiting costs it nothing.
  */
+const NO_FILLER_GRACE = 150;
+
 export function roomNeedsManager(room: any, fillers: number): boolean {
-    if(!(fillers > 0)) return true;
+    if(!(fillers > 0)) {
+        // fail open if the room has nowhere to keep the stamp
+        if(!room.memory) return true;
+        if(room.memory._noFiller === undefined) room.memory._noFiller = Game.time;
+        if(Game.time - room.memory._noFiller >= NO_FILLER_GRACE) return true;
+    }
+    else if(room.memory && room.memory._noFiller !== undefined) {
+        delete room.memory._noFiller;
+    }
     if(room.controller && room.controller.level >= 8) return true;
     const M: any = room.memory || {};
     const labs: any = M.labs;

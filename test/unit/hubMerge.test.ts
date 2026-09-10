@@ -213,8 +213,21 @@ describe("the spawn rungs close where the filler can cover", () => {
         const at = EM.indexOf("export function roomNeedsManager(room: any, fillers: number): boolean {");
         assert.isAbove(at, -1);
         const body = EM.slice(at, EM.indexOf("\n}", at));
-        // no filler => nobody to inherit the duty => the manager IS the duty
-        assert.include(body, "if(!(fillers > 0)) return true;");
+        // no filler => nobody to inherit the duty => the manager IS the duty,
+        // but only once the gap has outlived any plausible respawn. The filler
+        // rung queues its own replacement on the same tick, so answering true
+        // immediately buys a 1,500-tick manager for ~60 ticks of nothing.
+        assert.include(body, "if(!(fillers > 0)) {");
+        assert.include(body, "if(!room.memory) return true;");
+        assert.include(body, "if(room.memory._noFiller === undefined) room.memory._noFiller = Game.time;");
+        assert.include(body, "if(Game.time - room.memory._noFiller >= NO_FILLER_GRACE) return true;");
+        // ...and the latch clears the moment a filler exists again, or the
+        // next gap inherits a stamp from the last one and fires instantly
+        assert.include(body, "delete room.memory._noFiller;");
+        const g = EM.match(/const NO_FILLER_GRACE = (\d+);/);
+        assert.isNotNull(g);
+        assert.isAtLeast(Number(g![1]), 100, "a filler body plus the walk to the hub");
+        assert.isAtMost(Number(g![1]), 600, "a real outage must not wait a whole creep life");
         assert.include(body, "room.controller.level >= 8");
         assert.include(body, "labs.inputLab1 || labs.inputLab2 || labs.outputLab1");
         assert.include(body, "S.nuker || S.powerSpawn || S.factory");
