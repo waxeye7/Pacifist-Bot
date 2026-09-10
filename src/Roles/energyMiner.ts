@@ -2,7 +2,7 @@ import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { isSanctionedRampart } from "utils/PlanV2";
 import { rampartIsBuried } from "utils/Interior";
 import { findLiveSeat, unpackXY } from "utils/minerSeat";
-import { cachedDerived, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
+import { cachedDerived, cachedDropped, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
 
 /**
  * Stable 0..mod-1 offset from a creep name.
@@ -177,6 +177,70 @@ export function bankBelowReserve(room:any):boolean {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * THE HUB LINK IS A SINGLE POINT OF FAILURE, AND IT HAS NO RELIEF VALVE.
+ *
+ * Exactly one creep in a room ever takes energy OUT of the hub link: the
+ * EnergyManager. Nothing else withdraws from it, and no structure action can
+ * move energy from a link into a storage. So while that one creep is missing,
+ * dead, busy or wedged, the hub link fills and stays full — and a full hub
+ * link is not a local problem. Every source link in the room routes to it, a
+ * link that cannot send holds 800, and a source link holding 800 leaves its
+ * miner dumping on the floor at 10 energy a tick.
+ *
+ * Live E37N59 2026-09-10 measured the whole chain: ONE EnergyManager wedged on
+ * a stale path head for 364 ticks (see creepFunctions stepCachedPath), hub
+ * link pinned at 787/800, both source links pinned at 800, 1,797 energy rotting
+ * on the two source tiles, storage falling to 1,253 — under the reserve, so the
+ * controller rung correctly stood down — and the upgrader idling at an empty
+ * controller link. Seven symptoms, one creep.
+ *
+ * The controller link is a sink the room can reach WITHOUT a creep, because
+ * link-to-link is a structure action. So when the hub is provably stuck, push
+ * it there instead and let the upgrader drink it. That does not bank the
+ * energy, but it un-jams every source link in the room, which is the part that
+ * costs 10 e/t per source for as long as it lasts.
+ *
+ * DELIBERATELY NOT GATED ON bankBelowReserve. That rule says "bank before you
+ * upgrade", and it is right — but it presumes banking is POSSIBLE, and a stuck
+ * hub link is precisely the state in which it is not: the EnergyManager is the
+ * only route from a link to the storage, and it is the thing that has stopped.
+ * Holding the energy in the link to protect a bank that has no inflow is how
+ * E37N59 lost 5,000 energy while reporting itself healthy.
+ *
+ * "PROVABLY STUCK" IS A MEASURED BAR, NOT A GUESS. Sampled live across all
+ * seven owned rooms, 175 room-ticks: the hub link NEVER read 600 or more (max
+ * 526), and a landing 800 visibly falls in 200-300 steps as the EnergyManager
+ * carries it to the storage one load at a time. Ten consecutive ticks at or
+ * above 600 cannot happen while anything is draining it, and is still 36x
+ * faster than the outage above.
+ * ---------------------------------------------------------------------------
+ */
+/** Hub-link energy above which "nothing drained it" is worth counting. */
+const HUB_BACKED_UP = 600;
+/** ...for this many CONSECUTIVE ticks before we call it stuck. */
+const HUB_STUCK_TICKS = 10;
+
+/**
+ * Consecutive-tick counter for a hub link nothing is emptying.
+ * MUST be called exactly once per room per tick, before any early return that
+ * could skip it — a counter that only advances on some ticks measures nothing.
+ */
+function hubLinkStuck(room:any, hub:any):boolean {
+    const M:any = room.memory;
+    if(!hub || (hub.store[RESOURCE_ENERGY] || 0) < HUB_BACKED_UP) {
+        if(M._hubStuck) delete M._hubStuck;
+        return false;
+    }
+    M._hubStuck = (M._hubStuck || 0) + 1;
+    if(M._hubStuck === HUB_STUCK_TICKS || M._hubStuck % 100 === 0) {
+        console.log("ALERT", room.name, "hub link stuck at", hub.store[RESOURCE_ENERGY],
+            "for", M._hubStuck, "ticks - nothing is draining it (EnergyManager?)");
+    }
+    return M._hubStuck >= HUB_STUCK_TICKS;
+}
+
+/**
  * Push a loaded link into the controller link.
  *
  * This exists as a separate pass because link forwarding is a STRUCTURE action,
@@ -212,7 +276,42 @@ export function forwardToControllerLink(room:any):void {
     const S:any = room.memory.Structures;
 
     const ctrlLink:any = resolveControllerLink(room);
+
+    // Hoisted above every early return below: hubLinkStuck() is a
+    // consecutive-tick counter and only means anything if it runs every tick.
+    // `hub === ctrl` happens in rooms whose two keys collided (live VPS W1N2)
+    // — sending a link to itself is ERR_INVALID_TARGET, so treat that as no
+    // hub rather than logging it every tick.
+    // findStorageLink() is a room-wide find plus two sorts. The keyed id
+    // resolves for free in every built room; the search behind it is throttled
+    // so a room that genuinely has no hub link does not re-run it every tick
+    // for the rest of its life (it used to be reached only on the no-upgrader
+    // path, which is exactly the RCL5 room most likely to be missing the key).
+    let hub:any = Game.getObjectById(S.StorageLink);
+    if(!hub && Game.time - (room.memory._hubFindT || 0) > 25) {
+        room.memory._hubFindT = Game.time;
+        hub = room.findStorageLink();
+    }
+    if(!hub || hub.structureType !== STRUCTURE_LINK || (ctrlLink && hub.id === ctrlLink.id)) hub = null;
+    const stuck = hubLinkStuck(room, hub);
+
     if(!ctrlLink) return;
+
+    /*
+     * THE RELIEF VALVE. See hubLinkStuck() above for why this outranks the
+     * reserve rule. First in the function on purpose: while the hub is stuck
+     * the source links are ALL pinned, so the donor rung below has nothing to
+     * offer the controller anyway, and every tick spent not draining the hub
+     * is 10 e/t per source going on the floor.
+     */
+    if(stuck && hub && roomFeedsController(room) && hub.cooldown === 0) {
+        const free = ctrlLink.store.getFreeCapacity(RESOURCE_ENERGY);
+        // Not worth burning the hub's cooldown on a dribble.
+        if(free >= 100) {
+            const send = Math.min(hub.store[RESOURCE_ENERGY], free);
+            if(hub.transferEnergy(ctrlLink, send) === OK) return;
+        }
+    }
 
     /* ---- the return path -------------------------------------------------
      *
@@ -238,12 +337,9 @@ export function forwardToControllerLink(room:any):void {
         const held = ctrlLink.store[RESOURCE_ENERGY];
         if(held <= 0 || ctrlLink.cooldown > 0) return;
         // The hub link is the only sink: it is the one link a creep
-        // (EnergyManager) empties into the storage every tick. `hub === ctrl`
-        // happens in rooms whose two keys collided (live VPS W1N2) — sending a
-        // link to itself is ERR_INVALID_TARGET, so skip it rather than log it
-        // every tick.
-        const hub:any = Game.getObjectById(S.StorageLink) || room.findStorageLink();
-        if(!hub || hub.id === ctrlLink.id || hub.structureType !== STRUCTURE_LINK) return;
+        // (EnergyManager) empties into the storage every tick. Resolved and
+        // self-collision-checked at the top of the function.
+        if(!hub) return;
         const hubFree = hub.store.getFreeCapacity(RESOURCE_ENERGY);
         if(hubFree <= 0) return;
         // transferEnergy with no amount is all-or-nothing and ERR_FULL moves nothing.
@@ -426,21 +522,42 @@ function reclaimSpill(creep: any, link: any): boolean {
 
     // The spill is normally on the seat itself; range 1 covers the tick the
     // miner dumped before it was seated.
-    const piles = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
-        filter: (r: any) => r.resourceType === RESOURCE_ENERGY,
-    });
-    if(piles.length) {
-        piles.sort((a: any, b: any) => b.amount - a.amount);
-        if(creep.pickup(piles[0]) === OK) return true;
+    //
+    // A `pos.findInRange` over any FIND_* constant is a room-wide find under
+    // the hood, and this runs on EVERY harvest tick of EVERY miner - the exact
+    // pattern adjacentEnergySink()'s header calls the most expensive thing a
+    // seated miner can do. cachedDropped() is the one find the whole tick
+    // shares, and on a clean floor (the overwhelmingly common case, and the
+    // case this whole function is trying to reach) the scan below is an
+    // array-length read. Biggest pile in one pass, no filter closure, no
+    // throwaway array and no sort.
+    let best: any = null;
+    for(const r of cachedDropped(creep.room) as any[]) {
+        if(r.resourceType !== RESOURCE_ENERGY) continue;
+        if(Math.abs(r.pos.x - creep.pos.x) > 1 || Math.abs(r.pos.y - creep.pos.y) > 1) continue;
+        if(!best || r.amount > best.amount) best = r;
     }
+    if(best && creep.pickup(best) === OK) return true;
 
     // Then the container. transferAdjacentSink fills it and never empties it,
     // so in a link room it is write-only once the link takes over.
-    const box: any = _.find(cachedStructures(creep.room), (st: any) =>
-        st.structureType == STRUCTURE_CONTAINER &&
-        st.store[RESOURCE_ENERGY] > 0 &&
-        st.pos.isNearTo(creep.pos));
-    if(box && creep.withdraw(box, RESOURCE_ENERGY) === OK) return true;
+    //
+    // Pinned on the creep, because the seat is held for LIFE (ensureMinerSeat)
+    // and a container cannot move: the walk over cachedStructures is a
+    // whole-room list - 200+ entries in a built-out room - and once the box is
+    // drained the `> 0` test made it a full miss on every tick for the rest of
+    // the miner's life. A negative answer is remembered too; both are re-asked
+    // on a slow timer so a box built later is still picked up.
+    const boxT = creep.memory.reclaimBoxT || 0;
+    if(creep.memory.reclaimBox === undefined || Game.time - boxT > 100) {
+        const found: any = _.find(cachedStructures(creep.room), (st: any) =>
+            st.structureType == STRUCTURE_CONTAINER &&
+            st.pos.isNearTo(creep.pos));
+        creep.memory.reclaimBox = found ? found.id : false;
+        creep.memory.reclaimBoxT = Game.time;
+    }
+    const box: any = creep.memory.reclaimBox && Game.getObjectById(creep.memory.reclaimBox);
+    if(box && box.store[RESOURCE_ENERGY] > 0 && creep.withdraw(box, RESOURCE_ENERGY) === OK) return true;
     return false;
 }
 

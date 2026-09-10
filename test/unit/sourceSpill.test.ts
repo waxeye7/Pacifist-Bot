@@ -71,26 +71,54 @@ describe("the seated miner reclaims its own spill", () => {
     });
 
     it("takes the decaying pile before the container that does not decay", () => {
-        const pile = body.indexOf("FIND_DROPPED_RESOURCES");
+        const pile = body.indexOf("cachedDropped(creep.room)");
         const box = body.indexOf("STRUCTURE_CONTAINER");
         assert.isAbove(pile, -1);
         assert.isAbove(box, pile, "pile first: it is the one losing value every tick");
     });
 
     it("reaches the tile it dumped on before it was seated, not the whole room", () => {
-        assert.match(body, /findInRange\(FIND_DROPPED_RESOURCES, 1,/);
+        // range 1 around the seat, by hand — see the cache pin below for why
+        // this is not findInRange.
+        assert.include(body, "Math.abs(r.pos.x - creep.pos.x) > 1");
+        assert.include(body, "Math.abs(r.pos.y - creep.pos.y) > 1");
         assert.include(body, "st.pos.isNearTo(creep.pos)");
     });
 
     it("takes the biggest pile, and only energy", () => {
-        assert.include(body, "r.resourceType === RESOURCE_ENERGY");
-        assert.include(body, "piles.sort((a: any, b: any) => b.amount - a.amount)");
+        assert.include(body, "r.resourceType !== RESOURCE_ENERGY");
+        assert.include(body, "if(!best || r.amount > best.amount) best = r;");
     });
 
-    it("walks the per-tick cache, not a room-wide find", () => {
-        // this runs on every seated miner on every tick
+    it("walks the per-tick caches, never a room-wide find", () => {
+        // This runs on every seated miner on every harvest tick.
+        // `pos.findInRange(FIND_*)` is a room-wide find under the hood — the
+        // very pattern adjacentEnergySink()'s header was written to kill — and
+        // the first cut of this function used one for the pile scan.
+        assert.include(body, "cachedDropped(creep.room)");
         assert.include(body, "cachedStructures(creep.room)");
+        assert.notInclude(body, "findInRange(");
         assert.notInclude(body, "room.find(");
+    });
+
+    it("pins the adjacent container instead of re-walking the structure list", () => {
+        // The seat is held for life and a container cannot move, but the box
+        // is EMPTY in the steady state this function is trying to reach — so
+        // an `energy > 0` filter over a 200-entry room list was a guaranteed
+        // full miss on every tick of every miner's life.
+        assert.include(body, "creep.memory.reclaimBox");
+        assert.include(body, "Game.getObjectById(creep.memory.reclaimBox)");
+        // a NEGATIVE answer is remembered too, or the miss re-walks the list
+        assert.include(body, "creep.memory.reclaimBox = found ? found.id : false;");
+        // ...and both are re-asked, so a box built later is still found
+        assert.match(body, /Game\.time - boxT > \d+/);
+        // the store test moved OUT of the cached find: caching "has energy"
+        // would pin a stale answer for the life of the timer
+        const find = body.indexOf("_.find(cachedStructures");
+        const guard = body.indexOf("st.pos.isNearTo(creep.pos));", find);
+        assert.isAbove(guard, find);
+        assert.notInclude(body.slice(find, guard), "store[RESOURCE_ENERGY]");
+        assert.include(body, "box.store[RESOURCE_ENERGY] > 0 && creep.withdraw(box, RESOURCE_ENERGY) === OK");
     });
 
     it("rides the harvest tick, where the carry is actually free", () => {
