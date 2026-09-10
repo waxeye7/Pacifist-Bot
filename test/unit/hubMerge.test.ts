@@ -123,10 +123,23 @@ describe("the filler absorbs the hub errands", () => {
         assert.include(FILLER.slice(at, at + 900), "else if(Game.time - (creep.memory._hubT || Game.time) > HUB_DUTY_MAX_TICKS)");
     });
 
+    it("the redirect is not itself an unbounded loop", () => {
+        // Re-pointing at the storage resets the deadline, so a filler that
+        // cannot reach its own storage would redirect there every 30 ticks
+        // forever. The second failure drops the cargo instead: losing a hauler
+        // is worse than losing one load, every time.
+        assert.include(FILLER, "if(bank && creep.memory.target !== bank.id) {");
+        assert.include(FILLER, "if(carried) creep.drop(carried as ResourceConstant);");
+        const at = FILLER.indexOf("if(bank && creep.memory.target !== bank.id) {");
+        const block = FILLER.slice(at, at + 1200);
+        assert.include(block, "creep.memory.target = false;");
+        assert.include(block, "delete creep.memory._hubT;");
+    });
+
     it("an errand that cannot finish cannot hold the room's filler forever", () => {
         // Redirecting to the storage ends the errand AND empties the creep;
         // a bare `target = false` would leave the cargo aboard.
-        assert.include(FILLER, "creep.memory.target = creep.room.storage ? creep.room.storage.id : false;");
+        assert.include(FILLER, "creep.memory.target = bank.id;");
         const m = FILLER.match(/const HUB_DUTY_MAX_TICKS = (\d+);/);
         assert.isNotNull(m);
         assert.isAtMost(Number(m![1]), 60, "this is the room's lifeline, not a hauler");

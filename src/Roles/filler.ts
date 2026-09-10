@@ -663,11 +663,26 @@ const run = function (creep) {
             if(pureEnergy) creep.memory.full = true;
         }
         else if(Game.time - (creep.memory._hubT || Game.time) > HUB_DUTY_MAX_TICKS) {
-            // Unreachable, or a rung that keeps re-deciding. Redirect to the
-            // storage: it ends the errand AND empties the creep, which a bare
-            // `target = false` would not — the cargo is often not energy.
-            creep.memory.target = creep.room.storage ? creep.room.storage.id : false;
-            creep.memory._hubT = Game.time;
+            const bank = creep.room.storage;
+            if(bank && creep.memory.target !== bank.id) {
+                // Unreachable, or a rung that keeps re-deciding. Redirect to
+                // the storage: it ends the errand AND empties the creep, which
+                // a bare `target = false` would not — the cargo is often not
+                // energy, and a filler cannot otherwise put a mineral down.
+                creep.memory.target = bank.id;
+                creep.memory._hubT = Game.time;
+            }
+            else {
+                // ...and if it could not reach its own STORAGE in another
+                // HUB_DUTY_MAX_TICKS, the redirect is not a rescue, it is the
+                // same trap with a new deadline. Put the cargo on the floor
+                // and give the room its filler back. Losing a hauler is worse
+                // than losing one load, every time.
+                const carried = Object.keys(creep.store)[0];
+                if(carried) creep.drop(carried as ResourceConstant);
+                creep.memory.target = false;
+                delete creep.memory._hubT;
+            }
         }
         if(creep.memory.target) {
             if(managerErrand(creep, MaxStorage)) {
