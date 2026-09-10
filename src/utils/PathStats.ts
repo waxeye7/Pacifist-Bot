@@ -77,18 +77,36 @@ function note(used: number): void {
 }
 
 /**
- * Install the wrapper. Idempotent, and a no-op if PathFinder is absent (unit
- * tests run without the engine globals).
+ * Time one PathFinder.search and attribute it to the running role.
+ *
+ * CALL SITES, NOT A MONKEY PATCH. The first version of this reassigned
+ * `PathFinder.search` at the top of the loop, and on the live server that
+ * property is READ-ONLY: the assignment threw
+ *
+ *   TypeError: Cannot assign to read only property 'search' of object '#<Object>'
+ *       at installPathStats (main:18265:15)
+ *
+ * ...from inside loop(), i.e. ahead of every phase, so ErrorMapper caught it
+ * and the whole tick did nothing. Rooms, creeps, spawning, defence — all of it,
+ * every tick, until it was reverted. A profiler is never worth a risk like
+ * that, and "the engine will let me patch its globals" was an assumption that
+ * should have been tested against the server before it was shipped to it.
+ *
+ * So: an explicit wrapper the movers call instead. Same numbers, no
+ * assumptions about what the runtime will let us write to.
  */
+export function timedSearch(
+  origin: RoomPosition,
+  goal: any,
+  opts?: PathFinderOpts,
+): PathFinderPath {
+  const before = Game.cpu.getUsed();
+  const result = PathFinder.search(origin, goal, opts);
+  note(Game.cpu.getUsed() - before);
+  return result;
+}
+
+/** Kept as a no-op so main.ts has nothing engine-specific to call. */
 export function installPathStats(): void {
-  const pf: any = typeof PathFinder !== "undefined" ? PathFinder : null;
-  if (!pf || typeof pf.search !== "function" || pf.__pacStats) return;
-  const inner = pf.search;
-  pf.search = function wrappedSearch(this: any, ...args: any[]): any {
-    const before = Game.cpu.getUsed();
-    const result = inner.apply(this, args);
-    note(Game.cpu.getUsed() - before);
-    return result;
-  };
-  pf.__pacStats = true;
+  /* nothing to install — see timedSearch */
 }

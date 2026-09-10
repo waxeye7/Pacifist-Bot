@@ -1,4 +1,5 @@
 import { logAlways } from "utils/Logger";
+import { timedSearch } from "utils/PathStats";
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { markRemoteHot } from "Rooms/rooms.remotes";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
@@ -2797,7 +2798,7 @@ Creep.prototype.recycle = function recycle() {
 }
 
 Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(fleeTarget) {
-    let FleePath = PathFinder.search(this.pos,{pos:fleeTarget.pos, range:3}, {flee:true});
+    let FleePath = timedSearch(this.pos,{pos:fleeTarget.pos, range:3}, {flee:true});
     if(!FleePath.path || FleePath.path.length == 0) {
         return;
     }
@@ -2852,7 +2853,7 @@ Creep.prototype.fleeFromMelee = function(fleeTarget) {
 
     // this CostMatrix is only valid for this room; without maxRooms PathFinder
     // paints the same walls onto neighbouring rooms and near-exit flees die
-    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 5 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
+    const FleePath = timedSearch(this.pos, { pos: fleeTarget.pos, range: 5 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
 
     if(!FleePath.path || FleePath.path.length == 0) {
         return;
@@ -2910,7 +2911,7 @@ Creep.prototype.fleeFromRanged = function(fleeTarget) {
 
     // this CostMatrix is only valid for this room; without maxRooms PathFinder
     // paints the same walls onto neighbouring rooms and near-exit flees die
-    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 7 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
+    const FleePath = timedSearch(this.pos, { pos: fleeTarget.pos, range: 7 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
 
     if(!FleePath.path || FleePath.path.length == 0) {
         return;
@@ -3493,7 +3494,7 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             // other creep in the room shares is left exactly as it was.
             const blocked = freshBlockedTile(this);
             const localRoom = this.room.name;
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
@@ -3754,7 +3755,7 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
@@ -3951,7 +3952,7 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     // roomCallbackRoadPrioUpgraderInPosition paints the whole
@@ -4101,7 +4102,7 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     // the callback seals the border at 255, so extra rooms are
@@ -4221,7 +4222,7 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     // the callback seals the border at 255, so extra rooms are
@@ -4508,7 +4509,7 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
@@ -4980,7 +4981,7 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
             if(!targetPos) {
                 return;
             }
-            let path = PathFinder.search(
+            let path = timedSearch(
                 this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,

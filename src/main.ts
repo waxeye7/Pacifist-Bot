@@ -6,7 +6,6 @@ import { installLogger, logAlways, logVerbose } from "utils/Logger";
 import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
 import { getCpuPolicy, billedTickCpu } from "utils/CpuPolicy";
-import { installPathStats } from "utils/PathStats";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
@@ -292,7 +291,6 @@ function heartbeat(tickCpu: number): void {
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
   installLogger();
-  installPathStats();
   installRemoteStatsCommand();
   installWarCommands();
   installSegmentCommands();
