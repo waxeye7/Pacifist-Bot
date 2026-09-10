@@ -220,3 +220,56 @@ describe("the spawn rungs close where the filler can cover", () => {
         assert.include(body, "S.nuker || S.powerSpawn || S.factory");
     });
 });
+
+/**
+ * The terminal drain rung and the terminal fill rung fought each other.
+ *
+ * terminalFloat() switches the target on at 5,000 once storage+terminal
+ * passes 20,000. The drain rung's SECOND arm read `storage < 20000 &&
+ * terminal > MaxStorage` — a low-bank recovery that says nothing about the
+ * target — and it is tested first, so it won every time:
+ *
+ *   storage 15,000 + terminal 5,000  -> arm 2: storage < 20,000, drain
+ *   storage 20,000 + terminal 0      -> fill rung: terminal < 5,000, fill
+ *   storage 15,000 + terminal 5,000  -> arm 2 again, forever
+ *
+ * 5,000 energy shuttled across the hub for the life of the room, one creep
+ * round trip at a time. Live E36N57 2026-09-10 sat in that band at
+ * 19,938 + 259, its terminal just pulled down from 2,426 by this arm while
+ * the fill rung wanted 5,000 in it.
+ */
+describe("the terminal float does not oscillate", () => {
+    const EMS = SRC("Roles/energyManager.ts");
+
+    it("the recovery arm respects the float it is recovering past", () => {
+        assert.include(
+            EMS,
+            "storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > terminalEnergyTarget + MaxStorage"
+        );
+        assert.notInclude(
+            EMS,
+            "storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > MaxStorage",
+            "the target-blind arm is the oscillation"
+        );
+    });
+
+    it("a starved room still recovers everything", () => {
+        // Below a 20,000 combined bank terminalFloat returns 0, so
+        // `> target + MaxStorage` is `> MaxStorage` and the arm is unchanged
+        // for exactly the rooms it was written for.
+        assert.include(EMS, "else if(energyBank >= 20000) target = 5000;");
+        assert.include(EMS, "let target = 0;");
+    });
+
+    it("the fill rung still has its own hysteresis", () => {
+        assert.include(EMS, "terminal.store[RESOURCE_ENERGY] > terminalEnergyTarget + 5000");
+    });
+
+    it("hubWorkPending agrees with the ladder, arm for arm", () => {
+        // A predicate that disagrees with the ladder is a predicate that lies:
+        // it would send a parked filler to dump its standby load for an errand
+        // the ladder then refuses to run.
+        assert.include(EMS, "if(storeAmt(storage, RESOURCE_ENERGY) < 20000 && termE > target + MaxStorage) return true;");
+        assert.include(EMS, "if(termE > target + 5000) return true;");
+    });
+});

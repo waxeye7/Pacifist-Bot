@@ -164,7 +164,9 @@ export function hubWorkPending(creep: any): boolean {
     const target = terminalFloat(room, storage, terminal);
     const termE = storeAmt(terminal, RESOURCE_ENERGY);
     if(termE > target + 5000) return true;
-    if(storeAmt(storage, RESOURCE_ENERGY) < 20000 && termE > MaxStorage) return true;
+    // same two arms as the drain rung, including its target term: a
+    // predicate that disagrees with the ladder is a predicate that lies
+    if(storeAmt(storage, RESOURCE_ENERGY) < 20000 && termE > target + MaxStorage) return true;
     if(target > 0 && termE < target &&
         storeAmt(storage, RESOURCE_ENERGY) > MaxStorage &&
         terminal.store.getFreeCapacity() > 5000) return true;
@@ -612,9 +614,33 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         // fill and drain rungs below chase each other.
         const terminalEnergyTarget = terminalFloat(creep.room, storage, terminal);
 
-        // Drain back to storage. 5000 of hysteresis above the target keeps this
-        // from fighting the fill rung.
-        if(terminal && terminal.store[RESOURCE_ENERGY] > terminalEnergyTarget + 5000 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > MaxStorage) {
+        /*
+         * Drain back to storage. 5000 of hysteresis above the target keeps the
+         * first arm from fighting the fill rung below.
+         *
+         * THE SECOND ARM USED TO FIGHT IT ANYWAY. It read
+         * `storage < 20000 && terminal > MaxStorage` — a low-bank recovery that
+         * says nothing about the terminal's target — and it is tested FIRST, so
+         * it won every time. Take a room whose combined bank sits just over
+         * 20,000, which is exactly where terminalFloat() switches the target on
+         * at 5,000:
+         *
+         *   storage 15,000 + terminal 5,000  -> arm 2: storage < 20,000, drain
+         *   storage 20,000 + terminal 0      -> fill rung: terminal < 5,000, fill
+         *   storage 15,000 + terminal 5,000  -> arm 2 again, forever
+         *
+         * 5,000 energy shuttled back and forth across the hub for the life of
+         * the room, a creep round trip at a time. Live E36N57 2026-09-10 was
+         * inside that band at 19,938 + 259 and its terminal had just been
+         * pulled from 2,426 to 259 by this arm while the fill rung wanted
+         * 5,000 in it.
+         *
+         * So the recovery arm now respects the target too: it only pulls back
+         * what is ABOVE the float, which leaves a starved room recovering
+         * everything (its target is 0 below a 20,000 bank) and leaves a room in
+         * the band alone.
+         */
+        if(terminal && terminal.store[RESOURCE_ENERGY] > terminalEnergyTarget + 5000 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > terminalEnergyTarget + MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.withdraw(terminal, RESOURCE_ENERGY);
                 creep.memory.target = storage.id;
