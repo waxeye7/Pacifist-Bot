@@ -158,6 +158,50 @@ export function sampleBilledFromBucket(): void {
   }
 }
 
+/**
+ * HOW MANY REMOTES THE WHOLE EMPIRE MAY MINE AT ONCE.
+ *
+ * maxRemotes is documented as a soft target PER COMMUNE, and manageRemotes
+ * applies it per commune. On a seven-room empire that makes the smallest
+ * non-zero step SEVEN remotes, because every room independently decides it may
+ * have one on the same tick the bucket crosses the entry bar.
+ *
+ * A remote is about 1 CPU — the headroom rung above says so in as many words
+ * (miner 0.25, carriers 0.5, pathing). Live shard3 2026-09-11 with remotes
+ * shut: billed 18.7 against a 20 limit, so 1.3 CPU of real headroom. Seven
+ * remotes is 7. The bucket would cross 4,000, every room would open, the
+ * average would go to 25, the bucket would drain back through the 3,000 stay
+ * bar in a few hundred ticks, and every remote in the empire would be recalled
+ * at once — which is the collapse the hysteresis note above already describes
+ * from the last time this happened, only reached from the other direction.
+ *
+ * So the empire gets a budget as well as the per-room cap, and it is priced in
+ * the CPU it actually has. One or two permanently-staffed remotes are worth
+ * strictly more than seven that cycle on and off, because a recalled remote
+ * still cost the energy to build its creeps and buys nothing with them.
+ *
+ * Uses the BILLED average when it exists. avg100 is the in-loop number and
+ * understates the true cost by the post-loop Memory write, measured at 1.32
+ * on this bot — budgeting from it would buy a remote the empire cannot pay for.
+ */
+const REMOTE_CPU_EST = 1.0;
+
+export function empireRemoteBudget(): number {
+  const limit = Game.cpu.limit || 20;
+  // Only 20-CPU-shaped shards need this. A private server with a high limit
+  // has room for the per-room caps as written.
+  if (limit > 30) return 99;
+  const M: any = Memory as any;
+  const billed = M.CPU && typeof M.CPU.trueAvg === "number" && M.CPU.trueAvg > 0
+    ? M.CPU.trueAvg
+    : Number(M.CPU && M.CPU.hundredTickAvg && M.CPU.hundredTickAvg.avg) || 0;
+  // No reading yet: allow exactly one and let the next pass price it properly.
+  if (billed <= 0) return 1;
+  const headroom = limit - billed;
+  if (headroom <= 0) return 0;
+  return Math.floor(headroom / REMOTE_CPU_EST);
+}
+
 export function getCpuPolicy(): CpuPolicyState {
   const limit = Game.cpu.limit || 20;
   const bucket = Game.cpu.bucket;

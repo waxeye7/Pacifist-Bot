@@ -1,4 +1,4 @@
-import { getCpuPolicy } from "utils/CpuPolicy";
+import { getCpuPolicy, empireRemoteBudget } from "utils/CpuPolicy";
 import { remotesDisabled, remotesRclLocked } from "utils/Speedrun";
 import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 
@@ -461,6 +461,33 @@ export function scoreOrHoldUnsurveyed(
     return "skip";
 }
 
+/**
+ * Remotes the empire is ACTUALLY mining right now, counted once per tick.
+ *
+ * Only entries with `energy` count: an `active` entry with no energy is a
+ * scout probe, which costs one scout and no mining crew, and blocking those
+ * would stop the empire ever learning what its neighbours hold.
+ */
+let _activeRemoteTick = -1;
+let _activeRemoteCount = 0;
+function empireActiveRemotes(): number {
+    if (_activeRemoteTick === Game.time) return _activeRemoteCount;
+    _activeRemoteTick = Game.time;
+    let n = 0;
+    for (const rn in Game.rooms) {
+        const r: any = Game.rooms[rn];
+        if (!r.controller || !r.controller.my || !r.memory || !r.memory.resources) continue;
+        const res = r.memory.resources;
+        for (const name in res) {
+            if (name === rn) continue;
+            const e = res[name];
+            if (e && e.active && e.energy) n++;
+        }
+    }
+    _activeRemoteCount = n;
+    return n;
+}
+
 export function manageRemotes(room: any): void {
     if (!room.controller || !room.controller.my) return;
 
@@ -806,8 +833,28 @@ export function manageRemotes(room: any): void {
     const keep: { [name: string]: boolean } = {};
     for (let i = 0; i < scored.length && i < cap; i++) keep[scored[i].name] = true;
 
+    /*
+     * THE EMPIRE-WIDE BUDGET, ON TOP OF THIS ROOM'S CAP.
+     *
+     * `cap` above is per commune, so seven rooms each deciding they may have
+     * one remote is seven remotes — about 7 CPU against the 1.3 this bot
+     * actually has spare. See CpuPolicy.empireRemoteBudget. Only NEW opens are
+     * gated: a remote already being mined keeps its crew, exactly as the
+     * container maintainer cap only limits who may start.
+     */
+    const budget = empireRemoteBudget();
+
     for (const s of scored) {
-        const want = !!keep[s.name];
+        let want = !!keep[s.name];
+        const already = !!res[s.name].active;
+        if (want && !already && res[s.name].energy && empireActiveRemotes() >= budget) {
+            want = false;
+        }
+        if (want && !already && res[s.name].energy) {
+            // Count it immediately: the next room in this same tick's pass must
+            // see the slot as taken, or all seven open together anyway.
+            _activeRemoteCount++;
+        }
         if (!!res[s.name].active !== want) {
             res[s.name].active = want;
             // The close clock remoteRecalled debounces against.
