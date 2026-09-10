@@ -55,7 +55,7 @@ describe("the hub errand ladder is a function, not a role", () => {
 
 describe("the filler absorbs the hub errands", () => {
     it("calls the same function, not a copy of it", () => {
-        assert.include(FILLER, 'import { managerErrand } from "Roles/energyManager";');
+        assert.include(FILLER, 'import { hubWorkPending, managerErrand } from "Roles/energyManager";');
         assert.include(FILLER, "managerErrand(creep, MaxStorage)");
     });
 
@@ -69,6 +69,47 @@ describe("the filler absorbs the hub errands", () => {
         const start = FILLER.indexOf("if(creep.store.getUsedCapacity() == 0 && roomTopped(creep.room) &&");
         const leg = FILLER.indexOf("if(!creep.memory.full) {");
         assert.isAbove(start, leg, "the fetch leg is the only place a filler is idle AND empty");
+    });
+
+    it("a PARKED FULL filler is the only hub duty a one-filler room ever offers", () => {
+        // The fetch-leg entry needs an empty store, and a standby load in a
+        // quiet room is never spent — so that entry can go hundreds of ticks
+        // without firing. Live E35N58 the moment its manager died: the filler
+        // parked at 25,23 on 530 energy with extensions 2000/2000 while the
+        // hub link at 23,23 climbed to 388 with nobody to drain it.
+        assert.include(FILLER, "if(roomTopped(creep.room) && claimHubDuty(creep) && hubWorkPending(creep) &&");
+    });
+
+    it("...and asks whether there IS work before calling the do-it function", () => {
+        // managerErrand's first rung is "you are carrying something, put it in
+        // the storage". Called unconditionally from the parked branch it would
+        // dump the standby load, refill next tick and dump again: two intents
+        // a tick, forever, for nothing.
+        const pend = FILLER.indexOf("hubWorkPending(creep) &&");
+        const run = FILLER.indexOf("managerErrand(creep, MaxStorage)", pend);
+        assert.isAbove(pend, -1);
+        assert.isAbove(run, pend);
+        const EMS = SRC("Roles/energyManager.ts");
+        const body = EMS.slice(EMS.indexOf("export function hubWorkPending(creep: any): boolean {"));
+        const end = body.indexOf(String.fromCharCode(10) + "}");
+        const fn = body.slice(0, end);
+        // read-only: a predicate that moves or withdraws is not a predicate
+        assert.notInclude(fn, "creep.withdraw");
+        assert.notInclude(fn, "creep.transfer");
+        assert.notInclude(fn, "MoveCostMatrix");
+        assert.notInclude(fn, "creep.memory.target =");
+        // covers exactly the hub-only rungs
+        assert.include(fn, "link.store[RESOURCE_ENERGY] > 0");
+        assert.include(fn, "bin.store.getFreeCapacity() < 2000");
+        assert.include(fn, "terminalFloat(room, storage, terminal)");
+    });
+
+    it("the terminal float band has ONE definition", () => {
+        // Two copies of a hysteresis band is two bands, and they drift.
+        const EMS = SRC("Roles/energyManager.ts");
+        assert.include(EMS, "export function terminalFloat(room: any, storage: any, terminal: any): number {");
+        assert.include(EMS, "const terminalEnergyTarget = terminalFloat(creep.room, storage, terminal);");
+        assert.strictEqual((EMS.match(/energyBank >= 200000/g) || []).length, 1);
     });
 
     it("roomTopped is a real 'nothing wants energy', not fillNeed", () => {

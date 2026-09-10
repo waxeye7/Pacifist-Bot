@@ -75,7 +75,11 @@ describe("the four squatter branches issue intents now", () => {
     });
 
     it("filler: full with no target parks instead of freezing", () => {
-        assert.match(FILLER, /\/\/ Full store, nothing hungry anywhere[\s\S]{0,300}?creep\.idlePark\(\);/);
+        // The comment moved when hub duty was wired into this branch; the
+        // guarantee is unchanged - a full filler with nowhere to go still
+        // issues an intent rather than freezing on whatever lane tile the
+        // last delivery ended on.
+        assert.match(FILLER, /FULL, AND NOTHING IN THE ROOM WANTS IT[\s\S]{0,2600}?creep\.idlePark\(\);/);
     });
 
     it("EnergyManager: no errand => idlePark (the fallback was commented out)", () => {

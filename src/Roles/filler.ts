@@ -6,7 +6,7 @@ import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Rea
 import { planSitter } from "utils/PlanV2";
 import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 import { fillerBody, fillerName } from "Rooms/spawnSafety";
-import { managerErrand } from "Roles/energyManager";
+import { hubWorkPending, managerErrand } from "Roles/energyManager";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -956,8 +956,32 @@ const run = function (creep) {
             }
         }
         else {
-            // Full store, nothing hungry anywhere: do not stand wherever the
-            // last delivery happened to end (that tile is usually a lane).
+            /*
+             * FULL, AND NOTHING IN THE ROOM WANTS IT.
+             *
+             * This is where a filler spends most of a quiet room's life, and
+             * it is the ONLY state a one-filler room ever offers hub duty: the
+             * fetch-leg entry needs an empty store, and a parked standby load
+             * is never spent, so that entry can go hundreds of ticks without
+             * firing. Live E35N58 immediately after its manager died: filler
+             * parked at 25,23 on 530 energy, extensions 2000/2000, and the hub
+             * link at 23,23 quietly climbing to 388 with nobody to drain it.
+             *
+             * hubWorkPending() is asked BEFORE managerErrand(), and that order
+             * is the whole point: the ladder's first rung is "you are carrying
+             * something, put it in the storage", so calling it unconditionally
+             * here would dump the standby load, refill it next tick and dump
+             * it again forever. The predicate makes the dump the first step of
+             * a real errand instead of a tic.
+             */
+            if(roomTopped(creep.room) && claimHubDuty(creep) && hubWorkPending(creep) &&
+                managerErrand(creep, MaxStorage)) {
+                creep.memory.t = false;
+                creep.memory._hubT = Game.time;
+                return;
+            }
+            // Do not stand wherever the last delivery happened to end (that
+            // tile is usually a lane).
             creep.idlePark();
         }
 

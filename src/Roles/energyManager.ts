@@ -104,6 +104,80 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
  * at all, and reporting that as "handled" would freeze the caller.
  */
 /**
+ * How much energy the terminal is meant to be holding.
+ *
+ * Every market path is priced in terminal energy (transaction fees are paid
+ * from it), and the old rule only filled the terminal once storage passed
+ * 100k — so a 42k-storage room sat on a 200-energy terminal and no buy, sell,
+ * send or gift could fire at all.
+ *
+ * The ladder reads the COMBINED storage+terminal energy on purpose: moving
+ * energy between the two must not change the target, or the fill and drain
+ * rungs chase each other.
+ *
+ * Extracted so hubWorkPending() below asks the identical question. Two copies
+ * of a hysteresis band is two bands, and they drift.
+ */
+export function terminalFloat(room: any, storage: any, terminal: any): number {
+    const energyBank = storeAmt(storage, RESOURCE_ENERGY) + storeAmt(terminal, RESOURCE_ENERGY);
+    let target = 0;
+    if(energyBank >= 200000) target = 40000;      // unchanged high-bank behaviour
+    else if(energyBank >= 100000) target = 20000;
+    else if(energyBank >= 20000) target = 5000;
+    // A funnel donor stocks its terminal with the surplus it is about to ship
+    // to the mother room (Empire/funnel). Never below the ladder.
+    return Math.max(target, funnelDonorTerminalTarget(room));
+}
+
+/**
+ * "Is there anything for a hub creep to do?" — WITHOUT doing it.
+ *
+ * managerErrand() is a do-it function, and its very first rung is "you are
+ * carrying something, put it in the storage". A filler parked on a FULL
+ * standby load that simply called the ladder would therefore dump its load
+ * every time the room went quiet, refill it on the next tick, and dump it
+ * again: two intents a tick, forever, for nothing.
+ *
+ * So the full-and-idle filler asks this first. It is a cheap superset of the
+ * hub-only rungs — link, bin, terminal float, room mineral — and deliberately
+ * NOT of the lab / factory / nuker / power-spawn corner, because a room that
+ * runs any of those keeps a dedicated manager (see roomNeedsManager). A false
+ * positive here costs one wasted dump; a false negative costs a hub link that
+ * nobody drains, which is the one failure mode this whole handover has.
+ */
+export function hubWorkPending(creep: any): boolean {
+    const room = creep.room;
+    const storage: any = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    if(!storage) return false;
+    const MaxStorage = creep.memory.MaxStorage || 50;
+
+    const link: any = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
+    if(link && link.store[RESOURCE_ENERGY] > 0) return true;
+
+    const S: any = room.memory.Structures || {};
+    const bin: any = Game.getObjectById(S.bin) || room.findBin(storage);
+    if(bin && bin.store.getFreeCapacity() < 2000) return true;
+
+    const terminal: any = room.terminal;
+    if(!terminal) return false;
+
+    const target = terminalFloat(room, storage, terminal);
+    const termE = storeAmt(terminal, RESOURCE_ENERGY);
+    if(termE > target + 5000) return true;
+    if(storeAmt(storage, RESOURCE_ENERGY) < 20000 && termE > MaxStorage) return true;
+    if(target > 0 && termE < target &&
+        storeAmt(storage, RESOURCE_ENERGY) > MaxStorage &&
+        terminal.store.getFreeCapacity() > 5000) return true;
+
+    const mineral: any = Game.getObjectById(room.memory.mineral) || room.findMineral();
+    const mt = mineral && mineral.mineralType;
+    if(mt && storeAmt(storage, mt) > 3000 && storeAmt(terminal, mt) < 30000 &&
+        terminal.store.getFreeCapacity() > 10000) return true;
+
+    return false;
+}
+
+/**
  * Does this room still need a creep whose ONLY job is the errand ladder below?
  *
  * Roles/filler now runs managerErrand() itself whenever its store is empty and
@@ -536,14 +610,7 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         // The ladder reads the COMBINED storage+terminal energy on purpose:
         // moving energy between the two must not change the target, or the
         // fill and drain rungs below chase each other.
-        const energyBank = storeAmt(storage, RESOURCE_ENERGY) + storeAmt(terminal, RESOURCE_ENERGY);
-        let terminalEnergyTarget = 0;
-        if(energyBank >= 200000) terminalEnergyTarget = 40000;      // unchanged high-bank behaviour
-        else if(energyBank >= 100000) terminalEnergyTarget = 20000;
-        else if(energyBank >= 20000) terminalEnergyTarget = 5000;
-        // A funnel donor stocks its terminal with the surplus it is about to
-        // ship to the mother room (Empire/funnel). Never below the ladder.
-        terminalEnergyTarget = Math.max(terminalEnergyTarget, funnelDonorTerminalTarget(creep.room));
+        const terminalEnergyTarget = terminalFloat(creep.room, storage, terminal);
 
         // Drain back to storage. 5000 of hysteresis above the target keeps this
         // from fighting the fill rung.
