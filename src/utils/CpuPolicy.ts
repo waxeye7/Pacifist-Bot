@@ -206,10 +206,14 @@ export function lowCpuShard(): boolean {
  * unbuilt is a spawn / extension / tower the room is waiting on, and
  * queueBuilder has its own bank gates.
  */
-/** Bucket at which the optional roster CLOSES — the server is near skipping ticks. */
-export const OPT_ROSTER_CLOSE_BUCKET = 2000;
-/** Bucket at which it REOPENS. Between the two, the previous answer holds. */
-export const OPT_ROSTER_OPEN_BUCKET = 3000;
+/**
+ * Bucket at which the optional roster CLOSES.
+ *
+ * Not an emergency bar — a DUTY CYCLE bar. See optionalRosterOpen.
+ */
+export const OPT_ROSTER_CLOSE_BUCKET = 3000;
+/** Bucket at which it REOPENS: a genuine surplus, not merely "not an emergency". */
+export const OPT_ROSTER_OPEN_BUCKET = 5000;
 
 export function optionalRosterOpen(): boolean {
   if (!lowCpuShard()) return true;
@@ -248,6 +252,32 @@ export function optionalRosterOpen(): boolean {
    * roles the moment a tick crosses 90% of the limit, so a genuinely bad tick
    * still costs them their run(). This gate only decides whether a room may
    * ever BUY one.
+   *
+   * ── AND IT IS A DUTY CYCLE, NOT A SWITCH ──────────────────────────────────
+   *
+   * The first cut of this fix opened at 3,000 and closed at 2,000, which on
+   * this bot means "open essentially always" — and that is not affordable.
+   * Measured after reopening it: avg100 went to 21.2 against a limit of 20 and
+   * the bucket fell steadily, 4,687 -> 2,535, because these roles are ~6 extra
+   * creeps and creep CPU on this bot is almost entirely INTENTS at ~0.2 each
+   * (Memory.CPU.path proved it: the whole fleet's PathFinder cost is 1.88 of
+   * an 18.5 creeps phase, so there is no JS left to optimise away — headcount
+   * IS the bill). A permanently-open roster parks the bot at a draining
+   * equilibrium, and a bucket that reaches zero means the server starts
+   * skipping our ticks, which is far worse than a slow wall.
+   *
+   * But walls do not need CONTINUOUS attention. A rampart decays 300 hits per
+   * 100 ticks — 3 a tick — and a repairer buys 100 hits per energy. So the
+   * honest shape is a duty cycle: open on a real surplus (5,000), run until
+   * the surplus is spent (3,000), close, let the bucket rebuild, repeat. At a
+   * base cost near the limit that is roughly a quarter of the time open, which
+   * is many times what decay actually demands.
+   *
+   * It also fails safe in the right direction. If the bot's base cost is truly
+   * at or over the limit the bucket never reaches 5,000 and the roster simply
+   * stays shut — which is the honest answer for a bot that cannot afford it,
+   * and unlike the old average-based rule it is a bar that CAN be cleared as
+   * soon as the base cost comes down.
    */
   if (bucket < OPT_ROSTER_CLOSE_BUCKET) {
     M._optRosterOpen = false;

@@ -104,13 +104,23 @@ describe("the optional roster latch can reopen", () => {
     try { fn(); } finally { g.Game = pg; g.Memory = pm; }
   }
 
-  it("reopens at the bot's real running average — the bug", () => {
-    // Live: bucket 3354, avg100 18.3, _optRosterOpen false. The old rule
-    // demanded avg < 17.0 to reopen and the bot's measured floor is 18.1, so
-    // repair/maintainer/sweeper were unbuyable for good.
-    withCpu(3354, 18.3, false, () => {
-      assert.isTrue(optionalRosterOpen(), "a healthy bucket reopens the roster");
+  it("reopens on a real surplus, whatever the running average says — the bug", () => {
+    // The old rule demanded avg < 17.0 to reopen and the bot's measured floor
+    // is 18.1, so repair/maintainer/sweeper were unbuyable for good. The bar
+    // is now the bucket, which unlike the average can be cleared.
+    withCpu(OPT_ROSTER_OPEN_BUCKET, 19.9, false, () => {
+      assert.isTrue(optionalRosterOpen(), "a surplus reopens the roster");
     });
+  });
+
+  it("is a duty cycle, not a switch: a mid-band bucket holds its answer", () => {
+    // Opening it permanently is what took avg100 to 21.2 on a limit of 20 and
+    // drained the bucket 4687 -> 2535. Walls decay 3 hits/tick; they do not
+    // need continuous attention, they need a share of the time.
+    const mid = Math.floor((OPT_ROSTER_CLOSE_BUCKET + OPT_ROSTER_OPEN_BUCKET) / 2);
+    withCpu(mid, 21.2, true, () => assert.isTrue(optionalRosterOpen(), "spend the surplus"));
+    withCpu(mid, 12, false, () => assert.isFalse(optionalRosterOpen(), "rebuild it first"));
+    assert.isAbove(OPT_ROSTER_OPEN_BUCKET, OPT_ROSTER_CLOSE_BUCKET, "a real band");
   });
 
   it("still closes when the bucket is genuinely draining", () => {

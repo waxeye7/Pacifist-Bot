@@ -31,7 +31,7 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
     withCpu(20, 1999, 10, {}, () => assert.isFalse(optionalRosterOpen()));
   });
 
-  it("a full bucket keeps the roster open however high the average runs", () => {
+  it("a real SURPLUS keeps the roster open however high the average runs", () => {
     // WAS "closes when the average sits at the limit". That rule closed at
     // avg >= 18.4 and reopened at avg < 17.0 — and the bot's MEASURED floor,
     // with this roster already shut and every remote already closed, is 18.1
@@ -43,16 +43,19 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
     // paying its way. The bucket is the only signal here that moves in both
     // directions, so it is the one the gate reads. skipOptionalCreep still
     // idles these roles per tick, so the per-tick brake is unchanged.
-    withCpu(20, 5000, 19.5, {}, () => assert.isTrue(optionalRosterOpen()));
-    withCpu(20, 3354, 18.3, { _optRosterOpen: false }, () => assert.isTrue(optionalRosterOpen()));
+    withCpu(20, 6000, 19.5, {}, () => assert.isTrue(optionalRosterOpen()));
+    withCpu(20, 5000, 21.2, { _optRosterOpen: false }, () => assert.isTrue(optionalRosterOpen()));
   });
 
-  it("deadbands between 2000 and 3000 so a 1500-tick roster cannot flap", () => {
-    withCpu(20, 2500, 5, { _optRosterOpen: true }, () => assert.isTrue(optionalRosterOpen()));
-    withCpu(20, 2500, 5, { _optRosterOpen: false }, () => assert.isFalse(optionalRosterOpen()));
-    // ...and the ends of the band are decisive whatever the previous answer was
-    withCpu(20, 3000, 19.9, { _optRosterOpen: false }, () => assert.isTrue(optionalRosterOpen()));
-    withCpu(20, 1999, 1, { _optRosterOpen: true }, () => assert.isFalse(optionalRosterOpen()));
+  it("closes once the surplus is spent, so the walls are a duty cycle not a drain", () => {
+    // Opened permanently (the first cut of the fix: open 3000 / close 2000) it
+    // took avg100 to 21.2 against a limit of 20 and drained the live bucket
+    // 4687 -> 2535. A rampart decays 3 hits/tick; it needs a SHARE of the
+    // time, not all of it.
+    withCpu(20, 2999, 12, { _optRosterOpen: true }, () => assert.isFalse(optionalRosterOpen()));
+    // mid-band holds whatever it was, in both directions
+    withCpu(20, 4000, 5, { _optRosterOpen: true }, () => assert.isTrue(optionalRosterOpen()));
+    withCpu(20, 4000, 5, { _optRosterOpen: false }, () => assert.isFalse(optionalRosterOpen()));
   });
 
   it("the spawn rungs for repair, maintainer and sweeper read the gate", () => {
