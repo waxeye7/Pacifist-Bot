@@ -314,3 +314,60 @@ describe("the hub ladder refuses a stand-in bank", () => {
         assert.include(F.slice(at, at + 300), "claimHubDuty(creep);");
     });
 });
+
+/**
+ * A busy room is never "topped up", so hub duty never fires there — and the
+ * hub link is the one store in the game that nothing but a creep can empty
+ * into a storage.
+ *
+ * A hub link that is even PARTLY full blocks every source link behind it:
+ * link.transferEnergy with no amount is all-or-nothing, so a source link
+ * holding 800 cannot send into a hub holding 388. Live E38N56 the tick after
+ * its manager died: storage 4,461, extensions cycling 1,600-1,950 of 2,000
+ * with the filler running flat out, and the hub link pinned at 388 across
+ * every sample.
+ *
+ * So draining it is not an errand, it is a stop on the fetch leg.
+ */
+describe("the filler drains the hub link on the way past", () => {
+    const F = SRC("Roles/filler.ts");
+    const body = F.slice(
+        F.indexOf("function hubLinkDrain(creep: any, storage: any): boolean {"),
+        F.indexOf("\n}", F.indexOf("function hubLinkDrain(creep: any, storage: any): boolean {"))
+    );
+
+    it("outranks the storage in the fetch ladder", () => {
+        assert.include(F, "else if(hubLinkDrain(creep, storage)) {");
+        const link = F.indexOf("else if(hubLinkDrain(creep, storage)) {");
+        const bank = F.indexOf("else if(storage && storage.store[RESOURCE_ENERGY] > 0) {");
+        assert.isAbove(link, -1);
+        assert.isAbove(bank, link, "the storage is not the thing that stalls when it is not empty");
+    });
+
+    it("is the HUB link and never the controller link", () => {
+        assert.include(body, "if(link.pos.getRangeTo(storage) > 2) return false;");
+        assert.include(body, "if(S.controllerLink && link.id === S.controllerLink) return false;");
+    });
+
+    it("does not send a 1000-capacity filler out on a 100-energy delivery", () => {
+        // `full` only when the load actually fills the creep; otherwise it
+        // tops up from the storage on the next tick.
+        assert.include(body, "creep.store.getFreeCapacity(RESOURCE_ENERGY) <= have");
+        const m = F.match(/const LINK_DRAIN_MIN = (\d+);/);
+        assert.isNotNull(m);
+        assert.isAtLeast(Number(m![1]), 50, "two CARRY parts is the floor for an intent");
+        assert.isAtMost(Number(m![1]), 400, "a half-full hub link already blocks the sources");
+    });
+
+    it("walks to it when it is not already adjacent", () => {
+        assert.include(body, "advanceTo(creep, link, true);");
+    });
+
+    it("the room keeps first refusal on that link", () => {
+        // forwardToControllerLink() is a structure action run in the ROOM
+        // phase, which is before the creep phase, so the upgrade feed still
+        // takes what it needs before any filler sees the link.
+        const R = SRC("Rooms/rooms.ts");
+        assert.include(R, "forwardToControllerLink(room);");
+    });
+});

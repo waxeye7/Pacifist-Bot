@@ -576,6 +576,57 @@ function claimHubDuty(creep: any): boolean {
     return true;
 }
 
+
+/**
+ * DRAIN THE HUB LINK ON THE WAY PAST.
+ *
+ * A link is the one store in the game that nothing but a creep can empty into
+ * a storage, and a hub link that is even PARTLY full blocks the source links
+ * behind it: link.transferEnergy with no amount is all-or-nothing, so a source
+ * link holding 800 cannot send into a hub holding 388. The whole source-to-hub
+ * network stalls behind one half-full box.
+ *
+ * The EnergyManager used to be the creep that emptied it. With the manager
+ * gone, hub duty covers the quiet rooms — but hub duty needs the room to be
+ * topped up, and a BUSY room never is. Live E38N56 the tick after its manager
+ * died: storage 4,461, extensions cycling 1,600-1,950 of 2,000 with the filler
+ * running flat out, and the hub link pinned at 388 for every sample.
+ *
+ * So it is not an errand, it is a stop on the fetch leg. The filler is already
+ * standing next to the link (the planner puts storage, terminal and hub link
+ * around one tile), the energy is going to the extensions rather than back
+ * into the storage, which is one hop FEWER than the manager needed, and the
+ * room phase's forwardToControllerLink() has already had first refusal on this
+ * link earlier in the same tick.
+ *
+ * `full` is only set when the load actually fills the creep. A 100-energy link
+ * must not send a 1,000-capacity filler off on a 100-energy delivery run; it
+ * takes what is there and tops up from the storage on the next tick.
+ */
+const LINK_DRAIN_MIN = 100;
+function hubLinkDrain(creep: any, storage: any): boolean {
+    if(!storage) return false;
+    const link: any = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
+    if(!link || link.structureType !== STRUCTURE_LINK) return false;
+    // the hub link, never the controller link: draining that one would undo
+    // the room's own upgrade feed
+    if(link.pos.getRangeTo(storage) > 2) return false;
+    const S: any = creep.room.memory.Structures || {};
+    if(S.controllerLink && link.id === S.controllerLink) return false;
+    const have = link.store[RESOURCE_ENERGY] || 0;
+    if(have < LINK_DRAIN_MIN) return false;
+    if(creep.pos.isNearTo(link)) {
+        if(creep.withdraw(link, RESOURCE_ENERGY) === 0 &&
+            creep.store.getFreeCapacity(RESOURCE_ENERGY) <= have) {
+            creep.memory.full = true;
+        }
+    }
+    else {
+        advanceTo(creep, link, true);
+    }
+    return true;
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
     // Attributed reserveFill is pruned, never wiped: a %40 / spawn wipe
@@ -782,6 +833,11 @@ const run = function (creep) {
             else {
                 advanceTo(creep, bin, true);
             }
+        }
+        else if(hubLinkDrain(creep, storage)) {
+            // handled: see hubLinkDrain() — the link outranks the storage
+            // because only a creep can empty it and everything behind it
+            // stalls while it is not empty.
         }
         else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
             let result = creep.withdrawStorage(storage);
