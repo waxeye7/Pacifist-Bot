@@ -1796,6 +1796,30 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(worstBox.length) {
                 spawnMaintainer = true;
             }
+            /*
+             * ...AND THE ROOM STILL HAS TO BE ABLE TO PAY.
+             *
+             * The maintainer rungs never carried a bank test of their own. They
+             * did not need one while optionalRosterOpen() sat in front of them,
+             * because a 5,000 bucket was doing duty as an affordability brake —
+             * and lifting spawnMaintainer over that gate took the brake off with
+             * it. Live shard3 the same day: E38N56 was ALREADY running about -35
+             * energy a tick (a 12-WORK upgrader and a 10-WORK repairer against
+             * two sources) and this flag bought it a 13-WORK maintainer on top,
+             * a 1,950 energy body burning 13 a tick. Storage went 9,998 -> 1,758
+             * and the shell minimum it was bought for moved 2,935 -> 3,061,
+             * which is the towers' decay floor doing the work, not the creep.
+             *
+             * Same test the stall escape uses: a bank over the floor, or one
+             * that is going UP. A room whose income is already spoken for
+             * cannot fix its walls by going broke, and the towers hold the
+             * peacetime floor meanwhile. Roles/maintainer parks on the matching
+             * number so a creep already alive when the bank turns stands down
+             * rather than draining the room.
+             */
+            if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR || bankIsRising(room))) {
+                spawnMaintainer = false;
+            }
         }
 
     }

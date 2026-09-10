@@ -32,6 +32,32 @@ function nameOffset(name: string, mod: number): number {
  */
 const ROAD_WALK_EVERY = 10;
 
+/**
+ * Bank at which a maintainer stops working, and the (higher) bank at which it
+ * starts again. Same floor every other subsystem in the bot calls "not poor"
+ * (rooms.spawning UPGRADE_FLOOR, Empire/funnel PARK_FLOOR_MIN), with a
+ * deadband so a room hovering on it does not flap the creep on and off.
+ */
+const MAINT_BANK_FLOOR = 10000;
+const MAINT_BANK_RESUME = 12000;
+/**
+ * ...and the hits at which the shell stops being "worn" and starts being a
+ * hole. rooms.defence holds a 3,000-hit peacetime floor with the towers, so a
+ * rampart under this is one tower outage from gone.
+ */
+const MAINT_EMERGENCY_HITS = 3000;
+
+function shellIsBreached(room: any): boolean {
+    return cachedDerived(room, "maintShellBreach", () => {
+        for(const s of cachedStructures(room) as any[]) {
+            if(s.structureType === STRUCTURE_RAMPART && s.my && (s.hits || 0) < MAINT_EMERGENCY_HITS) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
+
 const run = function (creep) {
     ;
     creep.memory.moving = false;
@@ -50,6 +76,42 @@ const run = function (creep) {
     if(creep.memory.targetRoom && creep.room.name !== creep.memory.targetRoom) {
         creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
+
+    /*
+     * ── A MAINTAINER MUST NOT DRINK A POOR ROOM DRY ───────────────────────
+     *
+     * This role had no bank discipline of any kind. It did not need one while
+     * every maintainer rung sat behind optionalRosterOpen(), because a 5,000
+     * bucket was standing in as an affordability test — and when the survival
+     * escape was added to those rungs (a rampart at the tower floor, a
+     * container near death) that stand-in went with it.
+     *
+     * Live shard3 2026-09-11: E38N56 was already running at about -35 energy a
+     * tick with a 12-WORK upgrader and a 10-WORK repairer against two sources,
+     * and the escape handed it a 13-WORK maintainer on top — a 1,950 energy
+     * body that then burns 13 a tick. Storage went 9,998 -> 1,758 and the shell
+     * minimum it was bought to fix moved 2,935 -> 3,061, which is the TOWERS'
+     * decay floor, not the maintainer.
+     *
+     * PARK, DO NOT RECYCLE. The bank crossing a floor is a passing condition in
+     * a healthy room, and the CLF next door already answers it this way (see
+     * Roles/ControllerLinkFiller bankParked). A parked maintainer costs one
+     * cheap tick and comes straight back the moment the room can pay; a
+     * recycled one has to be bought again at full price.
+     *
+     * The downgrade-style escape is the shell being genuinely breached rather
+     * than merely worn: under MAINT_EMERGENCY_HITS a rampart is one tower
+     * outage from gone and the room's problem is no longer its bank.
+     */
+    const bank = creep.room.storage && creep.room.storage.my
+        ? creep.room.storage.store[RESOURCE_ENERGY] : null;
+    if(bank !== null && bank < (creep.memory.bankParked ? MAINT_BANK_RESUME : MAINT_BANK_FLOOR)
+        && !shellIsBreached(creep.room)) {
+        creep.memory.bankParked = true;
+        creep.idlePark();
+        return;
+    }
+    if(creep.memory.bankParked) delete creep.memory.bankParked;
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;

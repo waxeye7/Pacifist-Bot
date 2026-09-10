@@ -74,3 +74,74 @@ describe("survival upkeep is not discretionary", () => {
         assert.isAtMost(f, 0.3);
     });
 });
+
+/**
+ * ...and the escape immediately overshot, because lifting the maintainer over
+ * the CPU gate also lifted it over the only affordability brake it had.
+ *
+ * Live shard3 2026-09-11. E38N56 was ALREADY running at about -35 energy a tick
+ * before any of this -- a 12-WORK upgrader and a 10-WORK repairer against two
+ * sources -- and the new escape handed it a 13-WORK maintainer on top: a 1,950
+ * energy body that then burns 13 a tick. Storage fell 9,998 -> 1,758 and the
+ * shell minimum it was bought to fix moved 2,935 -> 3,061, which is the towers'
+ * own peacetime decay floor, not the maintainer's work.
+ *
+ * The maintainer role had no bank discipline of any kind, because for as long
+ * as optionalRosterOpen() sat in front of every rung a 5,000 bucket was standing
+ * in as the affordability test.
+ */
+const MT = fs
+    .readFileSync(path.join(__dirname, "../../src/Roles/maintainer.ts"), "utf8")
+    .replace(/\r\n/g, "\n");
+
+describe("upkeep still has to be paid for", () => {
+    it("the spawn escape needs a bank over the floor, or one that is rising", () => {
+        assert.include(SP, "if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR || bankIsRising(room))) {");
+        assert.include(SP, "spawnMaintainer = false;");
+        // ...and it is applied AFTER both arms that raise the flag, or one of
+        // them slips past
+        const ramp = SP.indexOf("if(rampart.hits <= 10000) {");
+        const box = SP.indexOf("if(worstBox.length) {");
+        const pay = SP.indexOf("if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR");
+        assert.isAbove(pay, ramp);
+        assert.isAbove(pay, box);
+    });
+
+    it("a maintainer already alive parks instead of draining the room", () => {
+        assert.include(MT, "creep.memory.bankParked = true;");
+        assert.include(MT, "creep.idlePark();");
+        assert.include(MT, "if(creep.memory.bankParked) delete creep.memory.bankParked;");
+        // parked, NOT recycled: the bank crossing a floor is a passing
+        // condition and a recycled body has to be bought again at full price.
+        // Roles/ControllerLinkFiller answers the same question the same way.
+        const at = MT.indexOf("creep.memory.bankParked = true;");
+        assert.notInclude(MT.slice(at - 400, at + 200), "suicide");
+    });
+
+    it("...with a deadband, so a room sitting on the floor does not flap it", () => {
+        assert.include(MT, "creep.memory.bankParked ? MAINT_BANK_RESUME : MAINT_BANK_FLOOR");
+        const f = Number(MT.match(/const MAINT_BANK_FLOOR = (\d+);/)![1]);
+        const r = Number(MT.match(/const MAINT_BANK_RESUME = (\d+);/)![1]);
+        assert.isAbove(r, f, "resume must be the higher of the two");
+        // same number every other subsystem calls "not poor"
+        assert.equal(f, 10000);
+    });
+
+    it("a breached shell overrides the bank, a merely worn one does not", () => {
+        assert.include(MT, "&& !shellIsBreached(creep.room)");
+        const fn = MT.slice(MT.indexOf("function shellIsBreached"), MT.indexOf("const run = function"));
+        assert.include(fn, "s.structureType === STRUCTURE_RAMPART && s.my");
+        assert.include(fn, "< MAINT_EMERGENCY_HITS");
+        // memoised per room per tick, and off the shared structure list
+        assert.include(fn, 'cachedDerived(room, "maintShellBreach"');
+        assert.include(fn, "cachedStructures(room)");
+        const h = Number(MT.match(/const MAINT_EMERGENCY_HITS = (\d+);/)![1]);
+        // rooms.defence holds a 3,000-hit peacetime floor with the towers
+        assert.isAtMost(h, 5000);
+    });
+
+    it("a room with no real storage is not judged on a bank it does not have", () => {
+        assert.include(MT, "const bank = creep.room.storage && creep.room.storage.my");
+        assert.include(MT, "if(bank !== null && bank <");
+    });
+});
