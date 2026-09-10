@@ -2582,6 +2582,16 @@ function _spawnQueueHasSweeper(room:any): boolean {
     return false;
 }
 
+/**
+ * Below this a load is not worth a walk — it is one tick of decay on the floor.
+ */
+const RECYCLE_DUMP_MIN = 50;
+/**
+ * ...and above this many tries the creep has to die anyway. A hub the creep
+ * cannot path to must not become an immortality loop.
+ */
+const RECYCLE_DUMP_TICKS = 60;
+
 Creep.prototype.recycle = function recycle() {
     // Every recycle prints ONCE: the 2026-08-19 VPS collapse was newborns
     // dying invisibly (verbose-gated logs + 30-tick tombstones). Cheap, and
@@ -2592,6 +2602,56 @@ Creep.prototype.recycle = function recycle() {
     }
     if(this.memory.homeRoom && this.memory.homeRoom !== this.room.name) {
         return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
+    }
+
+    /*
+     * ── EMPTY THE CREEP BEFORE KILLING IT ─────────────────────────────────
+     *
+     * recycleCreep() and suicide() both DROP the creep's store on the floor.
+     * Every one of the five kill paths below reached them with a loaded creep
+     * and none of them ever emptied it first.
+     *
+     * Live shard3 2026-09-11, tick 82,882,379 — three piles on the ground in
+     * three different rooms at the same instant: E37N59 (30,8) 405, E35N59
+     * (27,21) 434, E39N58 (8,42) 429. The E35N59 one is ONE TILE from Spawn2,
+     * which is where recycle() walks a creep to and kills it. Nothing sweeps
+     * them: Roles/sweeper is in OPTIONAL_CREEP_ROLES and optionalRosterOpen()
+     * has been shut for as long as the bucket has been under 5,000, so 1,280
+     * energy sat rotting at 1 hit a tick with no role able to reach it.
+     *
+     * The callers make this routine, not rare: the ControllerLinkFiller
+     * suicides on `_noSink > 150` while holding up to 800, and the recall path
+     * brings home loaded remote haulers. Walking two tiles to the storage is
+     * one intent against a whole load.
+     *
+     * BOUNDED. A creep that cannot reach a sink must still die rather than
+     * orbit one forever, so the attempt gives up after RECYCLE_DUMP_TICKS and
+     * falls through to the kill paths exactly as before.
+     */
+    const held = this.store ? this.store.getUsedCapacity() : 0;
+    if(held >= RECYCLE_DUMP_MIN) {
+        const S: any = this.room.memory.Structures || {};
+        const sink: any = this.room.storage
+            || Game.getObjectById(S.storage)
+            || this.room.terminal
+            || Game.getObjectById(S.bin);
+        if(sink && sink.store && sink.store.getFreeCapacity() > 0) {
+            this.memory._recDump = (this.memory._recDump || 0) + 1;
+            if(this.memory._recDump <= RECYCLE_DUMP_TICKS) {
+                if(this.pos.isNearTo(sink)) {
+                    for(const res in this.store) {
+                        if(this.store[res] > 0) {
+                            this.transfer(sink, res as ResourceConstant);
+                            break;
+                        }
+                    }
+                }
+                else {
+                    this.MoveCostMatrixRoadPrio(sink, 1);
+                }
+                return;
+            }
+        }
     }
 
     let StructuresObject = this.room.memory.Structures;
