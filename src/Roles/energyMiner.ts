@@ -377,6 +377,68 @@ function roomHasHauler(room: any): boolean {
  * source sits on the hub). If no hauler exists yet and the spawn is within 8,
  * walk the load in. Otherwise drop for the hauler — do not sit ERR_FULL.
  */
+/**
+ * ---------------------------------------------------------------------------
+ * RECLAIM WHAT SPILLED AT THE SOURCE.
+ *
+ * A seated miner is the only creep that ever stands at a source in a link
+ * room: the spawn ladder stops buying carriers for a source the moment
+ * linkHaulBySource says its link reaches the hub, and the filler's salvage
+ * leash is HUB_LOOT_RANGE (3) whenever the hub can supply it — deliberately,
+ * so a filler cannot lock onto a source pile and walk the base for it. The
+ * sweeper would collect it, but the sweeper is on the optional roster and the
+ * CPU duty cycle keeps that shut for long stretches.
+ *
+ * So nothing collects a source spill. It decays at amount/1000 per tick until
+ * it is gone.
+ *
+ * Anything that stalls the link for a while produces one. Live E37N59
+ * 2026-09-10: one wedged EnergyManager backed the hub link up for 364 ticks,
+ * which pinned both source links at 800, which left both miners dumping on the
+ * floor. When the wedge cleared, the links resumed but the damage stayed —
+ * 3,237 energy rotting on two tiles and 2,000 stranded in each source
+ * container, which had filled during the stall and which nothing drains
+ * either. The room reads healthy and quietly burns its own income.
+ *
+ * The miner is already standing on both of them and its link has throughput to
+ * spare: a source makes 10 e/t and a link moves up to 800 per cooldown. So the
+ * miner reclaims, newest problem first — the pile decays, the container does
+ * not.
+ *
+ * Costs one transfer-class intent, which is the same intent the transfer to
+ * the link would have used, and only ever runs when the link can immediately
+ * take the whole load back off us next tick. That bound is what stops the
+ * reclaim from becoming a pickup/drop cycle when the link is the bottleneck.
+ * `harvest` is a different intent class, so the miner still mines this tick.
+ * ---------------------------------------------------------------------------
+ */
+function reclaimSpill(creep: any, link: any): boolean {
+    const free = creep.store.getFreeCapacity(RESOURCE_ENERGY);
+    if(free <= 0) return false;
+    // Only pull back what the link can accept next tick, or we are just moving
+    // the backlog into a creep that has to put it down again.
+    if(!link || link.store.getFreeCapacity(RESOURCE_ENERGY) < free) return false;
+
+    // The spill is normally on the seat itself; range 1 covers the tick the
+    // miner dumped before it was seated.
+    const piles = creep.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+        filter: (r: any) => r.resourceType === RESOURCE_ENERGY,
+    });
+    if(piles.length) {
+        piles.sort((a: any, b: any) => b.amount - a.amount);
+        if(creep.pickup(piles[0]) === OK) return true;
+    }
+
+    // Then the container. transferAdjacentSink fills it and never empties it,
+    // so in a link room it is write-only once the link takes over.
+    const box: any = _.find(cachedStructures(creep.room), (st: any) =>
+        st.structureType == STRUCTURE_CONTAINER &&
+        st.store[RESOURCE_ENERGY] > 0 &&
+        st.pos.isNearTo(creep.pos));
+    if(box && creep.withdraw(box, RESOURCE_ENERGY) === OK) return true;
+    return false;
+}
+
 function dumpMinerEnergy(creep: any): void {
     if(transferAdjacentSink(creep)) return;
 
@@ -833,7 +895,13 @@ const run = function (creep) {
             }
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
-                    creep.transfer(closestLink, RESOURCE_ENERGY);
+                    // Spare link throughput is the only thing that ever gets a
+                    // source spill or a stranded source container back. Take it
+                    // in preference to pushing this tick's 10 energy, which the
+                    // next tick will push anyway.
+                    if(!reclaimSpill(creep, closestLink)) {
+                        creep.transfer(closestLink, RESOURCE_ENERGY);
+                    }
                 }
                 else if(seatState === "none") {
                     // no seat exists for this source-link pair: legacy walk
