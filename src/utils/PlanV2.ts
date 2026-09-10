@@ -3271,6 +3271,46 @@ export function placeFromPlanV2(room: Room): void {
     runMigration(room, plan, lvl, structures, have);
   }
 
+  /*
+   * THE EXCEPTION SLOT IS NOT THE PAVER'S TO SPEND.
+   *
+   * maxSitesFor grants a broke room exactly ONE typed slot for the structure
+   * that can un-break it — terminal, extractor, link, container. The budget is
+   * then `grant(1) - liveSites`, and the road drip below stands up to
+   * ROAD_DRIP sites BEFORE that subtraction and independently of it. So a
+   * room holding four drip roads computes 1 - 4 = -3, hits `if (budget <= 0)
+   * return` above the placement loop, and the exception it was granted can
+   * never be taken. The two mechanisms are each individually reasonable and
+   * cancel each other out.
+   *
+   * Live shard3 2026-09-11, and it is the same room the container grant was
+   * written for. E35N59's plan wants containers at 19,6 / 38,19 / 16,17 /
+   * 30,14; three stand and 38,19 does not. Its miner sits on that tile
+   * drop-mining onto the floor — 557 energy and climbing, decaying at 1/1000
+   * a tick — while the room held four road sites and a 6,234 bank that
+   * qualified for the grant. The comment on that grant says a container is
+   * "the cheapest structure in the plan that changes a room's income"; the
+   * roads in front of it are a convenience.
+   *
+   * So the exception places like the drip does, before the gate and bounded to
+   * one site. It cannot churn: the tile is marked in `have` immediately, and
+   * next pass the structure or its site counts as present so the grant stops
+   * being offered.
+   */
+  if (_exceptionSlotFor && _exceptionSlotFor !== "road" && !spawnless && !nakedShell) {
+    const exType = _exceptionSlotFor;
+    const exPlaced = have[exType] || (have[exType] = {});
+    for (const p of plannedTilesFor(plan, exType, lvl, room)) {
+      if (exPlaced[p]) continue;
+      const rc = room.createConstructionSite(p % 50, Math.floor(p / 50), exType as BuildableStructureConstant);
+      if (rc === OK) {
+        exPlaced[p] = true;
+        logAlways(`planV2 ${room.name}: exception site ${exType}@${p % 50},${Math.floor(p / 50)}`);
+      }
+      break;
+    }
+  }
+
   // THE ROAD DRIP — before the budget gate, because the budget is exactly
   // what starves roads: containers+extensions hold all 8 slots at RCL4-5 and
   // the broke clamp leaves 0-2 at RCL6+, so entire rebuild eras passed with
