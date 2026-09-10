@@ -1,3 +1,4 @@
+import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
 import { remoteIsHot, markRemoteHot, remoteHasHostileTower } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
@@ -204,6 +205,23 @@ function dropNonRecoverySpend(room: any): void {
     }
 }
 
+/*
+ * SUB-KEYS OF THE `spawning` ROOM PART, NOT SIBLINGS OF IT.
+ *
+ * Memory.CPU.roomParts.spawning is the whole call; every `spawn.*` key below
+ * is a slice of that same time, so they must never be added to the room-part
+ * total a second time. The breakdown exists because `spawning` measured about
+ * 2.0 CPU a tick - half the entire rooms pass, and the largest number in this
+ * bot that is ordinary JavaScript rather than creep intents, which cost 0.2
+ * apiece and cannot be argued down.
+ *
+ * Live shard3 2026-09-11, settled room parts: spawning 1.96, market 0.62,
+ * defence 0.52, planV2Place 0.49, refreshUnreachable 0.30, everything else
+ * under 0.04. The bot bills 19.7 against a 20 limit, the bucket needs 4,000
+ * before remotes may open, and that gate also wants the in-loop average under
+ * 18. Finding half a CPU inside this one function is the difference between a
+ * bot with remotes and a bot without.
+ */
 function spawning(room: any) {
     // NO `if(Game.cpu.bucket < 1000) return;` HERE. It used to sit above
     // everything, including the emergency-filler rescue in spawnFirstInLine —
@@ -224,7 +242,7 @@ function spawning(room: any) {
     if(!room.memory.Structures) {
         room.memory.Structures = {};
     }
-    rememberOwnedRoomStats(room);
+    roomPart("spawn.stats", () => rememberOwnedRoomStats(room));
 
     if(!room.memory.spawn_list) {
         room.memory.spawn_list = [];
@@ -233,14 +251,15 @@ function spawning(room: any) {
     // Rescue retask must run even when this room has no idle spawn. The
     // spawnFirstInLine "spawning" return used to skip add_creeps entirely,
     // so after E37N58 stood back up the fleet never left for E39N58.
-    runSpawnRescueOnce();
+    roomPart("spawn.rescueOnce", () => runSpawnRescueOnce());
     // Rescue mode: this room sheds non-rescue spawns from its OWN queue. The
     // decision that rescue is on is the empire's (Empire/rescue.ts); the queue
     // is this room's. Idempotent, so it is safe on the legacy path too.
-    stripNonRescueQueue(room);
-    cullSurplusBuildersOnce();
-
-    offerEmergencyFeed(room);
+    roomPart("spawn.queueHygiene", () => {
+        stripNonRescueQueue(room);
+        cullSurplusBuildersOnce();
+        offerEmergencyFeed(room);
+    });
 
     // Same cold-start problem, different object: rooms.ts calls spawning(room)
     // BEFORE data(room), and data() is the only initialiser of room.memory.data
@@ -368,7 +387,7 @@ function spawning(room: any) {
     // emergency filler, the HOL shrink/interleave/shred, the producer) is
     // unchanged; the ladder only ever takes the spawn when a survival rung is
     // missing, so a healthy room never notices it.
-    if(spawnLadderEnabled() && runSpawnLadder(room, spawn)) return;
+    if(spawnLadderEnabled() && roomPart("spawn.ladder", () => runSpawnLadder(room, spawn))) return;
 
     if(Game.cpu.bucket < 1000) {
         if (emergencyFillerRescue(room, spawn)) return;
@@ -379,9 +398,9 @@ function spawning(room: any) {
 
     // Before the head gets its claim on the spawn: if the room cannot feed
     // itself, take offence and remote upkeep out of the queue entirely.
-    dropNonRecoverySpend(room);
+    roomPart("spawn.dropNonRecovery", () => dropNonRecoverySpend(room));
 
-    let status = spawnFirstInLine(room, spawn);
+    let status = roomPart("spawn.firstInLine", () => spawnFirstInLine(room, spawn));
     if(status == "spawning") {
         return;
     }
@@ -403,8 +422,10 @@ function spawning(room: any) {
         // named prefix skip if that prefix is already queued.
         room.memory.danger && room.memory.spawn_list.length >= 1 && Game.time % 15 == 0) {
 
-            add_creeps_to_spawn_list(room, spawn);
-            clampSpawnListToCapacity(room);
+            roomPart("spawn.producer", () => {
+                add_creeps_to_spawn_list(room, spawn);
+                clampSpawnListToCapacity(room);
+            });
     }
 
 
