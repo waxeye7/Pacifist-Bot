@@ -1,4 +1,4 @@
-import { MAINT_BANK_RESUME } from "Roles/maintainer";
+import { MAINT_BANK_RESUME, shellIsBreached } from "Roles/maintainer";
 import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
 import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset } from "./rooms.remotes";
@@ -2153,7 +2153,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && !queuedWithPrefix(room, 'Maintainer')) {
+            if(maintainerDemand(room, spawnMaintainer) && maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[4].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2216,7 +2216,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[5].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
+            if(maintainerDemand(room, spawnMaintainer) && maintainers < spawnrules[5].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[5].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2367,7 +2367,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[6].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
+            if(maintainerDemand(room, spawnMaintainer) && maintainers < spawnrules[6].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[6].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2496,7 +2496,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[7].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
+            if(maintainerDemand(room, spawnMaintainer) && maintainers < spawnrules[7].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[7].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -2636,7 +2636,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
 
-            if((optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && maintainers < spawnrules[8].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
+            if(maintainerDemand(room, spawnMaintainer) && maintainers < spawnrules[8].maintain_creep.amount && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -4461,6 +4461,49 @@ function roomsRunningMaintainers(): { [roomName: string]: boolean } {
  * START, never how many may finish, or a creep would be abandoned mid-repair
  * and the room would have paid the body for nothing.
  */
+/**
+ * THE OTHER HALF OF THE SAME GATE, AND IT HAD NO BANK TEST AT ALL.
+ *
+ * Every maintainer rung reads `optionalRosterOpen() && keepTheseRoads.length
+ * || spawnMaintainer`. Only the second disjunct was ever taught to check the
+ * room could pay (see the MAINT_BANK_RESUME gate above). The first is a global
+ * BUCKET condition — it says nothing whatever about the room's energy — so the
+ * moment the empire bucket climbs past the roster bar, every room with a road
+ * list buys a maintainer, however broke it is.
+ *
+ * Live shard3 2026-09-11, tick 82891700, the roster open at bucket ~4,300:
+ * E39N58 held 1,031 energy in storage and bought a 20-WORK/20-CARRY/10-MOVE
+ * maintainer for 3,500 energy — 175 ticks of the room's ENTIRE two-source
+ * income. Roles/maintainer read the same bank, found it under
+ * MAINT_BANK_FLOOR, and wrote `bankParked: true` into the creep's memory while
+ * it was still in the spawn. The room paid 3,500 energy for a creep that has
+ * never taken an action.
+ *
+ * That is the same shape as the gate above it, one disjunct to the left: two
+ * gates that must agree, and only one of them was told the rule.
+ *
+ * The escape is the role's own, imported rather than copied: a genuinely
+ * breached shell means the role works regardless of bank, so the spawn is not
+ * wasted. Rooms with no storage have no bank gate on either side.
+ */
+function maintainerAffordable(room: any): boolean {
+    if(!room.storage || !room.storage.my) return true;
+    if(storageEnergy(room) >= MAINT_BANK_RESUME) return true;
+    return shellIsBreached(room);
+}
+
+/**
+ * The whole maintainer demand test, in one place, for all five RCL rungs.
+ * `spawnMaintainer` has already been through its own bank gate by the time it
+ * gets here, so it passes straight through.
+ */
+function maintainerDemand(room: any, spawnMaintainer: boolean): boolean {
+    if(spawnMaintainer) return true;
+    if(!optionalRosterOpen()) return false;
+    if(!room.memory.keepTheseRoads || room.memory.keepTheseRoads.length === 0) return false;
+    return maintainerAffordable(room);
+}
+
 function containerOverrideAllowed(room: any, worstFraction: number): boolean {
     if (worstFraction < CONTAINER_DYING) return true;
     const running = roomsRunningMaintainers();

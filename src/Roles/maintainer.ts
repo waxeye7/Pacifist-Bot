@@ -41,6 +41,28 @@ const ROAD_WALK_EVERY = 10;
 export const MAINT_BANK_FLOOR = 10000;
 export const MAINT_BANK_RESUME = 12000;
 /**
+ * ...and how long a maintainer may stay parked before it gives the body back.
+ *
+ * Parking is right for a bank that dips: the creep costs one cheap tick and
+ * comes straight back. It is wrong for a bank that is not coming back inside
+ * this creep's lifetime, and the two look identical for the first few ticks.
+ *
+ * Live shard3 2026-09-11: E39N58 held 1,031 energy in storage — a two-source
+ * room whose income is ~20/tick — and bought a 20-WORK/20-CARRY/10-MOVE
+ * maintainer for 3,500 energy. The creep wrote bankParked while still inside
+ * the spawn. At 20 energy a tick the room needs about 550 ticks of ENTIRE
+ * income just to reach MAINT_BANK_RESUME, so that body was going to park for
+ * most of its 1,500 ticks and then die of old age having taken no action.
+ *
+ * recycleCreep returns half the body cost, so giving up recovers ~1,750
+ * energy of the 3,500. 300 ticks is a fifth of a lifetime: long enough that a
+ * genuine dip (a spawn burst, one big repair) never trips it, short enough
+ * that the refund is still worth having. The spawn gate now demands
+ * MAINT_BANK_RESUME before buying another (rooms.spawning maintainerDemand),
+ * so this cannot become a buy/recycle loop.
+ */
+const MAINT_PARK_GIVEUP = 300;
+/**
  * ...and the hits at which the shell stops being "worn" and starts being a
  * hole.
  *
@@ -57,7 +79,12 @@ export const MAINT_BANK_RESUME = 12000;
  */
 const MAINT_EMERGENCY_HITS = 1500;
 
-function shellIsBreached(room: any): boolean {
+/**
+ * Exported so the SPAWN side can ask the same question the PARK side asks.
+ * Two gates that must agree are two gates that drift; see
+ * test/unit/maintainerParkAtBirth.
+ */
+export function shellIsBreached(room: any): boolean {
     return cachedDerived(room, "maintShellBreach", () => {
         for(const s of cachedStructures(room) as any[]) {
             if(s.structureType === STRUCTURE_RAMPART && s.my && (s.hits || 0) < MAINT_EMERGENCY_HITS) {
@@ -117,11 +144,20 @@ const run = function (creep) {
         ? creep.room.storage.store[RESOURCE_ENERGY] : null;
     if(bank !== null && bank < (creep.memory.bankParked ? MAINT_BANK_RESUME : MAINT_BANK_FLOOR)
         && !shellIsBreached(creep.room)) {
+        if(!creep.memory._parkedT) creep.memory._parkedT = Game.time;
+        // GIVE THE BODY BACK rather than park out a whole lifetime. See
+        // MAINT_PARK_GIVEUP.
+        if(Game.time - creep.memory._parkedT > MAINT_PARK_GIVEUP) {
+            creep.memory.suicide = true;
+            creep.recycle();
+            return;
+        }
         creep.memory.bankParked = true;
         creep.idlePark();
         return;
     }
     if(creep.memory.bankParked) delete creep.memory.bankParked;
+    if(creep.memory._parkedT) delete creep.memory._parkedT;
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;

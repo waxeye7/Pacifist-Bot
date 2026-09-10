@@ -67,10 +67,17 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
     // which has carried the same escape for the shell all along. Without it
     // live shard3 held zero maintainers across seven rooms for as long as the
     // bucket stayed under 5,000, while its containers decayed toward 22%.
+    //
+    // UPDATED 2026-09-11: the five copies of that disjunction are now one
+    // function, maintainerDemand, because the roster half of it had no bank
+    // test and a room holding 1,031 energy bought a 3,500 energy body that
+    // parked in the spawn. See test/unit/maintainerParkAtBirth. The gate still
+    // has to be READ by all five rungs, which is what this counts.
     assert.strictEqual(
-      (src.match(/\(optionalRosterOpen\(\) && room\.memory\.keepTheseRoads && room\.memory\.keepTheseRoads\.length > 0 \|\| spawnMaintainer\) && maintainers </g) || []).length,
+      (src.match(/maintainerDemand\(room, spawnMaintainer\) && maintainers </g) || []).length,
       5
     );
+    assert.match(src, /function maintainerDemand[\s\S]{0,200}optionalRosterOpen\(\)/);
     assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5]");
     assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6]");
     assert.include(src, "optionalRosterOpen() &&\n        wantSweepers > 0");

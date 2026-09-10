@@ -115,7 +115,9 @@ describe("the container maintainer override is capped empire-wide", () => {
   it("takes the threshold from the role that owns it", () => {
     // Two copies of a number two files must agree on is two numbers, and they
     // drift. This bot has been bitten by that shape repeatedly today.
-    assert.include(SP, 'MAINT_BANK_RESUME } from "Roles/maintainer"');
+    // The import list grew a second name (shellIsBreached, for the roster-path
+    // gate in maintainerParkAtBirth.test); match the name, not the whole line.
+    assert.match(SP, /import \{[^}]*MAINT_BANK_RESUME[^}]*\} from "Roles\/maintainer";/);
     assert.match(MAINT, /export const MAINT_BANK_RESUME = 12000;/);
     assert.match(MAINT, /export const MAINT_BANK_FLOOR = 10000;/);
   });

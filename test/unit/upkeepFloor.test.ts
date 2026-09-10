@@ -35,8 +35,15 @@ const SP = fs
 describe("survival upkeep is not discretionary", () => {
     it("every maintainer rung lets spawnMaintainer past the CPU gate", () => {
         // RCL4, 5, 6, 7, 8.
-        const open = SP.split("(optionalRosterOpen() && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)").length - 1;
+        // UPDATED 2026-09-11: the disjunction moved into maintainerDemand()
+        // because its roster half had no bank test and a room with 1,031
+        // energy bought a 3,500 energy body that parked in the spawn. See
+        // test/unit/maintainerParkAtBirth. The escape is unchanged: the
+        // function returns true on spawnMaintainer BEFORE it looks at the
+        // bucket or the bank.
+        const open = SP.split("maintainerDemand(room, spawnMaintainer)").length - 1;
         assert.equal(open, 5, "all five maintainer rungs");
+        assert.match(SP, /function maintainerDemand[^{]*\{[\s\S]{0,10}if\(spawnMaintainer\) return true;/);
         // the old shape, where the whole condition was ANDed behind the bucket
         assert.notInclude(SP, "optionalRosterOpen() && maintainers <");
     });
@@ -45,7 +52,7 @@ describe("survival upkeep is not discretionary", () => {
         // keepTheseRoads is ordinary wear. Only the room's own critical flag
         // jumps the queue, exactly as repairRosterOpen already does for the
         // shell.
-        assert.include(SP, "optionalRosterOpen() && room.memory.keepTheseRoads");
+        assert.match(SP, /if\(!optionalRosterOpen\(\)\) return false;[\s\S]{0,10}if\(!room\.memory\.keepTheseRoads/);
         assert.include(SP, "// Shell at the peacetime tower floor: one repairer even when CPU skip is on.");
     });
 
@@ -126,11 +133,23 @@ describe("upkeep still has to be paid for", () => {
         assert.include(MT, "creep.memory.bankParked = true;");
         assert.include(MT, "creep.idlePark();");
         assert.include(MT, "if(creep.memory.bankParked) delete creep.memory.bankParked;");
-        // parked, NOT recycled: the bank crossing a floor is a passing
-        // condition and a recycled body has to be bought again at full price.
-        // Roles/ControllerLinkFiller answers the same question the same way.
-        const at = MT.indexOf("creep.memory.bankParked = true;");
-        assert.notInclude(MT.slice(at - 400, at + 200), "suicide");
+        // The FIRST answer is a park, not a recycle: the bank crossing a floor
+        // is a passing condition and a recycled body has to be bought again at
+        // full price. Roles/ControllerLinkFiller answers it the same way.
+        //
+        // UPDATED 2026-09-11: a park that never ends is not a passing
+        // condition. E39N58 bought a 3,500 energy body on a 1,031 bank against
+        // ~20/tick of income, and it would have parked out its whole 1,500
+        // ticks. After MAINT_PARK_GIVEUP the creep recycles for half the body
+        // back. That escape is bounded and gated; see
+        // test/unit/maintainerParkAtBirth. What must never come back is an
+        // UNCONDITIONAL kill on the bank test.
+        assert.match(MT, /MAINT_PARK_GIVEUP\) \{/);
+        assert.notMatch(
+            MT,
+            /bank < \(creep\.memory\.bankParked[^)]*\)[\s\S]{0,80}creep\.recycle\(\);/,
+            "the bank test alone must not kill the creep",
+        );
     });
 
     it("...with a deadband, so a room sitting on the floor does not flap it", () => {
