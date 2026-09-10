@@ -39,6 +39,7 @@ interface Creep {
     moveToRoomAvoidEnemyRooms:any;
     harvestEnergy:any;
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
+    grabAdjacentPile:() => boolean;
     roadCheck:() => boolean;
     fleeHomeIfInDanger: () => void | string;
     fleeFromMelee: (creep:Creep) => void;
@@ -880,6 +881,47 @@ Creep.prototype.findStorage = function() {
         if(sticky) this.memory.storage = hubBox.id;
         return hubBox;
     }
+}
+
+/* ---------------------------------------------------------------------------
+ * FREE ENERGY YOU ARE ALREADY STANDING NEXT TO.
+ *
+ * A creep that dies away from the hub drops its whole carry, and in an RCL6+
+ * link room NOTHING collects it. The spawn ladder stops buying carriers once
+ * the links work. The filler's salvage leash collapses to HUB_LOOT_RANGE (3)
+ * whenever the hub can supply it, deliberately, so it cannot lock onto a
+ * distant pile and walk the base for it. The sweeper — whose job this actually
+ * is — sits on the optional roster, which the CPU duty cycle keeps shut for
+ * long stretches. And Roles/upgrader's trek cap forbids the room-wide shuttle
+ * for the reasons its own header gives.
+ *
+ * Live E37N58 2026-09-10: 757 energy at (31,13), decaying a tick at a time
+ * with nothing in the room able to take it. The room's upgrader stood at
+ * (30,14) — range 1 — with an EMPTY store and walked past it, and the
+ * ControllerLinkFiller crosses that tile on every trip between the storage and
+ * the controller link.
+ *
+ * This is NOT the room-wide shuttle any of those leashes exist to prevent: it
+ * never moves the creep one tile. Range 1, no pathing, no target lock, one
+ * transfer-class intent, and only worth calling on a leg where the creep is
+ * collecting anyway — there, a pickup strictly beats the withdraw it would
+ * have made instead.
+ * ------------------------------------------------------------------------- */
+/** Under this a pile is not worth the transfer-class intent. */
+const ADJACENT_PILE_MIN = 50;
+
+Creep.prototype.grabAdjacentPile = function grabAdjacentPile():boolean {
+    if(this.store.getFreeCapacity(RESOURCE_ENERGY) < ADJACENT_PILE_MIN) return false;
+    // cachedDropped is the one FIND_DROPPED_RESOURCES the whole tick shares; on
+    // a clean floor this is an array-length read. Biggest pile in one pass, no
+    // filter closure, no throwaway array and no sort.
+    let best: any = null;
+    for(const r of cachedDropped(this.room) as any[]) {
+        if(r.resourceType !== RESOURCE_ENERGY || r.amount < ADJACENT_PILE_MIN) continue;
+        if(Math.abs(r.pos.x - this.pos.x) > 1 || Math.abs(r.pos.y - this.pos.y) > 1) continue;
+        if(!best || r.amount > best.amount) best = r;
+    }
+    return !!best && this.pickup(best) === OK;
 }
 
 Creep.prototype.findClosestLink = function() {

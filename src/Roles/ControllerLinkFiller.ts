@@ -52,6 +52,16 @@ const run = function (creep) {
 
 
     if(!creep.memory.full) {
+        /*
+         * A pile we are ALREADY standing next to, before deciding where to
+         * walk for a load. This creep crosses the whole base twice a trip —
+         * storage to controller link and back — and the collect leg is the
+         * half where a pickup strictly beats the withdraw it would make
+         * instead. Range 1 only; see Creep.prototype.grabAdjacentPile.
+         */
+        if(creep.grabAdjacentPile()) {
+            return;
+        }
         let bin;
         let storage;
         if(creep.room.memory.Structures) {

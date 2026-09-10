@@ -278,43 +278,6 @@ function energyNearController(room: any): boolean {
 	return found;
 }
 
-/* ---------------------------------------------------------------------------
- * FREE ENERGY YOU ARE ALREADY STANDING NEXT TO.
- *
- * A creep that dies away from the hub drops its whole carry, and in an RCL6+
- * link room NOTHING collects it. The ladder stopped buying carriers once the
- * links worked; the filler's salvage leash collapses to HUB_LOOT_RANGE (3)
- * whenever the hub can supply it, deliberately, so it cannot walk the base for
- * a pile; and the sweeper — the role whose actual job this is — sits on the
- * optional roster, which the CPU duty cycle keeps shut for long stretches.
- *
- * Live E37N58 2026-09-10: 757 energy on the floor at (31,13), decaying at 1 a
- * tick with no collector in the room. The room's upgrader stood at (30,14) —
- * range 1 of it — with an EMPTY store, and walked past it to take 150 out of
- * the controller container seven tiles away. It does that every trip: the pile
- * sits on its route between the storage and the controller.
- *
- * This is NOT the room-wide shuttle the trek cap exists to prevent
- * (see UPGRADER_TREK_RANGE below): it never moves the creep one tile. Range 1,
- * no pathing, no target lock, and only on the fetch leg, where the creep is
- * empty by construction and a pickup beats any withdraw it could make instead.
- * ------------------------------------------------------------------------- */
-/** Under this a pile is not worth the transfer-class intent. */
-const ADJACENT_PILE_MIN = 50;
-
-function grabAdjacentPile(creep: any): boolean {
-	if(creep.store.getFreeCapacity(RESOURCE_ENERGY) < ADJACENT_PILE_MIN) return false;
-	// cachedDropped is the one FIND_DROPPED_RESOURCES the whole tick shares; on
-	// a clean floor this is an array-length read. Biggest pile in one pass.
-	let best: any = null;
-	for(const r of cachedDropped(creep.room) as any[]) {
-		if(r.resourceType !== RESOURCE_ENERGY || r.amount < ADJACENT_PILE_MIN) continue;
-		if(Math.abs(r.pos.x - creep.pos.x) > 1 || Math.abs(r.pos.y - creep.pos.y) > 1) continue;
-		if(!best || r.amount > best.amount) best = r;
-	}
-	return !!best && creep.pickup(best) === OK;
-}
-
 const run = function (creep) {
 	creep.memory.moving = false;
 
@@ -391,7 +354,7 @@ const run = function (creep) {
 	 * below is the only thing that sets it, and it sets it whenever the store is
 	 * not. So this can never interrupt work in progress.
 	 */
-	if(!creep.memory.upgrading && grabAdjacentPile(creep)) {
+	if(!creep.memory.upgrading && creep.grabAdjacentPile()) {
 		return;
 	}
 
