@@ -1,6 +1,6 @@
 import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
-import { remoteIsHot, markRemoteHot, remoteHasHostileTower } from "./rooms.remotes";
+import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
@@ -405,9 +405,36 @@ function spawning(room: any) {
         return;
     }
 
+    /*
+     * THE PERIODIC ARMS USE AN ABSOLUTE CLOCK, AND SO MUST THEY.
+     *
+     * `lastTimeSpawnUsed` is stamped with Game.time on EVERY tick that the
+     * primary spawn is busy and a second spawn is free (see the `spawn.spawning`
+     * block above). In a multi-spawn room that makes
+     * `Game.time - lastTimeSpawnUsed` zero every tick, and `0 % 35 == 0` is
+     * true, so the producer — the single most expensive call in the rooms pass
+     * — ran EVERY TICK instead of every 35, in exactly the busy rooms least
+     * able to afford it.
+     *
+     * The %500 arm two lines below was already fixed this way and says so; the
+     * two cadence arms above it were left on the relative clock. Live shard3
+     * 2026-09-11: Memory.CPU.roomParts put spawn.producer at 1.24 CPU a tick
+     * against a whole rooms phase of 4.23 and a billed cost of 18.7 on a 20
+     * limit, with three RCL7 rooms holding two or three spawns each.
+     *
+     * The prompt re-derive is not lost: the `== 2` arm above still fires two
+     * ticks after a spawn actually finishes, which is what that arm is for.
+     * These two are the periodic sweep, and a sweep wants a steady period.
+     *
+     * The per-room offset is the same hash the room cadences use. Without it
+     * all seven rooms would run the producer on the same tick and deliver the
+     * identical total as a spike, which is the defect this bot has now been
+     * bitten by five separate times.
+     */
+    const producerTick = Game.time + roomTickOffset(room.name);
     if(room.memory.spawn_list.length == 0 && Game.time - room.memory.lastTimeSpawnUsed == 2 ||
-        !room.memory.danger && room.memory.spawn_list.length == 0 && (Game.time - room.memory.lastTimeSpawnUsed) % 35 == 0 && room.controller.level >= 6 ||
-        !room.memory.danger && room.memory.spawn_list.length == 0 && (Game.time - room.memory.lastTimeSpawnUsed) % 20 == 0 && room.controller.level <= 5 ||
+        !room.memory.danger && room.memory.spawn_list.length == 0 && producerTick % 35 == 0 && room.controller.level >= 6 ||
+        !room.memory.danger && room.memory.spawn_list.length == 0 && producerTick % 20 == 0 && room.controller.level <= 5 ||
         // Absolute clock for the same reason as the danger arm below: a busy
         // primary stamps lastTimeSpawnUsed every tick, and the relative %500
         // fired every tick in multi-spawn rooms, flooding the queue with
