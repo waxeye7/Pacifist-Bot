@@ -66,6 +66,26 @@ describe("billed CPU, measured from the bucket", () => {
     assert.match(MAIN, /const policy = mark\("boot\.policy", \(\) => getCpuPolicy\(\)\)/);
   });
 
+  it("throws away the global-reset tick", () => {
+    // A reset costs 50-90 CPU on the tick that compiles the code, and that
+    // charge lands in the bucket delta the FOLLOWING tick. Seeding a 0.02 EMA
+    // with a 90-CPU sample poisons it for hundreds of ticks: the first live
+    // reading after this shipped was trueAvg 74.51 while trueLast had already
+    // settled at 20. A reset is a real cost but it is not the cost of a tick,
+    // and every gate reading this average is asking what a tick normally costs.
+    assert.include(CPUPOLICY, "let globalAge = 0;");
+    assert.include(CPUPOLICY, "globalAge++;");
+    assert.include(CPUPOLICY, "if (globalAge <= 2) {");
+  });
+
+  it("still records a baseline on the ticks it skips", () => {
+    // Otherwise the first real sample would span a gap and be discarded too.
+    const fn = CPUPOLICY.slice(CPUPOLICY.indexOf("export function sampleBilledFromBucket"));
+    const skip = fn.slice(fn.indexOf("if (globalAge <= 2) {"), fn.indexOf("const limit ="));
+    assert.include(skip, "M.CPU._btT = Game.time;");
+    assert.include(skip, "M.CPU._btB = Game.cpu.bucket;");
+  });
+
   it("surfaces the honest number in cpuStatus", () => {
     assert.include(CPUPOLICY, "`billed=${trueAvg}`");
   });

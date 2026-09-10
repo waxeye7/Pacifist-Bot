@@ -6,6 +6,7 @@ import { installLogger, logAlways, logVerbose } from "utils/Logger";
 import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
 import { getCpuPolicy, billedTickCpu, sampleBilledFromBucket } from "utils/CpuPolicy";
+import { sweepDeadMemory } from "utils/MemoryHygiene";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
@@ -335,6 +336,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // every other CPU number this bot keeps is blind to the Memory write that
   // happens after main() returns.
   mark("boot.trueCpu", () => sampleBilledFromBucket());
+  mark("boot.memSweep", () => sweepDeadMemory());
   const policy = mark("boot.policy", () => getCpuPolicy());
   global._cpuPolicy = policy;
 

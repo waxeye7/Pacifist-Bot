@@ -71,9 +71,29 @@ export function billedTickCpu(endUsed: number, startUsed: number): number {
  */
 const TRUE_CPU_ALPHA = 0.02;
 
+/*
+ * Ticks this global has been alive. A global reset costs 50-90 CPU on the
+ * tick that compiles the code, and that charge lands in the bucket delta the
+ * FOLLOWING tick — which is where this function would read it. Seeding a
+ * 0.02 EMA with a 90-CPU sample poisons the average for hundreds of ticks:
+ * the first live reading after this shipped was trueAvg 74.51 while trueLast
+ * had already settled at 20.
+ *
+ * A reset is a real cost, but it is not the cost of a tick, and every gate
+ * that reads this average is asking what a tick normally costs.
+ */
+let globalAge = 0;
+
 export function sampleBilledFromBucket(): void {
   const M: any = Memory as any;
   if (!M.CPU) return;
+  globalAge++;
+  if (globalAge <= 2) {
+    // Still record the reading so the NEXT tick has a baseline to subtract.
+    M.CPU._btT = Game.time;
+    M.CPU._btB = Game.cpu.bucket;
+    return;
+  }
   const limit = Game.cpu.limit || 20;
   const bucket = Game.cpu.bucket;
   const prevTick = M.CPU._btT;
