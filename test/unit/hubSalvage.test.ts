@@ -47,9 +47,22 @@ describe("hub salvage", () => {
     assert.isAtMost(v, 300);
   });
 
-  it("the range gate is untouched: adjacent while the hub has energy", () => {
+  it("the hub radius reaches the spawn side, where creeps actually die", () => {
+    // Range 1 is measured from the CREEP, and the collect leg only runs when
+    // the filler is EMPTY — i.e. standing at the storage. The piles are the
+    // dying carry of creeps that work at the spawn and the extension ring.
+    // Live: storage->spawn is 2-3 in all seven rooms, and every observed pile
+    // was 1-3 from storage. Lowering LOOT_MIN alone changed nothing.
     const f = SRC("Roles/filler.ts");
-    assert.include(f, "const lootRange = hubSupplies ? 1 : 10;");
+    assert.include(f, "const HUB_LOOT_RANGE = 3;");
+    assert.include(f, "const lootRange = hubSupplies ? HUB_LOOT_RANGE : 10;");
+    const m = f.match(/const HUB_LOOT_RANGE = (\d+);/);
+    assert.isNotNull(m);
+    const v = Number(m![1]);
+    assert.isAtLeast(v, 3, "must reach the spawn side of the hub");
+    // ...and must NOT reach a source pile: the range-10 leash locked a filler
+    // onto a miner drop 8 tiles out and it walked the base for it every trip.
+    assert.isBelow(v, 8, "a hub radius, not a room radius");
   });
 
   it("still never loots while the room is under attack", () => {

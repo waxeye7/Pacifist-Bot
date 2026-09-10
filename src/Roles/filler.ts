@@ -85,6 +85,35 @@ export const TOWER_FLOOR = 200;
 const LOOT_MIN = 100;
 
 /**
+ * How far a filler will look for salvage WHILE the hub can still supply it.
+ *
+ * This was 1, and 1 is measured from the CREEP, not from the storage — which
+ * is the reason lowering LOOT_MIN alone changed nothing. The collect leg only
+ * runs when the filler is empty, and an empty filler is standing at the
+ * STORAGE; the piles that accumulate are dying creeps' carry, and creeps die
+ * where they work, which is at the SPAWN and the extension ring. Those are
+ * different tiles.
+ *
+ * Measured live shard3 2026-09-10, after LOOT_MIN shipped — every pile still
+ * losing exactly 1/tick, i.e. still pure decay and still zero collection:
+ *
+ *   storage -> spawn         2-3 tiles (all seven rooms)
+ *   E37N59  drop @35,32      2 from storage
+ *   E37N58  drop @21,17      2
+ *   E35N58  drop @23,21      2
+ *   E36N57  drop @20,27      3
+ *   E39N58  drop @14,25      1
+ *
+ * So 3 is the radius that actually contains a v2 hub, and it is bounded on
+ * purpose. The failure the old range-10 leash caused is quoted above: a filler
+ * locked a SOURCE pile 8 tiles out (E17S4: storage 41,34 -> miner drop 33,42)
+ * and then walked the base for it every trip while the spawn sat at 64. Three
+ * tiles cannot reach a source; it reaches the hub's own floor and nothing
+ * else, so the detour is inside the route the filler already walks.
+ */
+const HUB_LOOT_RANGE = 3;
+
+/**
  * One room-wide candidate list for fillNeed(), memoised per room per tick.
  *
  * fillNeed() ran up to FOUR room-wide FIND_MY_STRUCTURES passes, and a loaded
@@ -579,7 +608,7 @@ const run = function (creep) {
         const hubSupplies =
             (bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) ||
             (storage && storage.store[RESOURCE_ENERGY] > 0);
-        const lootRange = hubSupplies ? 1 : 10;
+        const lootRange = hubSupplies ? HUB_LOOT_RANGE : 10;
         // Same question as before, asked in cost order. The danger gate is a
         // memory read and roomHasSalvage() is a provable superset of all three
         // probes, so on the (overwhelmingly common) clean-floor tick none of
