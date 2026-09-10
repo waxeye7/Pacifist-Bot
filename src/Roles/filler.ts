@@ -47,6 +47,44 @@ import { fillerBody, fillerName } from "Rooms/spawnSafety";
 export const TOWER_FLOOR = 200;
 
 /**
+ * Smallest pile of salvage a filler will break stride for.
+ *
+ * ── WHY THIS IS NOT `MaxStorage` ────────────────────────────────────────────
+ *
+ * The three probes below used to demand `>= MaxStorage` — a pile big enough to
+ * fill the creep COMPLETELY. That makes anything under one full load invisible
+ * forever, and a filler's load is 600 at RCL6 and 1000 at RCL7 (fillerPartCap),
+ * so it was invisible by a wide margin.
+ *
+ * What actually lands on a hub floor is a creep's dying carry, and that is
+ * always a PARTIAL load. Measured live shard3 2026-09-10, six of seven rooms,
+ * with the piles sampled twice 27 ticks apart:
+ *
+ *   E37N58  265 -> 231 @21,17   (spawn is 20,17)
+ *   E36N57  260 -> 233 @20,27   (spawn is 20,26)
+ *   E39N58  226 -> 199 @14,25   (spawn is 14,24)
+ *   E35N58  179 -> 152 @23,21   (spawn is 22,21)
+ *
+ * Every one of them fell by exactly 27 over 27 ticks — i.e. pure decay
+ * (1/1000 per tick, so 1/tick at this size) and ZERO collection, on tiles a
+ * filler stands next to constantly. The owner's report was "some energy on
+ * floor randomly"; this is the half of it that is not a missing container.
+ *
+ * The threshold is not silly in principle — one intent per tick means a
+ * pickup COSTS that tick's withdraw, so hoovering dust would trade fill
+ * throughput for scraps. But the trade is asymmetric: a pile on the floor
+ * decays to NOTHING, while a partial load only means one more trip later.
+ * 100 is two CARRY parts' worth — comfortably worth an intent, and small
+ * enough that a real death drop is never walked past again.
+ *
+ * The geometry is handled separately and is unchanged: `lootRange` is 1 while
+ * the hub has energy (so this only fires on salvage the filler is already
+ * standing next to, which costs no movement at all) and 10 only when the hub
+ * is dry, where any energy at all is worth the walk.
+ */
+const LOOT_MIN = 100;
+
+/**
  * One room-wide candidate list for fillNeed(), memoised per room per tick.
  *
  * fillNeed() ran up to FOUR room-wide FIND_MY_STRUCTURES passes, and a loaded
@@ -550,13 +588,13 @@ const run = function (creep) {
         // is bit-for-bit the old `sum > 0 && !danger`.
         const freeLoot = !creep.room.memory.danger && roomHasSalvage(creep.room) && (
             creep.pos.findInRange(FIND_DROPPED_RESOURCES, lootRange, {
-                filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= MaxStorage,
+                filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= LOOT_MIN,
             }).length > 0 ||
             creep.pos.findInRange(FIND_TOMBSTONES, lootRange, {
-                filter: (t) => t.store[RESOURCE_ENERGY] >= MaxStorage,
+                filter: (t) => t.store[RESOURCE_ENERGY] >= LOOT_MIN,
             }).length > 0 ||
             creep.pos.findInRange(FIND_RUINS, lootRange, {
-                filter: (r) => r.store[RESOURCE_ENERGY] >= MaxStorage,
+                filter: (r) => r.store[RESOURCE_ENERGY] >= LOOT_MIN,
             }).length > 0);
         if (freeLoot) {
             creep.acquireEnergyWithContainersAndOrDroppedEnergy();
