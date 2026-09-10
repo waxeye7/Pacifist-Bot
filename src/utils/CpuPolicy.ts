@@ -127,6 +127,35 @@ export function sampleBilledFromBucket(): void {
     ? Math.round((prev + TRUE_CPU_ALPHA * (billed - prev)) * 100) / 100
     : Math.round(billed * 100) / 100;
   M.CPU.trueLast = Math.round(billed * 100) / 100;
+
+  /*
+   * POST-LOOP OVERHEAD, MEASURED RATHER THAN INFERRED.
+   *
+   * The two numbers on either side of this subtraction describe the SAME
+   * tick. `billed` is what the server charged for tick N-1, recovered from
+   * the bucket at the start of tick N. `CPU.lastTick` is Game.cpu.getUsed()
+   * sampled at the end of main() on tick N-1 and written by CPUmanager before
+   * that tick ended. What separates them is everything the server does after
+   * main() returns, which on this bot is dominated by serialising Memory.
+   *
+   * Worth keeping because it is the only way to price a Memory diet before
+   * committing to one. Deleting seven orphaned keys and pruning the remote
+   * stats table took Memory from 141,164 bytes to 127,063; whether that is
+   * worth 0.1 CPU or 0.5 decides whether the next 20 KB is worth the risk of
+   * touching movement code, and no other reading in the bot can answer it.
+   */
+  const inLoop = Number(M.CPU.lastTick);
+  if (isFinite(inLoop) && inLoop > 0) {
+    const overhead = billed - inLoop;
+    // Only a plausible reading. A negative one means the two samples drifted
+    // apart across a skipped tick, not that serialisation refunded CPU.
+    if (overhead >= 0 && overhead < limit) {
+      const prevOh = M.CPU.overheadAvg;
+      M.CPU.overheadAvg = typeof prevOh === "number" && prevOh >= 0 && prevOh < limit
+        ? Math.round((prevOh + TRUE_CPU_ALPHA * (overhead - prevOh)) * 100) / 100
+        : Math.round(overhead * 100) / 100;
+    }
+  }
 }
 
 export function getCpuPolicy(): CpuPolicyState {
@@ -415,6 +444,7 @@ export function cpuStatusString(): string {
     `bucket=${p.bucket}`,
     `avg100=${avg}`,
     `billed=${trueAvg}`,
+    `postLoop=${(Memory.CPU && (Memory.CPU as any).overheadAvg) != null ? (Memory.CPU as any).overheadAvg : "?"}`,
     `remotes=${p.allowRemotes ? "ON max=" + p.maxRemotes : "OFF"}`,
     `expensive=${p.allowExpensive ? "ON" : "OFF"}`,
     `economyOnly=${p.economyOnly}`,

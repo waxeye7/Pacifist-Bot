@@ -95,7 +95,24 @@ describe("billed CPU, measured from the bucket", () => {
     assert.include(CPUPOLICY, "stored <= limit * 2 ? stored : undefined");
   });
 
-  it("surfaces the honest number in cpuStatus", () => {
+  it("prices the post-loop overhead from two readings of the same tick", () => {
+    // `billed` is what the server charged for tick N-1, recovered from the
+    // bucket at the start of tick N. CPU.lastTick is getUsed() sampled at the
+    // end of main() on tick N-1. What separates them is everything the server
+    // does after main() returns, dominated by serialising Memory — the only
+    // way to price a Memory diet before committing to one.
+    assert.include(CPUPOLICY, "const inLoop = Number(M.CPU.lastTick);");
+    assert.include(CPUPOLICY, "const overhead = billed - inLoop;");
+  });
+
+  it("refuses a negative overhead rather than averaging it in", () => {
+    // A negative reading means the two samples drifted across a skipped tick,
+    // not that serialisation refunded CPU.
+    assert.include(CPUPOLICY, "if (overhead >= 0 && overhead < limit) {");
+  });
+
+  it("surfaces both honest numbers in cpuStatus", () => {
     assert.include(CPUPOLICY, "`billed=${trueAvg}`");
+    assert.include(CPUPOLICY, "postLoop=$");
   });
 });
