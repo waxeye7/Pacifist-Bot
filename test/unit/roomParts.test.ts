@@ -28,6 +28,26 @@ describe("the rooms pass is broken down per call", () => {
     assert.include(PROF, "M.CPU.roomParts || (M.CPU.roomParts = {})");
   });
 
+  it("averages one sample per TICK, not one per room", () => {
+    /*
+     * Every key is called once per owned room. The first cut folded each
+     * measurement straight into the EMA, so with seven rooms the average saw
+     * seven samples a tick and converged on the cost of a SINGLE room's call.
+     * It read 0.531 for defence next to a rooms phase of 5.23 — a per-call
+     * mean sitting beside a per-tick total, two numbers that cannot be
+     * subtracted from each other, which is the only thing the table is for.
+     */
+    assert.include(PROF, "if (Game.time !== accTick) {");
+    assert.match(PROF, /acc\[key\] = \(acc\[key\] \|\| 0\) \+ \(Game\.cpu\.getUsed\(\) - before\);/);
+  });
+
+  it("decays a key on the ticks it does not run", () => {
+    // A call on a %100 cadence must fall toward its true time-average rather
+    // than hold the value of the one tick in a hundred where it fires.
+    assert.include(PROF, "for (const key in p) {");
+    assert.include(PROF, "const used = acc[key] || 0;");
+  });
+
   it("does not catch, because guarded() is the error boundary", () => {
     // A second boundary here would swallow exceptions guarded() exists to see.
     // Comments are stripped first: the doc block says the word "catch" while

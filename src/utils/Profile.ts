@@ -19,6 +19,24 @@
  * knowing which call inside rooms() costs what is the difference between
  * guessing and fixing.
  *
+ * ── PER TICK, NOT PER CALL ────────────────────────────────────────────────
+ *
+ * The first cut of this folded each measurement straight into the EMA. Every
+ * key here is called ONCE PER OWNED ROOM, so with seven rooms the average saw
+ * seven samples a tick and converged on the cost of a single room's call — a
+ * number that looks like 0.53 next to a rooms phase of 5.23 and means nothing
+ * beside it, because one is a per-call mean and the other a per-tick total.
+ *
+ * So the samples accumulate into a per-tick bucket and the EMA takes ONE
+ * sample per tick, of the total. That is directly comparable with the phase
+ * number it is meant to explain, and the two can be subtracted to find what
+ * inside rooms() is still unaccounted for.
+ *
+ * Every known key is flushed on every tick, including the ones that did not
+ * run. A call on a %100 cadence must decay toward its true time-average
+ * rather than hold the value of the one tick in a hundred where it fires;
+ * otherwise a rare expensive pass reads as a constant expensive pass.
+ *
  * Cost of the instrument: two getUsed() calls per wrapped call, ~0.003 CPU
  * for the whole set, and ~300 bytes of Memory. Serialisation is billed after
  * the loop at ~0.011 CPU per KB (CpuPolicy.sampleBilledFromBucket), so the
@@ -26,24 +44,42 @@
  */
 const PART_ALPHA = 0.05;
 
+/** Accumulates this tick's samples; flushed into the EMA on the next tick. */
+let accTick = -1;
+let acc: { [key: string]: number } = {};
+
+function flush(): void {
+  const M: any = Memory as any;
+  if (!M.CPU) return;
+  const p = M.CPU.roomParts || (M.CPU.roomParts = {});
+  // Iterate the STORED keys, not this tick's: a key that did not run must
+  // still be fed a zero so it decays.
+  for (const key in p) {
+    const used = acc[key] || 0;
+    p[key] = Math.round((p[key] + PART_ALPHA * (used - p[key])) * 1000) / 1000;
+  }
+  for (const key in acc) {
+    if (p[key] === undefined) p[key] = Math.round(acc[key] * 1000) / 1000;
+  }
+  acc = {};
+}
+
 /**
- * Time one call and fold it into Memory.CPU.roomParts as a slow EMA.
+ * Time one call and add it to this tick's total for `key`.
  *
  * Deliberately does NOT catch. rooms.ts wraps its per-room body in guarded(),
  * which is the error boundary that already exists; a second one here would
  * swallow exceptions that guarded() is meant to see and report.
  */
 export function roomPart<T>(key: string, fn: () => T): T {
+  if (Game.time !== accTick) {
+    flush();
+    accTick = Game.time;
+  }
   const before = Game.cpu.getUsed();
   try {
     return fn();
   } finally {
-    const M: any = Memory as any;
-    if (M.CPU) {
-      const p = M.CPU.roomParts || (M.CPU.roomParts = {});
-      const used = Game.cpu.getUsed() - before;
-      const prev = typeof p[key] === "number" ? p[key] : 0;
-      p[key] = Math.round((prev + PART_ALPHA * (used - prev)) * 1000) / 1000;
-    }
+    acc[key] = (acc[key] || 0) + (Game.cpu.getUsed() - before);
   }
 }
