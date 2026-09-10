@@ -54,8 +54,12 @@ describe("nobody else collects a source spill", () => {
 describe("the seated miner reclaims its own spill", () => {
     const body = fn(EM, "function reclaimSpill(creep: any, link: any): boolean {");
 
-    it("does nothing when it has no room to carry the energy", () => {
-        assert.include(body, "if(free <= 0) return false;");
+    it("does nothing without room for a real load", () => {
+        assert.include(body, "if(free < RECLAIM_MIN) return false;");
+        const m = EM.match(/const RECLAIM_MIN = (\d+);/);
+        assert.isNotNull(m);
+        // one CARRY part. Below this the intent costs more than it recovers.
+        assert.isAtLeast(Number(m![1]), 50);
     });
 
     it("only reclaims what the link can take straight back off it", () => {
@@ -89,21 +93,40 @@ describe("the seated miner reclaims its own spill", () => {
         assert.notInclude(body, "room.find(");
     });
 
-    it("is preferred over pushing this tick's harvest, which the next tick pushes anyway", () => {
-        const at = EM.indexOf("if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {");
+    it("rides the harvest tick, where the carry is actually free", () => {
+        // The unload block is gated on free < potential: the miner batches its
+        // transfers and only visits the link nearly full. Called from there the
+        // reclaim got the ~9 free capacity a full miner has and recovered about
+        // 9 energy per 20-tick cycle — measured live, the piles kept falling at
+        // 2/t, which is pure decay.
+        const at = EM.indexOf('creep.store.getFreeCapacity() >= creep.memory.potential && seatState !== "moving"');
         assert.isAbove(at, -1);
-        const block = EM.slice(at, at + 900);
-        assert.include(block, "if(!reclaimSpill(creep, closestLink)) {");
-        const guard = block.indexOf("reclaimSpill");
-        const push = block.indexOf("creep.transfer(closestLink, RESOURCE_ENERGY);");
-        assert.isBelow(guard, push, "reclaim is tried first");
+        const block = EM.slice(at, at + 1800);
+        assert.include(block, "reclaimSpill(creep, srcLink);");
+        assert.include(block, "creep.harvestEnergy();");
     });
 
-    it("only ever spends the intent the transfer would have spent", () => {
-        // pickup/withdraw/transfer are one intent class: the reclaim replaces
-        // the transfer for that tick, it does not add a second action.
+    it("is NOT called from the batched unload block, which would delay the transfer", () => {
         const at = EM.indexOf("if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {");
-        const block = EM.slice(at, at + 900);
-        assert.strictEqual((block.match(/creep\.transfer\(closestLink/g) || []).length, 1);
+        assert.isAbove(at, -1);
+        const block = EM.slice(at, at + 600);
+        assert.notInclude(block, "reclaimSpill");
+        assert.include(block, "creep.transfer(closestLink, RESOURCE_ENERGY);");
+    });
+
+    it("costs no intent the miner was otherwise using", () => {
+        // harvest is its own intent class, so on a harvest tick the
+        // transfer-class intent (pickup/withdraw/transfer) is idle anyway.
+        const at = EM.indexOf('creep.store.getFreeCapacity() >= creep.memory.potential && seatState !== "moving"');
+        const block = EM.slice(at, at + 1800);
+        assert.notInclude(block, "creep.transfer(");
+        assert.notInclude(block, "creep.drop(");
+    });
+
+    it("only reclaims into a link it is standing next to", () => {
+        const at = EM.indexOf('creep.store.getFreeCapacity() >= creep.memory.potential && seatState !== "moving"');
+        const block = EM.slice(at, at + 1800);
+        assert.include(block, "creep.pos.isNearTo(srcLink)");
+        assert.include(block, 'srcLink.structureType === STRUCTURE_LINK');
     });
 });

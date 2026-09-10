@@ -412,9 +412,14 @@ function roomHasHauler(room: any): boolean {
  * `harvest` is a different intent class, so the miner still mines this tick.
  * ---------------------------------------------------------------------------
  */
+/** Free carry below which reclaiming is not worth the transfer-class intent. */
+const RECLAIM_MIN = 50;
+
 function reclaimSpill(creep: any, link: any): boolean {
     const free = creep.store.getFreeCapacity(RESOURCE_ENERGY);
-    if(free <= 0) return false;
+    // Worth an intent only for a real load. A nearly-full miner reclaiming its
+    // last few units is how the first cut of this recovered 9 energy per cycle.
+    if(free < RECLAIM_MIN) return false;
     // Only pull back what the link can accept next tick, or we are just moving
     // the backlog into a creep that has to put it down again.
     if(!link || link.store.getFreeCapacity(RESOURCE_ENERGY) < free) return false;
@@ -895,13 +900,7 @@ const run = function (creep) {
             }
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
-                    // Spare link throughput is the only thing that ever gets a
-                    // source spill or a stranded source container back. Take it
-                    // in preference to pushing this tick's 10 energy, which the
-                    // next tick will push anyway.
-                    if(!reclaimSpill(creep, closestLink)) {
-                        creep.transfer(closestLink, RESOURCE_ENERGY);
-                    }
+                    creep.transfer(closestLink, RESOURCE_ENERGY);
                 }
                 else if(seatState === "none") {
                     // no seat exists for this source-link pair: legacy walk
@@ -949,6 +948,30 @@ const run = function (creep) {
             // harvestEnergy paths to ANY range-1 tile; while walking to the
             // seat its move intent would fight ensureMinerSeat's
             let result = creep.harvestEnergy();
+
+            /*
+             * Reclaim rides the HARVEST tick, not the unload tick.
+             *
+             * The unload block above is gated on free < potential — the miner
+             * batches its transfers and only visits the link when it is nearly
+             * full. Putting the reclaim there gave it the ~9 free capacity a
+             * nearly-full miner has, so it recovered about 9 energy per 20-tick
+             * cycle while delaying the 200-energy transfer by a tick. Measured
+             * live on E37N59: the piles kept falling at 2/t, which is just
+             * decay.
+             *
+             * Here the miner has its whole carry free, so one pickup takes up
+             * to a full load and the very next tick's batched transfer puts it
+             * in the link. That is ~100 e/t against a 2 e/t decay.
+             *
+             * harvest is its own intent class, so this costs the miner nothing
+             * it was otherwise using: on a harvest tick the transfer-class
+             * intent is idle by definition.
+             */
+            const srcLink:any = Game.getObjectById(creep.memory.sourceLink);
+            if(srcLink && srcLink.structureType === STRUCTURE_LINK && creep.pos.isNearTo(srcLink)) {
+                reclaimSpill(creep, srcLink);
+            }
         }
 
 
