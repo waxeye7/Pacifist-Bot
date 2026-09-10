@@ -2009,7 +2009,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // the hysteresis that stops the 0-upgrader cycle; the surplus tier
             // is folded into it. Deliberately NOT gated on
             // constructionSitesAmount — that gate is what froze E11S5 at 778k.
-            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
+            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ', floor ' + pressure.onFloor + ')');
@@ -2069,7 +2069,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // sitesMayNotVetoUpgraders was wired into RCL4/6 and skipped here,
             // so a planned RCL5 with permanent sites burned its bank on
             // upgraders while the economy was still climbing (R6.33).
-            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+            if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)) && !room.memory.danger && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)
                 // the two downgrade arms below are NOT clamped — see upgraderCpuCap
                 || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger
                 || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
@@ -2167,7 +2167,7 @@ function add_creeps_to_spawn_list(room, spawn) {
              */
             if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[6].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
                     && !room.memory.danger
-                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+                    && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)
                 // downgrade arm, deliberately unclamped — see upgraderCpuCap
                 || room.controller.ticksToDowngrade < 80000 && upgraders < spawnrules[6].upgrade_creep.amount) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2194,7 +2194,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // downgrade rungs above (and the < 21000 escape here) still fire the
             // moment the controller is actually at risk.
             else if(upgraders < upgraderCpuCap(room, keepOneUpgrader(room, EnergyMinersInRoom))
-                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
+                    && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
@@ -2296,7 +2296,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // >=250k buys 5. The downgrade clause is kept as a hard floor.
             else if(upgraders < upgraderCpuCap(room, upgraderTarget(room, spawnrules[7].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom))
                     && !room.memory.danger
-                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+                    && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)
                 // downgrade arm, deliberately unclamped — see upgraderCpuCap
                 || upgraders < spawnrules[7].upgrade_creep.amount && room.controller.ticksToDowngrade < 110000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 80000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2323,7 +2323,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // was only ever wired into the RCL4/5 gates, so RCL6/7 never had it.
             // Same veto as RCL6 above — see the note there.
             else if(upgraders < upgraderCpuCap(room, keepOneUpgrader(room, EnergyMinersInRoom))
-                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
+                    && (sitesMayNotVetoUpgraders || controllerStalled(room) || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + storageEnergy(room) + ')');
@@ -4537,6 +4537,57 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
  *
  * `miners` is EnergyMinersInRoom — see keepOneUpgrader.
  */
+/* -------------------------------------------------------------------------
+ * THE VETO HAS TO EXPIRE.
+ *
+ * `sitesMayNotVetoUpgraders` is bank > UPGRADE_FLOOR, or no sites at all. It
+ * was added for a real incident (live VPS W2N1/W3N1: a 15-WORK floor upgrader
+ * eating the entire 10-20 e/tick income of a room banking ZERO with nine open
+ * sites, so the builder gate's bank floor was never reached) and it is right
+ * about that room. But the v2 planner tops the site budget back up to ~4 every
+ * 15 ticks, so a PLANNED room has open sites permanently — and below 10k the
+ * veto therefore has no expiry at all.
+ *
+ * Live shard3 2026-09-11: E39N58, RCL7, real storage holding 4,694 and rising,
+ * two sites, two miners, ticksToDowngrade 149,879 of 150,000. Six sibling rooms
+ * each put ~12 energy/tick into their controllers across the same 44-tick
+ * sample. E39N58 put in ZERO — controller.progress sat on 20,727 and did not
+ * move, because every upgrader rung including keepOneUpgrader's floor was
+ * vetoed and the room had no upgrader at all. Nothing about that clears on its
+ * own: the sites are permanent and the bank has to climb past 10k to break the
+ * tie. The header on sitesMayNotVetoUpgraders opens "Open construction sites
+ * must NEVER veto the baseline upgraders", which is exactly the promise the
+ * 10k floor quietly takes back.
+ *
+ * So bound it in TIME rather than loosening the bank test. Builders keep an
+ * uncontested claim on the room for FLOOR_UPGRADER_PATIENCE ticks of genuinely
+ * frozen progress — far longer than any single site takes — and after that the
+ * room takes its one upgrader. A room that still cannot reach the bank floor
+ * after 3,000 ticks with the whole income to itself does not have an upgrader
+ * problem.
+ *
+ * AN EMPTY BANK IS STILL AN EMPTY BANK. W2N1/W3N1 were banking literally zero,
+ * and no amount of patience makes a room like that able to pay. A real storage
+ * with nothing in it never clears this, so the original incident stays fixed.
+ * ------------------------------------------------------------------------- */
+/** Ticks of ZERO controller progress after which one upgrader stops being optional. */
+const FLOOR_UPGRADER_PATIENCE = 3000;
+
+function controllerStalled(room): boolean {
+    const c = room.controller;
+    if(!c || !c.my || c.level >= 8) return false;
+    // A real storage holding nothing cannot pay for an upgrader however long it
+    // has been stalled — that is the W2N1/W3N1 room the veto exists for.
+    if(room.storage && room.storage.my && storageEnergy(room) <= 0) return false;
+    const M: any = room.memory;
+    const p = c.progress || 0;
+    if(!M._ctrlP || M._ctrlP.p !== p) {
+        M._ctrlP = { p: p, t: Game.time };
+        return false;
+    }
+    return Game.time - M._ctrlP.t >= FLOOR_UPGRADER_PATIENCE;
+}
+
 function upgraderTarget(room, base:number, surplus:number, burn:number, miners:number = 0): number {
     const emergency =
         room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 ? 1 : 0;
