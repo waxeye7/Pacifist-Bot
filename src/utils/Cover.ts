@@ -42,7 +42,11 @@
  *     the raid shoving each other in the open. Claims are per-tick and
  *     module-local: creeps run sequentially inside a tick, so a claim written
  *     by the creep that ran first is visible to every creep after it.
- *  5. FAIL OPEN. No ramparts, none free, none in range => return false and the
+ *  5. A DEFENCE SEAT IS NOT COVER. rooms.defence hands each RampartDefender
+ *     one shell tile and only refuses ramparts a HOSTILE stands on, so an
+ *     upgrader in cover is a tile it will still be ordered onto. The defender
+ *     is the reason the rampart is worth standing on; it wins the tile.
+ *  6. FAIL OPEN. No ramparts, none free, none in range => return false and the
  *     caller moves exactly as it did before this file existed.
  *
  * The return contract is interiorMove()'s: TRUE means "I own this creep's
@@ -108,6 +112,33 @@ function standing(room: any): { [p: number]: string } {
   });
 }
 
+/**
+ * Shell tiles a defender has already been ordered onto this tick.
+ *
+ * rooms.defence.assignDefenderTiles() hands every live RampartDefender /
+ * RangedRampartDefender one unique shell tile, and it only skips a rampart
+ * whose occupant is NOT mine — so an upgrader sitting in cover is a tile the
+ * defender will still be sent to, and the two spend the raid shoving each
+ * other on the wall line. The room pass runs before the creep pass
+ * (Memory.CPU.phases: rooms, then creeps), so by the time any creep asks this
+ * question the seats for this tick are already written.
+ *
+ * A defence seat outranks cover absolutely. The defender is the reason the
+ * rampart is worth standing on.
+ */
+function defenceSeats(room: any): { [p: number]: boolean } {
+  return cachedDerived(room, "coverDefenceSeats", () => {
+    const o: { [p: number]: boolean } = {};
+    for (const c of cachedMyCreeps(room)) {
+      const id = (c.memory as any).myRampartToMan;
+      if (!id) continue;
+      const r: any = Game.getObjectById(id);
+      if (r && (r as any).pos) o[packOf((r as any).pos.x, (r as any).pos.y)] = true;
+    }
+    return o;
+  });
+}
+
 let claimTick = -1;
 let claimed: { [roomName: string]: { [p: number]: string } } = {};
 
@@ -124,6 +155,7 @@ function taken(room: any, p: number, creep: any): boolean {
     const c = claimed[room.name] && claimed[room.name][p];
     if (c && c !== creep.name) return true;
   }
+  if (defenceSeats(room)[p]) return true;
   const s = standing(room)[p];
   return !!s && s !== creep.name;
 }
@@ -152,7 +184,7 @@ export function takeCover(creep: any, anchor: any, range: number): boolean {
   if (!tiles.length) return false;
 
   const here = packOf(creep.pos.x, creep.pos.y);
-  if (tiles.indexOf(here) >= 0) {
+  if (tiles.indexOf(here) >= 0 && !defenceSeats(room)[here]) {
     // Already untouchable. Hold the tile so nobody else walks at it, and tell
     // the caller not to move: anywhere else is strictly worse.
     claim(room, here, creep.name);

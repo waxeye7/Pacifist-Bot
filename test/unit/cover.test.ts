@@ -46,8 +46,9 @@ describe("takeCover — a creep under fire stands on a rampart", () => {
     });
 
     it("a creep already in cover is not moved, and holds its tile", () => {
-        assert.include(body, "if (tiles.indexOf(here) >= 0) {");
-        const at = body.indexOf("if (tiles.indexOf(here) >= 0) {");
+        const HERE = "if (tiles.indexOf(here) >= 0 && !defenceSeats(room)[here]) {";
+        assert.include(body, HERE);
+        const at = body.indexOf(HERE);
         const block = body.slice(at, at + 400);
         assert.include(block, "claim(room, here, creep.name);");
         assert.include(block, "return true;");
@@ -104,6 +105,20 @@ describe("takeCover — a creep under fire stands on a rampart", () => {
         // finished shell is 60+ ramparts and this runs on contended ticks
         assert.notInclude(t, "lookFor");
         assert.include(t, 'cachedDerived(room, "coverTiles"');
+    });
+
+    it("never contests a rampart a defender has been ordered onto", () => {
+        // rooms.defence.assignDefenderTiles gives each RampartDefender one
+        // unique shell tile and only skips ramparts a HOSTILE occupies, so a
+        // creep in cover is a tile it will still be sent to. The room pass runs
+        // before the creep pass, so the seats for this tick are already written.
+        const seats = fn(COVER, "function defenceSeats(room: any): { [p: number]: boolean } {");
+        assert.include(seats, "myRampartToMan");
+        assert.include(seats, "cachedMyCreeps(room)");
+        assert.include(COVER, "if (defenceSeats(room)[p]) return true;");
+        // ...and a creep ALREADY standing on one gives it up rather than
+        // reporting itself as safely parked
+        assert.include(COVER, "if (tiles.indexOf(here) >= 0 && !defenceSeats(room)[here]) {");
     });
 
     it("fails open — no cover means the caller moves as it always did", () => {
