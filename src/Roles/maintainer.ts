@@ -38,8 +38,8 @@ const ROAD_WALK_EVERY = 10;
  * (rooms.spawning UPGRADE_FLOOR, Empire/funnel PARK_FLOOR_MIN), with a
  * deadband so a room hovering on it does not flap the creep on and off.
  */
-const MAINT_BANK_FLOOR = 10000;
-const MAINT_BANK_RESUME = 12000;
+export const MAINT_BANK_FLOOR = 10000;
+export const MAINT_BANK_RESUME = 12000;
 /**
  * ...and the hits at which the shell stops being "worn" and starts being a
  * hole.

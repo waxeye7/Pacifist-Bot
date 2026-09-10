@@ -95,14 +95,29 @@ const MT = fs
     .replace(/\r\n/g, "\n");
 
 describe("upkeep still has to be paid for", () => {
-    it("the spawn escape needs a bank over the floor, or one that is rising", () => {
-        assert.include(SP, "if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR || bankIsRising(room))) {");
+    it("the spawn escape needs a bank the ROLE will also accept", () => {
+        /*
+         * UPDATED 2026-09-11. This used to accept UPGRADE_FLOOR (10,000) or
+         * merely a rising bank, and that disagreed with the role: Roles/
+         * maintainer parks under MAINT_BANK_FLOOR (10,000) and does not resume
+         * until MAINT_BANK_RESUME (12,000). So the purchase itself — a
+         * 1,000-2,000 energy body — took the bank under the floor and the creep
+         * parked on arrival, and a room merely "rising" at 6,000 bought one
+         * that could never work at all.
+         *
+         * Live that day: five maintainers, THREE parked — E35N59 at 10,635
+         * banked, E38N56 at 7,919, E39N58 at 6,422. Each bought by this gate
+         * and refused by the other. Spawning against the RESUME number means a
+         * body survives its own price, and the deadband between the two is
+         * exactly the margin that stops it flapping.
+         */
+        assert.include(SP, "if(spawnMaintainer && storageEnergy(room) < MAINT_BANK_RESUME) {");
         assert.include(SP, "spawnMaintainer = false;");
         // ...and it is applied AFTER both arms that raise the flag, or one of
         // them slips past
         const ramp = SP.indexOf("if(rampart.hits <= 10000) {");
         const box = SP.indexOf("if(worstBox.length) {");
-        const pay = SP.indexOf("if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR");
+        const pay = SP.indexOf("if(spawnMaintainer && storageEnergy(room) < MAINT_BANK_RESUME)");
         assert.isAbove(pay, ramp);
         assert.isAbove(pay, box);
     });

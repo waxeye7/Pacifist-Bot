@@ -82,25 +82,48 @@ describe("the container maintainer override is capped empire-wide", () => {
     assert.match(MAINT, /creep\.memory\.suicide\) \{[\s\S]{0,60}creep\.recycle\(\);/);
   });
 
-  it("does not let a parked maintainer hold an empire slot", () => {
+  it("counts every maintainer, parked or not", () => {
     /*
-     * Roles/maintainer PARKS rather than recycles when its room's bank drops
-     * under MAINT_BANK_FLOOR — sound, because the bank crossing a floor is a
-     * passing condition and a recycled creep must be re-bought at full price.
-     * But a parked creep does no repair and does not die, so counting it would
-     * let it hold a slot for its whole 1,500-tick life while another room's
-     * containers wore through.
-     *
-     * Live shard3 minutes after the cap shipped: four maintainers in four
-     * rooms against a cap of two, and two of them (E37N59, E38N56) parked.
+     * An earlier cut skipped parked creeps here, reasoning that a parked one
+     * does no repair and should not block another room. It made things worse:
+     * each parked creep freed a slot, the next room bought one, that one
+     * parked too. Live shard3 went to five maintainers with THREE parked
+     * against a cap of two. Excluding them turned a cap into a ratchet.
      */
-    assert.match(CODE, /if \(m\.bankParked\) continue;/);
-    assert.match(MAINT, /creep\.memory\.bankParked = true;/);
+    assert.notMatch(CODE, /if \(m\.bankParked\) continue;/);
+    assert.match(CODE, /_maintRooms\[m\.homeRoom\] = true;/);
   });
 
-  it("still keeps the bank test that follows it", () => {
+  it("only buys a maintainer the role will actually run", () => {
+    /*
+     * THE REAL DEFECT, one level up. This file's spawn gate said affordable at
+     * UPGRADE_FLOOR (10,000) or merely on a rising bank. Roles/maintainer
+     * parks whenever the bank is under MAINT_BANK_FLOOR (10,000) and will not
+     * resume until MAINT_BANK_RESUME (12,000). So a room bought a 1,000-2,000
+     * energy body, the purchase took the bank under the floor, and the creep
+     * parked on arrival — and a room merely "rising" at 6,000 bought one that
+     * could never work at all.
+     *
+     * Live: five maintainers, three parked — E35N59 at 10,635 banked, E38N56
+     * at 7,919, E39N58 at 6,422. Each bought by one gate and refused by the
+     * other.
+     */
+    assert.match(CODE, /if\(spawnMaintainer && storageEnergy\(room\) < MAINT_BANK_RESUME\) \{/);
+    assert.notMatch(CODE, /storageEnergy\(room\) >= UPGRADE_FLOOR \|\| bankIsRising\(room\)/);
+  });
+
+  it("takes the threshold from the role that owns it", () => {
+    // Two copies of a number two files must agree on is two numbers, and they
+    // drift. This bot has been bitten by that shape repeatedly today.
+    assert.include(SP, 'MAINT_BANK_RESUME } from "Roles/maintainer"');
+    assert.match(MAINT, /export const MAINT_BANK_RESUME = 12000;/);
+    assert.match(MAINT, /export const MAINT_BANK_FLOOR = 10000;/);
+  });
+
+  it("still keeps a bank test at all", () => {
     // A room whose income is already spoken for cannot fix its walls by going
-    // broke; the cap must not have displaced that check.
-    assert.match(CODE, /if\(spawnMaintainer && !\(storageEnergy\(room\) >= UPGRADE_FLOOR \|\| bankIsRising\(room\)\)\) \{/);
+    // broke; the cap must not have displaced that check, only corrected the
+    // number it uses.
+    assert.match(CODE, /if\(spawnMaintainer && storageEnergy\(room\) < MAINT_BANK_RESUME\)/);
   });
 });

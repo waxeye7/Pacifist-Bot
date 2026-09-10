@@ -1,3 +1,4 @@
+import { MAINT_BANK_RESUME } from "Roles/maintainer";
 import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
 import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset } from "./rooms.remotes";
@@ -1874,7 +1875,32 @@ function add_creeps_to_spawn_list(room, spawn) {
              * number so a creep already alive when the bank turns stands down
              * rather than draining the room.
              */
-            if(spawnMaintainer && !(storageEnergy(room) >= UPGRADE_FLOOR || bankIsRising(room))) {
+            /*
+             * BUY ONE THE ROLE WILL ACTUALLY RUN.
+             *
+             * This gate and Roles/maintainer's park gate have to answer the
+             * same question and did not. This one said affordable at
+             * UPGRADE_FLOOR (10,000) OR merely on a rising bank; the role parks
+             * whenever the bank is under MAINT_BANK_FLOOR (10,000) and will not
+             * resume until MAINT_BANK_RESUME (12,000). So a room bought a
+             * 1,000-2,000 energy body, the purchase itself took the bank under
+             * the floor, and the creep parked on arrival and stayed parked —
+             * and a room merely "rising" at 6,000 bought one that could never
+             * work at all.
+             *
+             * Live shard3 2026-09-11: five maintainers alive, THREE of them
+             * parked — E35N59 at 10,635 banked, E38N56 at 7,919, E39N58 at
+             * 6,422. Every one of them was bought by this gate and refused by
+             * the other.
+             *
+             * So spawn against the RESUME number, from the role's own
+             * constant. A body bought at 12,000 survives its own price and
+             * starts working; the deadband between the two is exactly the
+             * margin that stops it flapping. The rising-bank escape is gone
+             * with it: a bank that is rising is not a bank that can absorb a
+             * 2,000 energy purchase today.
+             */
+            if(spawnMaintainer && storageEnergy(room) < MAINT_BANK_RESUME) {
                 spawnMaintainer = false;
             }
         }
@@ -4406,25 +4432,22 @@ function roomsRunningMaintainers(): { [roomName: string]: boolean } {
             const m: any = Game.creeps[n].memory;
             if (!m || m.role !== "maintainer" || !m.homeRoom) continue;
             /*
-             * A PARKED MAINTAINER IS NOT USING ITS SLOT.
+             * PARKED OR NOT, A ROOM WITH A MAINTAINER HAS ITS SLOT.
              *
-             * Roles/maintainer parks rather than recycles when its room's bank
-             * drops under MAINT_BANK_FLOOR, on the sound argument that the bank
-             * crossing a floor is a passing condition and a recycled creep has
-             * to be bought again at full price. But a parked creep does no
-             * repair AND does not die, so counting it here would let it hold an
-             * empire slot for its whole 1,500-tick life while another room's
-             * containers wore through.
+             * An earlier cut skipped parked creeps here, reasoning that a
+             * parked one does no repair and should not block another room. It
+             * made things worse: each parked creep freed a slot, the next room
+             * bought one, that one parked too, and the empire went from five
+             * maintainers to five with three parked. Excluding them turned a
+             * cap into a ratchet.
              *
-             * Live shard3 minutes after the cap shipped: four maintainers in
-             * four rooms, two of them (E37N59, E38N56) bankParked. The cap says
-             * two, and two of the four were doing nothing.
-             *
-             * The per-room roster rung still stops the parked room buying a
-             * second one, so all this frees is the EMPIRE slot, for a room that
-             * would actually spend it.
+             * The real defect was upstream — rooms were buying creeps the role
+             * would immediately park, because this file's spawn gate and the
+             * role's park gate disagreed about affordability. That is fixed at
+             * the container rung below, so parking is now the rare case it was
+             * always meant to be, and counting every maintainer keeps the cap
+             * an actual bound.
              */
-            if (m.bankParked) continue;
             _maintRooms[m.homeRoom] = true;
         }
     }
