@@ -48,6 +48,26 @@ const PART_ALPHA = 0.05;
 let accTick = -1;
 let acc: { [key: string]: number } = {};
 
+/*
+ * Ticks this global has been alive. A global reset costs 50-90 CPU on the tick
+ * that compiles the code, and every cache this bot keeps is cold underneath
+ * it, so the first pass of any wrapped call is wildly unrepresentative.
+ *
+ * This is the SECOND time that has bitten. CpuPolicy.sampleBilledFromBucket
+ * seeded its average on a reset tick and read trueAvg 74.51 while trueLast had
+ * already settled at 20. Here a freshly added key seeded at its first sample:
+ * `spawn.producer` read 4.381 against a whole `spawning` call of 1.951 — a
+ * slice larger than the thing it is a slice of, which is impossible and cost
+ * another round of squinting at numbers that meant nothing.
+ *
+ * So: no samples at all for the first two ticks of a global, and a new key
+ * starts at ZERO rather than at whatever it happened to cost first. An EMA
+ * climbing from zero reaches the truth in about sixty ticks and never
+ * overshoots it; one seeded from a spike takes hundreds of ticks to come back
+ * down and reads as a finding the whole time.
+ */
+let globalAge = 0;
+
 function flush(): void {
   const M: any = Memory as any;
   if (!M.CPU) return;
@@ -59,7 +79,7 @@ function flush(): void {
     p[key] = Math.round((p[key] + PART_ALPHA * (used - p[key])) * 1000) / 1000;
   }
   for (const key in acc) {
-    if (p[key] === undefined) p[key] = Math.round(acc[key] * 1000) / 1000;
+    if (p[key] === undefined) p[key] = 0;
   }
   acc = {};
 }
@@ -73,8 +93,10 @@ function flush(): void {
  */
 export function roomPart<T>(key: string, fn: () => T): T {
   if (Game.time !== accTick) {
-    flush();
+    globalAge++;
+    if (globalAge > 2) flush();
     accTick = Game.time;
+    acc = {};
   }
   const before = Game.cpu.getUsed();
   try {

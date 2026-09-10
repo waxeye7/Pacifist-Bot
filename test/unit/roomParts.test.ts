@@ -41,6 +41,24 @@ describe("the rooms pass is broken down per call", () => {
     assert.match(PROF, /acc\[key\] = \(acc\[key\] \|\| 0\) \+ \(Game\.cpu\.getUsed\(\) - before\);/);
   });
 
+  it("throws away the first two ticks of a global", () => {
+    /*
+     * The SECOND time this bit. CpuPolicy.sampleBilledFromBucket seeded on a
+     * reset tick and read trueAvg 74.51 while trueLast had settled at 20; here
+     * spawn.producer seeded at its first sample and read 4.381 against a whole
+     * spawning call of 1.951 — a slice larger than the thing it slices, which
+     * is impossible, and it read that way for hundreds of ticks.
+     */
+    assert.include(PROF, "let globalAge = 0;");
+    assert.include(PROF, "if (globalAge > 2) flush();");
+  });
+
+  it("starts a new key at zero, not at whatever it first cost", () => {
+    // An EMA climbing from zero reaches the truth in about sixty ticks and
+    // never overshoots. One seeded from a spike takes hundreds to come back.
+    assert.match(PROF, /if \(p\[key\] === undefined\) p\[key\] = 0;/);
+  });
+
   it("decays a key on the ticks it does not run", () => {
     // A call on a %100 cadence must fall toward its true time-average rather
     // than hold the value of the one tick in a hundred where it fires.
