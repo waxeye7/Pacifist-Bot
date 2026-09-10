@@ -5,11 +5,27 @@
  **/
 import { pruneReserveFill } from "Roles/filler";
 import { upgradeParkBand } from "Empire/funnel";
+import { takeCover } from "utils/Cover";
 
 const run = function (creep) {
     creep.memory.moving = false;
 
     if(creep.holdForFlee()) {
+        return;
+    }
+    /*
+     * TAKE COVER. At RCL6+ this bot has NO civilian reaction to hostiles at
+     * all: rooms.defence's whole flee loop lives inside `controller.level <= 5`,
+     * so holdForFlee() above can never fire in an owned mid-game room and this
+     * creep walks its route past an invader exactly as it does in peacetime.
+     *
+     * This one is worth real energy: a 24-part hauler (MaxStorage 800) that crosses the whole base twice a trip, storage to controller link and back, and is the single most exposed economy creep the room owns.
+     *
+     * No anchor, so utils/Cover only ever moves it when an ARMED hostile is
+     * inside COVER_PANIC_RANGE — a latched danger flag on its own changes
+     * nothing. Defence seats and occupied ramparts are excluded there.
+     */
+    if(takeCover(creep, null, 0)) {
         return;
     }
     if(creep.ticksToLive == 1499) {

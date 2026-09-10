@@ -162,3 +162,40 @@ describe("the upgrader takes cover", () => {
         assert.include(block, "creep.memory.upgrading = false;");
     });
 });
+
+describe("the exposed haulers take cover too", () => {
+    const CLF = SRC("Roles/ControllerLinkFiller.ts");
+    const BLD = SRC("Roles/builder.ts");
+
+    it("RCL6+ has no other civilian reaction at all", () => {
+        // rooms.defence's whole civilian flee loop lives inside
+        // `room.controller.level <= 5`, so holdForFlee() — which is what every
+        // one of these roles calls at the top of run() — can never fire in an
+        // owned mid-game room. That is the hole this fills.
+        const DEF = SRC("Rooms/rooms.defence.ts");
+        assert.include(DEF, "if(room.controller.level <= 5) {");
+        const CF = SRC("Functions/creepFunctions.ts");
+        assert.include(CF, "if(!this.memory.fleeing) return false;");
+    });
+
+    it("the controller link filler and the builder are wired, with no anchor", () => {
+        for (const [name, src] of [["ControllerLinkFiller", CLF], ["builder", BLD]] as [string, string][]) {
+            assert.include(src, 'import { takeCover } from "utils/Cover";', name);
+            assert.include(src, "if(takeCover(creep, null, 0)) {", name);
+            // no anchor means every candidate needs the panic test, so a
+            // latched danger flag on its own moves nobody
+            const at = src.indexOf("if(takeCover(creep, null, 0)) {");
+            const flee = src.indexOf("creep.holdForFlee()");
+            assert.isAbove(at, flee, name + ": cover sits with the other threat checks");
+        }
+    });
+
+    it("the fill crew and the wall repairers are deliberately NOT wired", () => {
+        // A filler that hides lets the towers run dry, and repair / maintainer
+        // / RampartErector are what keep the shell standing during the raid.
+        // Hiding is only correct for a creep the room can spare.
+        for (const f of ["filler", "repair", "maintainer", "RampartErector"]) {
+            assert.notInclude(SRC("Roles/" + f + ".ts"), "takeCover(", f + " must keep working under fire");
+        }
+    });
+});

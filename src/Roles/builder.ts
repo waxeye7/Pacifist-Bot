@@ -5,6 +5,7 @@
 import { isSanctionedRampart } from "utils/PlanV2";
 import { rampartIsBuried } from "utils/Interior";
 import { siteFreezeBank, isExpensiveFurniture } from "Rooms/spawnSafety";
+import { takeCover } from "utils/Cover";
 
 /**
  * Weakest sanctioned rampart under 10k, one answer per room per tick.
@@ -337,6 +338,21 @@ function tapStillGood(creep): any {
 
 
 	if(creep.holdForFlee()) {
+		return;
+	}
+	/*
+	 * TAKE COVER. At RCL6+ this bot has NO civilian reaction to hostiles at
+	 * all: rooms.defence's whole flee loop lives inside `controller.level <= 5`,
+	 * so holdForFlee() above can never fire in an owned mid-game room and this
+	 * creep walks its route past an invader exactly as it does in peacetime.
+	 *
+	 * A builder is expendable during a raid in a way the fill crew and the wall repairers are not — those keep the towers loaded and the shell standing, so they are deliberately NOT wired to this.
+	 *
+	 * No anchor, so utils/Cover only ever moves it when an ARMED hostile is
+	 * inside COVER_PANIC_RANGE — a latched danger flag on its own changes
+	 * nothing. Defence seats and occupied ramparts are excluded there.
+	 */
+	if(takeCover(creep, null, 0)) {
 		return;
 	}
 
