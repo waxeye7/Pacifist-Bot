@@ -4654,12 +4654,38 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
  * after 3,000 ticks with the whole income to itself does not have an upgrader
  * problem.
  *
- * AN EMPTY BANK IS STILL AN EMPTY BANK. W2N1/W3N1 were banking literally zero,
- * and no amount of patience makes a room like that able to pay. A real storage
- * with nothing in it never clears this, so the original incident stays fixed.
+ * A BANK THAT IS GOING DOWN CANNOT PAY FOR ANOTHER MOUTH. The first cut of this
+ * only refused a bank of literally zero, which is too weak a test and would
+ * have handed live E39N58 an upgrader: RCL7, 3,522 banked and falling ~30 a
+ * tick because its builder was putting 5,000 energy into a source link, with
+ * both its fillers standing full because every extension and spawn in the room
+ * was already topped up. That room is not being starved of upgraders, it is
+ * spending its bank on the thing that will raise its income — and adding a
+ * 12-WORK consumer to a falling bank is precisely the W2N1/W3N1 failure in a
+ * politer form.
+ *
+ * So the escape needs the bank to be RISING over BANK_TREND_EVERY ticks. That
+ * is the honest question ("does this room's income exceed what it has already
+ * committed?"), it needs no threshold anyone has to tune, and it resolves
+ * itself: E39N58 finishes its link, its income goes up, its bank turns around
+ * and the upgrader arrives — in that order, which is the right order.
  * ------------------------------------------------------------------------- */
 /** Ticks of ZERO controller progress after which one upgrader stops being optional. */
 const FLOOR_UPGRADER_PATIENCE = 3000;
+/** How far apart the two bank samples that decide "rising" are taken. */
+const BANK_TREND_EVERY = 200;
+
+function bankIsRising(room): boolean {
+    // No real storage: there is no bank to protect and the income has nowhere
+    // else to go. Same view upgraderTarget() takes of these rooms.
+    if(!room.storage || !room.storage.my) return true;
+    const M: any = room.memory;
+    const e = storageEnergy(room);
+    if(!M._bankTr || Game.time - M._bankTr.t >= BANK_TREND_EVERY) {
+        M._bankTr = { t: Game.time, e: e, up: M._bankTr ? e > M._bankTr.e : false };
+    }
+    return !!M._bankTr.up;
+}
 
 function controllerStalled(room): boolean {
     const c = room.controller;
@@ -4673,7 +4699,8 @@ function controllerStalled(room): boolean {
         M._ctrlP = { p: p, t: Game.time };
         return false;
     }
-    return Game.time - M._ctrlP.t >= FLOOR_UPGRADER_PATIENCE;
+    if(Game.time - M._ctrlP.t < FLOOR_UPGRADER_PATIENCE) return false;
+    return bankIsRising(room);
 }
 
 function upgraderTarget(room, base:number, surplus:number, burn:number, miners:number = 0): number {

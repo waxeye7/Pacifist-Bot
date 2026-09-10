@@ -57,13 +57,39 @@ describe("open sites cannot freeze a controller forever", () => {
         assert.include(body, "const p = c.progress || 0;");
         assert.include(body, "if(!M._ctrlP || M._ctrlP.p !== p) {");
         assert.include(body, "M._ctrlP = { p: p, t: Game.time };");
-        assert.include(body, "return Game.time - M._ctrlP.t >= FLOOR_UPGRADER_PATIENCE;");
+        assert.include(body, "if(Game.time - M._ctrlP.t < FLOOR_UPGRADER_PATIENCE) return false;");
     });
 
     it("an empty real bank never clears it — that is the room the veto is for", () => {
         // live VPS W2N1/W3N1 banked literally zero; no amount of patience makes
         // such a room able to pay for a 15-WORK body.
         assert.include(body, "if(room.storage && room.storage.my && storageEnergy(room) <= 0) return false;");
+    });
+
+    it("...nor does a bank that is going DOWN", () => {
+        // "not zero" is too weak. Live E39N58 held 3,522 and was falling ~30 a
+        // tick because its builder was putting 5,000 energy into a source link,
+        // with both its fillers standing full because every extension and spawn
+        // was already topped up. Adding a 12-WORK consumer there is the same
+        // failure as W2N1, politely dressed. It resolves itself in the right
+        // order: finish the link, income rises, bank turns, upgrader arrives.
+        assert.include(body, "return bankIsRising(room);");
+        const rising = SP.slice(
+            SP.indexOf("function bankIsRising(room): boolean {"),
+            SP.indexOf("function controllerStalled(")
+        );
+        assert.include(rising, "if(!M._bankTr || Game.time - M._bankTr.t >= BANK_TREND_EVERY) {");
+        assert.include(rising, "up: M._bankTr ? e > M._bankTr.e : false };");
+        assert.include(rising, "return !!M._bankTr.up;");
+        // a room with no real storage has no bank to protect and its income has
+        // nowhere else to go — same view upgraderTarget takes
+        assert.include(rising, "if(!room.storage || !room.storage.my) return true;");
+        const b = SP.match(/const BANK_TREND_EVERY = (\d+);/);
+        assert.isNotNull(b);
+        // two samples must both land inside the patience window, or the escape
+        // can never fire at all
+        const pat = Number(SP.match(/const FLOOR_UPGRADER_PATIENCE = (\d+);/)![1]);
+        assert.isBelow(Number(b![1]) * 2, pat);
     });
 
     it("RCL8 is excluded, same as keepOneUpgrader", () => {
