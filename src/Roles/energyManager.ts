@@ -148,7 +148,8 @@ export function terminalFloat(room: any, storage: any, terminal: any): number {
 export function hubWorkPending(creep: any): boolean {
     const room = creep.room;
     const storage: any = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-    if(!storage) return false;
+    // the same real-bank rule the ladder uses; see its comment
+    if(!storage || storage.structureType !== STRUCTURE_STORAGE) return false;
     const MaxStorage = creep.memory.MaxStorage || 50;
 
     const link: any = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
@@ -246,7 +247,27 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         }
     }
     if(!creep.memory.target) {
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+        let storage: any = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+        /*
+         * A REAL BANK, OR NOTHING.
+         *
+         * creepFunctions.findStorage() hands back the 2k HUB CONTAINER as a
+         * stand-in whenever the room has no STRUCTURE_STORAGE — which is a
+         * window of thousands of ticks at RCL4 while the storage is a site.
+         * NO_CONTAINER_STANDIN excludes the EnergyManager from that answer by
+         * name, and its comment says exactly why: this ladder dumps its whole
+         * cargo (any resource) into whatever it is given and pins it as
+         * memory.target, and every rung below is written against 20k / 100k /
+         * 175k / 275k, so a 2,000-cap box reads as permanently empty AND
+         * permanently un-drainable.
+         *
+         * The FILLER is not on that exclusion list — it wants the box, that is
+         * the whole point of the stand-in — and the filler now runs this
+         * ladder. So the guard has to live here, on the ladder, and not in a
+         * list of role names that a new caller silently is not on. It is also
+         * what the manager's own answer already effectively is: undefined.
+         */
+        if(!storage || storage.structureType !== STRUCTURE_STORAGE) return acted;
         let terminal = creep.room.terminal;
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
         let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);

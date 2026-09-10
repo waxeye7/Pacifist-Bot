@@ -652,6 +652,9 @@ const run = function (creep) {
      * to the room's lifeline.
      */
     if(creep.memory.target) {
+        // Hold the room's duty slot while the errand runs, or the other filler
+        // in a two-filler room starts a second one on the same rung.
+        claimHubDuty(creep);
         const cargo = creep.store.getUsedCapacity();
         const pureEnergy = cargo > 0 && creep.store.getUsedCapacity(RESOURCE_ENERGY) === cargo;
         if(!roomTopped(creep.room) && (cargo === 0 || pureEnergy)) {

@@ -273,3 +273,44 @@ describe("the terminal float does not oscillate", () => {
         assert.include(EMS, "if(termE > target + 5000) return true;");
     });
 });
+
+/**
+ * findStorage() hands back the 2k HUB CONTAINER as a stand-in whenever the
+ * room has no STRUCTURE_STORAGE — a window of thousands of ticks at RCL4
+ * while the storage is still a construction site.
+ *
+ * NO_CONTAINER_STANDIN excludes the EnergyManager from that answer BY NAME,
+ * and its comment says why: the errand ladder dumps its whole cargo (any
+ * resource) into whatever it is given and pins it as memory.target, and every
+ * rung is written against 20k / 100k / 175k / 275k, so a 2,000-cap box reads
+ * as permanently empty AND permanently un-drainable.
+ *
+ * The filler is deliberately NOT on that list — it wants the box, that is the
+ * entire point of the stand-in — and the filler now runs the ladder. So the
+ * guard has to live on the ladder, not in a list of role names a new caller
+ * silently is not on.
+ */
+describe("the hub ladder refuses a stand-in bank", () => {
+    const EMS = SRC("Roles/energyManager.ts");
+
+    it("the ladder demands a real STRUCTURE_STORAGE", () => {
+        assert.include(EMS, "if(!storage || storage.structureType !== STRUCTURE_STORAGE) return acted;");
+    });
+
+    it("...and so does the predicate that sends a parked filler at it", () => {
+        assert.include(EMS, "if(!storage || storage.structureType !== STRUCTURE_STORAGE) return false;");
+    });
+
+    it("the exclusion list it is standing in for is still there", () => {
+        const CF = SRC("Functions/creepFunctions.ts");
+        assert.include(CF, "const NO_CONTAINER_STANDIN: {[role: string]: boolean} = {");
+        assert.include(CF, "    EnergyManager: true,");
+        assert.notInclude(CF, "    filler: true,", "the filler wants the box for its own fill duty");
+    });
+
+    it("an errand in flight holds the room's duty slot", () => {
+        const F = SRC("Roles/filler.ts");
+        const at = F.indexOf("if(creep.memory.target) {");
+        assert.include(F.slice(at, at + 300), "claimHubDuty(creep);");
+    });
+});
