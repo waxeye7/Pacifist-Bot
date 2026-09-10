@@ -42,10 +42,20 @@ const MAINT_BANK_FLOOR = 10000;
 const MAINT_BANK_RESUME = 12000;
 /**
  * ...and the hits at which the shell stops being "worn" and starts being a
- * hole. rooms.defence holds a 3,000-hit peacetime floor with the towers, so a
- * rampart under this is one tower outage from gone.
+ * hole.
+ *
+ * Deliberately WELL UNDER the towers' own peacetime target. rooms.defence
+ * repairs the weakest rampart up to TOWER_SHELL_FLOOR == 3,000, so a shell the
+ * towers are holding normally oscillates in a band either side of that number —
+ * live E38N56 read 2,935, then 3,006, then 3,061 within a few hundred ticks.
+ * A threshold sitting ON that band would toggle this creep between parked and
+ * working every few ticks and never finish a repair.
+ *
+ * Half the tower floor is unambiguous: a rampart there means the towers are NOT
+ * holding it (out of energy, or something is shooting faster than they mend),
+ * and at that point the room's problem is no longer its bank.
  */
-const MAINT_EMERGENCY_HITS = 3000;
+const MAINT_EMERGENCY_HITS = 1500;
 
 function shellIsBreached(room: any): boolean {
     return cachedDerived(room, "maintShellBreach", () => {

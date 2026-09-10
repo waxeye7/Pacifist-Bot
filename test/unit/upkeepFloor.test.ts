@@ -136,8 +136,13 @@ describe("upkeep still has to be paid for", () => {
         assert.include(fn, 'cachedDerived(room, "maintShellBreach"');
         assert.include(fn, "cachedStructures(room)");
         const h = Number(MT.match(/const MAINT_EMERGENCY_HITS = (\d+);/)![1]);
-        // rooms.defence holds a 3,000-hit peacetime floor with the towers
-        assert.isAtMost(h, 5000);
+        // rooms.defence repairs the weakest rampart up to TOWER_SHELL_FLOOR ==
+        // 3,000, so a held shell OSCILLATES either side of that number: live
+        // E38N56 read 2,935, 3,006 and 3,061 within a few hundred ticks. A
+        // threshold on that band toggles the creep every few ticks and finishes
+        // nothing. It has to be clear of it.
+        assert.isBelow(h, 3000 * 0.75, "must be clear of the towers' own band");
+        assert.isAtLeast(h, 500);
     });
 
     it("a room with no real storage is not judged on a bank it does not have", () => {
