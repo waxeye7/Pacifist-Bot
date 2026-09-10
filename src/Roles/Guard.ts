@@ -47,6 +47,17 @@ const run = function (creep) {
             }
         }
 
+        if(routeIsHopeless(creep)) {
+            // Give up on the trip, not on the body. targetRoom = homeRoom is
+            // sticky: the owned-target check at the top of run() picks it up
+            // next tick and recycle() walks it home on the same avoid-route.
+            creep.memory.targetRoom = creep.memory.homeRoom;
+            creep.memory.route = [];
+            creep.memory.path = [];
+            delete creep.memory.MoveTargetId;
+            return;
+        }
+
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
@@ -91,20 +102,30 @@ const run = function (creep) {
                 creep.MoveCostMatrixRoadPrio(closestHostileStructure, 1);
             }
         }
-        else if(creep.room.controller && !creep.room.controller.my) {
-            let Structures = creep.room.find(FIND_STRUCTURES);
-            if(Structures.length > 0) {
-                let closestStructure = creep.pos.findClosestByRange(Structures);
-                if(creep.pos.isNearTo(closestStructure)) {
-                    creep.attack(closestStructure);
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(closestStructure, 1);
-                }
-            }
-        }
+        /*
+         * THE FALLBACK THAT ATE OUR OWN REMOTES.
+         *
+         * This used to be `else if(controller && !controller.my)` ->
+         * `room.find(FIND_STRUCTURES)` -> `attack(closest)`. FIND_STRUCTURES in
+         * a room we do not OWN still returns everything standing in it, and the
+         * roads and containers we build in our own remotes are UNOWNED — they
+         * have no owner field at all, so nothing in that filter could tell one
+         * of ours from anybody else's. A Guard that reached a quiet remote with
+         * no hostile creeps and no hostile structures therefore walked to the
+         * nearest road and hit it, 30 damage per ATTACK part per tick, until it
+         * fell over. A 5-ATTACK Guard destroys a 5,000-hit remote road in ~34
+         * ticks and then starts on the next one. Live E38N58 (our haul route,
+         * reserved out from under us on 2026-09-11) is exactly the shape of
+         * room this fires in.
+         *
+         * FIND_HOSTILE_STRUCTURES above already covers every structure that is
+         * genuinely someone else's — invader cores, enemy spawns, towers — so
+         * the fallback added no reachable target that mattered and one very
+         * expensive way to lose our own infrastructure. A guard with nothing to
+         * kill guards. It does not demolish.
+         */
         else {
-            creep.moveTo(12, 25);
+            creep.idlePark();
         }
     }
 
@@ -112,6 +133,46 @@ const run = function (creep) {
 
 }
 
+
+/**
+ * ROOMS PER LIFETIME. A trip nobody can finish is a body nobody gets back.
+ *
+ * Live shard3 2026-09-11, tick 82,881,928: Guard-19391524-E36N57-E38N55 held a
+ * FOURTEEN hop route — E36N58, E36N59, E36N60, E37N60, E38N60, E39N60, E40N60,
+ * E40N59, E40N58, E40N57, E40N56, E40N55, E39N55, E38N55 — to reach a room
+ * three rooms away, because moveToRoomAvoidEnemyRooms routed the whole fleet
+ * around the hostile block to the south. It had 664 ticks left and needed on
+ * the order of 1,300. It was going to die somewhere around E40N58 having done
+ * nothing at all, and the ladder would then have bought another one.
+ *
+ * The estimate is deliberately generous so it only ever fires on trips that are
+ * hopeless rather than merely long: ROOM_CROSSING tiles per hop, and one tick
+ * per tile for every MOVE part that covers a heavy part. A creep body is
+ * fatigue-limited at max(1, ceil(heavy / move)) ticks per plain tile, and a
+ * Guard is normally 1:1, i.e. two.
+ *
+ * Nothing here fires in the room the creep is already standing in, so a Guard
+ * that has ARRIVED always fights; this is a travel check only.
+ */
+const ROOM_CROSSING = 40;
+const ARRIVAL_MARGIN = 100;
+
+function routeIsHopeless(creep): boolean {
+    const route = creep.memory.route;
+    // No route yet means moveToRoomAvoidEnemyRooms has not picked one; let it.
+    if(!route || !route.length) return false;
+    const ttl = creep.ticksToLive;
+    if(typeof ttl !== "number") return false;
+    let heavy = 0;
+    let move = 0;
+    for(const part of creep.body) {
+        if(part.type === MOVE) move += 1;
+        else if(part.type !== CARRY) heavy += 1;
+    }
+    const perTile = move > 0 ? Math.max(1, Math.ceil(heavy / move)) : 50;
+    const need = route.length * ROOM_CROSSING * perTile;
+    return need + ARRIVAL_MARGIN > ttl;
+}
 
 function killCreepsInroom(creep, enemyCreeps) {
     let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
