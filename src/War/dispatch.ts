@@ -14,7 +14,7 @@ import { getIntel, patchIntel, STALE_TICKS } from "./intel";
 import { targets, scoreRoom, scoutQueue } from "./score";
 import { pickKit, Kit, KitKind, GUARD_PREY, GUARD_RAID } from "./kit";
 import { countLive, expensiveInFlight, homeHasSquad, guardOnPlayerRoom, ROLES, cckInFlight } from "./flight";
-import { ownedRooms } from "./reach";
+import { ownedRooms, travelHops, withinTravelBudget, MAX_TRAVEL_HOPS } from "./reach";
 import { roomDistance } from "./geo";
 import { logAlways } from "utils/Logger";
 import { lowCpuShard } from "utils/CpuPolicy";
@@ -144,6 +144,17 @@ function noteIssued(k: Kit): void {
 
 function issue(k: Kit): boolean {
   if (onCooldown(k)) return false;
+  /*
+   * CAN ANYTHING WE BUY ACTUALLY GET THERE? getReach() — and therefore every
+   * score and every kit above — is straight-line room distance. The walk is
+   * not. See reach.travelHops for the live E38N55 errand this closes: a target
+   * two rooms from the empire, fourteen hops of real route, and a body bought
+   * to die around hop eight. Mosquitoes are Memory-side ops with no creep to
+   * strand, so they are exempt.
+   */
+  if (k.kind !== "mosquito" && k.home && !withinTravelBudget(k.home, k.target)) {
+    return false;
+  }
   const g = global as any;
   let ok = false;
 
@@ -442,6 +453,7 @@ export function explainKit(roomName: string): string {
   return [
     roomName + "  kit=" + k.kind + (k.home ? " from " + k.home : ""),
     "  why  = " + (k.why || s && s.why || "-"),
+    "  hops = " + (k.home ? travelHops(k.home, roomName) : "-") + " / " + MAX_TRAVEL_HOPS,
     "  followCck=" + k.followCck + "  boosted=" + k.boosted,
   ].join("\n");
 }

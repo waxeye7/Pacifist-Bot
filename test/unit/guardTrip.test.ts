@@ -99,3 +99,71 @@ describe("a Guard never attacks unowned infrastructure", () => {
         assert.include(GUARD, "creep.idlePark();");
     });
 });
+
+/**
+ * The same errand, closed one level up: dispatch should never have bought that
+ * Guard. War/reach.getReach() is Chebyshev room-coordinate distance (geo.reachMap
+ * is three nested dx/dy loops), which is the right measure for doctrine and the
+ * wrong one for "can a creep walk there". E38N55 sat two rooms from an owned
+ * room and fourteen hops from the room that paid for the body.
+ */
+const REACH = fs
+    .readFileSync(path.join(__dirname, "../../src/War/reach.ts"), "utf8")
+    .replace(/\r\n/g, "\n");
+const DISPATCH = fs
+    .readFileSync(path.join(__dirname, "../../src/War/dispatch.ts"), "utf8")
+    .replace(/\r\n/g, "\n");
+
+describe("war measures the walk, not the map", () => {
+    it("issue() refuses a target outside the travel budget", () => {
+        const at = DISPATCH.indexOf("function issue(k: Kit): boolean {");
+        assert.isAbove(at, -1);
+        const head = DISPATCH.slice(at, at + 900);
+        assert.include(head, "!withinTravelBudget(k.home, k.target)");
+        // ...before any SGD/SD/SQR fires
+        const gate = DISPATCH.indexOf("!withinTravelBudget(k.home, k.target)");
+        const switchAt = DISPATCH.indexOf("switch (k.kind) {", at);
+        assert.isBelow(gate, switchAt);
+    });
+
+    it("a mosquito is exempt — there is no creep to strand", () => {
+        assert.include(DISPATCH, 'k.kind !== "mosquito"');
+    });
+
+    it("the budget is measured with the creep router's own weights", () => {
+        // moveToRoomAvoidEnemyRooms prices SK and avoided rooms at 24, highway
+        // at 2, normal at 4. A gate that disagreed would clear routes the fleet
+        // will never be given, which is the whole failure it exists to stop.
+        assert.include(REACH, "function hopCost(roomName: string, targetRoom: string): number {");
+        assert.include(REACH, "if (kind === ROOM_KEEPER) return 24;");
+        assert.include(REACH, "return 24;");
+        assert.include(REACH, "if (kind !== ROOM_NORMAL) return 2;");
+        assert.include(REACH, "return 4;");
+        assert.include(REACH, "if (!isEnterable(roomName)) return Infinity;");
+        // the destination itself is never refused for being avoided
+        assert.include(REACH, "if (roomName !== targetRoom &&");
+    });
+
+    it("no route at all is out of budget, not in it", () => {
+        const at = REACH.indexOf("export function withinTravelBudget");
+        const body = REACH.slice(at, REACH.indexOf("\n}", at));
+        assert.include(body, "if (n < 0) return false;");
+    });
+
+    it("findRoute is memoised, so the gate is not a per-pass map query", () => {
+        assert.include(REACH, "const routeCache: { [key: string]: { n: number; t: number } }");
+        assert.include(REACH, "if (hit && Game.time - hit.t < ROUTE_TTL) return hit.n;");
+        const t = REACH.match(/const ROUTE_TTL = (\d+);/);
+        assert.isNotNull(t);
+        assert.isAtLeast(Number(t![1]), 500);
+    });
+
+    it("the budget is a creep lifetime, not the doctrine radius", () => {
+        const m = REACH.match(/export const MAX_TRAVEL_HOPS = (\d+);/);
+        assert.isNotNull(m);
+        // ENGAGE_RANGE is 5 map rooms; the walk is allowed to be a little
+        // longer than the crow flies, but not three times longer.
+        assert.isAtLeast(Number(m![1]), 5);
+        assert.isAtMost(Number(m![1]), 10);
+    });
+});

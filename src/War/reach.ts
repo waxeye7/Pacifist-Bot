@@ -195,6 +195,84 @@ export function nukeCandidates(): { [target: string]: string } {
 }
 
 /** Debug: one-line summary of the current reach state. */
+/**
+ * ── HOW FAR IS IT REALLY ───────────────────────────────────────────────────
+ *
+ * getReach() is Chebyshev room-coordinate distance and nothing else — see
+ * geo.reachMap, which is three nested loops over dx/dy. It answers "how far is
+ * that on the map", which is the right question for doctrine ("everything
+ * within 5 rooms is a target") and the wrong one for "can a creep get there".
+ *
+ * Live shard3 2026-09-11: dispatch sent Guard-19391524-E36N57-E38N55 at a
+ * target TWO rooms from an owned room. The route the creep actually got back
+ * was fourteen hops — E36N58, E36N59, E36N60, E37N60, E38N60, E39N60, E40N60,
+ * E40N59, E40N58, E40N57, E40N56, E40N55, E39N55, E38N55 — because the two
+ * short ways out of E36N57 are E37N56 (in Memory.AvoidRooms since tick
+ * 82,872,574) and E36N56/E36N55, which are Source Keeper rooms. The creep
+ * router prices an SK room or an avoided room at 24 against 4 for a normal one
+ * and 2 for a highway, so ten extra rooms of highway genuinely IS the cheaper
+ * ROUTE — it is just three times the TICKS, and ticks are what a 1,500-tick
+ * body actually spends.
+ *
+ * So measure the trip the creep will really be given, with the same weights,
+ * and refuse the errand rather than buying a body to die in transit. This does
+ * not touch the router's preferences: a creep already sent still walks the safe
+ * way round. It only stops us paying for trips that end in a tombstone.
+ *
+ * findRoute is not free, so results are memoised on the heap for ROUTE_TTL
+ * ticks. Dispatch issues at most one or two kits per pass and passes are
+ * DISPATCH_EVERY ticks apart, so this is a handful of calls per thousand ticks.
+ */
+/** Rooms of walking we will buy a body for. Beyond this the errand is a death. */
+export const MAX_TRAVEL_HOPS = 7;
+const ROUTE_TTL = 1500;
+const routeCache: { [key: string]: { n: number; t: number } } = Object.create(null);
+
+/** The creep router's own weights — kept in step with moveToRoomAvoidEnemyRooms. */
+function hopCost(roomName: string, targetRoom: string): number {
+  if (!isEnterable(roomName)) return Infinity;
+  const M: any = Memory as any;
+  if (roomName !== targetRoom &&
+      ((M.AvoidRooms && M.AvoidRooms.indexOf(roomName) >= 0) ||
+       (M.AvoidRoomsTemp && M.AvoidRoomsTemp[roomName]))) {
+    return 24;
+  }
+  const kind = roomKind(roomName);
+  if (kind === ROOM_KEEPER) return 24;
+  if (kind !== ROOM_NORMAL) return 2;
+  return 4;
+}
+
+/**
+ * Hops the creep router will actually hand a creep walking home -> target.
+ * -1 when there is no route at all.
+ */
+export function travelHops(home: string, target: string): number {
+  if (!home || !target) return -1;
+  if (home === target) return 0;
+  const key = home + ">" + target;
+  const hit = routeCache[key];
+  if (hit && Game.time - hit.t < ROUTE_TTL) return hit.n;
+  let n = -1;
+  try {
+    const route: any = Game.map.findRoute(home, target, {
+      routeCallback: (roomName: string) => hopCost(roomName, target),
+    });
+    if (route !== ERR_NO_PATH && route.length !== undefined) n = route.length;
+  } catch (e) {
+    n = -1;
+  }
+  routeCache[key] = { n: n, t: Game.time };
+  return n;
+}
+
+/** Is this errand walkable inside one creep lifetime? */
+export function withinTravelBudget(home: string, target: string): boolean {
+  const n = travelHops(home, target);
+  if (n < 0) return false;
+  return n <= MAX_TRAVEL_HOPS;
+}
+
 export function reachSummary(): string {
   const reach = getReach();
   const ground = groundTargets();
