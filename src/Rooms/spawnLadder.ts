@@ -47,6 +47,7 @@
  */
 import { getCensus, EmpireCensus, homeCount, SourceStaff } from "Empire/census";
 import { logAlways } from "utils/Logger";
+import { cachedSources } from "utils/RoomCache";
 import { refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 
 /** Ticks a room WITH income may hold out for a better body before taking what it can afford. */
@@ -490,7 +491,17 @@ let lastFailLog: { [room: string]: number } = {};
  */
 export function retireStopgapsFor(room: any): void {
     if (!room || !room.controller || !room.controller.my || !room.memory) return;
-    yieldStopgaps(room, getCensus(), room.find(FIND_SOURCES) || []);
+    const census = getCensus();
+    // Almost every tick in a healthy empire there is nothing to retire, and
+    // this runs for every owned room on every one of them. Ask the (already
+    // per-tick cached) census first and do no work at all in that case —
+    // yieldStopgaps' own loops are cheap, but the source find in front of them
+    // was not free and was being paid unconditionally.
+    const stop = census.stopgaps[room.name];
+    let any = false;
+    if (stop) for (const role in stop) if (stop[role] && stop[role].length) { any = true; break; }
+    if (!any) return;
+    yieldStopgaps(room, census, cachedSources(room) as any[]);
 }
 
 /**
