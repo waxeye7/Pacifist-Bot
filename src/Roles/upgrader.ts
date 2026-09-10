@@ -1,5 +1,6 @@
 import { cachedDerived, cachedDropped, cachedMyCreeps, cachedRuins, cachedSites, cachedSources, cachedStructures, cachedTombstones } from "utils/RoomCache";
 import { upgradeParkBand } from "Empire/funnel";
+import { takeCover } from "utils/Cover";
 
 /**
  * The controller depot â€” the structure an upgrader draws from while it works.
@@ -339,6 +340,33 @@ const run = function (creep) {
 	// }
 
 	let controllerLink:any = controllerDepot(creep);
+	/*
+	 * SAFETY BEFORE THROUGHPUT. A rampart defends the creep standing on it, and
+	 * in five of seven live rooms there is one within upgradeController's own
+	 * range 3 of the controller — see utils/Cover. depotPark() scores tiles on
+	 * range-to-controller and range-to-depot only, so the upgrader parks beside
+	 * that tile rather than on it and an invader gets a free 2,500-energy kill.
+	 *
+	 * takeCover() is a no-op in peacetime, so the park geometry below is
+	 * untouched on the ticks that matter for throughput. Under danger it owns
+	 * movement, and the creep keeps upgrading from cover: upgradeController and
+	 * move are different intent classes, and the depot top-up still works
+	 * whenever the cover tile happens to be next to the depot.
+	 */
+	if(takeCover(creep, creep.room.controller, 3)) {
+		if(creep.store[RESOURCE_ENERGY] > 0) {
+			creep.upgradeController(creep.room.controller);
+			creep.memory.upgrading = true;
+		} else {
+			creep.memory.upgrading = false;
+		}
+		if(creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !creep.grabAdjacentPile() &&
+			controllerLink && creep.pos.isNearTo(controllerLink)) {
+			creep.withdraw(controllerLink, RESOURCE_ENERGY);
+		}
+		return;
+	}
+
 	// Only worth parking against a depot that actually has something in it;
 	// an empty one must not pin the creep away from the fallback path. A creep
 	// already standing on its park tile takes whatever dribbles in (it costs

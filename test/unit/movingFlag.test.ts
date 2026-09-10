@@ -30,7 +30,7 @@ describe("memory.moving is cleared at the top of run(), and nowhere else", () =>
         // The defect shape, precisely: a `moving = false` that follows a mover
         // in the same breath. A role's own prologue reset is the contract and
         // is never preceded by one.
-        const MOVER = /(MoveCostMatrix\w*|interiorMove|advanceTo|moveToRoom\w*|moveTo)\s*\(/;
+        const MOVER = /(MoveCostMatrix\w*|interiorMove|takeCover|advanceTo|moveToRoom\w*|\bmoveTo)\s*\(/;
         const offenders: string[] = [];
         for (const f of ROLES) {
             const lines = SRC("Roles/" + f).split(String.fromCharCode(10));
