@@ -4351,6 +4351,23 @@ const CONTAINER_DYING = 0.06;
  */
 const MAINTAINER_OVERRIDE_MAX = 2;
 
+/*
+ * WHY TWO SLOTS IS A QUEUE AND NOT A LOCKOUT, AND WHAT THAT DEPENDS ON.
+ *
+ * A slot is held by a LIVE maintainer, and a maintainer lives 1,500 ticks. If
+ * one sat idle for its full life after finishing, two slots would serve two
+ * rooms per 1,500 ticks and the other five would decay past CONTAINER_DYING
+ * and bypass the cap anyway — the cap would do nothing except delay the same
+ * simultaneous buy.
+ *
+ * It does not, because Roles/maintainer sets `suicide` and recycles once there
+ * is nothing left inside the wall to repair. Service is therefore a few
+ * hundred ticks, not a creep lifetime, and seven rooms take their turn well
+ * inside the ~3,750 ticks of margin CONTAINER_CRITICAL leaves.
+ *
+ * That coupling is load-bearing: delete the recycle and this cap silently
+ * becomes a lockout. test/unit/maintainerOverrideCap pins it.
+ */
 /** Rooms whose maintainer is alive right now. One census per tick, shared. */
 let _maintRoomsTick = -1;
 let _maintRooms: { [roomName: string]: boolean } = {};

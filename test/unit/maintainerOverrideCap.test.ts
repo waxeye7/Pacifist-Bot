@@ -21,6 +21,7 @@ import fs from "fs";
  * containers wore down in the first place.
  */
 const SP = fs.readFileSync("src/Rooms/rooms.spawning.ts", "utf8");
+const MAINT = fs.readFileSync("src/Roles/maintainer.ts", "utf8");
 const CODE = SP.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 
 describe("the container maintainer override is capped empire-wide", () => {
@@ -63,6 +64,22 @@ describe("the container maintainer override is capped empire-wide", () => {
     // The old unconditional assignment must be gone from the container rung.
     const rung = CODE.slice(CODE.indexOf("const worstBox ="), CODE.indexOf("const worstBox =") + 700);
     assert.notMatch(rung, /if\(worstBox\.length\) \{\s*spawnMaintainer = true;/);
+  });
+
+  it("depends on the maintainer recycling when its work is done", () => {
+    /*
+     * A slot is held by a LIVE maintainer and a maintainer lives 1,500 ticks.
+     * If one sat idle for its full life after finishing, two slots would serve
+     * two rooms per 1,500 ticks, the other five would decay past
+     * CONTAINER_DYING and bypass the cap, and the cap would do nothing but
+     * delay the same simultaneous buy.
+     *
+     * Roles/maintainer sets suicide once there is nothing left inside the wall
+     * to repair, so service takes a few hundred ticks rather than a lifetime.
+     * Delete that and this cap silently becomes a lockout.
+     */
+    assert.match(MAINT, /creep\.memory\.suicide = true;/);
+    assert.match(MAINT, /creep\.memory\.suicide\) \{[\s\S]{0,60}creep\.recycle\(\);/);
   });
 
   it("still keeps the bank test that follows it", () => {
