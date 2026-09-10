@@ -459,7 +459,25 @@ function findLocked(creep, storage) {
                         creep.MoveCostMatrixRoadPrio(repairTarget, 3)
                     }
                 }
-                creep.memory.moving = false;
+                /*
+                 * `memory.moving = false` USED TO BE HERE, one line after
+                 * asking two different movers to move.
+                 *
+                 * moving is the traffic system's only record of "this creep
+                 * asked to move". RunCreepManager.preRun reads LAST tick's
+                 * value to keep _still (the consecutive-ticks-not-moving
+                 * counter), and _still is what arms both escapes: canShove()
+                 * lets a NEIGHBOUR displace a creep that has been blocked for
+                 * STILL_SHOVABLE_AFTER ticks, and the sidestep at
+                 * STUCK_STILL_TICKS routes the creep around whatever is in the
+                 * way. Clearing it here made a blocked repairer permanently
+                 * invisible to both: unrescuable, and unshovable by anyone.
+                 *
+                 * Live E37N58 2026-09-10: Repair-52069239 read `moving: false,
+                 * _still: 0` for its entire life while re-issuing a move at a
+                 * seated miner on every single tick. Nothing in the bot could
+                 * see it, and nothing reported it.
+                 */
             }
             // else {
                 // if(creep.store.getFreeCapacity() <= 50) {
