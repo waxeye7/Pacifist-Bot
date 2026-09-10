@@ -28,8 +28,21 @@ function resumeCollectTrip(creep) {
 function findLocked(creep) {
 
     if(creep.room.energyAvailable == creep.room.energyCapacityAvailable && creep.room.memory.Structures) {
-        creep.memory.locked = creep.room.memory.Structures.storage;
-        return;
+        /*
+         * SET THE LOCK AND HAND IT BACK.
+         *
+         * This wrote memory.locked and then `return`ed undefined, and the one
+         * caller reads it as `Game.getObjectById(creep.memory.locked) ||
+         * findLocked(creep)`. So on the tick the room first reads full, `lock`
+         * came out undefined and run() fell into the else branch, which only
+         * does anything when the STORAGE is full — a loaded creep standing in
+         * the hub issuing no intent at all, for one tick, every time the
+         * network topped up. It recovered on the next tick purely because the
+         * memory write had landed, which is why it never showed up as a wedge.
+         */
+        const bank: any = Game.getObjectById(creep.room.memory.Structures.storage) || creep.findStorage();
+        creep.memory.locked = bank ? bank.id : false;
+        return bank;
     }
     else {
         let possibleDropOffLocations = [];
