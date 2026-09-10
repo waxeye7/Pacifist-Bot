@@ -517,6 +517,38 @@ function buildMatrix(room: Room, masked: boolean, c: InteriorCache): CostMatrix 
       costs.set(s.pos.x, s.pos.y, 255);
     }
   }
+  /*
+   * A CREEP ON ITS OWN MINING SEAT IS A WALL.
+   *
+   * This matrix had no friendly creeps in it at all, which is normally right —
+   * creeps move, and pricing them in makes every path a guess. A SEATED MINER
+   * is the exception and the whole reason this block exists: it chose that
+   * tile, it holds it for its entire 1500-tick life, and creepFunctions'
+   * canShove() refuses to shove it BY DESIGN (onOwnSeat — a shoved miner walks
+   * straight back, and a successful shove resets the retry counter that would
+   * otherwise route the other creep around it).
+   *
+   * So a route through a seated miner is a route that can never be walked, and
+   * interiorMove owns the creep's movement — nothing downstream gets a turn.
+   * Live E37N58 2026-09-10: Repair-52069239 planned (24,22) -> (25,23) ->
+   * (24,24) -> (23,25) toward a 96k rampart, and (25,23) is the source
+   * container an EnergyMiner is seated on. It re-derived that identical path,
+   * moved at the miner, and stood still holding 250 energy for its whole life.
+   * E37N59's repairer was doing the same thing at the same moment.
+   *
+   * Same packing as utils/minerSeat (x + y*50), and deliberately the same test
+   * canShove uses, so the two cannot disagree about which tile will not clear.
+   */
+  const mine: Creep[] =
+    (room as any).cache && (room as any).cache.myCreeps
+      ? (room as any).cache.myCreeps
+      : room.find(FIND_MY_CREEPS);
+  for (const f of mine) {
+    const sp = (f.memory as any).seatP;
+    if (typeof sp === "number" && sp === f.pos.x + f.pos.y * 50) {
+      costs.set(f.pos.x, f.pos.y, 255);
+    }
+  }
   const hostiles: Creep[] =
     (room as any).cache && (room as any).cache.hostileCreeps
       ? (room as any).cache.hostileCreeps
@@ -584,6 +616,50 @@ function staysInside(c: InteriorCache, path: RoomPosition[]): boolean {
   return true;
 }
 
+/*
+ * ---------------------------------------------------------------------------
+ * THE STEP THAT NEVER HAPPENS.
+ *
+ * `creep.move()` returns OK for an INTENT, not for a move: the tile can be
+ * taken, the shove can be refused, two creeps can pick the same square. The
+ * step below was shifted off the plan unconditionally, so a dropped move left
+ * the cache one tile ahead of the creep — and cachedPath()'s own drift check
+ * then threw the plan away and rebuilt the IDENTICAL path, into the IDENTICAL
+ * blocker, on every tick for the rest of the creep's life.
+ *
+ * That is not survivable here the way it is in creepFunctions' stepCachedPath,
+ * because interiorMove RETURNS TRUE: it owns the creep's movement, so the
+ * caller's own mover — which prices a tile it could not enter out of its next
+ * search (_blockedBy) and escalates through PATH_RETRY_MAX — never gets a turn.
+ * Nothing downstream can rescue it and nothing reports it.
+ *
+ * Live E37N58 and E37N59, both at once, 2026-09-10: two repairers each holding
+ * 250 energy, each aimed at a ~95k-hit rampart, each re-deriving the same
+ * three-step path into a seated EnergyMiner, each frozen for its whole life
+ * while its room's shell decayed.
+ *
+ * So: remember the tile we aimed at, check next tick whether we are standing
+ * on it, and after a short streak of misses hand the creep back to its
+ * caller's mover with the blocked tile named. ONLY IN PEACETIME (mode "p"),
+ * where the interior route is explicitly a preference rather than a law — under
+ * danger rules 1 and 2 are the point of this module and keep priority.
+ * ---------------------------------------------------------------------------
+ */
+/** Consecutive dropped steps before peacetime hands the creep back. */
+const INTERIOR_BLOCKED_MAX = 3;
+/** ...and how long the caller's mover then owns the trip, unchallenged. */
+const INTERIOR_STANDOFF = 25;
+
+/** Forget every trace of the current interior plan. */
+function dropInteriorPlan(mem: any): void {
+  delete mem._ip;
+  delete mem._imk;
+  delete mem._imt;
+  delete mem._is;
+  delete mem._ist;
+  delete mem._ib;
+}
+
 /** the cached interior path, if it is still ours and still adjacent */
 function cachedPath(creep: Creep, key: string): RoomPosition[] | null {
   const mem: any = creep.memory;
@@ -617,6 +693,14 @@ export function interiorMove(creep: Creep, target: any, range: number): boolean 
   const mem: any = creep.memory;
   const danger = dangerNow(room);
   const outside = c.ext[packOf(creep.pos.x, creep.pos.y)] === 1;
+
+  // Standing down: the caller's mover owns this trip. Danger cancels it
+  // immediately — rules 1 and 2 are not negotiable, and a stale peacetime
+  // standoff must never keep a creep walking outside the shell under fire.
+  if (mem._ioff !== undefined) {
+    if (danger || Game.time - mem._ioff >= INTERIOR_STANDOFF) delete mem._ioff;
+    else return false;
+  }
   // Rule 2 first: already-in-range must not keep an exterior creep under fire
   // standing on the work target. Run for a gate instead.
   if (!(danger && outside) && creep.pos.getRangeTo(tpos.x, tpos.y) <= range) return true;
@@ -660,6 +744,39 @@ export function interiorMove(creep: Creep, target: any, range: number): boolean 
   }
 
   const key = mode + packOf(goal.x, goal.y) + "." + goalRange;
+
+  /* ---- did last tick's step actually happen? (see INTERIOR_BLOCKED_MAX) --- */
+  const aim = mem._is;
+  if (aim !== undefined && mem._ist === Game.time - 1) {
+    delete mem._is;
+    delete mem._ist;
+    if (creep.pos.x + creep.pos.y * 50 === aim) {
+      delete mem._ib;
+    } else {
+      mem._ib = (mem._ib || 0) + 1;
+      // The plan is a tile behind the creep now; cachedPath()'s drift test
+      // would rebuild it anyway, but say so rather than rely on that.
+      delete mem._ip;
+      if (mem._ib >= INTERIOR_BLOCKED_MAX && mode === "p") {
+        dropInteriorPlan(mem);
+        mem._ioff = Game.time;
+        // Name the tile for the caller's mover: MoveCostMatrixRoadPrio prices
+        // a fresh _blockedBy out of its next search, which is exactly the
+        // escape this module cannot perform for itself.
+        mem._blockedBy = { x: aim % 50, y: Math.floor(aim / 50), t: Game.time };
+        mem.path = false;
+        mem.MoveTargetId = false;
+        // ...and clear the legacy step record, or resyncCachedPath deletes the
+        // hint we just wrote before the very search it was written for: a
+        // pathStep older than last tick makes it drop pathRetry AND _blockedBy.
+        delete mem.pathStep;
+        delete mem.pathStepT;
+        delete mem.pathRetry;
+        return false;
+      }
+    }
+  }
+
   if (creep.fatigue > 0) {
     // hold the plan but do not let the cache think we stepped.
     // stamping a new key onto the old _ip would replay the previous
@@ -688,6 +805,10 @@ export function interiorMove(creep: Creep, target: any, range: number): boolean 
   creep.move(creep.pos.getDirectionTo(next.x, next.y));
   mem.moving = true;
   mem._imt = Game.time;
+  // The tile we aimed at, checked at the top of the next tick. move() answers
+  // for the intent, never for the outcome.
+  mem._is = next.x + next.y * 50;
+  mem._ist = Game.time;
   path.shift();
   mem._ip = path;
   return true;
