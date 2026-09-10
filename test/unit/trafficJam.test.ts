@@ -38,8 +38,10 @@ describe("idlePark — the lane discipline", () => {
     it("cached-path walkers shove an idle blocker on the blocked step itself", () => {
         const at = CF.indexOf("const stepCachedPath = (creep:any):void =>");
         assert.isAbove(at, -1);
-        const body = CF.slice(at, at + 2200);
-        assert.match(body, /b && b\.my && !b\.memory\.moving && !reciprocal && canShove\(b\)/);
+        const body = CF.slice(at, at + 3200);
+        // b.id !== creep.id was added 2026-09-10: a self-tile path head put the
+        // creep itself on the blocked step, and it shoved itself forever.
+        assert.match(body, /b && b\.my && b\.id !== creep\.id && !b\.memory\.moving && !reciprocal && canShove\(b\)/);
         assert.match(body, /creep\.SwapPositionWithCreep\(direction\);/);
     });
 
@@ -56,7 +58,7 @@ describe("idlePark — the lane discipline", () => {
 
     it("the shove is never reciprocated — no two-creep swap cycle", () => {
         const at = CF.indexOf("const stepCachedPath = (creep:any):void =>");
-        const body = CF.slice(at, at + 2200);
+        const body = CF.slice(at, at + 3200);
         assert.match(body, /creep\.memory\._shovedBy === b\.name/);
         assert.match(body, /Game\.time - \(creep\.memory\._shovedT \|\| 0\) <= SHOVE_COOLDOWN/);
         assert.match(body, /b\.memory\._shovedBy = creep\.name;/);

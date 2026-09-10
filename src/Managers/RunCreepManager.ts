@@ -472,6 +472,27 @@ function preRun(creep: any): number {
       Math.abs(aim.x - p.x) <= 1 &&
       Math.abs(aim.y - p.y) <= 1 &&
       !(aim.x === p.x && aim.y === p.y);
+    /*
+     * A pending step that is the creep's OWN tile is a stale path head, not a
+     * blocker: there is nothing to route around, the path itself is the fault.
+     * Declining it (the old behaviour) left the one wedge nothing else can
+     * clear - see stepCachedPath's header for the live E37N59 EnergyManager
+     * that stood at 35,32 for 364 ticks and starved the room's link network.
+     * Wipe the path so the role repaths, but blame no tile.
+     */
+    if (
+      !pending &&
+      aim &&
+      typeof aim.x === "number" &&
+      typeof aim.y === "number" &&
+      aim.x === p.x &&
+      aim.y === p.y
+    ) {
+      delete m._still;
+      m._ph = [];
+      clearMovement(creep);
+      return SIDESTEP_NONE;
+    }
     if (pending) {
       m._blockedBy = { x: aim.x, y: aim.y, t: Game.time };
       delete m._still;

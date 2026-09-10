@@ -3427,6 +3427,33 @@ const stepCachedPath = (creep:any):void => {
     if(!path || path.length == 0) {
         return;
     }
+    /*
+     * A path head that IS the tile the creep is standing on is unwalkable and
+     * unrecoverable, and it is reachable: resyncCachedPath unshifts the tile a
+     * creep failed to enter, and a swap can land the creep on that very tile
+     * afterwards. getDirectionTo(self) is undefined, move(undefined) is
+     * ERR_INVALID_ARGS, so the path never shifts - and the shove below then
+     * finds the creep ITSELF standing on the head and shoves itself with an
+     * undefined direction. memory.moving is still set, so _still climbs
+     * forever, and RunCreepManager's wedge escape explicitly declines a
+     * self-tile aim. The creep stands there for the rest of its life.
+     *
+     * Live E37N59 2026-09-10: the room's only EnergyManager wedged at (35,32)
+     * for 364+ ticks with path [(35,32),(36,31)] and _shovedBy pointing at
+     * itself. Nothing drained the hub link, so both source links pinned at 800
+     * and both miners dumped on the floor - 1,797 energy rotting while the
+     * storage fell to 1,253 and the upgrader idled at an empty controller link.
+     *
+     * Drop the stale head(s) and walk the real remainder this tick.
+     */
+    while(path.length > 0 &&
+        (!path[0].roomName || path[0].roomName === creep.room.name) &&
+        path[0].x === creep.pos.x && path[0].y === creep.pos.y) {
+        path.shift();
+    }
+    if(path.length == 0) {
+        return;
+    }
     const pos = path[0];
     const direction = creep.pos.getDirectionTo(pos);
     /*
@@ -3445,7 +3472,7 @@ const stepCachedPath = (creep:any):void => {
         // loser stays blocked, reaches PATH_RETRY_MAX and repaths around.
         const reciprocal = !!b && creep.memory._shovedBy === b.name &&
             Game.time - (creep.memory._shovedT || 0) <= SHOVE_COOLDOWN;
-        if (b && b.my && !b.memory.moving && !reciprocal && canShove(b) &&
+        if (b && b.my && b.id !== creep.id && !b.memory.moving && !reciprocal && canShove(b) &&
             typeof creep.SwapPositionWithCreep === "function") {
             creep.SwapPositionWithCreep(direction);
             b.memory._shovedBy = creep.name;
