@@ -79,7 +79,12 @@ describe("the four squatter branches issue intents now", () => {
     });
 
     it("EnergyManager: no errand => idlePark (the fallback was commented out)", () => {
-        assert.match(EM, /if\(!creep\.memory\.target\) \{\s*\n\s*creep\.idlePark\(\);/);
+        // The ladder moved into managerErrand() so the filler can run it too.
+        // The park is now the role's answer to that function returning false,
+        // which is the same guarantee: a manager with no hub work still issues
+        // an intent.
+        assert.match(EM, /if\(!managerErrand\(creep, MaxStorage\)\) \{\s*\n\s*creep\.idlePark\(\);/);
+        assert.include(EM, "export function managerErrand(creep: any, MaxStorage: number): boolean {");
     });
 
     it("ControllerLinkFiller: bankParked parks OFF the lanes, not toward storage", () => {

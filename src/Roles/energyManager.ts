@@ -72,56 +72,39 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
     return true;
 }
 
- const run = function (creep) {
-    creep.memory.moving = false;
-    if(creep.evacuate()) {
-		return;
-	}
-    if(creep.ticksToLive == creep.body.length  * 3 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
-        let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
-        if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-        }
-        else {
-            if(creep.room.controller.level == 6) {
-                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-            }
-            else if(creep.room.controller.level == 7) {
-                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-            }
-            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket < 9000 && creep.room.terminal && creep.room.terminal.store[RESOURCE_BATTERY] > 1000) {
-                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-            }
-            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket >= 5000) {
-                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-            }
-            else if(creep.room.controller.level == 8 && (creep.room.memory.danger || Game.cpu.bucket < 5000)) {
-                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
-            }
-        }
 
-    }
-
-    if(!creep.memory.MaxStorage) {
-        let carryPartsAmount = 0
-        for(let part of creep.body) {
-            if(part.type == CARRY) {
-                carryPartsAmount += 1;
-            }
-        }
-        creep.memory.MaxStorage = carryPartsAmount * 50;
-    }
-    let MaxStorage = creep.memory.MaxStorage;
-
-	if(creep.ticksToLive <= 10 && _.keys(creep.store).length == 0) {
-		creep.memory.suicide = true;
-	}
-	if(creep.memory.suicide == true) {
-		creep.recycle();
-        return;
-	}
-
-
+/**
+ * THE HUB ERRAND LADDER, LIFTED OUT OF THE ROLE THAT OWNED IT.
+ *
+ * Everything below happens within one step of the hub: drain the storage link,
+ * empty an overflowing bin, hold the terminal's energy float, push the room
+ * mineral and the factory bars out to the terminal, feed the labs, the nuker
+ * and the power spawn. The FILLER already stands on that exact tile for its
+ * whole life — the planner builds the hub around a single position that is
+ * range 1 of storage, terminal and the hub link — so a second creep whose only
+ * job is those errands is a second creep standing in the same place.
+ *
+ * Measured on shard3 2026-09-10 from Memory.CPU.roles, the bot's own per-role
+ * accounting, against a hard 20 CPU limit and a 2,350 bucket:
+ *
+ *   EnergyManager   2.28 CPU/tick over 7 creeps   (1.00 of that PathFinder)
+ *   filler          3.31 CPU/tick over 7.6 creeps
+ *
+ * i.e. the managers cost 11% of the entire CPU limit, and sampling ten
+ * consecutive ticks found five of the seven had not moved once and were
+ * carrying nothing. That is the largest headcount lever left in the bot.
+ *
+ * RETURN CONTRACT: true = an errand was issued or continued this tick, so the
+ * caller must not also move the creep. false = there is no hub work at all and
+ * the caller should do whatever it does when idle.
+ *
+ * `acted` exists because the two blocks below are deliberately NOT exclusive:
+ * a completed delivery clears `target` and the ladder picks the next errand in
+ * the same tick. But a `target` that turns out to be a dead id issues nothing
+ * at all, and reporting that as "handled" would freeze the caller.
+ */
+export function managerErrand(creep: any, MaxStorage: number): boolean {
+    let acted = false;
 
     if(creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.target = false
@@ -147,9 +130,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             if(creep.store.getUsedCapacity() == 0) {
                 creep.memory.target = false;
             }
+            acted = true;
         }
         else {
             creep.MoveCostMatrixRoadPrio(target, 1)
+            acted = true;
         }
     }
     if(!creep.memory.target) {
@@ -171,7 +156,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                     creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
             }
-            return;
+            return true;
         }
 
 
@@ -233,7 +218,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                 else {
                     creep.MoveCostMatrixRoadPrio(inputLab1, 1);
                 }
-                return;
+                return true;
             }
 
             if(inputLab2 && inputLab2.mineralType != undefined && inputLab2.mineralType != lab2Input) {
@@ -244,7 +229,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                 else {
                     creep.MoveCostMatrixRoadPrio(inputLab2, 1);
                 }
-                return;
+                return true;
             }
             for(let entry of outputLabs) {
                 let number = entry.n;
@@ -263,13 +248,13 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         // takeBoostFromStore already min(amount, carry, labFree);
                         // requiring storage >= amount skipped every partial fill.
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && (storeAmt(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID) + storeAmt(terminal, RESOURCE_CATALYZED_LEMERGIUM_ACID)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab1, RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
-                                return;
+                                return true;
                             }
                         }
 
@@ -290,11 +275,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) && (storeAmt(storage, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) + storeAmt(terminal, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab2, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -313,11 +298,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_UTRIUM_ACID) && (storeAmt(storage, RESOURCE_CATALYZED_UTRIUM_ACID) + storeAmt(terminal, RESOURCE_CATALYZED_UTRIUM_ACID)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab3, RESOURCE_CATALYZED_UTRIUM_ACID)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -337,11 +322,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) && (storeAmt(storage, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) + storeAmt(terminal, RESOURCE_CATALYZED_KEANIUM_ALKALIDE)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab4, RESOURCE_CATALYZED_KEANIUM_ALKALIDE)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -361,11 +346,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) && (storeAmt(storage, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) + storeAmt(terminal, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab5, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -384,11 +369,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ACID) && (storeAmt(storage, RESOURCE_CATALYZED_ZYNTHIUM_ACID) + storeAmt(terminal, RESOURCE_CATALYZED_ZYNTHIUM_ACID)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab6, RESOURCE_CATALYZED_ZYNTHIUM_ACID)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -407,11 +392,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) && (storeAmt(storage, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) + storeAmt(terminal, RESOURCE_CATALYZED_GHODIUM_ALKALIDE)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab7, RESOURCE_CATALYZED_GHODIUM_ALKALIDE)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -434,11 +419,11 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                             else {
                                 creep.MoveCostMatrixRoadPrio(outputLab, 1);
                             }
-                            return;
+                            return true;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == resource) && (storeAmt(storage, resource) + storeAmt(terminal, resource)) > 0) {
                             if(takeBoostFromStore(creep, storage, terminal, outputLab, creep.room.memory.labs.status.boost.lab8, resource)) {
-                                return;
+                                return true;
                             }
                         }
                     }
@@ -454,16 +439,16 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                     else {
                         creep.MoveCostMatrixRoadPrio(outputLab, 1);
                     }
-                    return;
+                    return true;
                 }
 
             }
 
             if(refillInputLab(creep, inputLab1, lab1Input, storage, terminal, MaxStorage)) {
-                return;
+                return true;
             }
             if(refillInputLab(creep, inputLab2, lab2Input, storage, terminal, MaxStorage)) {
-                return;
+                return true;
             }
         }
         if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() == MaxStorage) {
@@ -474,7 +459,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(closestLink, 1);
             }
-            return;
+            return true;
         }
 
         if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() == MaxStorage) {
@@ -487,7 +472,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(bin, 1);
             }
-            return;
+            return true;
         }
 		// if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
 		// 	let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
@@ -538,7 +523,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(terminal, 1);
             }
-            return;
+            return true;
         }
 
 
@@ -551,7 +536,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
             }
-            return;
+            return true;
         }
 
 
@@ -569,7 +554,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
             }
-            return;
+            return true;
         }
 
 
@@ -601,7 +586,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                         else {
                             creep.MoveCostMatrixRoadPrio(storage, 1);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
@@ -630,7 +615,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                         else {
                             creep.MoveCostMatrixRoadPrio(storage, 1);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
@@ -666,7 +651,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                         else {
                             creep.MoveCostMatrixRoadPrio(terminal, 1);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
@@ -683,7 +668,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                         else {
                             creep.MoveCostMatrixRoadPrio(terminal, 1);
                         }
-                        return;
+                        return true;
                     }
                 }
             }
@@ -718,7 +703,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                 else {
                     creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
-                return;
+                return true;
             }
         }
 
@@ -732,7 +717,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
                 else {
                     creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
-                return;
+                return true;
             }
         }
 
@@ -751,7 +736,7 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
             }
-            return;
+            return true;
         }
 
         if(storage && terminal && storage.store[RESOURCE_OPS] > 30000 && terminal.store.getUsedCapacity() < 290000) {
@@ -762,30 +747,89 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
             }
-            return;
+            return true;
         }
 
         }
 
 
-        // No errand this tick. The park fallback here was commented out, so
-        // a manager with no terminal/labs/factory work reached the end of
-        // run() with NO intent and froze wherever it stood — 181 straight
-        // ticks on E37N59's hub artery tile 35,33 (film, 2026-08-22).
-        if(!creep.memory.target) {
-            creep.idlePark();
+
+        // Nothing wanted moving around the hub this tick.
+        return acted;
+    }
+
+    return true;
+}
+
+ const run = function (creep) {
+    creep.memory.moving = false;
+    if(creep.evacuate()) {
+		return;
+	}
+    if(creep.ticksToLive == creep.body.length  * 3 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
+        let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
+        if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {
+            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+        }
+        else {
+            if(creep.room.controller.level == 6) {
+                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            }
+            else if(creep.room.controller.level == 7) {
+                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            }
+            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket < 9000 && creep.room.terminal && creep.room.terminal.store[RESOURCE_BATTERY] > 1000) {
+                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            }
+            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket >= 5000) {
+                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            }
+            else if(creep.room.controller.level == 8 && (creep.room.memory.danger || Game.cpu.bucket < 5000)) {
+                creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            }
         }
 
     }
 
+    if(!creep.memory.MaxStorage) {
+        let carryPartsAmount = 0
+        for(let part of creep.body) {
+            if(part.type == CARRY) {
+                carryPartsAmount += 1;
+            }
+        }
+        creep.memory.MaxStorage = carryPartsAmount * 50;
+    }
+    let MaxStorage = creep.memory.MaxStorage;
+
+	if(creep.ticksToLive <= 10 && _.keys(creep.store).length == 0) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+        return;
+	}
 
 
 
 
-
-
-
+    // No errand this tick. The park fallback here was commented out, so a
+    // manager with no terminal/labs/factory work reached the end of run() with
+    // NO intent and froze wherever it stood — 181 straight ticks on E37N59's
+    // hub artery tile 35,33 (film, 2026-08-22).
+    if(!managerErrand(creep, MaxStorage)) {
+        creep.idlePark();
+    }
 }
+
+
+
+
+
+
+
+
+
 
 
 const roleEnergyManager = {
