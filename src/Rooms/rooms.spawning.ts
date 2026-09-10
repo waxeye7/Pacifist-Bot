@@ -1794,7 +1794,16 @@ function add_creeps_to_spawn_list(room, spawn) {
             const worstBox = cachedStructures(room).filter((st:any) =>
                 st.structureType == STRUCTURE_CONTAINER && st.hits < st.hitsMax * CONTAINER_CRITICAL);
             if(worstBox.length) {
-                spawnMaintainer = true;
+                // ...BUT NOT ALL SEVEN ROOMS AT ONCE. See
+                // MAINTAINER_OVERRIDE_MAX: this rung is per-room and had no
+                // empire-wide budget, so worn containers everywhere bought a
+                // maintainer everywhere. A dying container still ignores the cap.
+                let worstFraction = 1;
+                for(const box of worstBox) {
+                    const frac = box.hits / box.hitsMax;
+                    if(frac < worstFraction) worstFraction = frac;
+                }
+                spawnMaintainer = containerOverrideAllowed(room, worstFraction);
             }
             /*
              * ...AND THE ROOM STILL HAS TO BE ABLE TO PAY.
@@ -4287,6 +4296,70 @@ function bigUpgraderBody(room, fallback: () => string[]): string[] {
  * ~3,750 ticks of life left, which is two creep lifetimes of margin.
  */
 const CONTAINER_CRITICAL = 0.15;
+
+/**
+ * A container this low is not on a duty cycle any more, it is about to stop
+ * existing. 6% of 250,000 is 15,000 hits, 1,500 ticks at the owned-room decay
+ * rate of 10 a tick — less than one creep lifetime. Below this the empire-wide
+ * cap below is ignored.
+ */
+const CONTAINER_DYING = 0.06;
+
+/**
+ * HOW MANY ROOMS MAY BUY AN OVERRIDE MAINTAINER AT ONCE.
+ *
+ * The container rung above lifts a maintainer over optionalRosterOpen(), and
+ * it is a PER-ROOM decision with no empire-wide budget — so when every room's
+ * containers are worn at the same time, every room buys at the same time. That
+ * is the same defect as the per-room cadences that all fired on one tick, only
+ * the spike is creeps instead of milliseconds, and creeps do not go away at the
+ * end of the tick.
+ *
+ * Live shard3 2026-09-11: containers sat at 10-30% of maximum in five of the
+ * seven rooms simultaneously, five rooms held a maintainer and four held a
+ * repairer, and the billed cost went to 20.64 against a 20 limit with the
+ * bucket draining through 2,711. That closes a loop: the override costs CPU,
+ * the CPU drains the bucket, the drained bucket keeps optionalRosterOpen()
+ * shut, and a shut roster is why the containers wore down in the first place.
+ *
+ * Two at a time is a queue, not a denial. A maintainer repairs 100 hits per
+ * WORK per tick against a 10-a-tick decay, so a room is served in a few
+ * hundred ticks and CONTAINER_CRITICAL leaves ~3,750 ticks of margin — seven
+ * rooms take their turn inside the margin with room to spare. A container that
+ * is genuinely dying ignores the cap entirely.
+ */
+const MAINTAINER_OVERRIDE_MAX = 2;
+
+/** Rooms whose maintainer is alive right now. One census per tick, shared. */
+let _maintRoomsTick = -1;
+let _maintRooms: { [roomName: string]: boolean } = {};
+function roomsRunningMaintainers(): { [roomName: string]: boolean } {
+    if (_maintRoomsTick !== Game.time) {
+        _maintRoomsTick = Game.time;
+        _maintRooms = {};
+        for (const n in Game.creeps) {
+            const m: any = Game.creeps[n].memory;
+            if (m && m.role === "maintainer" && m.homeRoom) _maintRooms[m.homeRoom] = true;
+        }
+    }
+    return _maintRooms;
+}
+
+/**
+ * May THIS room lift a maintainer over the roster gate for a worn container?
+ *
+ * A room already running one always may: the cap limits how many rooms may
+ * START, never how many may finish, or a creep would be abandoned mid-repair
+ * and the room would have paid the body for nothing.
+ */
+function containerOverrideAllowed(room: any, worstFraction: number): boolean {
+    if (worstFraction < CONTAINER_DYING) return true;
+    const running = roomsRunningMaintainers();
+    if (running[room.name]) return true;
+    let n = 0;
+    for (const _r in running) n++;
+    return n < MAINTAINER_OVERRIDE_MAX;
+}
 
 /** Ticks a controller LINK must stay short before it is worth a 1,200e body. */
 const CLF_SHORT_GRACE = 150;

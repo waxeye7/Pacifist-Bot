@@ -1,0 +1,73 @@
+import { assert } from "chai";
+import fs from "fs";
+
+/**
+ * A PER-ROOM OVERRIDE WITH NO EMPIRE-WIDE BUDGET FIRES IN EVERY ROOM AT ONCE.
+ *
+ * The container rung lifts a maintainer over optionalRosterOpen(). It is a
+ * per-room decision, so when every room's containers are worn at the same
+ * time, every room buys at the same time. Same defect as the per-room cadences
+ * that all fired on one tick — except the spike is creeps, and creeps do not
+ * go away at the end of the tick.
+ *
+ * Live shard3 2026-09-11. Worst container per room as a fraction of 250,000:
+ * E37N59 14%, E37N58 30%, E35N59 56%, E35N58 10%, E36N57 12%, E38N56 58%,
+ * E39N58 14%. Five rooms held a maintainer and four held a repairer at the
+ * same moment, billed CPU read 20.64 against a 20 limit, and the bucket was
+ * draining through 2,711.
+ *
+ * That closes a loop: the override costs CPU, the CPU drains the bucket, the
+ * drained bucket keeps optionalRosterOpen() shut, and a shut roster is why the
+ * containers wore down in the first place.
+ */
+const SP = fs.readFileSync("src/Rooms/rooms.spawning.ts", "utf8");
+const CODE = SP.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+
+describe("the container maintainer override is capped empire-wide", () => {
+  it("caps how many rooms may start one", () => {
+    assert.include(CODE, "const MAINTAINER_OVERRIDE_MAX = 2;");
+    assert.match(CODE, /return n < MAINTAINER_OVERRIDE_MAX;/);
+  });
+
+  it("counts rooms once per tick and shares the answer", () => {
+    // Seven rooms each walking Game.creeps to answer the same question is the
+    // kind of thing this whole exercise exists to stop.
+    assert.include(CODE, "if (_maintRoomsTick !== Game.time) {");
+    assert.match(CODE, /_maintRooms\[m\.homeRoom\] = true;/);
+  });
+
+  it("never abandons a room that already has one", () => {
+    // The cap limits how many rooms may START, not how many may finish, or a
+    // creep gets stranded mid-repair and the body was bought for nothing.
+    assert.match(CODE, /if \(running\[room\.name\]\) return true;/);
+  });
+
+  it("lets a genuinely dying container ignore the cap", () => {
+    assert.include(CODE, "const CONTAINER_DYING = 0.06;");
+    assert.match(CODE, /if \(worstFraction < CONTAINER_DYING\) return true;/);
+  });
+
+  it("keeps CONTAINER_DYING well below CONTAINER_CRITICAL", () => {
+    // CRITICAL is the duty-cycle bar, DYING is the emergency bar. If they ever
+    // crossed, every worn container would bypass the cap and the cap would do
+    // nothing at all.
+    const crit = Number((CODE.match(/const CONTAINER_CRITICAL = ([\d.]+);/) || [])[1]);
+    const dying = Number((CODE.match(/const CONTAINER_DYING = ([\d.]+);/) || [])[1]);
+    assert.isNumber(crit);
+    assert.isNumber(dying);
+    assert.isBelow(dying, crit);
+  });
+
+  it("routes the override through the cap rather than setting the flag directly", () => {
+    assert.match(CODE, /spawnMaintainer = containerOverrideAllowed\(room, worstFraction\);/);
+    // The old unconditional assignment must be gone from the container rung.
+    const rung = CODE.slice(CODE.indexOf("const worstBox ="), CODE.indexOf("const worstBox =") + 700);
+    assert.notMatch(rung, /if\(worstBox\.length\) \{\s*spawnMaintainer = true;/);
+  });
+
+  it("still keeps the bank test that follows it", () => {
+    // A room whose income is already spoken for cannot fix its walls by going
+    // broke; the cap must not have displaced that check.
+    assert.match(CODE, /if\(spawnMaintainer && !\(storageEnergy\(room\) >= UPGRADE_FLOOR \|\| bankIsRising\(room\)\)\) \{/);
+  });
+});
