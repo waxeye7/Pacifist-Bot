@@ -313,10 +313,25 @@ function heartbeat(tickCpu: number): void {
 
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
-  installLogger();
-  installRemoteStatsCommand();
-  installWarCommands();
-  installSegmentCommands();
+  /*
+   * MEASURE THE PART OF THE TICK THAT WAS NEVER IN THE BUDGET.
+   *
+   * The phase table summed to 16.74 on a tick whose end-of-loop getUsed()
+   * read 18.85 — 2.11 CPU, more than the whole rooms phase, attributed to
+   * nothing. Some of it was here: these four ran BEFORE startTotal was even
+   * sampled, so they were outside every number the bot reported while still
+   * being billed. Three of them return immediately on a re-entry guard;
+   * installRemoteStatsCommand has none and rebuilds its closure every tick.
+   *
+   * Cheap or not, unmeasured work is how a bot ends up believing it has 1.8
+   * CPU of headroom when it has 0.4.
+   */
+  mark("boot.installs", () => {
+    installLogger();
+    installRemoteStatsCommand();
+    installWarCommands();
+    installSegmentCommands();
+  });
 
   const startTotal = Game.cpu.getUsed();
   // ensureBench (via getOpts) boots A/B on version bump
@@ -360,7 +375,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
   if (!powerDisabled()) {
-    PowerCreepManager();
+    // The other half of the unattributed 2.11: the one manager in the loop
+    // that never had a phase of its own.
+    phase("powerCreeps", () => PowerCreepManager());
   }
 
   // RCL tick scoreboard (game ticks, not wall-clock)
@@ -468,7 +485,10 @@ export const loop = ErrorMapper.wrapLoop(() => {
   // alive; this one only ever restated a number already in Memory.CPU.
   logVerbose(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
 
-  heartbeat(billed);
+  // Runs every HEARTBEAT_EVERY ticks and walks every owned room when it does,
+  // which makes it a spike rather than a constant - exactly the shape that
+  // hides inside an average.
+  mark("heartbeat", () => heartbeat(billed));
 
   phase("CPUmanager", () => CPUmanager(tickTotal));
   global.buildRemoteRoads = function (roomName) {
