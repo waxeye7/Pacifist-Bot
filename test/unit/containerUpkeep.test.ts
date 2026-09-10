@@ -18,10 +18,22 @@ describe("container upkeep", () => {
 
   it("...and keeps every container in a room the plan has no opinion about", () => {
     const m = SRC("Roles/maintainer.ts");
-    const i = m.indexOf("const allContainers");
-    const block = m.slice(i, i + 500);
-    assert.include(block, "creep.room.memory.planV2");
-    assert.include(block, ": allContainers", "no plan -> take them all");
+    const i = m.indexOf('cachedDerived(creep.room, "maintainerContainers"');
+    assert.isAbove(i, 0);
+    const block = m.slice(i, i + 600);
+    assert.include(block, "if (!creep.room.memory.planV2) return all;", "no plan -> take them all");
+  });
+
+  it("the container list is memoised per room per tick, not re-found per creep", () => {
+    // FIND_STRUCTURES is the widest find in the game. The first cut of this
+    // fix ran one per maintainer per tick and took the role from 0.43 CPU per
+    // creep to 1.24 on live shard3.
+    const m = SRC("Roles/maintainer.ts");
+    const i = m.indexOf('cachedDerived(creep.room, "maintainerContainers"');
+    const block = m.slice(i, i + 600);
+    assert.include(block, "cachedStructures(creep.room)");
+    assert.notInclude(block, "creep.room.find(");
+    assert.include(m, 'import { cachedDerived, cachedStructures } from "utils/RoomCache";');
   });
 
   it("the repair role still leaves containers alone, so the maintainer is the only cover", () => {

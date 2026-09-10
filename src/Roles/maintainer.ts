@@ -4,6 +4,7 @@
  **/
 import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
 import { isSanctionedRampart, isPlannedContainer } from "utils/PlanV2";
+import { cachedDerived, cachedStructures } from "utils/RoomCache";
 
 /**
  * Stable 0..mod-1 offset from a creep name. Copied from Roles/energyMiner —
@@ -161,12 +162,23 @@ const run = function (creep) {
          * take-everything behaviour, which is correct for a room whose layout
          * nothing has an opinion about yet.
          */
-        const allContainers = creep.room.find(FIND_STRUCTURES,
-            {filter: s => s.structureType == STRUCTURE_CONTAINER});
-        const bin = creep.room.memory.Structures && creep.room.memory.Structures.bin;
-        const containers = creep.room.memory.planV2
-            ? allContainers.filter((s:any) => s.id === bin || isPlannedContainer(creep.room, s.pos))
-            : allContainers;
+        // Memoised per room per tick, like Roles/filler fillCandidates and
+        // Roles/carry carryCandidates. The first cut of this fix used a bare
+        // `creep.room.find(FIND_STRUCTURES, ...)` — the widest find in the game
+        // — on every maintainer on every tick, and measured live it took the
+        // role from 0.43 CPU per creep to 1.24. The whole point of the fix is
+        // 0.1 energy/tick of container upkeep; paying 0.8 CPU for it is not a
+        // trade worth making on a 20-CPU shard.
+        //
+        // The bin id and the plan are both room-level, so the filtered answer
+        // is a room/tick constant — nothing here varies per creep.
+        const containers = cachedDerived(creep.room, "maintainerContainers", () => {
+            const all = cachedStructures(creep.room)
+                .filter((s:any) => s.structureType == STRUCTURE_CONTAINER);
+            if (!creep.room.memory.planV2) return all;
+            const bin = creep.room.memory.Structures && creep.room.memory.Structures.bin;
+            return all.filter((s:any) => s.id === bin || isPlannedContainer(creep.room, s.pos));
+        });
 
         if(containers.length > 0) {
             for(let container of containers) {
