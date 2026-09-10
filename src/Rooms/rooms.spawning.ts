@@ -2166,7 +2166,34 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
+            /*
+             * THE RAMP ROOM'S EXTRA HAULER NEEDS AN EMERGENCY, NOT A LABEL.
+             *
+             * Memory.targetRampRoom.room is claimed every 400 ticks by ANY owned
+             * RCL6+ room that has a terminal and under 75,000 banked
+             * (rooms.ts). Every room in this empire is between 3.5k and 22k, so
+             * all seven qualify and the winner is decided by Game.rooms key
+             * order rather than by merit — it has settled permanently on
+             * E39N58, the room with the LOWEST controller progress of the seven,
+             * which is the exact opposite of what the considered selection right
+             * above it picks for (highest RCL, most progress).
+             *
+             * And the designation's other consumers cannot fire at all here.
+             * The terminal push (rooms.market) needs the SENDER to hold 290,000,
+             * and the RCL7 upgrader bonus needs 400,000; the whole empire's
+             * biggest bank is 22,599. So this rung was buying haul capacity for
+             * a delivery that has no way of arriving.
+             *
+             * Measured on E39N58 across 30 samples on 2026-09-11: both fillers
+             * FULL in 29 of them and full-and-stationary-five-ticks in 21, with
+             * every extension and every spawn in the room reading 100%.
+             *
+             * `urgent` is the signal that means something: rooms.ts sets it for
+             * a room in sustained danger (danger_timer over 100) holding under
+             * 80,000. A room under fire really does need a second hauler for its
+             * towers. A room that merely won a naming lottery does not.
+             */
+            else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name && Memory.targetRampRoom.urgent) {
                 let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
@@ -2299,7 +2326,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(fillerBody, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            else if(fillers < spawnrules[7].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
+            else if(fillers < spawnrules[7].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name && Memory.targetRampRoom.urgent) {
                 let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[7].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
@@ -2427,7 +2454,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(fillerBody, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            else if(fillers < spawnrules[8].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name) {
+            else if(fillers < spawnrules[8].filler_creep.amount + 1 && storage && Memory.targetRampRoom.room == room.name && Memory.targetRampRoom.urgent) {
                 let name = fillerName(room);
                 room.memory.spawn_list.unshift(spawnrules[8].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
