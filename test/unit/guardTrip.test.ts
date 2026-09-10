@@ -1,13 +1,15 @@
 /**
  * Two live shard3 faults in Roles/Guard.ts, both found on 2026-09-11.
  *
- * 1. THE UNREACHABLE ERRAND. Guard-19391524-E36N57-E38N55 was holding a
- *    fourteen-hop route to a room three rooms away — E36N58, E36N59, E36N60,
- *    E37N60, E38N60, E39N60, E40N60, E40N59, E40N58, E40N57, E40N56, E40N55,
- *    E39N55, E38N55 — because moveToRoomAvoidEnemyRooms routes around the
- *    hostile block south of the empire. Read at tick 82,881,928 it had 664
- *    ticks to live against roughly 1,300 ticks of walking. It could only ever
- *    die in transit, and the ladder would then buy another one.
+ * 1. THE ERRAND NOBODY COSTED. Guard-19391524-E36N57-E38N55 was holding a
+ *    fourteen-hop route to a room two rooms from the empire — E36N58, E36N59,
+ *    E36N60, E37N60, E38N60, E39N60, E40N60, E40N59, E40N58, E40N57, E40N56,
+ *    E40N55, E39N55, E38N55 — because moveToRoomAvoidEnemyRooms routes around
+ *    the hostile block south of the empire. Read in E36N58 at tick 82,882,060
+ *    it was 5 MOVE / 5 ATTACK with 1,353 ticks to live and 13 hops ahead: one
+ *    tick per plain tile, 650-plus tiles, over half its life spent walking to
+ *    an invader core. A slower body or one swamp crossing does not arrive at
+ *    all, and the ladder then buys another.
  *
  * 2. THE SELF-DEMOLITION. With no hostile creeps and no hostile structures in
  *    a room we do not own, the role fell through to room.find(FIND_STRUCTURES)
@@ -105,7 +107,9 @@ describe("a Guard never attacks unowned infrastructure", () => {
  * Guard. War/reach.getReach() is Chebyshev room-coordinate distance (geo.reachMap
  * is three nested dx/dy loops), which is the right measure for doctrine and the
  * wrong one for "can a creep walk there". E38N55 sat two rooms from an owned
- * room and fourteen hops from the room that paid for the body.
+ * room and fourteen hops from the room that paid for the body. reach is the
+ * value gate (refuse the errand); Guard.routeIsHopeless is the death backstop
+ * (recover a body that provably cannot finish the one it was given).
  */
 const REACH = fs
     .readFileSync(path.join(__dirname, "../../src/War/reach.ts"), "utf8")

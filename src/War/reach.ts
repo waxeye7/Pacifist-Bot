@@ -214,10 +214,17 @@ export function nukeCandidates(): { [target: string]: string } {
  * ROUTE — it is just three times the TICKS, and ticks are what a 1,500-tick
  * body actually spends.
  *
+ * Measured on that creep in E36N58 at tick 82,882,060: 5 MOVE / 5 ATTACK,
+ * 1,353 ticks to live, 13 hops still ahead at one tick per plain tile. It
+ * arrives — with over half its life already spent, at an invader core two
+ * rooms from home. That is the honest complaint here. It is not that the body
+ * certainly dies in transit (Guard.routeIsHopeless is the backstop for the
+ * trips that do); it is that we bought a 1,500-tick body and spent 700 ticks
+ * of it on walking nobody chose.
+ *
  * So measure the trip the creep will really be given, with the same weights,
- * and refuse the errand rather than buying a body to die in transit. This does
- * not touch the router's preferences: a creep already sent still walks the safe
- * way round. It only stops us paying for trips that end in a tombstone.
+ * and refuse the errand. This does not touch the router's preferences: a creep
+ * already sent still walks the safe way round.
  *
  * findRoute is not free, so results are memoised on the heap for ROUTE_TTL
  * ticks. Dispatch issues at most one or two kits per pass and passes are

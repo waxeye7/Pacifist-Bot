@@ -137,19 +137,20 @@ const run = function (creep) {
 /**
  * ROOMS PER LIFETIME. A trip nobody can finish is a body nobody gets back.
  *
- * Live shard3 2026-09-11, tick 82,881,928: Guard-19391524-E36N57-E38N55 held a
- * FOURTEEN hop route — E36N58, E36N59, E36N60, E37N60, E38N60, E39N60, E40N60,
- * E40N59, E40N58, E40N57, E40N56, E40N55, E39N55, E38N55 — to reach a room
- * three rooms away, because moveToRoomAvoidEnemyRooms routed the whole fleet
- * around the hostile block to the south. It had 664 ticks left and needed on
- * the order of 1,300. It was going to die somewhere around E40N58 having done
- * nothing at all, and the ladder would then have bought another one.
+ * Live shard3 2026-09-11: Guard-19391524-E36N57-E38N55 held a FOURTEEN hop
+ * route — E36N58, E36N59, E36N60, E37N60, E38N60, E39N60, E40N60, E40N59,
+ * E40N58, E40N57, E40N56, E40N55, E39N55, E38N55 — to reach a room two rooms
+ * from the empire, because moveToRoomAvoidEnemyRooms routes around the hostile
+ * block to the south. Read in E36N58 at tick 82,882,060 it was 5 MOVE / 5
+ * ATTACK with 1,353 ticks to live and 13 hops still ahead: one tick per plain
+ * tile, so 650-plus tiles, over half its life spent walking. That one arrives.
+ * A slower body, a later start or one swamp crossing does not, and the ladder
+ * then buys another.
  *
- * The estimate is deliberately generous so it only ever fires on trips that are
- * hopeless rather than merely long: ROOM_CROSSING tiles per hop, and one tick
- * per tile for every MOVE part that covers a heavy part. A creep body is
- * fatigue-limited at max(1, ceil(heavy / move)) ticks per plain tile, and a
- * Guard is normally 1:1, i.e. two.
+ * So this is the death backstop, not the value judgement — War/reach's hop
+ * budget is where an errand is refused for being merely wasteful. It fires only
+ * on trips that cannot finish: ROOM_CROSSING tiles per hop, and the real
+ * fatigue rule of max(1, ceil(heavy / move)) ticks per plain tile.
  *
  * Nothing here fires in the room the creep is already standing in, so a Guard
  * that has ARRIVED always fights; this is a travel check only.
