@@ -343,7 +343,7 @@ const run = function (creep) {
 	/*
 	 * SAFETY BEFORE THROUGHPUT. A rampart defends the creep standing on it, and
 	 * in five of seven live rooms there is one within upgradeController's own
-	 * range 3 of the controller — see utils/Cover. depotPark() scores tiles on
+	 * range 3 of the controller â€” see utils/Cover. depotPark() scores tiles on
 	 * range-to-controller and range-to-depot only, so the upgrader parks beside
 	 * that tile rather than on it and an invader gets a free 2,500-energy kill.
 	 *

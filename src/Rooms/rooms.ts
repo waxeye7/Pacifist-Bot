@@ -20,6 +20,18 @@ import { isSkeleton } from "War/mode";
 import { wipeForeignSites } from "utils/ForeignSites";
 import { cachedHostileCreeps } from "utils/RoomCache";
 
+/**
+ * The rampart emergency releases when the bank that raised it comes back...
+ * 80,000 is the exact number the raise below tests, so the flag is symmetric.
+ */
+const RAMP_URGENT_CLEAR_BANK = 80000;
+/**
+ * ...or when it simply gets old. ~17 hours of "emergency" is a description of
+ * the room, not an event, and a latch that cannot fall carries no information.
+ */
+const RAMP_URGENT_MAX_TICKS = 20000;
+
+
 /*
  * PER-ROOM FAULT ISOLATION.
  *
@@ -263,6 +275,10 @@ function rooms() {
         if (storage && storage.store[RESOURCE_ENERGY] < 175000) {
           Memory.targetRampRoom.room = room.name;
           if (storage.store[RESOURCE_ENERGY] < 80000) {
+            // Stamp the raise. An emergency with no start time cannot be given
+            // a deadline, and the release below is a deadline as much as it is
+            // a condition — see RAMP_URGENT_MAX_TICKS.
+            if (!Memory.targetRampRoom.urgent) Memory.targetRampRoom.t = Game.time;
             Memory.targetRampRoom.urgent = true;
           } else if (Game.time % 400 == 0) {
             Memory.targetRampRoom.urgent = false;
@@ -289,24 +305,34 @@ function rooms() {
          * energy/tick into ramparts already at 4.2-7.5M hits — storage fell
          * 35 454 -> 19 826 in 444 ticks and the upgrader starved.
          *
-         * We are in the no-danger branch for this room, so if this room is the
-         * one that raised the flag, the emergency is over: drop `urgent` once
-         * the ramparts are back above a sane floor. Below that floor the room
-         * still needs the reinforcement budget even in peacetime, so the flag
-         * is left alone and only the shooting-war rungs (which all require
-         * `room.memory.danger`) stay closed.
+         * THE FIRST RELEASE COULD NOT FIRE EITHER. It demanded that EVERY
+         * rampart in the room be above 3,000,000 hits (10,000,000 at RCL8),
+         * which is a finished-wall bar, not an emergency-is-over bar. Live
+         * shard3 2026-09-10: `{room:"E39N58", urgent:true}` with the room at
+         * peace, its 46 ramparts between 85,561 and 386,201 hits, and a bot
+         * whose entire empire minimum had only just crossed 100,000. So the
+         * flag was permanently latched AND it re-ran a room-wide
+         * find(FIND_MY_STRUCTURES) every 25 ticks, forever, to re-confirm that
+         * it could not release — on an empire sitting at a 2,350 CPU bucket.
+         *
+         * So release on the condition that RAISED it, which costs one
+         * getObjectById and no find: the bank is back. And give the emergency
+         * a deadline regardless. A rampart emergency that has run for
+         * RAMP_URGENT_MAX_TICKS is not an emergency, it is the room's normal
+         * state, and a flag that can never fall is a flag that means nothing.
+         * A latch with no timestamp predates this code and is released at once.
          */
-        // throttled: while the ramparts really are thin this check would
-        // otherwise run a room-wide find() every tick, forever.
-        if (Game.time % 25 == 0 && Memory.targetRampRoom && Memory.targetRampRoom.urgent && Memory.targetRampRoom.room == room.name) {
-          const RAMPART_PEACETIME_FLOOR = room.controller.level >= 8 ? 10000000 : 3000000;
-          const weakRamparts = room.find(FIND_MY_STRUCTURES, {
-            filter: (s: any) => s.structureType == STRUCTURE_RAMPART && s.hits < RAMPART_PEACETIME_FLOOR
-          });
-          if (weakRamparts.length == 0) {
+        if (Game.time % 25 == 0 && Memory.targetRampRoom && Memory.targetRampRoom.urgent &&
+          Memory.targetRampRoom.room == room.name && !room.memory.danger) {
+          const bank: any = Game.getObjectById(room.memory.Structures.storage);
+          const banked = bank && bank.store ? bank.store[RESOURCE_ENERGY] : 0;
+          const raised = Memory.targetRampRoom.t;
+          const expired = raised === undefined || Game.time - raised > RAMP_URGENT_MAX_TICKS;
+          if (banked >= RAMP_URGENT_CLEAR_BANK || expired) {
             Memory.targetRampRoom.urgent = false;
-            console.log("[ramp-latch]", room.name, "no danger and all ramparts >=",
-              RAMPART_PEACETIME_FLOOR, "- releasing targetRampRoom.urgent");
+            delete Memory.targetRampRoom.t;
+            console.log("[ramp-latch]", room.name, "releasing targetRampRoom.urgent -",
+              expired ? "emergency older than " + RAMP_URGENT_MAX_TICKS + " ticks" : "bank back to " + banked);
           }
         }
       }
