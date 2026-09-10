@@ -67,6 +67,16 @@ interface RStatEntry {
   road: number;
   roadHp: number;
   danger: number;
+  /*
+   * Last tick this entry was touched. NOT part of blank(), on purpose: the
+   * heal loop in entry() rewrites every key of blank() that is not a number,
+   * and `lt` is a tick stamp rather than a counter, so it must not be reset to
+   * zero by that loop. An entry written by an older build has no `lt` at all
+   * and reads as 0, which prunes it on the first sweep — correct, because
+   * anything still in use is re-stamped by entry() on the very next tick it
+   * does work, long before the %500 sweep comes round.
+   */
+  lt?: number;
 }
 
 /** heap-only: last tick's energy per creep name, and the roster for spawn/death detection */
@@ -113,6 +123,10 @@ function entry(key: string): RStatEntry {
   if (!m.rstats) m.rstats = { start: Game.time, t: Game.time, r: {} };
   if (!m.rstats.r[key]) m.rstats.r[key] = blank();
   const e = m.rstats.r[key];
+  // Last-touch stamp. Without it there is no way to tell a remote the empire
+  // still works from one it abandoned 800,000 ticks ago, and pruneRemoteStats
+  // below needs exactly that distinction.
+  e.lt = Game.time;
   // heal entries written by an older build
   const proto = blank();
   for (const k in proto) if (typeof e[k] !== "number") e[k] = 0;
@@ -157,11 +171,67 @@ function remoteKeyFor(creep: Creep): string | null {
   return home + "|" + target;
 }
 
+/**
+ * DIAGNOSTICS ARE NOT FREE — THEY ARE PAID AFTER THE LOOP RETURNS.
+ *
+ * Memory.rstats accumulates one 24-counter entry per "home|remote" pair and
+ * never dropped one. Live shard3 held 52 entries spanning an 832,894-tick
+ * window — 13,024 bytes, 9.2% of the entire 141,164-byte Memory — and eight of
+ * them were keyed on E37N57, a room the empire no longer owns.
+ *
+ * That size has a measurable price. Memory is serialised AFTER main() returns,
+ * so Game.cpu.getUsed() cannot see it and no in-game profiler can attribute
+ * it, but the bucket pays for it all the same. Measured live: the bot reported
+ * a 100-tick average of 18.23 against a 20 limit while the bucket's own
+ * arithmetic (limit - bucketDelta/ticks over 22-40 tick windows) put the real
+ * billed cost at 19.2-19.9. On a bot whose remotes need a 4,000 bucket and
+ * whose optional roster needs 5,000, that gap is the whole reason neither
+ * ever opens.
+ *
+ * So the table is bounded now. An entry survives only while its home room is
+ * still ours and something has touched it inside the window; the counters it
+ * holds are a debugging aid, and a stale one aids nothing.
+ */
+const RSTAT_STALE_TICKS = 20000;
+const RSTAT_MAX_KEYS = 40;
+
+export function pruneRemoteStats(): void {
+  const m: any = Memory as any;
+  const st = m.rstats;
+  if (!st || !st.r) return;
+
+  const keys = Object.keys(st.r);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const home = key.split("|")[0];
+    const room = Game.rooms[home];
+    // Only drop on a POSITIVE answer. A room we cannot see this tick is not
+    // evidence that we lost it, and dropping on invisibility would empty the
+    // table every time vision lapsed.
+    const lost = !!room && !!room.controller && !room.controller.my;
+    const e = st.r[key];
+    const lt = typeof e.lt === "number" ? e.lt : 0;
+    if (lost || Game.time - lt > RSTAT_STALE_TICKS) delete st.r[key];
+  }
+
+  // Hard ceiling, oldest first, so a bot that suddenly opens many remotes
+  // cannot walk the table back up to 13 KB before the stale window expires.
+  const left = Object.keys(st.r);
+  if (left.length > RSTAT_MAX_KEYS) {
+    left.sort((a, b) => (st.r[a].lt || 0) - (st.r[b].lt || 0));
+    for (let i = 0; i < left.length - RSTAT_MAX_KEYS; i++) delete st.r[left[i]];
+  }
+}
+
 export function sampleRemoteStats(): void {
   const m: any = Memory as any;
   if (m.rstatsOff) return;
   if (!m.rstats) m.rstats = { start: Game.time, t: Game.time, r: {} };
   m.rstats.t = Game.time;
+
+  // Empire-wide and cheap, so it does not need the per-room phase offset the
+  // room cadences carry — there is only ever one of it per tick.
+  if (Game.time % 500 === 0) pruneRemoteStats();
 
   const seen: { [name: string]: string } = {};
   const nextEnergy: { [name: string]: number } = {};

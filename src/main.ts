@@ -5,7 +5,7 @@ import global from "./utils/Global";
 import { installLogger, logAlways, logVerbose } from "utils/Logger";
 import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
-import { getCpuPolicy, billedTickCpu } from "utils/CpuPolicy";
+import { getCpuPolicy, billedTickCpu, sampleBilledFromBucket } from "utils/CpuPolicy";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
@@ -330,6 +330,11 @@ export const loop = ErrorMapper.wrapLoop(() => {
     mark("boot.roomCache", () => RoomCache.tick());
   }
 
+  // Read the bucket BEFORE anything else can move it, and recover what the
+  // server actually billed last tick. See CpuPolicy.sampleBilledFromBucket:
+  // every other CPU number this bot keeps is blind to the Memory write that
+  // happens after main() returns.
+  mark("boot.trueCpu", () => sampleBilledFromBucket());
   const policy = mark("boot.policy", () => getCpuPolicy());
   global._cpuPolicy = policy;
 

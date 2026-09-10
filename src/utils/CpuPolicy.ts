@@ -33,6 +33,71 @@ export function billedTickCpu(endUsed: number, startUsed: number): number {
   return endUsed;
 }
 
+/**
+ * THE BUCKET IS THE ONLY HONEST CPU METER THIS BOT HAS.
+ *
+ * billedTickCpu() above returns end-of-loop getUsed(), and its doc is right
+ * that this beats the logic-only delta — parse happens before that snapshot.
+ * But it still cannot see the other half. Memory is SERIALISED AFTER main()
+ * returns, and that write is billed to us; no call made inside the loop can
+ * ever observe it.
+ *
+ * Measured live on shard3 2026-09-11, with remotes closed and the optional
+ * roster closed, over three consecutive windows of 40, 24 and 22 ticks:
+ *
+ *   reported avg100      18.23   18.23   18.23
+ *   bucket delta          +32     +11      +3
+ *   billed per tick      19.20   19.54   19.86
+ *
+ * The bot believed it had 1.8 CPU of headroom per tick. It had 0.4. That gap
+ * is the entire reason a 3,400 bucket never climbs to the 4,000 remotes need
+ * or the 5,000 the optional roster needs, and why a bot that looks healthy in
+ * its own logs has had both shut off for days.
+ *
+ * The arithmetic is exact and free. The bucket moves by `limit - billed` every
+ * tick, so one subtraction against last tick's reading recovers the number the
+ * server actually charged, INCLUDING everything after the loop.
+ *
+ * It is only valid when the bucket is free to move, so three guards:
+ *   - consecutive ticks only, or the delta spans ticks we never ran;
+ *   - not at the 10,000 ceiling, where surplus is discarded rather than banked;
+ *   - not at the floor, where the deficit is absorbed by skipping us instead.
+ * Whenever a guard trips there is simply no sample this tick, which is the
+ * honest answer — a saturated meter reads nothing, it does not read zero.
+ *
+ * Stored as an EMA rather than a window array on purpose: this file's own
+ * finding is that Memory bytes cost CPU, so the diagnostic that proves it must
+ * not itself add a hundred-element array to Memory.
+ */
+const TRUE_CPU_ALPHA = 0.02;
+
+export function sampleBilledFromBucket(): void {
+  const M: any = Memory as any;
+  if (!M.CPU) return;
+  const limit = Game.cpu.limit || 20;
+  const bucket = Game.cpu.bucket;
+  const prevTick = M.CPU._btT;
+  const prevBucket = M.CPU._btB;
+  M.CPU._btT = Game.time;
+  M.CPU._btB = bucket;
+
+  if (prevTick !== Game.time - 1) return;
+  if (typeof prevBucket !== "number") return;
+  if (prevBucket >= 10000 || bucket >= 10000) return;
+  if (bucket <= 0 || prevBucket <= 0) return;
+
+  const billed = limit - (bucket - prevBucket);
+  // A global reset or a server hiccup can produce a nonsense delta; a single
+  // absurd sample must not poison an average the spawn gates read.
+  if (!isFinite(billed) || billed < 0 || billed > limit * 10) return;
+
+  const prev = M.CPU.trueAvg;
+  M.CPU.trueAvg = typeof prev === "number"
+    ? Math.round((prev + TRUE_CPU_ALPHA * (billed - prev)) * 100) / 100
+    : Math.round(billed * 100) / 100;
+  M.CPU.trueLast = Math.round(billed * 100) / 100;
+}
+
 export function getCpuPolicy(): CpuPolicyState {
   const limit = Game.cpu.limit || 20;
   const bucket = Game.cpu.bucket;
@@ -313,10 +378,12 @@ export function skipOptionalCreep(opts: {
 export function cpuStatusString(): string {
   const p = getCpuPolicy();
   const avg = Memory.CPU && Memory.CPU.hundredTickAvg ? Memory.CPU.hundredTickAvg.avg : "?";
+  const trueAvg = (Memory.CPU && (Memory.CPU as any).trueAvg) != null ? (Memory.CPU as any).trueAvg : "?";
   return [
     `limit=${p.limit}`,
     `bucket=${p.bucket}`,
     `avg100=${avg}`,
+    `billed=${trueAvg}`,
     `remotes=${p.allowRemotes ? "ON max=" + p.maxRemotes : "OFF"}`,
     `expensive=${p.allowExpensive ? "ON" : "OFF"}`,
     `economyOnly=${p.economyOnly}`,

@@ -10,6 +10,83 @@ import { funnelDonorTerminalTarget } from "Empire/funnel";
 // the compound bounced storage <-> creep and the lab stayed under-filled.
 const REACTION_STOCK_MIN = 1000;
 
+/*
+ * HUB RESOURCE LISTS, HOISTED OUT OF THE PER-TICK PATH.
+ *
+ * These four lists used to be array literals declared INSIDE the hub ladder,
+ * so every hub creep rebuilt all four of them on every tick it ran - one of
+ * them 43 elements long - and then asked `.includes()` for every resource in
+ * the store, which is a linear scan of the freshly built array.
+ *
+ * The hub role was measurably the most expensive creep in the empire: live
+ * shard3 2026-09-11 billed it at 0.44 CPU per creep per tick against a 0.20
+ * floor that is pure intent cost, while an energy miner doing real work
+ * billed 0.247.
+ *
+ * BUILT LAZILY, NOT AT MODULE LOAD. RESOURCE_ALLOY and its siblings are
+ * globals the Screeps runtime installs; they do not exist while the unit
+ * suite is merely requiring this file, and evaluating them at module scope
+ * takes the whole test run down with a ReferenceError. Once per global reset
+ * is just as good as once per module load and costs nothing extra.
+ *
+ * Membership is an object lookup now. Same members, same order-independent
+ * test, so every rung below behaves exactly as it did.
+ */
+function resourceSet(list: any[]): { [resource: string]: boolean } {
+    const m: { [resource: string]: boolean } = {};
+    for (let i = 0; i < list.length; i++) m[list[i]] = true;
+    return m;
+}
+
+interface HubSets {
+    toTerminalCommodities: { [resource: string]: boolean };
+    toTerminalBoosts: { [resource: string]: boolean };
+    toStorageBoosts: { [resource: string]: boolean };
+    toStorageMisc: { [resource: string]: boolean };
+}
+
+let _hubSets: HubSets | null = null;
+
+function hubSets(): HubSets {
+    if (_hubSets) return _hubSets;
+    _hubSets = {
+        toTerminalCommodities: resourceSet([
+            RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
+            RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
+            RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
+            RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
+            RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+            RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
+            RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,
+            RESOURCE_GHODIUM_HYDRIDE, RESOURCE_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_KEANIUM_ACID]),
+        toTerminalBoosts: resourceSet([
+            RESOURCE_CATALYZED_LEMERGIUM_ACID,
+            RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+            RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+            RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+            RESOURCE_CATALYZED_UTRIUM_ACID,
+            RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+            RESOURCE_CATALYZED_ZYNTHIUM_ACID,
+            RESOURCE_CATALYZED_KEANIUM_ACID]),
+        // Same members as toTerminalBoosts, but kept as its own entry because
+        // the two rungs are independent: one pushes boosts out to the terminal
+        // to sell, the other pulls them back to storage. A future edit to one
+        // must not silently move the other.
+        toStorageBoosts: resourceSet([
+            RESOURCE_CATALYZED_LEMERGIUM_ACID,
+            RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+            RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+            RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+            RESOURCE_CATALYZED_UTRIUM_ACID,
+            RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+            RESOURCE_CATALYZED_ZYNTHIUM_ACID,
+            RESOURCE_CATALYZED_KEANIUM_ACID]),
+        toStorageMisc: resourceSet([
+            RESOURCE_KEANIUM_OXIDE, RESOURCE_ZYNTHIUM_ALKALIDE, RESOURCE_ZYNTHIUM_HYDRIDE, RESOURCE_POWER, RESOURCE_BATTERY]),
+    };
+    return _hubSets;
+}
+
 function storeAmt(s, res) {
     return (s && s.store && s.store[res]) || 0;
 }
@@ -735,18 +812,10 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         {
 
 
-        let listOfResourcesToTerminal1:any = [
-            RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
-            RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
-            RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
-            RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
-            RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
-            RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
-            RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,
-            RESOURCE_GHODIUM_HYDRIDE, RESOURCE_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_KEANIUM_ACID];
+            const SETS = hubSets();
             if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 5) {
                 for(let resource in storage.store) {
-                    if(listOfResourcesToTerminal1.includes(resource)) {
+                    if(SETS.toTerminalCommodities[resource]) {
                         if(creep.pos.isNearTo(storage)) {
                             creep.withdraw(storage, resource);
                             creep.memory.target = terminal.id;
@@ -760,20 +829,10 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
             }
 
 
-            let listOfResourcesToTerminal2:any = [
-                RESOURCE_CATALYZED_LEMERGIUM_ACID,
-                RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
-                RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
-                RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
-                RESOURCE_CATALYZED_UTRIUM_ACID,
-                RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-                RESOURCE_CATALYZED_ZYNTHIUM_ACID,
-                RESOURCE_CATALYZED_KEANIUM_ACID
-            ];
 
             if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 5) {
                 for(let resource in storage.store) {
-                    if(listOfResourcesToTerminal2.includes(resource) && storage.store[resource] > 20000 && terminal.store[resource] < 3000) {
+                    if(SETS.toTerminalBoosts[resource] && storage.store[resource] > 20000 && terminal.store[resource] < 3000) {
                         if(creep.pos.isNearTo(storage)) {
 
 
@@ -789,20 +848,10 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
             }
 
 
-            let listOfResourcesToStorage2:any = [
-                RESOURCE_CATALYZED_LEMERGIUM_ACID,
-                RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
-                RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
-                RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
-                RESOURCE_CATALYZED_UTRIUM_ACID,
-                RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-                RESOURCE_CATALYZED_ZYNTHIUM_ACID,
-                RESOURCE_CATALYZED_KEANIUM_ACID
-            ];
 
             if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 5) {
                 for(let resource in terminal.store) {
-                    if(listOfResourcesToStorage2.includes(resource) && (storage.store[resource] < 18000 && terminal.store[resource] > 0 || terminal.store[resource] > 4000)) {
+                    if(SETS.toStorageBoosts[resource] && (storage.store[resource] < 18000 && terminal.store[resource] > 0 || terminal.store[resource] > 4000)) {
                         if(creep.pos.isNearTo(terminal)) {
                             if(storage.store[resource] > 25000 && terminal.store[resource] > 3000) {
                                 let amount = terminal.store[resource] - 3000;
@@ -825,10 +874,9 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
             }
 
 
-            let listOfResourcesToStorage1:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_POWER,RESOURCE_BATTERY];
             if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 5) {
                 for(let resource in terminal.store) {
-                    if(listOfResourcesToStorage1.includes(resource) && (storage.store.getFreeCapacity() <= 100000 && storage.store[resource] <= 15000 || storage.store.getFreeCapacity() > 175000 && storage.store[resource] <= 50000)) {
+                    if(SETS.toStorageMisc[resource] && (storage.store.getFreeCapacity() <= 100000 && storage.store[resource] <= 15000 || storage.store.getFreeCapacity() > 175000 && storage.store[resource] <= 50000)) {
                         if(creep.pos.isNearTo(terminal)) {
                             creep.withdraw(terminal, resource);
                             creep.memory.target = storage.id;
