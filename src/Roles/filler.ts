@@ -6,6 +6,7 @@ import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Rea
 import { planSitter } from "utils/PlanV2";
 import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 import { fillerBody, fillerName } from "Rooms/spawnSafety";
+import { managerErrand } from "Roles/energyManager";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -502,6 +503,79 @@ function lastFillerIn(room): boolean {
     return _census[room.name] == 1;
 }
 
+
+/**
+ * HUB DUTY — the filler absorbs the EnergyManager's errand ladder.
+ *
+ * The planner builds the hub around ONE tile that is range 1 of storage, the
+ * terminal and the hub link, and the filler stands on it for its whole life.
+ * Every errand in energyManager.managerErrand() happens within a step of that
+ * tile: drain the storage link, empty an overflowing bin, hold the terminal
+ * energy float, push the room mineral out to the terminal. A second creep
+ * whose only job is those errands is a second creep standing in the same
+ * place, and Memory.CPU.roles priced it at 2.28 CPU/tick across seven of them
+ * against a hard 20 CPU limit — 11% of the budget, with five of the seven not
+ * moving at all across ten consecutive sampled ticks.
+ *
+ * THE FILL DUTY ALWAYS WINS. An errand is only ever STARTED on a tick where
+ * the creep's store is empty AND the room's whole energy network is topped up
+ * — spawn and extensions full, no tower under half. In that state the load
+ * this creep would otherwise be holding is a load nobody wants, so the trip is
+ * free. Once started an errand runs to completion, because abandoning one
+ * mid-flight strands whatever is in the creep (which is often not energy).
+ *
+ * HUB_DUTY_MAX_TICKS is the backstop for exactly that: an errand target that
+ * cannot be reached would otherwise hold the room's filler forever, so past
+ * the deadline the errand is redirected to the storage, which both ends it and
+ * empties the creep.
+ */
+const HUB_DUTY_MAX_TICKS = 30;
+
+/**
+ * Is the room's energy network completely satisfied?
+ *
+ * Deliberately NOT fillNeed(): that function is the room's delivery guarantee
+ * and answers "where should this load go" — it never says "nowhere", so it can
+ * never say "the room is fine". This is the opposite question and it has to be
+ * allowed to say yes.
+ *
+ * The tower bar is half capacity, which is the same bar the half-tower rung of
+ * fillNeed() uses, so a filler cannot go on hub duty while fillNeed() would
+ * still have handed it a tower.
+ */
+function roomTopped(room: any): boolean {
+    return cachedDerived(room, "fillerRoomTopped", () => {
+        if(room.energyAvailable < room.energyCapacityAvailable) return false;
+        for(const s of cachedMyStructures(room) as any[]) {
+            if(s.structureType !== STRUCTURE_TOWER) continue;
+            if((s.store[RESOURCE_ENERGY] || 0) < s.store.getCapacity(RESOURCE_ENERGY) / 2) return false;
+        }
+        return true;
+    });
+}
+
+/**
+ * One filler per room per tick may take the duty.
+ *
+ * A room with two fillers whose network is topped up would otherwise send both
+ * at the same errand — same rung, same structure, two creeps walking to the
+ * storage — and leave nobody holding a load for the moment the network drains.
+ * Creeps run sequentially within a tick, so a module-local per-tick claim is
+ * visible to every filler that runs after the one that took it.
+ */
+let dutyTick = -1;
+let dutyRoom: { [roomName: string]: string } = {};
+function claimHubDuty(creep: any): boolean {
+    if(dutyTick !== Game.time) {
+        dutyTick = Game.time;
+        dutyRoom = {};
+    }
+    const held = dutyRoom[creep.room.name];
+    if(held && held !== creep.name) return false;
+    dutyRoom[creep.room.name] = creep.name;
+    return true;
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
     // Attributed reserveFill is pruned, never wiped: a %40 / spawn wipe
@@ -564,6 +638,46 @@ const run = function (creep) {
         return;
     }
 
+    /*
+     * Finish an errand in flight before anything else — see hub duty above.
+     * `memory.target` is only ever written by managerErrand(), so its presence
+     * IS the flag, and this sits above the full/empty bookkeeping so a load of
+     * link energy is never mistaken for a fill load.
+     *
+     * The two escapes matter more than the happy path. An errand is normally
+     * run to completion, because abandoning one strands whatever is in the
+     * creep and that is often not energy — but if the room goes hungry while
+     * this creep is holding nothing but ENERGY, the errand is over and the
+     * cargo is a fill load. That is the whole reason hub duty is safe to give
+     * to the room's lifeline.
+     */
+    if(creep.memory.target) {
+        const cargo = creep.store.getUsedCapacity();
+        const pureEnergy = cargo > 0 && creep.store.getUsedCapacity(RESOURCE_ENERGY) === cargo;
+        if(!roomTopped(creep.room) && (cargo === 0 || pureEnergy)) {
+            creep.memory.target = false;
+            delete creep.memory._hubT;
+            // A partial load of energy IS a fill load. Leaving `full` false
+            // would send it back to the storage to top up first, which is a
+            // whole round trip while the room is the one that went hungry.
+            if(pureEnergy) creep.memory.full = true;
+        }
+        else if(Game.time - (creep.memory._hubT || Game.time) > HUB_DUTY_MAX_TICKS) {
+            // Unreachable, or a rung that keeps re-deciding. Redirect to the
+            // storage: it ends the errand AND empties the creep, which a bare
+            // `target = false` would not — the cargo is often not energy.
+            creep.memory.target = creep.room.storage ? creep.room.storage.id : false;
+            creep.memory._hubT = Game.time;
+        }
+        if(creep.memory.target) {
+            if(managerErrand(creep, MaxStorage)) {
+                return;
+            }
+            creep.memory.target = false;
+            delete creep.memory._hubT;
+        }
+    }
+
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
@@ -587,6 +701,19 @@ const run = function (creep) {
     }
 
     if(!creep.memory.full) {
+        /*
+         * Nothing in the store and nothing in the room wants energy: take a
+         * hub errand instead of loading a standby carry nobody has asked for.
+         * roomTopped() is checked BEFORE the claim so a room with fill work
+         * never burns its one duty slot on a filler that is going to fill.
+         */
+        if(creep.store.getUsedCapacity() == 0 && roomTopped(creep.room) &&
+            claimHubDuty(creep) && managerErrand(creep, MaxStorage)) {
+            creep.memory.t = false;
+            creep.memory._hubT = Game.time;
+            return;
+        }
+
         // native getter is authoritative — the Structures cache can go stale
         // when a storage is newly built (planV2 rooms), and a filler that
         // loses its storage falls into the cross-map scavenge path while the

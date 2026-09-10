@@ -103,6 +103,38 @@ function takeBoostFromStore(creep, storage, terminal, outputLab, boost, resource
  * the same tick. But a `target` that turns out to be a dead id issues nothing
  * at all, and reporting that as "handled" would freeze the caller.
  */
+/**
+ * Does this room still need a creep whose ONLY job is the errand ladder below?
+ *
+ * Roles/filler now runs managerErrand() itself whenever its store is empty and
+ * the room's energy network is topped up, which covers everything a hub-only
+ * room ever asks for: the storage link, the bin, the terminal energy float and
+ * the room mineral. Those are all within one step of the tile the filler
+ * already stands on.
+ *
+ * What the filler must NOT inherit is the long-range half of the ladder. The
+ * lab lines, the factory, the nuker and the power spawn are their own corner
+ * of the base, an errand out there is a dozen ticks away from the hub, and the
+ * filler is the room's lifeline. So a room that actually runs any of that
+ * keeps a dedicated manager and a room that does not spends the 0.33 CPU/tick
+ * and the body somewhere else. Live shard3 2026-09-10: one of seven rooms
+ * (E37N59, three labs with inputLab1/inputLab2/outputLab1 configured) is on
+ * the first side of that line and six are on the second.
+ *
+ * `fillers` is load-bearing: with no filler alive there is nobody to inherit
+ * the duty, so the manager IS the duty and the rung must stay open.
+ */
+export function roomNeedsManager(room: any, fillers: number): boolean {
+    if(!(fillers > 0)) return true;
+    if(room.controller && room.controller.level >= 8) return true;
+    const M: any = room.memory || {};
+    const labs: any = M.labs;
+    if(labs && (labs.inputLab1 || labs.inputLab2 || labs.outputLab1)) return true;
+    const S: any = M.Structures || {};
+    if(S.nuker || S.powerSpawn || S.factory) return true;
+    return false;
+}
+
 export function managerErrand(creep: any, MaxStorage: number): boolean {
     let acted = false;
 
@@ -766,7 +798,14 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
     if(creep.evacuate()) {
 		return;
 	}
-    if(creep.ticksToLive == creep.body.length  * 3 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
+    // A manager that replaces itself is a manager the spawn ladder never gets
+    // to veto, so the ladder's gate has to run here too — otherwise a room that
+    // no longer needs one keeps one forever. Order matters: the TTL test is
+    // true on exactly one tick of a creep's life, so the two room-wide finds
+    // behind it are paid once, not every tick.
+    if(creep.ticksToLive == creep.body.length  * 3 &&
+        creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1 &&
+        roomNeedsManager(creep.room, creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length)) {
         let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});

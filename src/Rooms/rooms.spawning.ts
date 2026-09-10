@@ -18,6 +18,7 @@ import {
     finishableSpawnSiteRoom, reaimStrandedBuilders, retaskBuildersToSpawnless,
     rescueMotherFloor, pickRescueMother,
 } from "Empire/rescueLib";
+import { roomNeedsManager } from "Roles/energyManager";
 
 /**
  * Boostable stock is storage + TERMINAL.
@@ -2035,7 +2036,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
         case 5:
             let bin:any = Game.getObjectById(room.memory.Structures?.bin);
-            if(EnergyManagers < 1 && storage && bin && bin.store.getFreeCapacity() == 0) {
+            if(EnergyManagers < 1 && storage && bin && bin.store.getFreeCapacity() == 0 && roomNeedsManager(room, fillers)) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift([CARRY,MOVE], name, {memory: {role: 'EnergyManager'}});
                 console.log('Adding Energy Manager to Spawn List: ' + name);
@@ -2098,7 +2099,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 6:
-            if(EnergyManagers < spawnrules[6].energy_manager_creep.amount && storage) {
+            if(EnergyManagers < spawnrules[6].energy_manager_creep.amount && storage && roomNeedsManager(room, fillers)) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[6].energy_manager_creep.body, name, {memory: {role: 'EnergyManager'}});
                 console.log('Adding Energy Manager to Spawn List: ' + name);
@@ -2222,7 +2223,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 7:
-            if(EnergyManagers < spawnrules[7].energy_manager_creep.amount && storage) {
+            if(EnergyManagers < spawnrules[7].energy_manager_creep.amount && storage && roomNeedsManager(room, fillers)) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 // First arm used to always unshift the full body, so the
                 // emergency never ran when extensions were gone (R6.30).
@@ -2351,7 +2352,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 8:
-            if(EnergyManagers < spawnrules[8].energy_manager_creep.amount && storage) {
+            if(EnergyManagers < spawnrules[8].energy_manager_creep.amount && storage && roomNeedsManager(room, fillers)) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 // If room is energy starved, spawn small emergency energy manager
                 if(room.energyCapacityAvailable < 500 || room.energyAvailable < room.energyCapacityAvailable * 0.5 && room.energyAvailable <= 300) {
