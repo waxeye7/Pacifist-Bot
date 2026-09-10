@@ -5,6 +5,7 @@ import { isUndeliverable } from "utils/Reachability";
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { stompForeignSite } from "utils/ForeignSites";
 import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
+import { terminalFloat } from "Roles/energyManager";
 
 /** Drop a lock that is gone, full, or undeliverable — same as FakeFiller. */
 function lockStillOpen(creep) {
@@ -48,12 +49,6 @@ function carryCandidates(room, key: string, want: (s: any) => boolean): any[] {
 }
 
 function findLocked(creep) {
-    let terminal = creep.room.terminal;
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
-        creep.memory.locked = terminal.id;
-        return terminal;
-    }
-
     // A nearly-dry tower comes before the extension network, unconditionally.
     //
     // This used to be gated on `energyCapacityAvailable / 1.5 < energyAvailable`
@@ -72,6 +67,62 @@ function findLocked(creep) {
         let closestTower = creep.pos.findClosestByRange(towers);
         creep.memory.locked = closestTower.id;
         return closestTower;
+    }
+
+    /*
+     * TERMINAL STOCK — the hub ladder's number, not a second opinion.
+     *
+     * This rung read `terminal.store[RESOURCE_ENERGY] < 10000` and it was the
+     * FIRST thing findLocked tested, ahead of a dry tower and ahead of the
+     * extension network. Roles/energyManager.terminalFloat is the function that
+     * actually owns "how much energy should this terminal hold", and its answer
+     * for a room whose storage+terminal is under 20,000 is ZERO. So in every
+     * poor room the two rungs disagreed by the full 10,000, permanently, and
+     * the disagreement was paid in hauled energy:
+     *
+     *   - the carrier hauled storage energy into the terminal, top priority,
+     *     until it reached 10,000;
+     *   - the hub creep's drain rung (hubWorkPending: storage < 20,000 and
+     *     termE > target + MaxStorage) wanted it straight back out again.
+     *
+     * A room with a hub creep therefore paid two carries for zero net movement.
+     * A room WITHOUT one just lost the energy. Live E38N56, 2026-09-11: no
+     * filler and no EnergyManager in the room at all, storage fell 5,277 ->
+     * 1,472 while its terminal climbed 5 -> 3,000, and the watchdog read it as
+     * "economy stalling with no big site to explain it". The same climb was
+     * visible empire-wide in the same sample - E35N59 term 7,499, E35N58 8,441,
+     * E36N57 5,015 - every room walking its terminal up to the hardcoded
+     * 10,000 whatever its bank said.
+     *
+     * THE CHURN, MEASURED. E38N56 once it had a filler again, four samples
+     * about eight ticks apart (tools/server/_e38trend):
+     *
+     *   t82884324  term   600
+     *   t82884333  term 1,050   <- carrier delivered one full load
+     *   t82884341  term   450   <- hub drained it straight back out
+     *   t82884349  term   450
+     *
+     * 450 is exactly that carrier's capacity (9 CARRY). The room was paying a
+     * full round trip per cycle, forever, to move energy nowhere.
+     *
+     * Same shape as the maintainer rung that drained this exact room a few
+     * hours earlier: a spawn/haul rung carrying its own hardcoded threshold
+     * instead of asking the authority, so the affordability test that lives in
+     * the authority never ran.
+     *
+     * Moved below the dry-tower rung as well. That rung's own comment says a
+     * tower under 200 comes first "unconditionally" and that the room which
+     * most needs a working tower is the poor one - which cannot be true while
+     * this rung sits above it. It is bounded at 200 energy and it is the
+     * room's defence.
+     */
+    const terminal = creep.room.terminal;
+    if (terminal && terminal.my) {
+        const termTarget = terminalFloat(creep.room, creep.room.storage, terminal);
+        if (termTarget > 0 && terminal.store[RESOURCE_ENERGY] < termTarget) {
+            creep.memory.locked = terminal.id;
+            return terminal;
+        }
     }
 
     let spawnAndExtensions = carryCandidates(creep.room, "carrySpawnExtTower", (building: any) =>
