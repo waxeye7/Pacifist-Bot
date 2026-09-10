@@ -4377,7 +4377,28 @@ function roomsRunningMaintainers(): { [roomName: string]: boolean } {
         _maintRooms = {};
         for (const n in Game.creeps) {
             const m: any = Game.creeps[n].memory;
-            if (m && m.role === "maintainer" && m.homeRoom) _maintRooms[m.homeRoom] = true;
+            if (!m || m.role !== "maintainer" || !m.homeRoom) continue;
+            /*
+             * A PARKED MAINTAINER IS NOT USING ITS SLOT.
+             *
+             * Roles/maintainer parks rather than recycles when its room's bank
+             * drops under MAINT_BANK_FLOOR, on the sound argument that the bank
+             * crossing a floor is a passing condition and a recycled creep has
+             * to be bought again at full price. But a parked creep does no
+             * repair AND does not die, so counting it here would let it hold an
+             * empire slot for its whole 1,500-tick life while another room's
+             * containers wore through.
+             *
+             * Live shard3 minutes after the cap shipped: four maintainers in
+             * four rooms, two of them (E37N59, E38N56) bankParked. The cap says
+             * two, and two of the four were doing nothing.
+             *
+             * The per-room roster rung still stops the parked room buying a
+             * second one, so all this frees is the EMPIRE slot, for a room that
+             * would actually spend it.
+             */
+            if (m.bankParked) continue;
+            _maintRooms[m.homeRoom] = true;
         }
     }
     return _maintRooms;

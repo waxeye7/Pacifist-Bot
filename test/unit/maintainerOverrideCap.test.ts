@@ -82,6 +82,22 @@ describe("the container maintainer override is capped empire-wide", () => {
     assert.match(MAINT, /creep\.memory\.suicide\) \{[\s\S]{0,60}creep\.recycle\(\);/);
   });
 
+  it("does not let a parked maintainer hold an empire slot", () => {
+    /*
+     * Roles/maintainer PARKS rather than recycles when its room's bank drops
+     * under MAINT_BANK_FLOOR — sound, because the bank crossing a floor is a
+     * passing condition and a recycled creep must be re-bought at full price.
+     * But a parked creep does no repair and does not die, so counting it would
+     * let it hold a slot for its whole 1,500-tick life while another room's
+     * containers wore through.
+     *
+     * Live shard3 minutes after the cap shipped: four maintainers in four
+     * rooms against a cap of two, and two of them (E37N59, E38N56) parked.
+     */
+    assert.match(CODE, /if \(m\.bankParked\) continue;/);
+    assert.match(MAINT, /creep\.memory\.bankParked = true;/);
+  });
+
   it("still keeps the bank test that follows it", () => {
     // A room whose income is already spoken for cannot fix its walls by going
     // broke; the cap must not have displaced that check.
