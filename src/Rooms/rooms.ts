@@ -1,3 +1,4 @@
+import { roomPart } from "utils/Profile";
 import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
 import construction, { Remote_Roads_Tick, Situational_Building } from "./rooms.construction";
@@ -393,16 +394,16 @@ function rooms() {
       }
 
       if (!powerDisabled()) {
-        powerSpawning(room);
+        roomPart("powerSpawn", () => powerSpawning(room));
       }
       if (speedrunEnabled()) {
-        applySpeedrunSpawnHints(room);
+        roomPart("speedrunHints", () => applySpeedrunSpawnHints(room));
       }
-      spawning(room);
+      roomPart("spawning", () => spawning(room));
       // Every 20 ticks: foreign sites only exist right after a claim, and the
       // find behind this ran in every owned room every tick.
       if (room.controller && room.controller.my && (Game.time + roomTickOffset(room.name)) % 20 === 0)
-        wipeForeignSites(room);
+        roomPart("wipeForeignSites", () => wipeForeignSites(room));
       // Orphan migrate flag after a stripped plan keeps siting the old bunker.
       if ((room.memory as any).planMigration && !room.memory.planV2) {
         delete (room.memory as any).planMigration;
@@ -414,13 +415,13 @@ function rooms() {
 
       // const defenceTime = Game.cpu.getUsed()
 
-      roomDefence(room);
+      roomPart("defence", () => roomDefence(room));
       // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
       if (room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 8000) && !isSkeleton(room.name)) {
-        observe(room);
+        roomPart("observe", () => observe(room));
       }
-      data(room);
+      roomPart("data", () => data(room));
 
       if (room.terminal && room.controller.level >= 6 && !isSkeleton(room.name)) {
         // Staggered per room so every terminal room does not scan Game.market
@@ -430,18 +431,20 @@ function rooms() {
         // lands on a staggered %10 gate when the room's offset is itself a
         // multiple of 10 - for every other room they would simply never run.
         if ((Game.time + roomTickOffset(room.name)) % 10 === 0) {
-          const start = Game.cpu.getUsed();
-          market(room);
-          console.log("Market Ran in", Game.cpu.getUsed() - start, "ms");
+          // Was an ad-hoc getUsed() pair plus a console.log on every single
+          // market pass — a string built every time whether or not
+          // Memory.verbose let it print. Memory.CPU.roomParts.market is the
+          // same number, kept as an EMA, readable from outside the game.
+          roomPart("market", () => market(room));
         }
         if (Game.time % 10 === 0) {
-          labs(room);
+          roomPart("labs", () => labs(room));
         }
       }
 
       if ((Game.time + roomTickOffset(room.name)) % 10 == 0 || Game.time < 10) {
         // const start = Game.cpu.getUsed()
-        identifySources(room);
+        roomPart("identifySources", () => identifySources(room));
         // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
       }
 
@@ -453,15 +456,15 @@ function rooms() {
       // cadence — at RCL4+ that cadence meant ~4 structures per 1000 ticks.
       // construction() still calls it too; the function is idempotent.
       if (room.memory.planV2 && (Game.time + roomTickOffset(room.name)) % 15 === 0 && !isSkeleton(room.name)) {
-        placeFromPlanV2(room);
+        roomPart("planV2Place", () => placeFromPlanV2(room));
       }
 
       // Which structures can a creep actually stand next to? Self-throttling
       // (one flood fill per ~50 ticks) and it MUST run before the fill target
       // pickers, which is why it sits in the room loop and not in a role.
-      refreshUnreachable(room);
+      roomPart("refreshUnreachable", () => refreshUnreachable(room));
       if ((Game.time + roomTickOffset(room.name)) % 100 === 0) {
-        pruneBadFill(room);
+        roomPart("pruneBadFill", () => pruneBadFill(room));
       }
 
       // Low RCL: build more often so extensions/containers aren't stuck waiting 1000 ticks.
@@ -478,9 +481,7 @@ function rooms() {
           room.memory.data.DOB == 2 ||
           room.memory.data.DOBug == 2)
       ) {
-        const start = Game.cpu.getUsed();
-        construction(room);
-        if (Memory.verbose) console.log("BASE Construction Ran in", Game.cpu.getUsed() - start, "ms");
+        roomPart("construction", () => construction(room));
       }
 
       // Which neighbours this commune remotes. Cheap, self-throttling
@@ -490,7 +491,7 @@ function rooms() {
       // Threat sweep runs far more often than manageRemotes' 25-tick cadence:
       // "leave fast" is only fast if we notice fast.
       if ((Game.time + roomTickOffset(room.name)) % 5 === 0) {
-        scanRemoteThreats(room);
+        roomPart("scanRemoteThreats", () => scanRemoteThreats(room));
       }
 
       // Remote roads + per-source pathLength. Every tick, but per-REMOTE
@@ -519,13 +520,13 @@ function rooms() {
       // (or the creep count) needed for the same throughput — and creep
       // headcount is where 10.4 of this bot's 17.3 CPU goes.
       if (bucket > REMOTE_INFRA_BUCKET && room.controller.level >= 4 && getCpuPolicy().allowRemotes) {
-        Remote_Roads_Tick(room);
+        roomPart("remoteRoads", () => Remote_Roads_Tick(room));
       }
-      Situational_Building(room);
+      roomPart("situationalBuild", () => Situational_Building(room));
     }
 
     // const establishMemoryTime = Game.cpu.getUsed()
-    establishMemory(room);
+    roomPart("establishMemory", () => establishMemory(room));
     // console.log('Establish Memory Ran in', Game.cpu.getUsed() - establishMemoryTime, 'ms');
 
     // let list = Memory.tasks.wipeRooms.destroyStructures

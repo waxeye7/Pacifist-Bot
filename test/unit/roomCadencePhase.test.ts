@@ -75,7 +75,9 @@ describe("per-room cadences are phased so seven rooms do not spike together", ()
         assert.include(RT, "if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500) {");
         // labs() documents its own reason for staying on the plain residue:
         // its internal %120/%500/%21000 cadences sit on absolute Game.time.
-        assert.include(RT, "if (Game.time % 10 === 0) {\n          labs(room);");
+        // The call is wrapped in roomPart() now (see roomParts.test.ts) but the
+        // gate above it is untouched, which is the whole invariant here.
+        assert.match(RT, /if \(Game\.time % 10 === 0\) \{[\s\S]{0,40}roomPart\("labs", \(\) => labs\(room\)\);/);
     });
 
     it("the offset hash is the one already in use, not a new one", () => {
