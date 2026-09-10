@@ -72,6 +72,41 @@ function rooms() {
 
   let roomsIController = 0;
 
+  /*
+   * PER-ROOM CADENCES ARE PHASED, NOT SYNCHRONISED.
+   *
+   * Every `Game.time % N == 0` gate in this pass used to fire for ALL owned
+   * rooms on the SAME tick, because the residue was read off absolute Game.time
+   * with no room term. Seven communes therefore ran construction() together
+   * once per 1,000 ticks, pruneBadFill() together every 100, placeFromPlanV2()
+   * together every 15, identifySources() together every 10 and
+   * scanRemoteThreats() together every 5. Same total work either way - but all
+   * of it landed on one tick instead of being spread over N.
+   *
+   * That is what the CPU spikes were. Live shard3 runs a 100-tick average of
+   * 18.0 against a limit of 20, which should bank +2/tick and float the bucket
+   * to its 10,000 ceiling in under an hour. It has instead sat at 2,700-3,100
+   * for the whole watch, because the synchronised ticks overshoot 20 and every
+   * overshoot is paid straight out of the bucket. The last-30 window carried a
+   * 21.0 against a 14.1 minimum on an unchanged roster.
+   *
+   * The bucket is not a vanity number here: CpuPolicy gates the optional roster
+   * at 5,000 and remotes at 4,000, so a bucket pinned near 3,000 means repair,
+   * maintainer, sweeper AND every remote have been switched off continuously.
+   * Flattening the peak is what re-opens them, and it costs nothing - no pass
+   * runs less often than it did, each one just starts on its own residue.
+   *
+   * roomTickOffset is the existing hash (rooms.remotes.ts:403) already used for
+   * market() and manageRemotes(); this only extends it to the rest of the pass.
+   * Measured spread over the seven live rooms: 7/7 distinct residues at mod 100
+   * and mod 1000, 6/7 at mod 15, 5/7 at mod 10 and 20, 4/7 at mod 5.
+   *
+   * DELIBERATELY LEFT SYNCHRONISED: the `% 400` / `% 25000` targetRampRoom
+   * election, the `% 3012` keepTheseRoads wipe and the `% 25000` site sweep all
+   * iterate Game.rooms from inside the per-room body, so phasing them would run
+   * a whole-empire pass seven times per period instead of once. labs() keeps
+   * its plain `% 10` for the reason documented at its call site.
+   */
   // Body of the per-visible-room pass. Hoisted out of the _.forEach purely so
   // it can be handed to guarded() below - contents unchanged.
   const eachVisibleRoom = function (room: any) {
@@ -366,7 +401,8 @@ function rooms() {
       spawning(room);
       // Every 20 ticks: foreign sites only exist right after a claim, and the
       // find behind this ran in every owned room every tick.
-      if (room.controller && room.controller.my && Game.time % 20 === 0) wipeForeignSites(room);
+      if (room.controller && room.controller.my && (Game.time + roomTickOffset(room.name)) % 20 === 0)
+        wipeForeignSites(room);
       // Orphan migrate flag after a stripped plan keeps siting the old bunker.
       if ((room.memory as any).planMigration && !room.memory.planV2) {
         delete (room.memory as any).planMigration;
@@ -403,7 +439,7 @@ function rooms() {
         }
       }
 
-      if (Game.time % 10 == 0 || Game.time < 10) {
+      if ((Game.time + roomTickOffset(room.name)) % 10 == 0 || Game.time < 10) {
         // const start = Game.cpu.getUsed()
         identifySources(room);
         // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -435,7 +471,7 @@ function rooms() {
       // PathFinder), so it does not need the 100/1000-tick construction
       // cadence — at RCL4+ that cadence meant ~4 structures per 1000 ticks.
       // construction() still calls it too; the function is idempotent.
-      if (room.memory.planV2 && Game.time % 15 === 0 && !isSkeleton(room.name)) {
+      if (room.memory.planV2 && (Game.time + roomTickOffset(room.name)) % 15 === 0 && !isSkeleton(room.name)) {
         placeFromPlanV2(room);
       }
 
@@ -443,7 +479,7 @@ function rooms() {
       // (one flood fill per ~50 ticks) and it MUST run before the fill target
       // pickers, which is why it sits in the room loop and not in a role.
       refreshUnreachable(room);
-      if (Game.time % 100 === 0) {
+      if ((Game.time + roomTickOffset(room.name)) % 100 === 0) {
         pruneBadFill(room);
       }
 
@@ -457,7 +493,7 @@ function rooms() {
       // bucket that is not an actual emergency.
       if (
         !isSkeleton(room.name) &&
-        ((Game.time % constructionInterval == 0 && bucket > REMOTE_INFRA_BUCKET) ||
+        (((Game.time + roomTickOffset(room.name)) % constructionInterval == 0 && bucket > REMOTE_INFRA_BUCKET) ||
           room.memory.data.DOB == 2 ||
           room.memory.data.DOBug == 2)
       ) {
@@ -472,7 +508,7 @@ function rooms() {
 
       // Threat sweep runs far more often than manageRemotes' 25-tick cadence:
       // "leave fast" is only fast if we notice fast.
-      if (Game.time % 5 === 0) {
+      if ((Game.time + roomTickOffset(room.name)) % 5 === 0) {
         scanRemoteThreats(room);
       }
 

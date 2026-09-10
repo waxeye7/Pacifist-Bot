@@ -315,7 +315,14 @@ describe("bucket gates the bot can actually reach", () => {
     it("the room loop reads the shared floor, not its own numbers", () => {
         const ROOMS = fs.readFileSync(path.join(__dirname, "../../src/Rooms/rooms.ts"), "utf8");
         assert.include(ROOMS, "bucket > REMOTE_INFRA_BUCKET && room.controller.level >= 4");
-        assert.include(ROOMS, "Game.time % constructionInterval == 0 && bucket > REMOTE_INFRA_BUCKET");
+        // The residue now carries a per-room offset (roomCadencePhase.test.ts):
+        // seven rooms calling construction() on one tick is what kept the
+        // bucket pinned near 3,000. The bucket floor being asserted here is
+        // unchanged; only the tick each room starts on moved.
+        assert.include(
+            ROOMS,
+            "(Game.time + roomTickOffset(room.name)) % constructionInterval == 0 && bucket > REMOTE_INFRA_BUCKET"
+        );
         assert.notInclude(ROOMS, "bucket > 5000 && room.controller.level >= 4");
     });
 
