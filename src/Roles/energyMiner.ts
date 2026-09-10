@@ -588,6 +588,50 @@ function dumpMinerEnergy(creep: any): void {
     creep.drop(RESOURCE_ENERGY);
 }
 
+/**
+ * KEEP THE SEAT CONTAINER ALIVE. NOTHING ELSE IN AN OWNED ROOM DOES.
+ *
+ * Roles/repair excludes containers from RCL6 up, the towers hold a decay floor
+ * on ramparts and roads and nothing at all on these, and the maintainer — the
+ * documented sole cover — sits behind optionalRosterOpen() and a bank gate. So
+ * in a room that is not rich, an owned-room container decays 10 hits a tick
+ * until it is gone.
+ *
+ * Gone is expensive twice over. The seat stops existing, so the miner drop-mines
+ * onto the floor and the pile decays; and the box has to be rebuilt at 5,000
+ * energy with a builder the room also has to buy.
+ *
+ * Live shard3 2026-09-11, source containers as a fraction of their 250,000:
+ * E39N58 4% and 6%, E37N59 8%, and E35N59 had already LOST the one at 38,19 —
+ * its miner was standing there dropping energy on the ground, 557 and climbing.
+ *
+ * The miner is the obvious repairer and was already doing it for REMOTES (see
+ * the box-repair rung below, gated on targetRoom != homeRoom). It sits on the
+ * box, it has 5 WORK, and repair is 100 hits per WORK: one repair tick every
+ * 50 covers 10-a-tick decay for 5 energy. The cost is one harvest tick in 50,
+ * about 2% of one source, to stop losing the seat entirely.
+ *
+ * Cadenced per creep with a name-hash offset for the usual reason — every
+ * miner in the empire firing on the same tick trades a saving for a spike.
+ */
+const SEAT_BOX_REPAIR_BELOW = 0.75;
+const SEAT_BOX_EVERY = 25;
+
+function keepSeatBoxAlive(creep: any): boolean {
+    // repair() spends the creep's own energy
+    if(creep.store[RESOURCE_ENERGY] < 50) return false;
+    if((Game.time + nameOffset(creep.name, SEAT_BOX_EVERY)) % SEAT_BOX_EVERY !== 0) return false;
+    if(!creep.memory._seatBoxT || Game.time - creep.memory._seatBoxT > 100) {
+        creep.memory._seatBoxT = Game.time;
+        const boxes = creep.pos.findInRange(
+            cachedStructures(creep.room).filter((st: any) => st.structureType === STRUCTURE_CONTAINER), 1);
+        creep.memory._seatBox = boxes.length ? boxes[0].id : false;
+    }
+    const box: any = creep.memory._seatBox && Game.getObjectById(creep.memory._seatBox);
+    if(!box || box.hits >= box.hitsMax * SEAT_BOX_REPAIR_BELOW) return false;
+    return creep.repair(box) === OK;
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
 	if(creep.evacuate()) {
@@ -605,6 +649,17 @@ const run = function (creep) {
     // this line still run. Remotes are already gated by CpuPolicy.
 
     if(creep.holdForFlee()) {
+        return;
+    }
+
+    /*
+     * Before any other work action. repair() and harvest() are both work
+     * actions and only one lands per tick, so this has to be the one that
+     * takes the tick when it fires — and it fires at most once in 25. See
+     * keepSeatBoxAlive: an owned-room source container has no other repairer
+     * and three of this empire's were under 10% when this shipped.
+     */
+    if(keepSeatBoxAlive(creep)) {
         return;
     }
     // if(creep.fleeHomeIfInDanger() == true) {
