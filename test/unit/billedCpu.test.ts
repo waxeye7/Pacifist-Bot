@@ -86,6 +86,15 @@ describe("billed CPU, measured from the bucket", () => {
     assert.include(skip, "M.CPU._btB = Game.cpu.bucket;");
   });
 
+  it("re-seeds rather than trusting an impossible stored average", () => {
+    // The first build of this meter seeded on a global-reset tick and read
+    // trueAvg 42.38 against a trueLast of 20 while the bucket drifted in
+    // single digits. At alpha 0.02 that washes out over hundreds of ticks,
+    // and every gate reading it is wrong for all of them.
+    assert.include(CPUPOLICY, "const stored = M.CPU.trueAvg;");
+    assert.include(CPUPOLICY, "stored <= limit * 2 ? stored : undefined");
+  });
+
   it("surfaces the honest number in cpuStatus", () => {
     assert.include(CPUPOLICY, "`billed=${trueAvg}`");
   });

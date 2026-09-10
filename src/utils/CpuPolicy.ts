@@ -111,7 +111,18 @@ export function sampleBilledFromBucket(): void {
   // absurd sample must not poison an average the spawn gates read.
   if (!isFinite(billed) || billed < 0 || billed > limit * 10) return;
 
-  const prev = M.CPU.trueAvg;
+  /*
+   * An average that claims the bot spends more than twice its limit, while
+   * the bucket is merely drifting, is not an average — it is a bad seed that
+   * has not decayed yet. Live proof: the very first build of this meter
+   * seeded on a global-reset tick and read trueAvg 42.38 against a trueLast
+   * of 20 with the bucket moving by single digits. At alpha 0.02 that takes
+   * hundreds of ticks to wash out, and every gate reading it is wrong for the
+   * whole of that. The globalAge guard above stops it happening again; this
+   * one heals a value already stored on a server nobody is watching.
+   */
+  const stored = M.CPU.trueAvg;
+  const prev = typeof stored === "number" && stored <= limit * 2 ? stored : undefined;
   M.CPU.trueAvg = typeof prev === "number"
     ? Math.round((prev + TRUE_CPU_ALPHA * (billed - prev)) * 100) / 100
     : Math.round(billed * 100) / 100;
