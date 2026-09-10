@@ -4,6 +4,7 @@
 import { isUndeliverable } from "utils/Reachability";
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { stompForeignSite } from "utils/ForeignSites";
+import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 
 /** Drop a lock that is gone, full, or undeliverable — same as FakeFiller. */
 function lockStillOpen(creep) {
@@ -18,6 +19,32 @@ function lockStillOpen(creep) {
         return false;
     }
     return true;
+}
+
+/**
+ * One room-wide candidate list per room per tick — the identical memo
+ * Roles/filler.ts already applies to its own fillNeed(), with the identical
+ * justification, applied to the identical shape of code.
+ *
+ * findLocked() ran up to THREE room-wide FIND_MY_STRUCTURES passes, and it is
+ * called by every carrier that has no lock — which is every carrier on the
+ * tick it finishes a delivery, and every carrier whose lock was just dropped.
+ * Nothing that goes into these predicates can change mid-tick: a transfer is
+ * an intent, so stores only settle BETWEEN ticks, and structures cannot appear
+ * or move while the tick is running. The answer is therefore a room/tick
+ * constant that was being recomputed per carrier.
+ *
+ * Measured live shard3 2026-09-10: the carry role cost 2.97 CPU across 3.3
+ * creeps — 0.9 each, the most expensive role in the fleet and three times the
+ * filler's per-creep cost — of which only 7% was PathFinder (Memory.CPU.path).
+ *
+ * `isUndeliverable` stays OUT of the memo and is re-applied per call: it is a
+ * room-wide TTL blacklist that other creeps WRITE TO DURING THE TICK, so
+ * folding it in would keep handing the fleet a target the room has just
+ * written off. Same carve-out, same reason, as filler.ts fillCandidates.
+ */
+function carryCandidates(room, key: string, want: (s: any) => boolean): any[] {
+    return cachedDerived(room, key, () => cachedMyStructures(room).filter(want));
 }
 
 function findLocked(creep) {
@@ -39,21 +66,26 @@ function findLocked(creep) {
     // The cost of removing the gate is bounded and one-off: a tower below 200
     // takes at most 200 energy and then stops asking. See TOWER_FLOOR in
     // Roles/filler.ts, which is the same rule on the other fill path.
-    let towers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200)});
+    let towers = carryCandidates(creep.room, "carryDryTowers", (building: any) =>
+        building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200);
     if(towers.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers);
         creep.memory.locked = closestTower.id;
         return closestTower;
     }
 
-    let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !isUndeliverable(creep.room, building.id)});
+    let spawnAndExtensions = carryCandidates(creep.room, "carrySpawnExtTower", (building: any) =>
+        (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER)
+        && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0)
+        .filter((building: any) => !isUndeliverable(creep.room, building.id));
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
         creep.memory.locked = closestDropOffLocation.id;
         return closestDropOffLocation;
     }
 
-    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] >= 0 && building.store.getFreeCapacity() > 0)});
+    let towers2 = carryCandidates(creep.room, "carryHungryTowers", (building: any) =>
+        building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0);
     if(towers2.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers2);
         creep.memory.locked = closestTower.id;
