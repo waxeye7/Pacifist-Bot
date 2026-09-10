@@ -19,6 +19,7 @@ import {
     rescueMotherFloor, pickRescueMother,
 } from "Empire/rescueLib";
 import { roomNeedsManager } from "Roles/energyManager";
+import { roomFeedsController } from "Roles/energyMiner";
 
 /**
  * Boostable stock is storage + TERMINAL.
@@ -2555,6 +2556,13 @@ function add_creeps_to_spawn_list(room, spawn) {
     // Upper bound only; the real cap is applied below once the target type is
     // known (a link never wants more than one).
     const clfRosterMax = room.controller.level == 6 ? 2 : 1;
+    /*
+     * THE DROUGHT CLOCK. While a filler is alive the depot is attended, so the
+     * shortfall measurement below means nothing and is held at "now". It only
+     * starts running once the room has nobody on the job. See the latch note on
+     * `persistedShort` below for what it is for.
+     */
+    if(ControllerLinkFillers > 0) room.memory._clFullT = Game.time;
     if(room.controller.level >= 5 && room.controller.level !== 8 && ControllerLinkFillers < clfRosterMax) {
         // A LINK if there is one, otherwise (below RCL7) the controller
         // CONTAINER.
@@ -2635,7 +2643,44 @@ function add_creeps_to_spawn_list(room, spawn) {
         // Two bodies only for a CONTAINER depot at RCL6 (see the roster note
         // above); a link is a teleport and wants exactly one.
         const clfCap = (ctrlTarget && ctrlTarget.structureType == STRUCTURE_CONTAINER && room.controller.level == 6) ? 2 : 1;
-        if(feedable && ControllerLinkFillers < clfCap && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
+        /*
+         * A LINK REFILLS ITSELF. ONE READ OF IT IS NOT A SHORTAGE.
+         *
+         * `getFreeCapacity() > 200` is an instantaneous read taken on the
+         * 35-tick roster cadence, and it buys a 1,500-tick body. For a
+         * CONTAINER depot that is fair — nothing fills a container but a creep.
+         * For a LINK it is not: energyMiner.forwardToControllerLink tops the
+         * controller link up from the SOURCE links every single tick it sits at
+         * or below 400, for free, and a source link reaches a controller link
+         * 29 tiles away every 29 ticks with 800 — 27 energy/tick against the 12
+         * a 12-WORK upgrader burns. The dip between two of those pushes is
+         * normal operation, and one evaluation tick landing inside it is what
+         * the room was paying 1,200 energy for.
+         *
+         * Measured live shard3 2026-09-11, controller links across the empire:
+         * E37N59 800, E37N58 800, E35N58 800, E35N59 512, E36N57 506, E38N56
+         * 500 — every one of them fed by source links alone. Of the five
+         * ControllerLinkFillers alive at that moment, TWO were bankParked (the
+         * role's own 10k floor, doing nothing at all), one was full with no sink
+         * and counting toward its 150-tick suicide, and two were working.
+         *
+         * So a link target has to have been short for CLF_SHORT_GRACE ticks
+         * before it is worth a body — with an escape for a link that is nearly
+         * EMPTY, because there the upgrader is about to stand next to it with
+         * nothing to draw and no fallback at RCL7+. The escape also needs the
+         * room to actually feed its controller: with no upgrader alive
+         * forwardToControllerLink deliberately DRAINS this link back to the hub,
+         * so "empty" there is the design working, not a shortage.
+         */
+        const shortNow = ctrlTarget && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200;
+        if(!shortNow) room.memory._clFullT = Game.time;
+        else if(room.memory._clFullT === undefined) room.memory._clFullT = Game.time;
+        const persistedShort = Game.time - room.memory._clFullT >= CLF_SHORT_GRACE;
+        const nearlyEmpty = ctrlTarget && ctrlTarget.store[RESOURCE_ENERGY] < CLF_URGENT_ENERGY
+            && roomFeedsController(room);
+        const worthABody = !ctrlTarget || ctrlTarget.structureType != STRUCTURE_LINK
+            || persistedShort || nearlyEmpty;
+        if(feedable && worthABody && ControllerLinkFillers < clfCap && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
             room.memory.Structures.controllerLink = ctrlTarget.id;
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             /*
@@ -4153,6 +4198,11 @@ function bigUpgraderBody(room, fallback: () => string[]): string[] {
     const body = getBody([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, maxLen, BIG_UPGRADER_BUDGET);
     return body && body.length ? body : fallback();
 }
+
+/** Ticks a controller LINK must stay short before it is worth a 1,200e body. */
+const CLF_SHORT_GRACE = 150;
+/** ...below this the upgrader is about to stall, so skip the wait. */
+const CLF_URGENT_ENERGY = 150;
 
 const UPGRADE_FLOOR = 10000;
 /** full roster + surplus from here up */
