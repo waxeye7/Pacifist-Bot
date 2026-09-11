@@ -79,6 +79,31 @@ const SHELL_UPKEEP_HITS = 100000;
 /** Bank at which the full per-RCL ladder becomes the ceiling (rung arm 1). */
 const SHELL_INVEST_BANK = 150000;
 
+/**
+ * A shell tile under this is not "thin", it is GONE — same number as
+ * rooms.spawning's SHELL_COLLAPSED_HITS, which decides whether to buy the
+ * rescue repairer this file then has to let work. Kept in step by
+ * test/unit/shellRescueWork.test.ts; the two files cannot import from each
+ * other without a cycle through rooms.defence.
+ */
+const SHELL_COLLAPSED_HITS = 10000;
+/** Bank the collapse rescue still refuses to dip below (fillers eat first). */
+const SHELL_WORK_FLOOR = 1000;
+
+/** True when any reachable rampart of ours has decayed to the tower floor. */
+function shellCollapsed(room: any): boolean {
+    if(Game.time - (room.memory._shellColT || 0) < 50 && room.memory._shellCol !== undefined) {
+        return !!room.memory._shellCol;
+    }
+    const ramparts = room.find(FIND_MY_STRUCTURES, {
+        filter: (s: any) => s.structureType === STRUCTURE_RAMPART &&
+            s.hits < SHELL_COLLAPSED_HITS && !rampartIsBuried(room, s.pos),
+    }) as any[];
+    room.memory._shellCol = ramparts.length > 0;
+    room.memory._shellColT = Game.time;
+    return room.memory._shellCol;
+}
+
 export function repairCeiling(room: any): number {
     if(room.memory && room.memory.danger) return Infinity;
     const rcl = (room.controller && room.controller.level) || 0;
@@ -264,7 +289,35 @@ function findLocked(creep, storage) {
     // repairer kept grinding until death — a thin-bank room sawtoothed to ~0
     // (spawn at 10k, burn to nothing, starve the fillers, repeat). Pause
     // under 5k and resume with the bank; a room under attack repairs anyway.
-    if(!creep.room.memory.danger && creep.room.storage && creep.room.storage.my &&
+    //
+    // ...AND SO IS A ROOM WHOSE SHELL HAS ALREADY FALLEN TO THE TOWER FLOOR.
+    //
+    // rooms.spawning grew a shell-collapse rescue arm (shellRescueRepairer,
+    // SHELL_COLLAPSED_HITS) so that a room with a flattened perimeter buys one
+    // repairer even when the CPU roster is shut. It gates on a bank over
+    // SHELL_RESCUE_BANK = 5000 — the SAME number this floor parks under. Live
+    // E38N56 2026-09-11: the rescue fired, the repairer spawned, and it then
+    // stood on a road at 37,27 with an empty store while the room's 58
+    // ramparts sat at min 2,001 / median 3,601 against 93,101-144,081 in every
+    // other owned room. The bank was 4,672. Two gates one energy unit apart,
+    // pointing opposite ways, so the rescue could produce a creep but never
+    // any repair.
+    //
+    // A shell at the peacetime tower floor (TOWER_SHELL_FLOOR = 3000, and it
+    // only holds PLANNED tiles) is three ticks of one 25-WORK dismantler from
+    // a hole. That is the emergency this floor's `danger` exemption is for,
+    // one raid earlier. So the collapse case gets its own, lower floor rather
+    // than an exemption: SHELL_WORK_FLOOR keeps the fillers fed — the actual
+    // failure the 5k floor was written against — while letting the repairer
+    // spend everything above it on the perimeter. At 100 hits per energy a
+    // 58-tile shell climbs 6.4k a tile for ~3,700 energy, so this is paced by
+    // income, not a one-shot drain.
+    const shellRescueWork = !creep.room.memory.danger &&
+        creep.room.storage && creep.room.storage.my &&
+        creep.room.storage.store[RESOURCE_ENERGY] >= SHELL_WORK_FLOOR &&
+        shellCollapsed(creep.room);
+    if(!creep.room.memory.danger && !shellRescueWork &&
+        creep.room.storage && creep.room.storage.my &&
         creep.room.storage.store[RESOURCE_ENERGY] < 5000 &&
         creep.store[RESOURCE_ENERGY] === 0) {
         creep.idlePark();
