@@ -309,12 +309,38 @@ function market(room):any {
         const standingAvg = fair(resourceToSell);
         const standingBook = book(resourceToSell);
         const spiking = standingAvg > 0 && standingBook.bid >= standingAvg * SPIKE_MULT;
-        if(!spiking && room.terminal.store[resourceToSell] >= STANDING_SELL_MIN &&
+        /*
+         * SELLING OUT MUST NOT LOCK THE ROOM OUT OF RE-LISTING.
+         *
+         * STANDING_SELL_MIN is a CREATE rule: do not open a 5,000-unit listing
+         * out of a terminal that does not hold 5,000. It was gating the
+         * MAINTAIN rungs too, and those have the opposite sign - an order that
+         * has just done its job has, by construction, drained the terminal it
+         * sold from.
+         *
+         * Live shard3 2026-09-11, hours after the free-markdown fix started
+         * clearing O: E39N58 and E36N57 both ran their O orders to
+         * remainingAmount 0 and both terminals fell to ~3.5k O, under the 5,000
+         * gate. Neither could be extended or even marked down again until the
+         * extractor slowly refilled the terminal, while the empire held 45,787
+         * O against KEEP_FOR_REACTIONS of 10,000 - i.e. the stock to sell was
+         * there, in the other five terminals.
+         *
+         * The markdown rung is free and the extend rung is paid out of
+         * empire-wide stock, so both belong behind empireStock, not behind this
+         * one room's terminal. Same defect shape as the credit reserve that
+         * blocked the listing fee: a threshold guarding the only action that
+         * clears it.
+         */
+        const liveOrderID = room.memory.market.sellOrders.roomMineral.ID;
+        const maintaining = !!(liveOrderID && Game.market.orders[liveOrderID]);
+        if(!spiking &&
+           (maintaining || room.terminal.store[resourceToSell] >= STANDING_SELL_MIN) &&
            empireStock(resourceToSell) > KEEP_FOR_REACTIONS + STANDING_SELL_AMOUNT) {
             const recPrice = standingSellPrice(resourceToSell);
             if(recPrice > 0) {
-                if(room.memory.market.sellOrders.roomMineral.ID && Game.market.orders[room.memory.market.sellOrders.roomMineral.ID]) {
-                    let order = Game.market.orders[room.memory.market.sellOrders.roomMineral.ID];
+                if(maintaining) {
+                    let order = Game.market.orders[liveOrderID];
                     /*
                      * A DOWNWARD REPRICE IS FREE AND HAS TO COME FIRST.
                      *
