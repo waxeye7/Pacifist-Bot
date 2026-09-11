@@ -5,7 +5,7 @@ import {
     SHELL_MIN_RCL,
 } from "utils/Perimeter";
 import { logVerbose } from "utils/Logger";
-import { cachedHostileCreeps } from "utils/RoomCache";
+import { cachedHostileCreeps, cachedStructures } from "utils/RoomCache";
 import { noteAggressor } from "War/aggressors";
 import { rampartIsBuried, interiorReady } from "utils/Interior";
 import { isSanctionedRampart } from "utils/PlanV2";
@@ -910,6 +910,51 @@ function roomDefence(room) {
                 const tower: any = Game.getObjectById(towerID);
                 if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
                     tower.repair(worstRoad);
+                    break;
+                }
+            }
+        }
+    }
+
+    /*
+     * CONTAINERS NEVER DECAY TO DEATH EITHER.
+     *
+     * The road guard above exists because nothing in an RCL6+ room repairs a
+     * road. Containers are in exactly the same position and cost 60x more to
+     * replace. Roles/repair excludes them from RCL6 up, the shell rung is
+     * rampart-only, and the miner seat-box rung (Roles/energyMiner
+     * keepSeatBoxAlive) only ever covers the box a miner is SITTING on — a
+     * controller container, a mineral container or a box whose miner died has
+     * no cover at all.
+     *
+     * A container that reaches 0 is DELETED, and PlanV2 then re-places it as
+     * a 5,000-energy construction site that has to be walked and built by a
+     * builder the room also has to buy. Live shard3 2026-09-11: E39N58 had
+     * already lost one and was rebuilding it at 6,15 (1,200/5,000, ~8 progress
+     * a tick, ~430 ticks) with one of the empire's two builders; E38N56 held
+     * two more at 70,000/250,000 (28%) that nothing was touching.
+     *
+     * Same shape as the road guard on purpose: a DEATH FLOOR, not upkeep. One
+     * 800-hit shot per 15 ticks is ~53 hits a tick against 10 a tick of decay,
+     * for ~0.7 energy a tick, and it stops dead at the floor. The residue is
+     * 8, not the roads' 1, so the two guards never contend for the same tower
+     * on the same tick.
+     */
+    if (!room.memory.danger &&
+        (Game.time + roomTickOffset(room.name)) % 15 == 8 &&
+        room.memory.Structures.towers && room.memory.Structures.towers.length) {
+        const BOX_DEATH_FLOOR = 0.1;
+        let worstBox: any = null;
+        for (const st of cachedStructures(room)) {
+            if (st.structureType !== STRUCTURE_CONTAINER) continue;
+            if (st.hits >= st.hitsMax * BOX_DEATH_FLOOR) continue;
+            if (!worstBox || st.hits < worstBox.hits) worstBox = st;
+        }
+        if (worstBox) {
+            for (const towerID of room.memory.Structures.towers) {
+                const tower: any = Game.getObjectById(towerID);
+                if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
+                    tower.repair(worstBox);
                     break;
                 }
             }
