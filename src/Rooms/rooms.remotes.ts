@@ -10,6 +10,41 @@ function remotes(room) {
         room.memory.resources[room.name] = {};
     }
 
+    /* ------------------------------------------------------------------ *
+     * SEEDING IS ONE-WAY, SO A ROOM WE LATER CLAIMED STAYED A REMOTE
+     * CANDIDATE FOREVER.
+     *
+     * The seed loops below already refuse to add a room whose controller is
+     * ours. Nothing ever removed one that BECAME ours, and on this account
+     * every commune is adjacent or two hops from another commune, so the
+     * lists filled up with our own territory.
+     *
+     * Live shard3 2026-09-11: E35N58's candidate list held E35N59 and
+     * E35N59's held E35N58 — both RCL6 rooms of ours — each with a
+     * retryAt ~20,000 ticks out, i.e. each buying a scout, walking it into a
+     * room it already has permanent vision of, and rejecting it, on a loop.
+     * E37N59 carried E35N59, E37N58 carried E36N57, and so on. Memory.rstats
+     * has the bill for the same shape at unreachable rooms: 554 scouts and
+     * 27,700 energy on one pair.
+     *
+     * Two-phase on purpose. An ACTIVE entry is one we are mining right now,
+     * and dropping its memory out from under the miners and carriers already
+     * assigned to it is not something to do in a seeding pass; close it and
+     * let the next pass, 10 ticks later, delete a quiet entry.
+     * ------------------------------------------------------------------ */
+    for (const known of Object.keys(room.memory.resources)) {
+        if (known === room.name) continue;
+        const r = Game.rooms[known];
+        if (!r || !r.controller || !r.controller.my) continue;
+        const ent: any = room.memory.resources[known];
+        if (ent && ent.active) {
+            ent.active = false;
+            console.log("[remotes]", room.name, "closing", known, "- we own it now");
+            continue;
+        }
+        delete room.memory.resources[known];
+    }
+
     let neighbors = Object.values(Game.map.describeExits(room.name));
     let newRooms = [];
 
