@@ -1,4 +1,5 @@
 import { roomTickOffset } from "./rooms.remotes";
+import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 import { logVerbose } from "utils/Logger";
 import { book, energyValue, fair, getOrdersCached, invalidateOrderCache } from "Market/pricing";
 import {
@@ -459,7 +460,33 @@ function market(room):any {
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
 
-            if(room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && room.storage) {
+            /*
+             * ONLY A ROOM THAT CAN REACT SHOULD IMPORT MINERALS IT DOES NOT MINE.
+             *
+             * The rung below tops every BASE mineral this room does NOT mine up
+             * to 8,000 by begging 1,000-unit parcels off whoever does. Those
+             * parcels are only worth anything to a room that can put them in a
+             * lab: a reaction needs two input labs and an output lab, so under
+             * three labs the import is pure cost. A 1,000-unit send is ~350
+             * energy of transaction fee, and the rung keeps going until the
+             * terminal holds 8,000 of EVERY base mineral - roughly 25,000 units
+             * and ~8,750 energy per room, out of the storage of a room that
+             * cannot use a gram of it.
+             *
+             * Live shard3 2026-09-11: E37N59 was the only room in the empire
+             * with three labs (running Z+O -> ZO). E37N58 and E35N58 had one
+             * each; E39N58, E36N57, E38N56 and E35N59 had NONE. Every one of
+             * those terminals nevertheless held U 8000, K 5000, Z 5000.
+             *
+             * This had been dormant because terminalFloat left these rooms
+             * under the 2,000 energy bar above (see terminalFloatCliff.test);
+             * raising the float to make the market work again would have armed
+             * it, which is the only reason it was caught.
+             */
+            const labCount = cachedDerived(room, "labCount", () =>
+                _.filter(cachedMyStructures(room),
+                    (s:any) => s.structureType === STRUCTURE_LAB).length);
+            if(labCount >= 3 && room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && room.storage) {
                 for(let resource of BaseResources) {
                     if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
                         if(Memory.my_goods[resource] && Memory.my_goods[resource].length > 0) {
