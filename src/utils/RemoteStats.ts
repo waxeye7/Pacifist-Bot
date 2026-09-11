@@ -189,6 +189,30 @@ function remoteKeyFor(creep: Creep): string | null {
    * They are the war system's cost and belong on the war system's books.
    */
   if (m.warScout) return null;
+  /*
+   * A SCOUT CANNOT OPEN A REMOTE'S BOOKS EITHER.
+   *
+   * Excluding war scouts above fixed the loud half of this. The quiet half is
+   * that a PLAIN scout is on the role whitelist, never delivers a single unit
+   * of energy, and still both CREATES a ledger entry for whatever room it
+   * walked into and stamps it `targeted`, which is exactly what stops
+   * pruneRemoteStats from ever dropping it.
+   *
+   * Live shard3 2026-09-11, an 841,945-tick window: 16 entries, and 14 of
+   * them read `del 0 ... trips 0` - every room the empire had ever scouted,
+   * sitting permanently at the top of the loss table, against the two entries
+   * that actually mine (E35N58|E34N58 at +79,559 and E35N59|E34N59 at
+   * +5,312). That is 87% of a ledger whose own header documents Memory size
+   * as a real, post-loop CPU cost.
+   *
+   * So a scout may still be BOOKED against a remote the empire is really
+   * working - its 50 energy is a genuine cost of that operation - but it may
+   * never be the thing that opens the file. No entry, no key.
+   */
+  if (role === "scout") {
+    const r: any = (Memory as any).rstats;
+    if (!r || !r.r || !r.r[home + "|" + target]) return null;
+  }
   return home + "|" + target;
 }
 
