@@ -3531,9 +3531,14 @@ function add_creeps_to_spawn_list(room, spawn) {
     const sweepBulkSink = !!(room.storage && room.storage.my) || !!room.terminal;
     const sweepLoot = (s: any) =>
         sweepBulkSink ? _.sum(s.store) > 0 : (s.store[RESOURCE_ENERGY] || 0) > 0;
-    const tombRuinLoot =
-        room.find(FIND_TOMBSTONES, { filter: sweepLoot }).length +
-        room.find(FIND_RUINS, { filter: sweepLoot }).length;
+    // How much is out there, not just how many piles. The body rung below
+    // sizes off this; see the comment there.
+    const sweepAmountOf = (s: any) =>
+        sweepBulkSink ? _.sum(s.store) : (s.store[RESOURCE_ENERGY] || 0);
+    const tombsAndRuins = (room.find(FIND_TOMBSTONES, { filter: sweepLoot }) as any[])
+        .concat(room.find(FIND_RUINS, { filter: sweepLoot }) as any[]);
+    const tombRuinLoot = tombsAndRuins.length;
+    let sweepLootAmount = _.sum(tombsAndRuins, sweepAmountOf);
     // RCL1–3 drop-mine piles sit on the source tile and hit 50e in ~13 ticks
     // of a 2W miner. Carriers already haul those; a sweeper here is a 150e
     // HOL tax on the upgraders. Only tombs/ruins or stray (off-source) piles.
@@ -3541,14 +3546,18 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(room.controller.level < 4) {
         if(looseLootCount === 0) {
             const sources = room.find(FIND_SOURCES);
-            looseLootCount = room.find(FIND_DROPPED_RESOURCES, {filter: (r) =>
+            const strays = room.find(FIND_DROPPED_RESOURCES, {filter: (r) =>
                 r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) &&
-                !sources.some((s) => s.pos.getRangeTo(r) <= 1)}).length;
+                !sources.some((s) => s.pos.getRangeTo(r) <= 1)});
+            looseLootCount = strays.length;
+            sweepLootAmount += _.sum(strays, (r: any) => r.amount);
         }
     }
     else {
-        looseLootCount += room.find(FIND_DROPPED_RESOURCES, { filter: (r) =>
-            r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) }).length;
+        const piles = room.find(FIND_DROPPED_RESOURCES, { filter: (r) =>
+            r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) });
+        looseLootCount += piles.length;
+        sweepLootAmount += _.sum(piles, (r: any) => r.amount);
     }
     // RCL1–3: one small sweeper if there's real loot; RCL4+: scale with storage
     const wantSweepers =
@@ -3564,10 +3573,31 @@ function add_creeps_to_spawn_list(room, spawn) {
         !room.memory.danger &&
         (room.memory.danger_timer == null || room.memory.danger_timer === 0)
     ) {
+        /*
+         * THE SWEEPER BODY WAS THE SAME 200-CAPACITY CREEP AT RCL4 AND AT RCL8.
+         *
+         * [C,C,C,C,M,M] is 300 energy and holds 200. Live shard3 2026-09-11,
+         * E38N56 (RCL6, 2,300 energy capacity) hatched exactly that against
+         * 981 energy spread over three piles at 22,14 / 26,10 / 37,17 - five
+         * round trips across the room, and a dropped pile decays at
+         * amount/1000 per tick for every one of them. Measured across ~30
+         * ticks of one trip the piles went 322/572/75 -> 297/347/50; the
+         * sweeper cleared one partial load and the rest just rotted.
+         *
+         * The room could afford six times that body, and a sweeper recycles
+         * itself the moment the floor is clear (roleSweeper sets
+         * memory.suicide on "nothing to sweep"), so an oversized hauler costs
+         * a spawn slot and gets half its energy back. Size for two trips,
+         * floored at the old body so nothing regresses, capped at 16 CARRY so
+         * a rich room does not spend 1,200 energy chasing one tombstone.
+         */
+        const SWEEP_TRIPS = 2;
+        const wantCarry = Math.min(16, Math.max(4,
+            Math.ceil(sweepLootAmount / SWEEP_TRIPS / 50)));
         const body =
             room.controller.level < 4
                 ? [CARRY, CARRY, MOVE]
-                : [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+                : getBody([CARRY, CARRY, MOVE], room, Math.ceil(wantCarry / 2) * 3);
         const newName = "Sweeper-" + Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push(body, newName, { memory: { role: "sweeper" } });
         console.log("Adding Sweeper to Spawn List: " + newName);
