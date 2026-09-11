@@ -201,6 +201,31 @@ export function terminalFloat(room: any, storage: any, terminal: any): number {
     if(energyBank >= 200000) target = 40000;      // unchanged high-bank behaviour
     else if(energyBank >= 100000) target = 20000;
     else if(energyBank >= 20000) target = 5000;
+    /*
+     * THE LADDER USED TO END IN A CLIFF, AND THE CLIFF TURNED OFF THE TERMINAL.
+     *
+     * Every tier above is 20-25% of the bank. Below 20,000 the target dropped
+     * straight to ZERO, so a room banking 19,999 held no terminal energy at
+     * all - and every active market path is priced in terminal energy:
+     * spikeSell, shopWantList and the mineral-balancing send each test
+     * `calcTransactionCost(...) > termEnergy` and give up. A standing SELL
+     * order still fills (the buyer pays the transfer), which is why the
+     * empire kept earning and this stayed invisible.
+     *
+     * Live shard3 2026-09-11, terminal energy by room: E37N59 71, E37N58 143,
+     * E36N57 238, E35N59 351, E38N56 450, E39N58 624 - six of seven rooms with
+     * an inert terminal, all of them under the 20,000 rung. The one room over
+     * it, E35N58, held exactly its 5,013.
+     *
+     * Worse, rooms.market's energy-bootstrap valve exists for "a terminal has
+     * no energy at all and therefore cannot pay a transaction fee to do
+     * anything else" - a state this ladder was manufacturing on purpose.
+     *
+     * Two more rungs at the same 20%. 1,000 energy covers the transfer on a
+     * ~2,000-unit lot twenty rooms away, which is the size these lots are.
+     */
+    else if(energyBank >= 10000) target = 2000;
+    else if(energyBank >= 5000) target = 1000;
     // A funnel donor stocks its terminal with the surplus it is about to ship
     // to the mother room (Empire/funnel). Never below the ladder.
     return Math.max(target, funnelDonorTerminalTarget(room));
