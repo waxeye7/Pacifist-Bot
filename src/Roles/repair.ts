@@ -90,18 +90,68 @@ const SHELL_COLLAPSED_HITS = 10000;
 /** Bank the collapse rescue still refuses to dip below (fillers eat first). */
 const SHELL_WORK_FLOOR = 1000;
 
-/** True when any reachable rampart of ours has decayed to the tower floor. */
-function shellCollapsed(room: any): boolean {
-    if(Game.time - (room.memory._shellColT || 0) < 50 && room.memory._shellCol !== undefined) {
-        return !!room.memory._shellCol;
+/**
+ * Weakest reachable rampart of ours, cached. One scan per room per 50 ticks
+ * feeds both the collapse test and the levelling band below.
+ */
+function shellMin(room: any): number {
+    // Fail open. A caller without a live Room object (a fake, a room we have
+    // lost vision of) must get the plain ceiling, not a crash inside the
+    // filter every repairer in the empire runs every tick.
+    if(!room || !room.memory || typeof room.find !== "function") return Infinity;
+    if(Game.time - (room.memory._shellColT || 0) < 50 && room.memory._shellMin !== undefined) {
+        return room.memory._shellMin;
     }
     const ramparts = room.find(FIND_MY_STRUCTURES, {
         filter: (s: any) => s.structureType === STRUCTURE_RAMPART &&
-            s.hits < SHELL_COLLAPSED_HITS && !rampartIsBuried(room, s.pos),
+            !rampartIsBuried(room, s.pos),
     }) as any[];
-    room.memory._shellCol = ramparts.length > 0;
+    let min = Infinity;
+    for(let i = 0; i < ramparts.length; i++) {
+        if(ramparts[i].hits < min) min = ramparts[i].hits;
+    }
+    room.memory._shellMin = min;
     room.memory._shellColT = Game.time;
-    return room.memory._shellCol;
+    return min;
+}
+
+/** True when any reachable rampart of ours has decayed to the tower floor. */
+function shellCollapsed(room: any): boolean {
+    return shellMin(room) < SHELL_COLLAPSED_HITS;
+}
+
+/* -------------------------------------------------------------------------
+ * A WALL IS ONLY AS HIGH AS ITS LOWEST TILE, AND THE REPAIRER BUILT TOWERS.
+ *
+ * findLocked picks the lowest-hits target and run() holds that lock until
+ * wantsRepair goes false — which, for a rampart, means the peacetime ceiling
+ * of SHELL_UPKEEP_HITS. So a room whose shell has collapsed takes ONE tile
+ * from 2,000 to 100,000 while the other fifty-seven sit at 2,000. That is
+ * 98,000 hits of work bought for exactly zero defensive value: an attacker
+ * walks through any of the other tiles.
+ *
+ * Live E38N56 2026-09-11, minutes after the work-side rescue shipped: the
+ * total across 58 ramparts climbed 11,300 in 48 ticks against a decay-only
+ * baseline of -8,352 — the repairer was working — and the room minimum did
+ * not move off 2,041 the whole time, because all of it went into one tile.
+ *
+ * So the peacetime ceiling gets a LEVELLING band under it: while the shell's
+ * weakest tile is far below the ceiling, no tile is repaired past four times
+ * that weakest tile (floor SHELL_LEVEL_FLOOR, so the first pass is not
+ * measured against a freshly-sited 1-hit rampart). The band is monotone: it
+ * only moves when the LAST tile of a pass crosses it, so it cannot flap, and
+ * once the minimum clears a quarter of the ceiling the band exceeds the
+ * ceiling and this stops applying at all. A room with a healthy shell sees
+ * no change whatsoever.
+ * ------------------------------------------------------------------------- */
+const SHELL_LEVEL_MULT = 4;
+const SHELL_LEVEL_FLOOR = 10000;
+
+export function levelledCeiling(room: any, ceiling: number): number {
+    const min = shellMin(room);
+    if(!isFinite(min)) return ceiling;
+    const band = Math.max(SHELL_LEVEL_FLOOR, min * SHELL_LEVEL_MULT);
+    return Math.min(ceiling, band);
 }
 
 export function repairCeiling(room: any): number {
@@ -109,8 +159,8 @@ export function repairCeiling(room: any): number {
     const rcl = (room.controller && room.controller.level) || 0;
     const target = rampartHitsTargetForRcl(rcl);
     const bank = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
-    if(bank >= SHELL_INVEST_BANK) return target;
-    return Math.min(target, SHELL_UPKEEP_HITS);
+    const ceiling = bank >= SHELL_INVEST_BANK ? target : Math.min(target, SHELL_UPKEEP_HITS);
+    return levelledCeiling(room, ceiling);
 }
 
 /** True when `building` still wants repair under the peacetime wall policy. */
