@@ -5,9 +5,73 @@
 import { rescoutDelay } from "../Rooms/rooms.remotes";
 import { recordRoomIfStale } from "War/intel";
 
+/**
+ * A SCOUT THAT NEVER ARRIVES NEVER WRITES A VERDICT, AND NOTHING EVER GIVES UP.
+ *
+ * Every verdict below — accept, reject, permanent, retry — is written AFTER
+ * the arrival gate. The only other way out of this role is dying of old age,
+ * and that writes nothing. The spawn rung (rooms.spawning, "no `energy` key IS
+ * the definition of an unscouted entry") then sees the same unscouted entry it
+ * saw before and queues another scout, forever. It also `break`s on the first
+ * such candidate, so the unreachable room at the head of the list starves
+ * every other candidate that room might have scouted instead.
+ *
+ * Live shard3 2026-09-11, Memory.rstats over an 845,937-tick window:
+ *   E35N58|E34N57  spawned 554  spent 27,700e  delivered 0  trips 0
+ *   E35N58|E34N59  spawned 106  spent  5,300e  delivered 0  trips 0
+ *   E38N56|E37N55  spawned 103  spent  5,150e  delivered 0  trips 0
+ * 554 spawns at 50 energy is one scout every ~1,527 ticks — a [MOVE] creep's
+ * whole lifetime. That is not a scout doing a round trip; that is a scout
+ * being replaced the moment it expires, 554 times, for zero information.
+ *
+ * The CPU cost is worse than the energy. When Game.map.findRoute cannot reach
+ * the target it returns ERR_NO_PATH, and moveToRoomAvoidEnemyRooms recomputes
+ * on exactly `route === -2` — so an unroutable scout burns a findRoute EVERY
+ * TICK for 1,500 ticks, and the next one picks it straight back up.
+ *
+ * So: give up out loud. Write the same rejection signal the arrival path
+ * writes (empty `energy` + active false + a retryAt), against the TARGET room
+ * rather than the room we are standing in. rescoutDelay keeps the leash short
+ * for a remote that has paid this home before and long for one that never has.
+ */
+function giveUpOnTarget(creep, why: string): void {
+    const homeMem = Memory.rooms[creep.memory.homeRoom];
+    const target = creep.memory.targetRoom;
+    if(homeMem && homeMem.resources && target) {
+        if(!homeMem.resources[target]) {
+            homeMem.resources[target] = {};
+        }
+        // Empty `energy` is the rejection signal manageRemotes reads, and it is
+        // also what closes the spawn rung's `!entry.energy` gate. Never
+        // permanent (retryAt 0) — unreachable is a fact about today's
+        // AvoidRooms list and today's neighbours, not about the map.
+        homeMem.resources[target].energy = {};
+        homeMem.resources[target].active = false;
+        homeMem.resources[target].retryAt = Game.time + rescoutDelay(creep.memory.homeRoom, target);
+        console.log("[remotes] scout gave up on", target, "for", creep.memory.homeRoom, "(" + why + ")");
+    }
+    creep.suicide();
+}
+
+/**
+ * Give up this many ticks before expiry rather than on the last one. The
+ * 20-CPU latch idles whole roles on a bad tick, so the final tick of a life is
+ * not a reliable place to run anything; five ticks of a scout that has not
+ * arrived yet are worth nothing anyway.
+ */
+const SCOUT_GIVE_UP_TTL = 5;
+
 const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
-        // if(creep.memory.route = -2) creep.suicide()
+        // findRoute said there is nowhere to walk. Retrying is not free: the
+        // recompute gate in moveToRoomAvoidEnemyRooms keys on exactly this
+        // value, so holding it costs a findRoute a tick until we expire.
+        if(creep.memory.route === ERR_NO_PATH) {
+            return giveUpOnTarget(creep, "no route");
+        }
+        if(creep.ticksToLive != null && creep.ticksToLive <= SCOUT_GIVE_UP_TTL) {
+            return giveUpOnTarget(creep, "expired en route");
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
