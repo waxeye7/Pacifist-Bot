@@ -184,6 +184,33 @@ export function sampleBilledFromBucket(): void {
  * understates the true cost by the post-loop Memory write, measured at 1.32
  * on this bot â€” budgeting from it would buy a remote the empire cannot pay for.
  */
+/**
+ * THE ONE HONEST CPU NUMBER, IN ONE PLACE.
+ *
+ * Memory is serialised AFTER main() returns and the server bills us for it, so
+ * hundredTickAvg — end-of-loop getUsed() — understates the real cost by the
+ * post-loop write. Measured on this bot at 1.32-1.42 CPU every tick against a
+ * 20 limit, which is 7% of the entire budget, invisible to every in-game
+ * profiler. sampleBilledFromBucket recovers it from the bucket delta.
+ *
+ * Every subsystem that spends CPU HEADROOM has to budget from this number, and
+ * they kept being written against avg100 instead:
+ *   - AutoExpand armed a claim on an eighth room (avg100 17.0, 17.0 + 3 does
+ *     not exceed 20; billed was 18.6-19.3 and the gate should have refused).
+ *   - empireRemoteBudget would have opened seven remotes at once.
+ *   - War/dispatch guardCap allowed 2-4 Guards on `limit - avg100`, while the
+ *     billed figure was 20.2 against a 20 limit — negative headroom.
+ *
+ * Three copies of the same fallback expression are three chances to write the
+ * wrong one, so there is now exactly one. The avg100 fallback is only for the
+ * first two ticks of a global, before the first bucket sample exists.
+ */
+export function billedAvg(): number {
+  const M: any = Memory as any;
+  if (M.CPU && typeof M.CPU.trueAvg === "number" && M.CPU.trueAvg > 0) return M.CPU.trueAvg;
+  return Number(M.CPU && M.CPU.hundredTickAvg && M.CPU.hundredTickAvg.avg) || 0;
+}
+
 const REMOTE_CPU_EST = 1.0;
 
 export function empireRemoteBudget(): number {
@@ -191,10 +218,7 @@ export function empireRemoteBudget(): number {
   // Only 20-CPU-shaped shards need this. A private server with a high limit
   // has room for the per-room caps as written.
   if (limit > 30) return 99;
-  const M: any = Memory as any;
-  const billed = M.CPU && typeof M.CPU.trueAvg === "number" && M.CPU.trueAvg > 0
-    ? M.CPU.trueAvg
-    : Number(M.CPU && M.CPU.hundredTickAvg && M.CPU.hundredTickAvg.avg) || 0;
+  const billed = billedAvg();
   // No reading yet: allow exactly one and let the next pass price it properly.
   if (billed <= 0) return 1;
   const headroom = limit - billed;

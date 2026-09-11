@@ -17,13 +17,33 @@ import { countLive, expensiveInFlight, homeHasSquad, guardOnPlayerRoom, ROLES, c
 import { ownedRooms, travelHops, withinTravelBudget, MAX_TRAVEL_HOPS } from "./reach";
 import { roomDistance } from "./geo";
 import { logAlways } from "utils/Logger";
-import { lowCpuShard } from "utils/CpuPolicy";
+import { lowCpuShard, billedAvg } from "utils/CpuPolicy";
 
 const ISSUE_PER_TICK = 2;
 const MAX_GUARDS = 6;
 
-function avg100(): number {
-  return Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+/**
+ * WAR BUDGETED FROM THE WRONG METER.
+ *
+ * This read hundredTickAvg, which is end-of-loop getUsed(). Memory is
+ * serialised after main() returns and the server bills us for it, so avg100
+ * understates the real cost by the post-loop write — 1.32-1.42 CPU on this
+ * bot, 7% of a 20 limit.
+ *
+ * Both readers below spend on that difference. guardCap turns `limit - avg`
+ * into a Guard count, and a Guard alone in a foreign room is 0.3-0.8 CPU, the
+ * most expensive creep the bot runs. warEconomyBlocked refuses offence at
+ * `avg >= limit - 1`. Live shard3 2026-09-11: avg100 read 18.4-19.0 while the
+ * billed figure was 20.2-20.5 against a 20 limit. So the honest answer was
+ * "no headroom at all, and already over the limit", and both gates instead
+ * read 1-1.6 CPU spare and let a Guard out.
+ *
+ * Same error AutoExpand made when it armed an eighth room. CpuPolicy.billedAvg
+ * is now the single place that answers this.
+ */
+/** The billed average, named for what it is. See the note above. */
+function warCpuAvg(): number {
+  return billedAvg();
 }
 
 /** Kits issued per pass: one on a 20-CPU shard. */
@@ -45,7 +65,7 @@ export function guardCapFor(limit: number, avg: number, lowCpu: boolean): number
   return 0;
 }
 function guardCap(): number {
-  return guardCapFor(Game.cpu.limit || 20, avg100(), lowCpuShard());
+  return guardCapFor(Game.cpu.limit || 20, warCpuAvg(), lowCpuShard());
 }
 const MAX_CCK = 3;
 const MAX_MOSQUITO = 2;
@@ -391,7 +411,7 @@ export function warEconomyBlocked(): string {
   if (Game.cpu.bucket < bucketBar) return "bucket " + Game.cpu.bucket + " < " + bucketBar;
   if (lowCpu) {
     const limit = Game.cpu.limit || 20;
-    const avg = avg100();
+    const avg = warCpuAvg();
     if (avg > 0 && avg >= limit - 1) return "cpu avg " + avg.toFixed(1) + " >= " + (limit - 1);
   }
   return "";

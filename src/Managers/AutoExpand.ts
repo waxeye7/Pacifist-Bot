@@ -39,6 +39,7 @@
  * Console: autoExpand() · autoExpandStatus() · stopExpand()
  */
 import { logAlways } from "utils/Logger";
+import { billedAvg } from "utils/CpuPolicy";
 import { packPlanPayload, clearPlanSpawnTile, armNewPlanMigration } from "utils/PlanV2";
 import { requestSegments } from "utils/Segments";
 import { wipeForeignSites } from "utils/ForeignSites";
@@ -155,13 +156,11 @@ function blockedReason(): string | null {
    *
    * CpuPolicy.sampleBilledFromBucket recovers the real number from the one
    * meter that sees everything: the bucket moves by limit minus what was
-   * billed. Use it when it exists and fall back to avg100 only before the
-   * first sample lands.
+   * billed. billedAvg() is that number, shared with empireRemoteBudget and
+   * War/dispatch guardCap � three subsystems that spend headroom and had three
+   * copies of this expression between them, one of which read avg100.
    */
-  const M2: any = Memory as any;
-  const billed = M2.CPU && typeof M2.CPU.trueAvg === "number" && M2.CPU.trueAvg > 0
-    ? M2.CPU.trueAvg
-    : Number(Memory.CPU && Memory.CPU.hundredTickAvg && Memory.CPU.hundredTickAvg.avg) || 0;
+  const billed = billedAvg();
   const limit = Game.cpu.limit || 20;
   if (billed > 0 && billed + CPU_HEADROOM > limit)
     return `CPU ${billed.toFixed(1)}/${limit} billed — no headroom for another room (need ${CPU_HEADROOM} spare)`;

@@ -117,6 +117,10 @@ export function benchAuto(on: boolean, period?: number): string {
 }
 
 /** Call once per tick after measuring tick CPU */
+/** How many samples the ring keeps. reportCpu shows RECENT_SHOW of them. */
+const RECENT_KEEP = 8;
+const RECENT_SHOW = 5;
+
 export function recordTick(cpuUsed: number): void {
   const b = ensureBench();
 
@@ -145,10 +149,22 @@ export function recordTick(cpuUsed: number): void {
   s.sum += cpuUsed;
   if (cpuUsed > s.max) s.max = cpuUsed;
 
-  // ring buffer of last samples
+  /*
+   * Ring buffer of the last samples — and it is paid for AFTER the loop.
+   *
+   * This kept 60 entries. reportCpu() has only ever displayed
+   * `b.recent.slice(-5)`, so 55 of them were never read by anything. Each
+   * entry serialises to about 48 bytes, so the unread tail was ~2.6 KB of a
+   * 129 KB Memory, written and re-written every tick. Memory is serialised
+   * after main() returns and the server bills us for it at roughly 0.011 CPU
+   * per KB on this bot, so a debug buffer nobody reads was costing ~0.03 CPU
+   * a tick, forever, on an account permanently capped at 20.
+   *
+   * Keep a little more than the display needs, and no more.
+   */
   if (!b.recent) b.recent = [];
   b.recent.push({ t: Game.time, p: b.profile, cpu: Number(cpuUsed.toFixed(3)) });
-  if (b.recent.length > 60) b.recent.shift();
+  if (b.recent.length > RECENT_KEEP) b.recent.splice(0, b.recent.length - RECENT_KEEP);
 }
 
 export function reportCpu(): string {
@@ -182,7 +198,7 @@ export function reportCpu(): string {
   }
 
   if (b.recent && b.recent.length) {
-    const last = b.recent.slice(-5);
+    const last = b.recent.slice(-RECENT_SHOW);
     lines.push(`recent: ${last.map((r) => `${r.p[0]}${r.cpu}`).join(" ")}`);
   }
 

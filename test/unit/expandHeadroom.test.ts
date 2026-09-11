@@ -25,14 +25,18 @@ const AE = fs.readFileSync("src/Managers/AutoExpand.ts", "utf8");
 const CODE = AE.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
 
 describe("expansion measures headroom with the billed number", () => {
-  it("prefers CPU.trueAvg", () => {
-    assert.match(CODE, /typeof M2\.CPU\.trueAvg === "number" && M2\.CPU\.trueAvg > 0/);
-  });
-
-  it("falls back to avg100 only before the first billed sample", () => {
-    // sampleBilledFromBucket takes no sample on the first two ticks of a
-    // global, so there is a real window with no billed figure at all.
-    assert.match(CODE, /: Number\(Memory\.CPU && Memory\.CPU\.hundredTickAvg && Memory\.CPU\.hundredTickAvg\.avg\) \|\| 0;/);
+  /*
+   * UPDATED 2026-09-11: this file's fallback expression was inlined here, and
+   * a third spender (War/dispatch guardCap) turned out to have its own copy
+   * that still read avg100. All three now call CpuPolicy.billedAvg; the
+   * preference order and the avg100 fallback are tested against the live
+   * function in test/unit/billedBudget.
+   */
+  it("reads the shared billed meter, not a local copy", () => {
+    assert.include(CODE, "const billed = billedAvg();");
+    assert.include(CODE, 'import { billedAvg } from "utils/CpuPolicy";');
+    assert.notMatch(CODE, /M2\.CPU\.trueAvg/);
+    assert.notMatch(CODE, /hundredTickAvg/);
   });
 
   it("tests the billed figure against the limit, not the in-loop one", () => {

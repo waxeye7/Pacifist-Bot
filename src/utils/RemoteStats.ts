@@ -168,6 +168,27 @@ function remoteKeyFor(creep: Creep): string | null {
   const role = m.role;
   if (role !== "carry" && role !== "FakeFiller" && role !== "EnergyMiner" &&
       role !== "reserve" && role !== "RemoteRepair" && role !== "scout") return null;
+  /*
+   * A WAR SCOUT IS NOT A REMOTE.
+   *
+   * War/dispatch sends up to MAX_WAR_SCOUTS standing lookouts, named
+   * `Scout-war-<home>-<target>` with warScout on their memory. They carry the
+   * same role and the same home/target pair as a remote probe, so this
+   * function was keying them into the remote ledger — and because
+   * sampleRemoteStats marks every key it sees as `targeted`, the entry never
+   * went stale and pruneRemoteStats could never drop it.
+   *
+   * Live shard3 2026-09-11, an 840,356-tick window:
+   *   E35N58|E34N57  del 0  spE 27,650  sp 553  dead 552
+   *   E35N58|E34N59  del 0  spE  5,300  sp 106  dead 106
+   *   E38N56|E37N55  del 0  spE  5,150  sp 103  dead 102
+   * Three phantom remotes with catastrophic P&L, sitting permanently at the
+   * top of the loss table. Every one of those 762 "spawns" was a 50-energy
+   * [MOVE] lookout doing its job in a room the empire has never mined.
+   *
+   * They are the war system's cost and belong on the war system's books.
+   */
+  if (m.warScout) return null;
   return home + "|" + target;
 }
 
