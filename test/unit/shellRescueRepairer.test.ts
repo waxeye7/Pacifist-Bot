@@ -71,11 +71,28 @@ describe("a collapsed shell can buy a repairer out of a poor bank", () => {
     assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
   });
 
+  it("covers RCL7, whose own critical arm still wants a 10,000 bank", () => {
+    // shellCritical7 fires under 75,000 hits, which is generous, but it is
+    // ANDed with storage > 10,000 - and a room whose shell actually decayed to
+    // the tower floor is never a room with a bank. Same failure as E38N56 at
+    // RCL6, one controller level up.
+    const i = SP.indexOf("spawnrules[7].repair_creep.amount");
+    const rung = SP.slice(i, i + 700);
+    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+  });
+
+  it("covers RCL8, whose only energy arm is a flat 150,000", () => {
+    const i = SP.indexOf("spawnrules[8].repair_creep.amount || room.controller.safeMode");
+    const rung = SP.slice(i, i + 700);
+    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+  });
+
   it("leaves the richer arms alone", () => {
     // The rescue is an extra arm, not a replacement: a room with a real bank
     // should still buy on the wear thresholds, which repair far more than the
     // tower floor.
     assert.include(SP, "storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0");
     assert.include(SP, "storage.store[RESOURCE_ENERGY] > 10000 && shellThin");
+    assert.include(SP, "storage.store[RESOURCE_ENERGY] > 150000 || shellRescueRepairer");
   });
 });

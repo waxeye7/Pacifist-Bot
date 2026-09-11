@@ -2428,6 +2428,18 @@ function add_creeps_to_spawn_list(room, spawn) {
             // at the towers' decay floor, the only path touching ramparts
             // buying hits at 20-80/energy instead of a creep's 100. A wall
             // under a QUARTER of its target is not a luxury purchase.
+            // THE SHELL-COLLAPSE RESCUE EXISTED AT RCL5 AND RCL6 AND STOPPED THERE.
+            //
+            // shellCritical7 is a GENEROUS bar (a quarter of the 300k target,
+            // so 75,000) but it is ANDed with a 10,000 bank, and the RCL8 rung
+            // below wants 150,000 flat. A room whose perimeter has actually
+            // decayed to the towers' 3,000-hit floor is by definition not a
+            // room with a bank - that is what E38N56 was at RCL6, and nothing
+            // about the failure changes if the controller happens to read 7.
+            // shellRescueRepairer is the narrow arm: ONE repairer, no repairer
+            // already alive, a bank over SHELL_RESCUE_BANK, and a rampart
+            // under SHELL_COLLAPSED_HITS = 10,000. It cannot fire in any of
+            // the seven rooms live today except a genuinely flattened one.
             const shellFloor7 = Math.floor(rampartHitsTarget(room) / 4);
             const shellCritical7 = !!(rampartsInRoom && rampartsInRoom.filter(function(s) {return s.hits < shellFloor7;}).length);
             // Thin bank buys the RCL6 body (2150e), not the 4000e 30-WORK one:
@@ -2435,7 +2447,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // own fillers.
             const repairBody7 = storage && storage.store[RESOURCE_ENERGY] > 50000
                 ? spawnrules[7].repair_creep.body : spawnrules[6].repair_creep.body;
-            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || shellCritical7 && storage.store[RESOURCE_ENERGY] > 10000) && !queuedWithPrefix(room, 'Repair-')) {
+            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || shellCritical7 && storage.store[RESOURCE_ENERGY] > 10000 || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 // Was a hardcoded 4,050,000; rampartHitsTarget() gives 300,000
                 // at RCL7. Same reason as the RCL6 rung above — see there.
                 let rampartsBelowTarget7 = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
@@ -2565,7 +2577,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // FLAG: RCL8 repair floor was 280k vs RCL7 150k (R6.31).
             // (the dropped second arm was `Game.time % 3000 < 100 && > 150000`,
             // i.e. the first arm on 1 tick in 30)
-            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && storage.store[RESOURCE_ENERGY] > 150000 && !queuedWithPrefix(room, 'Repair-')) {
+            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 150000 || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 // The ring-shaped E41N58 exclusion that used to be ANDed in here
                 // was a per-room hack in the shared brain for a room we no
                 // longer own.
