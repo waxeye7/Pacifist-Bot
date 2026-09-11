@@ -2187,7 +2187,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             // (the dropped middle arm was `Game.time % 2000 < 400 && > 50000 &&
             // repairers < amount`, strictly narrower than the first arm)
-            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
+            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50) || shellRescueRepairer(storage, rampartsInRoom, repairers))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2303,7 +2303,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // (banks 12-46k), so an RCL6 shell sat at the 3k tower floor. One
             // repairer (the low-CPU cap) walks it toward 100k off a 20k bank.
             const shellThin = rampartsInRoom?.filter(function(s) {return s.hits < 100000;}).length > 0;
-            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 10000 && shellThin) && !queuedWithPrefix(room, 'Repair-')) {
+            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 10000 && shellThin || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -5265,15 +5265,71 @@ function drainPressure(room): any {
  * room does the same wall for a third of the CPU of three. The bank gates in
  * each rung still decide WHETHER to repair; this decides how many bodies.
  */
+/**
+ * A shell at or under this is not "worn", it is the tower decay floor and
+ * nothing else: rooms.defence holds 3,000 hits on ramparts and NOTHING in the
+ * creep layer has touched them. One number, used by both gates below, so the
+ * two cannot disagree about what an emergency is.
+ */
+const SHELL_COLLAPSED_HITS = 10000;
+
+/**
+ * ...and the smallest bank out of which we will still buy ONE repairer when
+ * the shell has collapsed. RCL4's rung already drops to 5,000 under danger;
+ * this is the same bar, keyed on the shell itself rather than on whether
+ * someone happens to be standing in the room today.
+ */
+const SHELL_RESCUE_BANK = 5000;
+
+function shellCollapsed(ramparts?: any[]): boolean {
+    if(!ramparts) return false;
+    for(let i = 0; i < ramparts.length; i++) {
+        if((ramparts[i].hits || 0) < SHELL_COLLAPSED_HITS) return true;
+    }
+    return false;
+}
+
+/**
+ * THE SHELL-COLLAPSE ESCAPE HATCH EXISTED ON THE CPU GATE AND NOT ON THE
+ * ENERGY GATE, SO IT COULD NEVER FIRE.
+ *
+ * repairRosterOpen() deliberately overrides a shut optional roster when any
+ * rampart is under SHELL_COLLAPSED_HITS - "one repairer even when CPU skip is
+ * on". The RCL5 and RCL6 energy gates it guards then demand at least 10,000
+ * banked on EVERY arm, with no equivalent exemption. So a room poor enough to
+ * let its shell collapse is exactly the room that cannot buy the repairer the
+ * CPU gate just went out of its way to allow. Two gates gating one action, and
+ * only one of them knows what an emergency is.
+ *
+ * The RCL6 rung's own fourth arm is the previous iteration of this same bug:
+ * its comment reads "the first three were all dead on live (banks 12-46k), so
+ * an RCL6 shell sat at the 3k tower floor". It added `bank > 10000 && any
+ * rampart < 100000`, which is dead in turn for any room under 10,000.
+ *
+ * Live shard3 2026-09-11, ramparts as median hits per owned room:
+ *   E37N58 144,081   E37N59 104,181   E36N57 98,981   E39N58 95,341
+ *   E35N58  93,101   E35N59  62,681   E38N56 ..... 3,621  (min 2,017)
+ * E38N56 had 58 ramparts at the tower floor, a bank of 6,367, zero repairers
+ * and zero maintainers - the only room in the empire with neither. Six of
+ * seven rooms recovered when the optional roster reopened; this one could not,
+ * because its blocker was never CPU.
+ *
+ * One repairer, and only while the shell is genuinely collapsed. A 20-CPU
+ * shard caps the repair roster at one anyway (repairRosterOpen), and 58
+ * ramparts at 2,000 hits is a room that loses everything to one raid.
+ */
+function shellRescueRepairer(storage, ramparts: any[] | undefined, repairers: number): boolean {
+    if(repairers >= 1) return false;
+    if(!storage || !storage.store) return false;
+    if((storage.store[RESOURCE_ENERGY] || 0) <= SHELL_RESCUE_BANK) return false;
+    return shellCollapsed(ramparts);
+}
+
 function repairRosterOpen(repairers:number, ramparts?: any[]): boolean {
     if(lowCpuShard() && repairers >= 1) return false;
     if(optionalRosterOpen()) return true;
     // Shell at the peacetime tower floor: one repairer even when CPU skip is on.
-    if(!ramparts) return false;
-    for(let i = 0; i < ramparts.length; i++) {
-        if((ramparts[i].hits || 0) < 10000) return true;
-    }
-    return false;
+    return shellCollapsed(ramparts);
 }
 
 function getBody(segment:string[], room, bodyMaxLength=50, budgetFrac=0.85) {
