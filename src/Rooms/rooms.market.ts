@@ -315,7 +315,35 @@ function market(room):any {
             if(recPrice > 0) {
                 if(room.memory.market.sellOrders.roomMineral.ID && Game.market.orders[room.memory.market.sellOrders.roomMineral.ID]) {
                     let order = Game.market.orders[room.memory.market.sellOrders.roomMineral.ID];
-                    if(order.remainingAmount <= 1000) {
+                    /*
+                     * A DOWNWARD REPRICE IS FREE AND HAS TO COME FIRST.
+                     *
+                     * changeOrderPrice is charged only on an INCREASE, and
+                     * only on the increase; lowering an ask costs nothing.
+                     * extendOrder, on the other hand, is charged 5% of
+                     * price*addAmount at the order's CURRENT price — so an
+                     * order whose price has drifted above the book gets
+                     * extended expensively into units that then sit unsold
+                     * until the reprice rung finally runs.
+                     *
+                     * Live shard3 2026-09-11: O's best ask was 53.216 and the
+                     * bot held stale asks at 70.237 and 73.005. Extending one
+                     * cost 14,047c where the same 4,000 units at the book
+                     * price cost 10,743c, and bought 4,000 units that could
+                     * not sell. The reprice that fixes it sat behind an
+                     * `else if` AND a `t % 400` cadence, so it could not run
+                     * for up to 400 ticks after the extend.
+                     *
+                     * Free first, then extend on the next pass (~10 ticks) at
+                     * the honest price. The paid INCREASE keeps its cadence:
+                     * that one costs credits and must stay rare.
+                     */
+                    if(recPrice < order.price - 2) {
+                        if(Game.market.changeOrderPrice(order.id, recPrice) == OK) {
+                            logVerbose(`mkt sell-order ${room.name}: marked down ${resourceToSell} ${order.price} -> ${recPrice.toFixed(2)} (free)`);
+                        }
+                    }
+                    else if(order.remainingAmount <= 1000) {
                         // extendOrder is charged the same 5% of price*addAmount.
                         const extendFee = order.price * 4000 * ORDER_FEE;
                         if(canList(extendFee, order.price * 4000) && Game.market.extendOrder(order.id, 4000) == OK) {
@@ -323,10 +351,10 @@ function market(room):any {
                             logVerbose(`mkt sell-order ${room.name}: extended ${resourceToSell} by 4000 (fee ${Math.round(extendFee)}c)`);
                         }
                     }
-                    else if(t % 400 == 0 && Math.abs(order.price - recPrice) > 2) {
+                    else if(t % 400 == 0 && recPrice > order.price + 2) {
                         // Only a price INCREASE is charged, and only on the increase.
-                        const feeCredits = recPrice > order.price ? (recPrice - order.price) * order.remainingAmount * ORDER_FEE : 0;
-                        if(feeCredits == 0 || canList(feeCredits, recPrice * order.remainingAmount)) {
+                        const feeCredits = (recPrice - order.price) * order.remainingAmount * ORDER_FEE;
+                        if(canList(feeCredits, recPrice * order.remainingAmount)) {
                             if(Game.market.changeOrderPrice(order.id, recPrice) == OK) {
                                 if(feeCredits > 0) note(feeCredits);
                                 logVerbose(`mkt sell-order ${room.name}: repriced ${resourceToSell} ${order.price} -> ${recPrice.toFixed(2)} (fee ${Math.round(feeCredits)}c)`);

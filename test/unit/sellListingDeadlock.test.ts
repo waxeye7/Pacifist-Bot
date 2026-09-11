@@ -88,8 +88,12 @@ describe("every sell-side fee in rooms.market uses it", () => {
     assert.include(CODE, "canList(extendFee, order.price * 4000)");
   });
 
-  it("the reprice, which is only charged on an increase", () => {
-    assert.include(CODE, "feeCredits == 0 || canList(feeCredits, recPrice * order.remainingAmount)");
+  it("the paid reprice, which is only ever an increase now", () => {
+    // The free DOWNWARD markdown moved above this rung and takes no budget at
+    // all; what is left here always costs credits, so the `feeCredits == 0`
+    // escape hatch the old two-directional branch needed is gone.
+    assert.include(CODE, "canList(feeCredits, recPrice * order.remainingAmount)");
+    assert.notInclude(CODE, "feeCredits == 0 ||");
   });
 
   it("leaves the BUY paths on canSpend", () => {
@@ -97,5 +101,44 @@ describe("every sell-side fee in rooms.market uses it", () => {
     assert.include(CODE, "if(!canSpend(amount * o.price)) continue;");
     assert.match(CODE, /if\(!canSpend\(cost\)\)/);
     assert.match(BUD, /if \(Game\.market\.credits - credits < m\.reserve\) return false;/);
+  });
+});
+
+describe("a stale ask is marked down before it is extended", () => {
+  /*
+   * changeOrderPrice is charged only on an INCREASE, and only on the
+   * increase; lowering an ask costs nothing. extendOrder is charged 5% of
+   * price*addAmount at the order's CURRENT price.
+   *
+   * Live shard3 2026-09-11, minutes after canList unfroze the sell side: O's
+   * best ask was 53.216 and the bot held stale asks at 70.237 and 73.005.
+   * Extending one cost 14,047c where the same 4,000 units at the book price
+   * cost 10,743c, and it bought 4,000 units that could not sell. The reprice
+   * that fixes it sat behind an `else if` AND a `t % 400` cadence, so it
+   * could not run for up to 400 ticks after the extend.
+   */
+  it("puts the free markdown ahead of the extend", () => {
+    const markdown = CODE.indexOf("if(recPrice < order.price - 2)");
+    const extend = CODE.indexOf("order.remainingAmount <= 1000");
+    assert.isAbove(markdown, 0, "the markdown rung must exist");
+    assert.isAbove(extend, markdown, "the extend must come after it");
+  });
+
+  it("runs the markdown on any tick, not on the paid rung's cadence", () => {
+    const block = CODE.slice(
+      CODE.indexOf("if(recPrice < order.price - 2)"),
+      CODE.indexOf("order.remainingAmount <= 1000"),
+    );
+    assert.notInclude(block, "t % 400");
+    assert.notInclude(block, "canList");
+    assert.notInclude(block, "note(");
+    assert.include(block, "Game.market.changeOrderPrice(order.id, recPrice)");
+  });
+
+  it("keeps the paid INCREASE rare and on its own cadence", () => {
+    assert.include(CODE, "else if(t % 400 == 0 && recPrice > order.price + 2)");
+    // The old condition was Math.abs(...) > 2, which sent a DECREASE through
+    // the paid branch and computed a zero fee for it. One direction each now.
+    assert.notMatch(CODE, /Math\.abs\(order\.price - recPrice\) > 2/);
   });
 });
