@@ -7,8 +7,9 @@
  *   book()               - live top of book + depth
  *   fair()               - the number to price against (history, book mid last)
  *
- * All three are cached per tick; the raw getAllOrders() lists are cached too
- * because a single tick can ask for the same (type, resource) pair many times.
+ * All three are cached on the heap with a real lifetime (ORDER_CACHE_TTL /
+ * HISTORY_CACHE_TTL), not per tick: only one room trades on any given tick, so
+ * a per-tick cache was thrown away before a second reader could ever hit it.
  */
 
 /**
@@ -54,20 +55,42 @@ export function weightedHistoryAvg(resource:any):{avg:number, stddev:number} | n
     return {avg: myTotalAverage / weightSum, stddev: myTotalStDevAverage / weightSum};
 }
 
-// getAllOrders() is the most expensive market call we make, and the buy/sell
-// ladders ask for the SAME (type, resource) pair several times in a single
-// tick. Cache the raw result on the heap keyed by the tick; every caller
-// re-filters into its own array so the cached list is never mutated. Any
-// successful deal drops the cache so a later room in the same tick does not
-// act on an order it just emptied.
+/*
+ * A PER-TICK CACHE NEVER HIT, BECAUSE ONLY ONE ROOM TRADES PER TICK.
+ *
+ * getAllOrders() is the most expensive market call we make, and this cached it
+ * keyed by Game.time so that the buy/sell ladders inside ONE room's pass share
+ * one fetch. That much worked. What it missed is that rooms.ts enters market()
+ * only on the room's own staggered `t % 10 == 0`, so across a seven-room
+ * empire fewer than one room trades on any given tick — the cache was thrown
+ * away before a second room could ever read it.
+ *
+ * Live shard3 2026-09-11, Memory.CPU.roomParts: `market` averaged 0.626 CPU a
+ * tick, second only to `spawning` (0.856) and ahead of `defence` (0.514), on a
+ * bot billing 19.5-20.6 against a 20 limit. That is 3% of the entire budget
+ * for a module managing four sell orders, whose spend budget is locked at 158
+ * credits by Memory.mkt.reserve and which therefore cannot list, extend or
+ * reprice anything at all.
+ *
+ * So the cache gets a real lifetime. Order books move on the scale of hours;
+ * a pass that only runs every 10 ticks per room cannot use freshness it is
+ * not asking for. invalidateOrderCache() still drops everything the moment a
+ * deal lands, which is the one event that genuinely changes what we are
+ * looking at.
+ */
+export const ORDER_CACHE_TTL = 50;
+/** getHistory() returns per-DAY aggregates; a tick-scale cache is pointless. */
+export const HISTORY_CACHE_TTL = 1000;
+
 let orderCacheTick = -1;
 let orderCache: {[key:string]: any[]} = {};
 
 export function getOrdersCached(type:any, resource:ResourceConstant):any[] {
-    if(orderCacheTick !== Game.time) {
+    if(Game.time - orderCacheTick >= ORDER_CACHE_TTL || Game.time < orderCacheTick) {
         orderCacheTick = Game.time;
         orderCache = {};
         bookCache = {};
+        bookCacheTick = Game.time;
     }
     let key = type + ":" + resource;
     if(!orderCache[key]) {
@@ -79,6 +102,10 @@ export function getOrdersCached(type:any, resource:ResourceConstant):any[] {
 export function invalidateOrderCache():void {
     orderCache = {};
     bookCache = {};
+    // Re-stamp so the TTL window restarts from the deal, not from whenever the
+    // stale window happened to begin.
+    orderCacheTick = Game.time;
+    bookCacheTick = Game.time;
 }
 
 /** Live top of book for one resource. Prices are 0 when that side is empty. */
@@ -106,9 +133,9 @@ let bookCacheTick = -1;
 let bookCache: {[res:string]: Book} = {};
 
 export function book(resource:ResourceConstant):Book {
-    // Own tick guard: book() can be the first market call of the tick, so it
+    // Own guard: book() can be the first market call of the window, so it
     // cannot rely on getOrdersCached() having rolled the cache yet.
-    if(bookCacheTick !== Game.time) {
+    if(Game.time - bookCacheTick >= ORDER_CACHE_TTL || Game.time < bookCacheTick) {
         bookCacheTick = Game.time;
         bookCache = {};
     }
@@ -156,7 +183,8 @@ let fairCache: {[res:string]: number} = {};
  * refuse to trade.
  */
 export function fair(resource:ResourceConstant):number {
-    if(fairCacheTick !== Game.time) {
+    // fair() is history-first, and history is daily data. See HISTORY_CACHE_TTL.
+    if(Game.time - fairCacheTick >= HISTORY_CACHE_TTL || Game.time < fairCacheTick) {
         fairCacheTick = Game.time;
         fairCache = {};
     }
