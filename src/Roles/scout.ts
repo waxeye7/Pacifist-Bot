@@ -37,17 +37,21 @@ import { recordRoomIfStale } from "War/intel";
 function giveUpOnTarget(creep, why: string): void {
     const homeMem = Memory.rooms[creep.memory.homeRoom];
     const target = creep.memory.targetRoom;
-    if(homeMem && homeMem.resources && target) {
-        if(!homeMem.resources[target]) {
-            homeMem.resources[target] = {};
-        }
+    // Never CREATE the entry. The remote spawn rung only ever scouts a room
+    // that already has one with `active` set, so a missing entry means nobody
+    // in the remote layer asked about this room and writing one would do
+    // nothing but grow Memory - which this bot pays for twice, once in the
+    // parse and once in the serialise.
+    const ent: any = homeMem && homeMem.resources && target && homeMem.resources[target];
+    if(ent) {
         // Empty `energy` is the rejection signal manageRemotes reads, and it is
         // also what closes the spawn rung's `!entry.energy` gate. Never
-        // permanent (retryAt 0) — unreachable is a fact about today's
+        // permanent (retryAt 0) - unreachable is a fact about today's
         // AvoidRooms list and today's neighbours, not about the map.
-        homeMem.resources[target].energy = {};
-        homeMem.resources[target].active = false;
-        homeMem.resources[target].retryAt = Game.time + rescoutDelay(creep.memory.homeRoom, target);
+        ent.energy = {};
+        ent.active = false;
+        ent.retryAt = Game.time + rescoutDelay(creep.memory.homeRoom, target);
+        delete ent._scoutTry;
         console.log("[remotes] scout gave up on", target, "for", creep.memory.homeRoom, "(" + why + ")");
     }
     creep.suicide();
@@ -66,11 +70,20 @@ const run = function (creep) {
         // findRoute said there is nowhere to walk. Retrying is not free: the
         // recompute gate in moveToRoomAvoidEnemyRooms keys on exactly this
         // value, so holding it costs a findRoute a tick until we expire.
-        if(creep.memory.route === ERR_NO_PATH) {
-            return giveUpOnTarget(creep, "no route");
-        }
-        if(creep.ticksToLive != null && creep.ticksToLive <= SCOUT_GIVE_UP_TTL) {
-            return giveUpOnTarget(creep, "expired en route");
+        const noRoute = creep.memory.route === ERR_NO_PATH;
+        const dying = creep.ticksToLive != null && creep.ticksToLive <= SCOUT_GIVE_UP_TTL;
+        if(noRoute || dying) {
+            // A war scout is the WAR layer's errand (War/dispatch spawns it
+            // with warScout set, and RemoteStats already refuses to bill it to
+            // a remote). It must not write a verdict into the remote layer's
+            // books about a room the remote layer never asked about. Dying
+            // quietly is still strictly better than holding ERR_NO_PATH, which
+            // is itself the recompute trigger.
+            if(creep.memory.warScout) {
+                creep.suicide();
+                return;
+            }
+            return giveUpOnTarget(creep, noRoute ? "no route" : "expired en route");
         }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
@@ -95,6 +108,10 @@ const run = function (creep) {
     if(!homeMem.resources[creep.room.name].energy) {
         homeMem.resources[creep.room.name].energy = {};
     }
+    // We got here, so the trip is possible. Reset the spawn-side attempt
+    // budget (rooms.spawning, SCOUT_TRY_MAX) whatever the verdict turns out
+    // to be -- the budget counts trips that never arrived, not rejections.
+    delete homeMem.resources[creep.room.name]._scoutTry;
 
     let sources = creep.room.find(FIND_SOURCES);
 

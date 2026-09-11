@@ -61,8 +61,8 @@ describe("a scout that cannot arrive gives up out loud", () => {
   it("writes the SAME rejection signal the arrival path writes", () => {
     // manageRemotes and the spawn rung both read an empty `energy` as
     // "scouted and rejected". Anything else leaves the entry unscouted.
-    assert.include(FN, "homeMem.resources[target].energy = {};");
-    assert.include(FN, "homeMem.resources[target].active = false;");
+    assert.include(FN, "ent.energy = {};");
+    assert.include(FN, "ent.active = false;");
   });
 
   it("writes against the TARGET room, not the room it is standing in", () => {
@@ -75,8 +75,8 @@ describe("a scout that cannot arrive gives up out loud", () => {
   it("sets an expiry rather than a permanent no", () => {
     // Unreachable is a fact about today's AvoidRooms list and today's
     // neighbours. retryAt 0 means never again and would be wrong here.
-    assert.include(FN, "Game.time + rescoutDelay(creep.memory.homeRoom, target)");
-    assert.notInclude(FN, "retryAt = 0");
+    assert.include(FN, "ent.retryAt = Game.time + rescoutDelay(creep.memory.homeRoom, target);");
+    assert.notInclude(FN, "retryAt = 0;");
   });
 
   it("reuses rescoutDelay so a remote that paid us keeps the short leash", () => {

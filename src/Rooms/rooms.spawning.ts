@@ -1,7 +1,7 @@
 import { MAINT_BANK_RESUME, shellIsBreached } from "Roles/maintainer";
 import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
-import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset } from "./rooms.remotes";
+import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset, rescoutDelay } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
@@ -3103,6 +3103,51 @@ function add_creeps_to_spawn_list(room, spawn) {
                 if(room.memory.resources[remoteRoom].active &&
                 !room.memory.resources[remoteRoom].energy
                 ) {
+                    /*
+                     * A SCOUT THAT IS KILLED EN ROUTE CANNOT GIVE UP, BECAUSE
+                     * NOTHING OF OURS IS LEFT TO RUN.
+                     *
+                     * Roles/scout now writes a verdict when it cannot route
+                     * and when it is about to expire, which closes the two
+                     * failures the creep can observe. It cannot close the
+                     * third. Game.map.findRoute prices an AvoidRooms hop at
+                     * 24 rather than Infinity -- deliberately, because a
+                     * hostile room is sometimes the only way through -- so a
+                     * route straight through a tower room is a legal route,
+                     * and the scout walks it and dies. No suicide, no verdict,
+                     * and the entry is still "active with no energy key", so
+                     * this rung buys another one. Forever.
+                     *
+                     * Live shard3 2026-09-11, Memory.rstats over an 845,937
+                     * tick window: E35N58|E34N57 spawned 554 scouts for 27,700
+                     * energy and delivered nothing. Watched live the same day,
+                     * E35N58's scout for E34N57 held the route
+                     * E36N57 > E35N57 > E34N57, and E35N57 is in
+                     * Memory.AvoidRooms -- which is a list a room only joins
+                     * by killing something of ours.
+                     *
+                     * So budget the attempts here, where the death is visible
+                     * as "we paid again". Three is enough to tell an unlucky
+                     * trip from an impossible one, and costs 150 energy rather
+                     * than 27,700. The verdict written is the same one the
+                     * scout writes on arrival-and-reject, so manageRemotes and
+                     * the gate above both already understand it, and it
+                     * expires -- unreachable is a fact about today's
+                     * AvoidRooms list, not about the map.
+                     */
+                    const ent: any = room.memory.resources[remoteRoom];
+                    if((ent._scoutTry || 0) >= SCOUT_TRY_MAX) {
+                        ent.energy = {};
+                        ent.active = false;
+                        ent.retryAt = Game.time + rescoutDelay(room.name, remoteRoom);
+                        delete ent._scoutTry;
+                        console.log("[remotes] giving up scouting", remoteRoom, "from", room.name,
+                            "after", SCOUT_TRY_MAX, "scouts that never arrived");
+                        // NOT `break`. The whole point is that an unreachable
+                        // room at the head of this list was starving every
+                        // other candidate behind it of the room's one scout.
+                        continue;
+                    }
                     // "Staff your own sources before you go looking for more"
                     // was written as a flat `> 1`, which a ONE-SOURCE commune
                     // can never satisfy — its miner census tops out at 1, so
@@ -3112,7 +3157,28 @@ function add_creeps_to_spawn_list(room, spawn) {
                     // one miner standing in the room. Ask for a miner per local
                     // source instead, still capped at the original bar of two.
                     const localSources = room.find(FIND_SOURCES).length;
-                    if(scouts < 1 && EnergyMinersInRoom >= Math.min(2, localSources)) {
+                    /*
+                     * ONE ATTEMPT MUST MEAN ONE TRIP, or the budget above is
+                     * spent in three ticks instead of three scouts. `scouts`
+                     * counts LIVE creeps, so a scout sitting in spawn_list
+                     * waiting for the spawn does not suppress this rung and it
+                     * would re-push and re-count every tick until the creep
+                     * exists. The same debounce covers a queue wipe
+                     * (idleQueueShouldWipe), which would otherwise charge for a
+                     * scout that was never built.
+                     *
+                     * 100 ticks is far longer than any queue-plus-spawn latency
+                     * for a 1-part creep and far shorter than the 1,500-tick
+                     * life of one that does hatch -- while it is alive,
+                     * `scouts < 1` is the gate that holds.
+                     */
+                    if(scouts < 1 && Game.time - (ent._scoutAt || 0) >= SCOUT_TRY_DEBOUNCE
+                       && EnergyMinersInRoom >= Math.min(2, localSources)) {
+                        // Counted on the way out, cleared by the scout the
+                        // moment it arrives (Roles/scout). A trip that ends in
+                        // a verdict of any kind never spends from this budget.
+                        ent._scoutTry = (ent._scoutTry || 0) + 1;
+                        ent._scoutAt = Game.time;
                         let newName = 'Scout-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout', homeRoom: room.name, targetRoom: remoteRoom}});
                         console.log('Adding Scout to Spawn List: ' + newName);
@@ -4392,6 +4458,16 @@ const CPU_CRISIS_BUCKET = 1500;
  * rung is a downgrade rung and its want is 1 anyway.)
  * ------------------------------------------------------------------------- */
 /** limits at or below this are the small-allowance shards the clamp is for */
+/**
+ * How many scouts may vanish on the way to one room before we stop paying.
+ * Three tells an unlucky trip from an impossible one for 150 energy; the
+ * measured alternative was 554 scouts and 27,700 energy at one room.
+ */
+const SCOUT_TRY_MAX = 3;
+
+/** Minimum ticks between two counted attempts at the same room. */
+const SCOUT_TRY_DEBOUNCE = 100;
+
 const UPGRADER_CLAMP_LIMIT = 20;
 /** ...and the bucket has to be under this for it to bite */
 const UPGRADER_CLAMP_BUCKET = 6000;

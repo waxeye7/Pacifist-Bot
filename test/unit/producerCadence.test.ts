@@ -43,7 +43,10 @@ describe("the spawn producer runs on a real cadence", () => {
     // Seven rooms on a bare residue deliver the same total work as one spike.
     // This bot has been bitten by that five separate times; see
     // roomCadencePhase.test.ts and maintainerOverrideCap.test.ts.
-    assert.include(SP, 'roomTickOffset } from "./rooms.remotes"');
+    // Pinned by name, not by position in the import list: the list grows.
+    const imp = SP.slice(SP.indexOf('from "./rooms.remotes"') - 200,
+                         SP.indexOf('from "./rooms.remotes"'));
+    assert.include(imp, "roomTickOffset");
   });
 
   it("leaves the %500 arm on plain Game.time, as its own comment requires", () => {
