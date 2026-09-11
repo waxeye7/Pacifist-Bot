@@ -3539,6 +3539,11 @@ function add_creeps_to_spawn_list(room, spawn) {
         .concat(room.find(FIND_RUINS, { filter: sweepLoot }) as any[]);
     const tombRuinLoot = tombsAndRuins.length;
     let sweepLootAmount = _.sum(tombsAndRuins, sweepAmountOf);
+    // Minerals, power and compounds are worth a trip at almost any amount, so
+    // they skip the value gate below. Energy is the only thing cheap enough to
+    // be worth less than the creep sent to fetch it.
+    let sweepHasGoods = sweepBulkSink && tombsAndRuins.some((s: any) =>
+        _.sum(s.store) - (s.store[RESOURCE_ENERGY] || 0) > 0);
     // RCL1–3 drop-mine piles sit on the source tile and hit 50e in ~13 ticks
     // of a 2W miner. Carriers already haul those; a sweeper here is a 150e
     // HOL tax on the upgraders. Only tombs/ruins or stray (off-source) piles.
@@ -3558,14 +3563,51 @@ function add_creeps_to_spawn_list(room, spawn) {
             r.amount >= 50 && (sweepBulkSink || r.resourceType == RESOURCE_ENERGY) });
         looseLootCount += piles.length;
         sweepLootAmount += _.sum(piles, (r: any) => r.amount);
+        if(piles.some((r: any) => r.resourceType != RESOURCE_ENERGY)) sweepHasGoods = true;
     }
+    /*
+     * A TOMBSTONE HOLDING 5 ENERGY HATCHED A 300-ENERGY CREEP.
+     *
+     * `sweepLoot` accepts a tombstone or ruin with a store of ONE. Dropped
+     * piles have carried a `>= 50` floor forever; tombs and ruins never got
+     * one, which is the tell that the value question was simply never asked
+     * on that path. So any creep that expires anywhere with a few energy left
+     * in it hatches a sweeper, and the roster rung then reads pile COUNT, not
+     * amount, so one scrap is enough.
+     *
+     * Live shard3 2026-09-11, sampled across all seven rooms: six sweepers
+     * alive, five of them in rooms with zero tombstones, zero ruins and zero
+     * dropped piles, holding 2, 5, 22, 39 and 0 energy. They had been hatched
+     * for scraps and had already eaten them. Memory.cpuSkip over the same
+     * window: 186 creep-runs dropped by the CPU latch in 42 ticks, of which
+     * 107 were sweepers — the single largest discretionary load in the empire,
+     * and the first thing the latch throws overboard.
+     *
+     * That matters here because CPU is the binding constraint on this account,
+     * not energy: the remote cap sits at 1 because the headroom rung measures
+     * 1.95 CPU of slack against a 20 limit. Six sweepers at ~0.25 CPU each are
+     * ~1.3 of that 1.95.
+     *
+     * So make the trade explicit. The smallest RCL4+ sweeper is 4 CARRY and
+     * 2 MOVE, which is 300 energy and returns about half on recycle. Asking
+     * the floor to hold at least the cost of the body is break-even before the
+     * recycle and before any CPU at all, and it is a bar that one scrap can
+     * never clear. Below it the energy is genuinely better left to rot.
+     *
+     * Not applied below RCL4: that rung buys a 150-energy creep, its loot
+     * rules already exclude the drop-mine piles on the source tile, and a
+     * bootstrapping room has no slack to leave anything on the floor.
+     */
+    const SWEEP_WORTH_IT = 300;
     // RCL1–3: one small sweeper if there's real loot; RCL4+: scale with storage
     const wantSweepers =
         looseLootCount === 0
             ? 0
             : room.controller.level < 4
               ? 1
-              : Math.max(1, Math.floor((looseLootCount + 1) / 3));
+              : (sweepHasGoods || sweepLootAmount >= SWEEP_WORTH_IT)
+                ? Math.max(1, Math.floor((looseLootCount + 1) / 3))
+                : 0;
     if (
         optionalRosterOpen() &&
         wantSweepers > 0 &&

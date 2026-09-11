@@ -18,7 +18,7 @@ import fs from "fs";
  */
 const SPAWNING = fs.readFileSync("src/Rooms/rooms.spawning.ts", "utf8");
 const at = SPAWNING.indexOf("Sweep floor loot");
-const RUNG = SPAWNING.slice(at, at + 6000);
+const RUNG = SPAWNING.slice(at, at + 9000);
 
 describe("the sweeper body scales with the pile", () => {
   it("has the rung at all", () => {
