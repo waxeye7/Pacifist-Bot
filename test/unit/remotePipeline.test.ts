@@ -155,10 +155,19 @@ describe("RemoteRepairer spawn gate works blind", () => {
 
 describe("reserving is a policy", () => {
     it("a cpu-tight shard runs remotes unreserved unless the bucket is pegged", () => {
+        /*
+         * UPDATED 2026-09-11: the bar is still 9,500 and still the owner's, but
+         * it is read through a latch now instead of compared inline. Reserving
+         * moves the very number this gate reads, so a bare edge would arm and
+         * disarm the whole remote economy on alternating ticks. The band and
+         * the latch behaviour are tested against the live function in
+         * test/unit/reserveBucketLatch.
+         */
         const at = SPAWNING.indexOf("function reserverGate");
         assert.isAbove(at, -1);
         assert.match(SPAWNING.slice(at, at + 2200),
-            /Game\.cpu\.limit < 30 && Game\.cpu\.bucket < 9500/);
+            /Game\.cpu\.limit < 30 && !reserveBucketLatch\(\)/);
+        assert.match(SPAWNING, /const RESERVE_BUCKET_ARM = 9500;/);
     });
 
     it("reserver bodies cap at 3 CLAIM pairs (the 8xCLAIM monster is gone)", () => {

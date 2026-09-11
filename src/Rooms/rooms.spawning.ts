@@ -6667,6 +6667,45 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
  * have no free claim slots — if GCL is ahead of our owned-room count there is a
  * free room glut and claiming a room outright beats reserving someone's.
  */
+/**
+ * ONE THRESHOLD CANNOT SWITCH AN ECONOMY ON AND OFF.
+ *
+ * The CPU arm of reserverGate read `Game.cpu.bucket < 9500` directly. That is a
+ * bare edge on the one number reserving itself moves: reservation doubles a
+ * remote source from 5 to 10 e/tick, and everything downstream sizes off the
+ * actual reservation state - miner WORK count, carrier fleet size, remote
+ * budget. So the moment the bucket touched 9,500 the empire would arm
+ * reservers, roughly double its remote creep count and its intent CPU, push
+ * the bucket back under 9,500, and disarm - with the miner bodies and carrier
+ * demand flapping with it, a spawn cycle at a time.
+ *
+ * This bot has been bitten by exactly this shape before and says so in
+ * seatContainerUpkeep.test: "the rescue bar and the stop-repairing bar have to
+ * be far apart, or a box hovering on one number switches cadence every hundred
+ * ticks."
+ *
+ * Live shard3 2026-09-11: bucket 4,104 -> 4,325 -> 4,285 -> 4,304 against a
+ * billed 19.8 of a 20 limit, i.e. creeping up at well under a point a tick.
+ * It has not reached the bar yet, which is the only reason the flap has never
+ * been observed - it is on course to reach it.
+ *
+ * ARM at 9,500, DISARM at 6,000. Latched in Memory so it survives a global
+ * reset, and read once per tick.
+ */
+const RESERVE_BUCKET_ARM = 9500;
+const RESERVE_BUCKET_DISARM = 6000;
+
+export function reserveBucketLatch(): boolean {
+    const m: any = Memory as any;
+    const bucket = Game.cpu.bucket;
+    if (m._rsvLatch) {
+        if (bucket < RESERVE_BUCKET_DISARM) m._rsvLatch = false;
+    } else if (bucket >= RESERVE_BUCKET_ARM) {
+        m._rsvLatch = true;
+    }
+    return !!m._rsvLatch;
+}
+
 function reserverGate(room): { ok: boolean; reason: string } {
     const lvl = room.controller ? room.controller.level : 0;
     const owned = _.filter(Game.rooms, (r: any) => r.controller && r.controller.my).length;
@@ -6683,7 +6722,7 @@ function reserverGate(room): { ok: boolean; reason: string } {
      * flips the whole economy coherently. A pegged bucket (>=9500) means CPU
      * is genuinely spare, and reserving becomes profitable again.
      */
-    if (Game.cpu.limit < 30 && Game.cpu.bucket < 9500) {
+    if (Game.cpu.limit < 30 && !reserveBucketLatch()) {
         return { ok: false, reason: "cpu-tight shard (limit " + Game.cpu.limit + ", bucket " + Game.cpu.bucket + "): running remotes unreserved" };
     }
 
