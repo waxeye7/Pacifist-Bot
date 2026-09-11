@@ -313,15 +313,61 @@ export function getCpuPolicy(): CpuPolicyState {
      * 0.5, pathing); the rung is what the average can actually pay for.
      */
     const headroom = avg > 0 ? limit - avg : limit;
-    const headroomRung = !lowCpu ? 99 : headroom >= 4 ? 3 : headroom >= 2.5 ? 2 : 1;
-    const raw = Math.min(rungs(bucket), headroomRung);
-    const prev = Number((Memory as any)._maxRemotesHyst) || 0;
-    if (prev > 0 && raw !== prev) {
-      if (raw > prev) maxRemotes = rungs(bucket - 700) > prev ? raw : prev;
-      else maxRemotes = rungs(bucket + 700) < prev ? raw : prev;
-    } else {
-      maxRemotes = raw;
+    const headRungs = (h: number) =>
+      !lowCpu ? 99 : h >= 4 ? 3 : h >= 2.5 ? 2 : 1;
+
+    /*
+     * THE DEADBAND SILENTLY DISABLED THE HEADROOM RUNG IT SITS ON TOP OF.
+     *
+     * The old code took `raw = Math.min(rungs(bucket), headroomRung)` and then
+     * smoothed it by asking whether `rungs(bucket +/- 700)` would agree. That
+     * is a question about the BUCKET applied to a number that may have been
+     * decided by the AVERAGE, and the two do not move together.
+     *
+     * Worked example, the exact incident the headroom rung was written for:
+     * bucket 8500 so rungs() says 3, avg climbs to 19 so headRungs() says 1,
+     * raw is 1, prev is 3. The down-arm asks `rungs(8500 + 700) < 3` — 9200 is
+     * still the top rung, so the answer is no and maxRemotes stays 3. While
+     * the bucket is above 8700 the headroom cut can NEVER bite. The cap only
+     * falls once the bucket has already drained through the rung boundary,
+     * which is precisely the lag the headroom rung exists to remove.
+     *
+     * So smooth the bucket rung against the bucket, which is the thing that
+     * grazes its thresholds, and apply the headroom as a hard cap afterwards.
+     * The bucket rung needs its own memory: `_maxRemotesHyst` is the FINAL
+     * answer and comparing a bucket rung against it is the original mistake.
+     */
+    const bucketRung = rungs(bucket);
+    const prevB = Number((Memory as any)._maxRemotesBucketRung) || 0;
+    let smoothed = bucketRung;
+    if (prevB > 0 && bucketRung !== prevB) {
+      if (bucketRung > prevB) smoothed = rungs(bucket - 700) > prevB ? bucketRung : prevB;
+      else smoothed = rungs(bucket + 700) < prevB ? bucketRung : prevB;
     }
+    (Memory as any)._maxRemotesBucketRung = smoothed;
+
+    /*
+     * The headroom rung needs hysteresis of its own for the same reason the
+     * bucket rung does, and more urgently: closing a remote LOWERS the average
+     * it is measured against, so a bare threshold is an oscillator whose only
+     * action is the one that clears it. A remote is ~1 CPU, so crossing a rung
+     * moves `avg` by about 1 and lands back on the other side of the bar.
+     *
+     * The rungs sit 1.5 CPU apart (2.5 and 4.0), so 0.75 either way is the
+     * widest deadband that still lets both boundaries be reached — and it is
+     * exactly one remote wide, which is the step the feedback loop takes.
+     */
+    const HEADROOM_DEADBAND = 0.75;
+    const rawH = headRungs(headroom);
+    const prevH = Number((Memory as any)._maxRemotesHeadRung) || 0;
+    let headroomRung = rawH;
+    if (prevH > 0 && rawH !== prevH) {
+      if (rawH > prevH) headroomRung = headRungs(headroom - HEADROOM_DEADBAND) > prevH ? rawH : prevH;
+      else headroomRung = headRungs(headroom + HEADROOM_DEADBAND) < prevH ? rawH : prevH;
+    }
+    (Memory as any)._maxRemotesHeadRung = headroomRung;
+
+    maxRemotes = Math.min(smoothed, headroomRung);
   }
   (Memory as any)._maxRemotesHyst = maxRemotes;
 

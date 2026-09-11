@@ -189,8 +189,46 @@ describe("CPU governor hysteresis", () => {
     });
 
     it("maxRemotes rungs carry a 700-bucket deadband against grazing", () => {
-        assert.match(POLICY, /rungs\(bucket - 700\) > prev \? raw : prev/);
-        assert.match(POLICY, /rungs\(bucket \+ 700\) < prev \? raw : prev/);
+        // The deadband is a question about the BUCKET, so it must be asked of
+        // the bucket rung and of a remembered bucket rung. It used to be asked
+        // of `raw` and `prev`, which are the FINAL cap after the headroom rung
+        // has already cut it -- see the next test.
+        assert.match(POLICY, /rungs\(bucket - 700\) > prevB \? bucketRung : prevB/);
+        assert.match(POLICY, /rungs\(bucket \+ 700\) < prevB \? bucketRung : prevB/);
+        assert.include(POLICY, "(Memory as any)._maxRemotesBucketRung = smoothed;");
+    });
+
+    it("the bucket deadband cannot swallow the headroom cut", () => {
+        /*
+         * Live shape: bucket 8500 so rungs() says 3, avg climbs to 19 so the
+         * headroom rung says 1, raw is 1 and prev is 3. The old down-arm asked
+         * `rungs(8500 + 700) < 3` -- 9200 is still the top rung, so the answer
+         * was no and the cap stayed at 3. While the bucket was above 8700 the
+         * headroom cut could never bite, and the headroom rung exists for
+         * exactly the incident where the bucket is still full and the average
+         * is already over budget.
+         *
+         * The headroom must therefore be a hard cap applied AFTER the
+         * smoothing, never an input to it.
+         */
+        assert.include(POLICY, "maxRemotes = Math.min(smoothed, headroomRung);");
+        const smooth = POLICY.indexOf("_maxRemotesBucketRung = smoothed;");
+        const cap = POLICY.indexOf("maxRemotes = Math.min(smoothed, headroomRung);");
+        assert.isAbove(cap, smooth, "the headroom cap comes last");
+        assert.notMatch(POLICY, /const raw = Math\.min\(rungs\(bucket\), headroomRung\);/);
+    });
+
+    it("the headroom rung has hysteresis one remote wide", () => {
+        // Closing a remote LOWERS the average the rung is measured against, so
+        // a bare threshold is an oscillator whose only action clears it. A
+        // remote is ~1 CPU and the rungs sit 1.5 apart, so 0.75 either way is
+        // the widest deadband that still lets both boundaries be reached.
+        assert.include(POLICY, "const HEADROOM_DEADBAND = 0.75;");
+        assert.match(POLICY, /headRungs\(headroom - HEADROOM_DEADBAND\) > prevH \? rawH : prevH/);
+        assert.match(POLICY, /headRungs\(headroom \+ HEADROOM_DEADBAND\) < prevH \? rawH : prevH/);
+        const band = Number((POLICY.match(/const HEADROOM_DEADBAND = ([\d.]+);/) || [])[1]);
+        assert.isBelow(band, 0.75001, "wider than half the 1.5 rung gap pins a rung forever");
+        assert.isAbove(band, 0, "zero is the oscillator this test exists to stop");
     });
 
     it("the %500 panic valve stamps closedAt on the transition", () => {
