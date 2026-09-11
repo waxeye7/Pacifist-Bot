@@ -71,6 +71,54 @@ const MAX_CCK = 3;
 const MAX_MOSQUITO = 2;
 const MAX_WAR_SCOUTS = 2;
 
+/* -------------------------------------------------------------------------
+ * TWO LOOKOUTS ON A PERMANENT TREADMILL, FOR A WAR LAYER SCORING ZERO TARGETS.
+ *
+ * sendWarScout asks scoutQueue(1000) for rooms whose intel is older than a
+ * thousand ticks, and the reach set is ~189 rooms. Keeping all of them under
+ * 1,000 ticks old needs one scout ARRIVING every five ticks; one scout takes
+ * hundreds of ticks to cross the map. So the queue is never empty, there is no
+ * state in which the fleet is "caught up", and the cap is therefore the
+ * behaviour: two scouts alive, always, forever.
+ *
+ * Live shard3 2026-09-11: Memory.war.stats read scout 2,339 of 3,081 lifetime
+ * issues since tick 82,293,998 — one scout every 258 ticks for 604,700 ticks,
+ * ~117,000 energy — while `warTargets` scored 0, footing was off and no room
+ * was in danger. The diary shows the same handful of rooms recycling
+ * (E34N57 at t=82,898,223 and again at t=82,898,523) because a 1,000-tick bar
+ * re-queues the CLOSEST rooms long before a scout can reach the far ones.
+ *
+ * Two changes, both only at peace:
+ *
+ *   AGE  — 1,000 is a wartime number. At peace the bar goes to
+ *          WAR_SCOUT_AGE_PEACE, which does not drain the queue either but
+ *          stops the near rooms from crowding out the rest, so the same
+ *          number of trips covers more of the map.
+ *   CAP  — on a CPU-capped shard, one lookout instead of two. Creeps are
+ *          billed per intent and headcount IS the bill here; the second
+ *          scout buys a marginally fresher copy of intel nothing is acting
+ *          on.
+ *
+ * NOT a bucket gate, for the reason DISPATCH_EVERY spells out below: a war
+ * machine that goes blind when the bucket dips is the failure this file's
+ * header warns about. At war both numbers snap straight back.
+ * ------------------------------------------------------------------------- */
+const WAR_SCOUT_AGE_WAR = 1000;
+const WAR_SCOUT_AGE_PEACE = 6000;
+
+/** True when nothing is being fought: no scored target, no distress, no danger. */
+export function warAtPeace(targetCount: number): boolean {
+  if (targetCount > 0) return false;
+  const M: any = Memory as any;
+  if (M.DistressSignals && Object.keys(M.DistressSignals).length > 0) return false;
+  const owned = ownedRooms();
+  for (let i = 0; i < owned.length; i++) {
+    const r = Game.rooms[owned[i]];
+    if (r && r.memory && (r.memory as any).danger) return false;
+  }
+  return true;
+}
+
 let lastIssued: string[] = [];
 let lastTick = -1;
 
@@ -332,11 +380,12 @@ function pickScoutHome(target: string): string {
   return best;
 }
 
-function sendWarScout(): boolean {
+function sendWarScout(peace: boolean): boolean {
   if ((Memory as any)._spawnEmergency || (Memory as any).spawnRescue) return false;
   const { live, aimed } = warScoutCount();
-  if (live >= MAX_WAR_SCOUTS) return false;
-  const q = scoutQueue(1000);
+  const cap = peace && lowCpuShard() ? 1 : MAX_WAR_SCOUTS;
+  if (live >= cap) return false;
+  const q = scoutQueue(peace ? WAR_SCOUT_AGE_PEACE : WAR_SCOUT_AGE_WAR);
   let target = "";
   for (let i = 0; i < q.length; i++) {
     if (!aimed[q[i]]) {
@@ -460,7 +509,7 @@ export function runDispatch(): void {
 
   // No observers until RCL8. Without these 50-energy lookouts the intel DB
   // only ever sees our own rooms and dispatch stays at 0 forever.
-  if (sendWarScout()) {
+  if (sendWarScout(warAtPeace(list.length))) {
     lastIssued.push("scout");
   }
 }
