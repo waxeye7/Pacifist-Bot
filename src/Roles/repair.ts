@@ -102,9 +102,17 @@ function shellMin(room: any): number {
     if(Game.time - (room.memory._shellColT || 0) < 50 && room.memory._shellMin !== undefined) {
         return room.memory._shellMin;
     }
+    // SANCTIONED, not merely un-buried. findLocked refuses to repair an
+    // off-plan rampart from RCL6 up, and rooms.defence pins abandoned off-plan
+    // tiles at ~1,200 hits forever with its hole-prevention save. Measuring the
+    // shell against a tile the repairer is forbidden to touch would hold the
+    // band at its floor and the collapse flag at true for the life of the
+    // room — a cap the room could never climb out of. isSanctionedRampart
+    // fails open (no plan and no perimeter => true), so a legacy room is
+    // measured against its whole ring exactly as before.
     const ramparts = room.find(FIND_MY_STRUCTURES, {
         filter: (s: any) => s.structureType === STRUCTURE_RAMPART &&
-            !rampartIsBuried(room, s.pos),
+            !rampartIsBuried(room, s.pos) && isSanctionedRampart(room, s.pos),
     }) as any[];
     let min = Infinity;
     for(let i = 0; i < ramparts.length; i++) {

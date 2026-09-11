@@ -83,6 +83,14 @@ describe("a collapsed shell outranks the work-side bank floor", () => {
     assert.match(CODE, /!rampartIsBuried\(room, s\.pos\)/);
   });
 
+  it("measures only tiles the repairer is allowed to touch", () => {
+    // findLocked refuses an off-plan rampart from RCL6 up, and the tower
+    // hole-prevention save pins an abandoned one at ~1,200 hits forever.
+    // Measuring the shell against a tile the repairer cannot repair would
+    // hold the levelling band at its floor for the life of the room.
+    assert.include(CODE, "isSanctionedRampart(room, s.pos)");
+  });
+
   it("caches the scan instead of scanning every tick", () => {
     // This runs for every repairer in the empire, every tick, before any of
     // them has done anything. A FIND_MY_STRUCTURES sweep per pass is the kind

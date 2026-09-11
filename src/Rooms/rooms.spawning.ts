@@ -2,6 +2,7 @@ import { MAINT_BANK_RESUME, shellIsBreached } from "Roles/maintainer";
 import { roomPart } from "utils/Profile";
 import construction, { searchRemoteHaulPath } from "./rooms.construction";
 import { remoteIsHot, markRemoteHot, remoteHasHostileTower, roomTickOffset, rescoutDelay } from "./rooms.remotes";
+import { isSanctionedRampart } from "utils/PlanV2";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
 import { rampartHitsTarget } from "./rooms.defence";
@@ -2117,7 +2118,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 !!(room.memory.danger && room.energyAvailable < room.energyCapacityAvailable/1.5));
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairRosterOpen(repairers, rampartsInRoom) && (repairers < spawnrules[4].repair_creep.amount + 6 && room.energyAvailable > room.energyCapacityAvailable / 1.3 || room.memory.danger && repairers < spawnrules[4].repair_creep.amount + 10) && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[4].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 20000 && repairers < spawnrules[4].repair_creep.amount ||  (storage.store[RESOURCE_ENERGY] > 15000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 5000) && repairers < spawnrules[4].repair_creep.amount + 1 && (rampartsInRoom.filter(function(s) {return s.hits < 60000}).length || room.memory.danger_timer > 50))) {
+            if(repairRosterOpen(room, repairers, rampartsInRoom) && (repairers < spawnrules[4].repair_creep.amount + 6 && room.energyAvailable > room.energyCapacityAvailable / 1.3 || room.memory.danger && repairers < spawnrules[4].repair_creep.amount + 10) && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[4].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 20000 && repairers < spawnrules[4].repair_creep.amount ||  (storage.store[RESOURCE_ENERGY] > 15000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 5000) && repairers < spawnrules[4].repair_creep.amount + 1 && (rampartsInRoom.filter(function(s) {return s.hits < 60000}).length || room.memory.danger_timer > 50))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2187,7 +2188,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             // (the dropped middle arm was `Game.time % 2000 < 400 && > 50000 &&
             // repairers < amount`, strictly narrower than the first arm)
-            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50) || shellRescueRepairer(storage, rampartsInRoom, repairers))) {
+            if(repairRosterOpen(room, repairers, rampartsInRoom) && repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50) || shellRescueRepairer(room, storage, rampartsInRoom, repairers))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2303,7 +2304,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // (banks 12-46k), so an RCL6 shell sat at the 3k tower floor. One
             // repairer (the low-CPU cap) walks it toward 100k off a 20k bank.
             const shellThin = rampartsInRoom?.filter(function(s) {return s.hits < 100000;}).length > 0;
-            if(repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 10000 && shellThin || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
+            if(repairRosterOpen(room, repairers, rampartsInRoom) && repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || storage.store[RESOURCE_ENERGY] > 10000 && shellThin || shellRescueRepairer(room, storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -2447,7 +2448,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // own fillers.
             const repairBody7 = storage && storage.store[RESOURCE_ENERGY] > 50000
                 ? spawnrules[7].repair_creep.body : spawnrules[6].repair_creep.body;
-            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || shellCritical7 && storage.store[RESOURCE_ENERGY] > 10000 || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
+            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000 || shellCritical7 && storage.store[RESOURCE_ENERGY] > 10000 || shellRescueRepairer(room, storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 // Was a hardcoded 4,050,000; rampartHitsTarget() gives 300,000
                 // at RCL7. Same reason as the RCL6 rung above — see there.
                 let rampartsBelowTarget7 = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
@@ -2577,7 +2578,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // FLAG: RCL8 repair floor was 280k vs RCL7 150k (R6.31).
             // (the dropped second arm was `Game.time % 3000 < 100 && > 150000`,
             // i.e. the first arm on 1 tick in 30)
-            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 150000 || shellRescueRepairer(storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
+            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 150000 || shellRescueRepairer(room, storage, rampartsInRoom, repairers)) && !queuedWithPrefix(room, 'Repair-')) {
                 // The ring-shaped E41N58 exclusion that used to be ANDed in here
                 // was a per-room hack in the shared brain for a room we no
                 // longer own.
@@ -5293,10 +5294,19 @@ const SHELL_COLLAPSED_HITS = 10000;
  */
 const SHELL_RESCUE_BANK = 5000;
 
-function shellCollapsed(ramparts?: any[]): boolean {
+/**
+ * SANCTIONED tiles only. rooms.defence's hole-prevention save pins an
+ * abandoned OFF-PLAN rampart at ~1,200 hits indefinitely, and Roles/repair
+ * refuses to repair one from RCL6 up — so an off-plan leftover would make this
+ * true forever and buy a rescue repairer that could never clear it.
+ * isSanctionedRampart fails open, so a legacy room is unaffected.
+ */
+function shellCollapsed(room: any, ramparts?: any[]): boolean {
     if(!ramparts) return false;
     for(let i = 0; i < ramparts.length; i++) {
-        if((ramparts[i].hits || 0) < SHELL_COLLAPSED_HITS) return true;
+        if((ramparts[i].hits || 0) >= SHELL_COLLAPSED_HITS) continue;
+        if(room && ramparts[i].pos && !isSanctionedRampart(room, ramparts[i].pos)) continue;
+        return true;
     }
     return false;
 }
@@ -5330,18 +5340,18 @@ function shellCollapsed(ramparts?: any[]): boolean {
  * shard caps the repair roster at one anyway (repairRosterOpen), and 58
  * ramparts at 2,000 hits is a room that loses everything to one raid.
  */
-function shellRescueRepairer(storage, ramparts: any[] | undefined, repairers: number): boolean {
+function shellRescueRepairer(room: any, storage, ramparts: any[] | undefined, repairers: number): boolean {
     if(repairers >= 1) return false;
     if(!storage || !storage.store) return false;
     if((storage.store[RESOURCE_ENERGY] || 0) <= SHELL_RESCUE_BANK) return false;
-    return shellCollapsed(ramparts);
+    return shellCollapsed(room, ramparts);
 }
 
-function repairRosterOpen(repairers:number, ramparts?: any[]): boolean {
+function repairRosterOpen(room: any, repairers:number, ramparts?: any[]): boolean {
     if(lowCpuShard() && repairers >= 1) return false;
     if(optionalRosterOpen()) return true;
     // Shell at the peacetime tower floor: one repairer even when CPU skip is on.
-    return shellCollapsed(ramparts);
+    return shellCollapsed(room, ramparts);
 }
 
 function getBody(segment:string[], room, bodyMaxLength=50, budgetFrac=0.85) {

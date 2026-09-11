@@ -39,7 +39,7 @@ describe("a collapsed shell can buy a repairer out of a poor bank", () => {
     // repairRosterOpen no longer carries its own copy of the loop or the number.
     const at = SP.indexOf("function repairRosterOpen(");
     const fn = SP.slice(at, at + 400);
-    assert.include(fn, "return shellCollapsed(ramparts);");
+    assert.include(fn, "return shellCollapsed(room, ramparts);");
     assert.notInclude(fn, "< 10000");
   });
 
@@ -56,19 +56,19 @@ describe("a collapsed shell can buy a repairer out of a poor bank", () => {
     const at = SP.indexOf("function shellRescueRepairer(");
     const fn = SP.slice(at, at + 500);
     assert.include(fn, "if(repairers >= 1) return false;");
-    assert.include(fn, "return shellCollapsed(ramparts);");
+    assert.include(fn, "return shellCollapsed(room, ramparts);");
   });
 
   it("is wired into the RCL6 rung that was dead on live", () => {
     const i = SP.indexOf("spawnrules[6].repair_creep.amount");
     const rung = SP.slice(i, i + 700);
-    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+    assert.include(rung, "shellRescueRepairer(room, storage, rampartsInRoom, repairers)");
   });
 
   it("is wired into RCL5 too, which had the same 10,000 floor", () => {
     const i = SP.indexOf("spawnrules[5].repair_creep.amount");
     const rung = SP.slice(i, i + 700);
-    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+    assert.include(rung, "shellRescueRepairer(room, storage, rampartsInRoom, repairers)");
   });
 
   it("covers RCL7, whose own critical arm still wants a 10,000 bank", () => {
@@ -78,13 +78,33 @@ describe("a collapsed shell can buy a repairer out of a poor bank", () => {
     // RCL6, one controller level up.
     const i = SP.indexOf("spawnrules[7].repair_creep.amount");
     const rung = SP.slice(i, i + 700);
-    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+    assert.include(rung, "shellRescueRepairer(room, storage, rampartsInRoom, repairers)");
   });
 
   it("covers RCL8, whose only energy arm is a flat 150,000", () => {
     const i = SP.indexOf("spawnrules[8].repair_creep.amount || room.controller.safeMode");
     const rung = SP.slice(i, i + 700);
-    assert.include(rung, "shellRescueRepairer(storage, rampartsInRoom, repairers)");
+    assert.include(rung, "shellRescueRepairer(room, storage, rampartsInRoom, repairers)");
+  });
+
+  it("measures only tiles a repairer is allowed to touch", () => {
+    /*
+     * rooms.defence's hole-prevention save deliberately keeps ANY rampart of
+     * ours off the floor, including one the plan has abandoned, and its own
+     * comment records the result: "an abandoned off-plan one pinned at ~1.2k
+     * by this very save". Roles/repair's RCL6+ filter refuses to repair an
+     * off-plan rampart at all. So a single leftover tile would make the
+     * collapse test true for the life of the room and buy a rescue repairer
+     * that could never clear the condition that bought it.
+     *
+     * Zero of the seven live rooms had an off-plan rampart on 2026-09-11
+     * (58/58, 61/61, 46/46, 46/46, 44/44, 33/33, 28/28 on plan), which is
+     * exactly why this has to be pinned rather than observed.
+     */
+    const at = SP.indexOf("function shellCollapsed(");
+    const fn = SP.slice(at, at + 600);
+    assert.include(fn, "isSanctionedRampart(room, ramparts[i].pos)");
+    assert.include(SP, 'import { isSanctionedRampart } from "utils/PlanV2";');
   });
 
   it("leaves the richer arms alone", () => {

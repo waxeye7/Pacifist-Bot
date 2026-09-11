@@ -78,8 +78,8 @@ describe("utils/CpuPolicy optionalRosterOpen", () => {
       5
     );
     assert.match(src, /function maintainerDemand[\s\S]{0,200}optionalRosterOpen\(\)/);
-    assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[5]");
-    assert.include(src, "repairRosterOpen(repairers, rampartsInRoom) && repairers < spawnrules[6]");
+    assert.include(src, "repairRosterOpen(room, repairers, rampartsInRoom) && repairers < spawnrules[5]");
+    assert.include(src, "repairRosterOpen(room, repairers, rampartsInRoom) && repairers < spawnrules[6]");
     assert.include(src, "optionalRosterOpen() &&\n        wantSweepers > 0");
   });
 });
