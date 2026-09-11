@@ -42,7 +42,7 @@ describe("miners keep their own seat container alive", () => {
     // Every miner in the empire on the same residue trades a saving for a
     // spike; this bot has been bitten by that repeatedly.
     assert.include(CODE, "const SEAT_BOX_EVERY = 25;");
-    assert.match(CODE, /nameOffset\(creep\.name, SEAT_BOX_EVERY\)\) % SEAT_BOX_EVERY !== 0/);
+    assert.match(CODE, /nameOffset\(creep\.name, every\)\) % every !== 0/);
   });
 
   it("needs energy of its own to spend", () => {
@@ -64,5 +64,52 @@ describe("miners keep their own seat container alive", () => {
     // reason this one is obviously correct, not something to replace.
     assert.match(CODE, /creep\.memory\.targetRoom != creep\.memory\.homeRoom/);
     assert.match(CODE, /if\(box && box\.hits < box\.hitsMax\) \{\s*\n\s*creep\.repair\(box\);/);
+  });
+});
+
+describe("a dying seat box gets a rescue cadence, not maintenance", () => {
+  /*
+   * One fire in 25 is 20 hits a tick for a 5-WORK miner against 10 a tick of
+   * decay — net +10, which takes a box from 12% of 250,000 to the 75% the rung
+   * stops at in 15,750 ticks, about fifteen real-time hours. A box at 12% has
+   * 3,000 ticks of life left.
+   *
+   * Live shard3 2026-09-11, hours after the slow rung shipped: E39N58 read SRC
+   * 12% and 12%, and had already lost a third container and was rebuilding it
+   * at 5,000 energy with a builder it also had to buy. E37N59 read 17% / 37%.
+   */
+  it("has a second, faster cadence", () => {
+    assert.include(CODE, "const SEAT_BOX_CRITICAL = 0.25;");
+    assert.include(CODE, "const SEAT_BOX_EVERY_CRITICAL = 10;");
+    assert.match(CODE, /creep\.memory\._seatBoxF < SEAT_BOX_CRITICAL[\s\S]{0,60}SEAT_BOX_EVERY_CRITICAL : SEAT_BOX_EVERY/);
+  });
+
+  it("cannot flap between the two cadences", () => {
+    // The rescue bar and the stop-repairing bar have to be far apart, or a box
+    // hovering on one number switches cadence every hundred ticks.
+    const crit = Number((CODE.match(/const SEAT_BOX_CRITICAL = ([\d.]+);/) || [])[1]);
+    const stop = Number((CODE.match(/const SEAT_BOX_REPAIR_BELOW = ([\d.]+);/) || [])[1]);
+    assert.isBelow(crit, stop - 0.3);
+  });
+
+  it("still costs a bounded slice of one source", () => {
+    // Repair and harvest are both work actions, so the cadence IS the price:
+    // one fire in 10 is a tenth of this miner's harvest. Anything faster is
+    // spending the seat to save the box.
+    const fast = Number((CODE.match(/const SEAT_BOX_EVERY_CRITICAL = (\d+);/) || [])[1]);
+    assert.isAtLeast(fast, 5);
+    const slow = Number((CODE.match(/const SEAT_BOX_EVERY = (\d+);/) || [])[1]);
+    assert.isBelow(fast, slow, "the rescue must actually be faster");
+  });
+
+  it("reads the wear from the same cache as the id, not a fresh lookup", () => {
+    // The point of the cadence is that the other 9 or 24 ticks cost nothing.
+    // Resolving the box every tick to decide whether to skip would undo it.
+    assert.match(CODE, /creep\.memory\._seatBoxF = found \? found\.hits \/ found\.hitsMax : 1;/);
+    const refresh = CODE.indexOf("creep.memory._seatBoxF = found");
+    const gate = CODE.indexOf("% every !== 0");
+    assert.isAbove(gate, refresh, "the cadence gate reads the cached fraction");
+    const lookup = CODE.indexOf("Game.getObjectById(creep.memory._seatBox)");
+    assert.isAbove(lookup, gate, "and the lookup happens only on a firing tick");
   });
 });

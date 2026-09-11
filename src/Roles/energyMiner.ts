@@ -616,18 +616,53 @@ function dumpMinerEnergy(creep: any): void {
  */
 const SEAT_BOX_REPAIR_BELOW = 0.75;
 const SEAT_BOX_EVERY = 25;
+/*
+ * ...AND ONE IN 25 IS NOT ENOUGH TO SAVE A BOX THAT IS ALREADY NEARLY GONE.
+ *
+ * The arithmetic: a 5-WORK miner repairs 500 hits when it fires, so one fire
+ * in 25 is 20 hits a tick against 10 a tick of decay — net +10. From 12% of
+ * 250,000 up to the 75% the rung stops at is 157,500 hits, which is 15,750
+ * ticks, about fifteen real-time hours. A box at 12% has only 30,000 hits
+ * left, i.e. 3,000 ticks, so the slow rung is fine for maintenance and much
+ * too slow for rescue.
+ *
+ * Live shard3 2026-09-11, one tick after the slow rung had been running for
+ * hours: E39N58 SRC 12% and 12% — and that room had ALREADY lost a third
+ * container and was rebuilding it at 5,000 energy with a builder it also had
+ * to buy. E37N59 read 17% and 37%.
+ *
+ * So a worn box gets maintenance and a dying one gets a rescue: one fire in
+ * 10 is +40 hits a tick net, which takes the same box from 12% to 75% in
+ * about 3,900 ticks. The price is a tenth of one miner's harvest instead of a
+ * twenty-fifth, for as long as the box is under a quarter full. Losing the
+ * seat costs the whole seat.
+ *
+ * The two thresholds are a long way apart (0.25 against 0.75), so the rung
+ * cannot flap between cadences.
+ */
+const SEAT_BOX_CRITICAL = 0.25;
+const SEAT_BOX_EVERY_CRITICAL = 10;
 
 function keepSeatBoxAlive(creep: any): boolean {
     // repair() spends the creep's own energy
     if(creep.store[RESOURCE_ENERGY] < 50) return false;
-    if((Game.time + nameOffset(creep.name, SEAT_BOX_EVERY)) % SEAT_BOX_EVERY !== 0) return false;
     if(!creep.memory._seatBoxT || Game.time - creep.memory._seatBoxT > 100) {
         creep.memory._seatBoxT = Game.time;
         const boxes = creep.pos.findInRange(
             cachedStructures(creep.room).filter((st: any) => st.structureType === STRUCTURE_CONTAINER), 1);
-        creep.memory._seatBox = boxes.length ? boxes[0].id : false;
+        const found: any = boxes.length ? boxes[0] : null;
+        creep.memory._seatBox = found ? found.id : false;
+        // Cached with the id so the cadence below costs no lookup on the 9 or
+        // 24 ticks out of 25 where nothing happens. A container's wear moves
+        // by 1,000 hits in 100 ticks; a 100-tick-old fraction is exact enough
+        // to pick between two cadences.
+        creep.memory._seatBoxF = found ? found.hits / found.hitsMax : 1;
     }
-    const box: any = creep.memory._seatBox && Game.getObjectById(creep.memory._seatBox);
+    if(!creep.memory._seatBox) return false;
+    const every = creep.memory._seatBoxF < SEAT_BOX_CRITICAL
+        ? SEAT_BOX_EVERY_CRITICAL : SEAT_BOX_EVERY;
+    if((Game.time + nameOffset(creep.name, every)) % every !== 0) return false;
+    const box: any = Game.getObjectById(creep.memory._seatBox);
     if(!box || box.hits >= box.hitsMax * SEAT_BOX_REPAIR_BELOW) return false;
     return creep.repair(box) === OK;
 }
