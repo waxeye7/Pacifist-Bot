@@ -198,6 +198,45 @@ export function canSpend(credits: number): boolean {
     return true;
 }
 
+/**
+ * Absolute credit floor for a REVENUE-GENERATING fee. Not the reserve: this
+ * exists only so a listing fee can never take the empire to zero credits and
+ * strand it with no way to pay the next one.
+ */
+export const LISTING_FLOOR = 5000;
+
+/**
+ * THE RESERVE CANNOT GOVERN THE ONLY ACTION THAT REFILLS IT.
+ *
+ * canSpend() is a PURCHASE brake: never drop below `reserve` credits buying
+ * things. A sell listing fee is the opposite trade — 5% of price*amount paid
+ * up front to collect 100% of it back as the order fills — and routing it
+ * through the purchase reserve deadlocks the empire the moment credits sit
+ * near the reserve, because listing is the only way back above it.
+ *
+ * Live shard3 2026-09-11: credits 200,158.6 against the default reserve of
+ * 200,000, so canSpend() had 158 credits of headroom and refused every fee.
+ * Three of the four standing sell orders had run to amount 0 and could not be
+ * extended (fee ~14,000c), and no room could list a new one (fee ~15,000c).
+ * Meanwhile the seven terminals held 53,787 O and 56,000 U — roughly 3M
+ * credits of stock — against KEEP_FOR_REACTIONS of 10,000, with every room
+ * past STANDING_SELL_MIN. The empire had frozen itself out of selling to
+ * protect a credit balance that only selling could raise.
+ *
+ * So: the rolling window still applies (a listing is still a real outflow and
+ * still has to be bounded), the purchase reserve does not, and the fee has to
+ * be small against what it is listing or it is not a listing at all.
+ */
+export function canList(fee: number, revenue: number): boolean {
+    if (!(fee > 0)) return false;
+    if (!(revenue > fee * 4)) return false;
+    const m = mktMem();
+    rollWindow(m);
+    if (Game.market.credits - fee < LISTING_FLOOR) return false;
+    if (m.spent.amount + fee > m.budgetPer10k) return false;
+    return true;
+}
+
 /** Book a spend against the rolling window. Call only after a deal succeeded. */
 export function note(credits: number): void {
     if (!(credits > 0)) return;

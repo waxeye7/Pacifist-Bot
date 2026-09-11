@@ -3,6 +3,7 @@ import { logVerbose } from "utils/Logger";
 import { book, energyValue, fair, getOrdersCached, invalidateOrderCache } from "Market/pricing";
 import {
     KEEP_FOR_REACTIONS,
+    canList,
     canSpend,
     ceilingFor,
     dealGuarded,
@@ -317,7 +318,7 @@ function market(room):any {
                     if(order.remainingAmount <= 1000) {
                         // extendOrder is charged the same 5% of price*addAmount.
                         const extendFee = order.price * 4000 * ORDER_FEE;
-                        if(canSpend(extendFee) && Game.market.extendOrder(order.id, 4000) == OK) {
+                        if(canList(extendFee, order.price * 4000) && Game.market.extendOrder(order.id, 4000) == OK) {
                             note(extendFee);
                             logVerbose(`mkt sell-order ${room.name}: extended ${resourceToSell} by 4000 (fee ${Math.round(extendFee)}c)`);
                         }
@@ -325,7 +326,7 @@ function market(room):any {
                     else if(t % 400 == 0 && Math.abs(order.price - recPrice) > 2) {
                         // Only a price INCREASE is charged, and only on the increase.
                         const feeCredits = recPrice > order.price ? (recPrice - order.price) * order.remainingAmount * ORDER_FEE : 0;
-                        if(feeCredits == 0 || canSpend(feeCredits)) {
+                        if(feeCredits == 0 || canList(feeCredits, recPrice * order.remainingAmount)) {
                             if(Game.market.changeOrderPrice(order.id, recPrice) == OK) {
                                 if(feeCredits > 0) note(feeCredits);
                                 logVerbose(`mkt sell-order ${room.name}: repriced ${resourceToSell} ${order.price} -> ${recPrice.toFixed(2)} (fee ${Math.round(feeCredits)}c)`);
@@ -350,7 +351,7 @@ function market(room):any {
 
                     if(!foundOrder) {
                         const feeCredits = recPrice * STANDING_SELL_AMOUNT * ORDER_FEE;
-                        if(canSpend(feeCredits)) {
+                        if(canList(feeCredits, recPrice * STANDING_SELL_AMOUNT)) {
                             if(Game.market.createOrder({
                                 type: ORDER_SELL,
                                 resourceType: resourceToSell,
