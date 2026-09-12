@@ -62,7 +62,7 @@ export function weightedHistoryAvg(resource:any):{avg:number, stddev:number} | n
  * keyed by Game.time so that the buy/sell ladders inside ONE room's pass share
  * one fetch. That much worked. What it missed is that rooms.ts enters market()
  * only on the room's own staggered `t % 10 == 0`, so across a seven-room
- * empire fewer than one room trades on any given tick — the cache was thrown
+ * empire fewer than one room trades on any given tick â€” the cache was thrown
  * away before a second room could ever read it.
  *
  * Live shard3 2026-09-11, Memory.CPU.roomParts: `market` averaged 0.626 CPU a

@@ -47,8 +47,8 @@ export const MAINT_BANK_RESUME = 12000;
  * comes straight back. It is wrong for a bank that is not coming back inside
  * this creep's lifetime, and the two look identical for the first few ticks.
  *
- * Live shard3 2026-09-11: E39N58 held 1,031 energy in storage — a two-source
- * room whose income is ~20/tick — and bought a 20-WORK/20-CARRY/10-MOVE
+ * Live shard3 2026-09-11: E39N58 held 1,031 energy in storage â€” a two-source
+ * room whose income is ~20/tick â€” and bought a 20-WORK/20-CARRY/10-MOVE
  * maintainer for 3,500 energy. The creep wrote bankParked while still inside
  * the spawn. At 20 energy a tick the room needs about 550 ticks of ENTIRE
  * income just to reach MAINT_BANK_RESUME, so that body was going to park for

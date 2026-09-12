@@ -4628,13 +4628,13 @@ function roomsRunningMaintainers(): { [roomName: string]: boolean } {
  * Every maintainer rung reads `optionalRosterOpen() && keepTheseRoads.length
  * || spawnMaintainer`. Only the second disjunct was ever taught to check the
  * room could pay (see the MAINT_BANK_RESUME gate above). The first is a global
- * BUCKET condition — it says nothing whatever about the room's energy — so the
+ * BUCKET condition â€” it says nothing whatever about the room's energy â€” so the
  * moment the empire bucket climbs past the roster bar, every room with a road
  * list buys a maintainer, however broke it is.
  *
  * Live shard3 2026-09-11, tick 82891700, the roster open at bucket ~4,300:
  * E39N58 held 1,031 energy in storage and bought a 20-WORK/20-CARRY/10-MOVE
- * maintainer for 3,500 energy — 175 ticks of the room's ENTIRE two-source
+ * maintainer for 3,500 energy â€” 175 ticks of the room's ENTIRE two-source
  * income. Roles/maintainer read the same bank, found it under
  * MAINT_BANK_FLOOR, and wrote `bankParked: true` into the creep's memory while
  * it was still in the spawn. The room paid 3,500 energy for a creep that has

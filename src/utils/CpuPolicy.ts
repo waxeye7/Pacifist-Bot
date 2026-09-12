@@ -188,7 +188,7 @@ export function sampleBilledFromBucket(): void {
  * THE ONE HONEST CPU NUMBER, IN ONE PLACE.
  *
  * Memory is serialised AFTER main() returns and the server bills us for it, so
- * hundredTickAvg — end-of-loop getUsed() — understates the real cost by the
+ * hundredTickAvg â€” end-of-loop getUsed() â€” understates the real cost by the
  * post-loop write. Measured on this bot at 1.32-1.42 CPU every tick against a
  * 20 limit, which is 7% of the entire budget, invisible to every in-game
  * profiler. sampleBilledFromBucket recovers it from the bucket delta.
@@ -199,7 +199,7 @@ export function sampleBilledFromBucket(): void {
  *     not exceed 20; billed was 18.6-19.3 and the gate should have refused).
  *   - empireRemoteBudget would have opened seven remotes at once.
  *   - War/dispatch guardCap allowed 2-4 Guards on `limit - avg100`, while the
- *     billed figure was 20.2 against a 20 limit — negative headroom.
+ *     billed figure was 20.2 against a 20 limit â€” negative headroom.
  *
  * Three copies of the same fallback expression are three chances to write the
  * wrong one, so there is now exactly one. The avg100 fallback is only for the

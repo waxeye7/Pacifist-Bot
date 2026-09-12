@@ -157,7 +157,7 @@ function blockedReason(): string | null {
    * CpuPolicy.sampleBilledFromBucket recovers the real number from the one
    * meter that sees everything: the bucket moves by limit minus what was
    * billed. billedAvg() is that number, shared with empireRemoteBudget and
-   * War/dispatch guardCap — three subsystems that spend headroom and had three
+   * War/dispatch guardCap â€” three subsystems that spend headroom and had three
    * copies of this expression between them, one of which read avg100.
    */
   const billed = billedAvg();

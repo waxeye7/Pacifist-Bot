@@ -27,7 +27,7 @@ const MAX_GUARDS = 6;
  *
  * This read hundredTickAvg, which is end-of-loop getUsed(). Memory is
  * serialised after main() returns and the server bills us for it, so avg100
- * understates the real cost by the post-loop write — 1.32-1.42 CPU on this
+ * understates the real cost by the post-loop write â€” 1.32-1.42 CPU on this
  * bot, 7% of a 20 limit.
  *
  * Both readers below spend on that difference. guardCap turns `limit - avg`
