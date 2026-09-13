@@ -22,10 +22,19 @@ import { getBody } from "Rooms/rooms.spawning";
         return;
     }
 
-    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom && !creep.room.controller.upgradeBlocked && !creep.room.controller.reservation) {
-        let newName = 'DismantleControllerWalls-' + creep.memory.homeRoom + "-" + creep.memory.targetRoom;
-        Game.rooms[creep.memory.homeRoom].memory.spawn_list.push(getBody([MOVE,WORK], Game.rooms[creep.memory.homeRoom], 50), newName, {memory: {role: 'DismantleControllerWalls', homeRoom: creep.memory.homeRoom, targetRoom:creep.memory.targetRoom}});
-        console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);
+    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom && creep.room.controller && !creep.room.controller.upgradeBlocked && !creep.room.controller.reservation) {
+        // The home room can be off Game.rooms on the creep's last tick - a
+        // lost or just-respawned room has no vision, and the old unguarded
+        // dereference threw before the DismantleControllerWalls replacement
+        // could queue. A missing spawn_list is the same story: a room that
+        // has not run its spawning pass yet has none to push into.
+        const home = Game.rooms[creep.memory.homeRoom];
+        if(home) {
+            if(!home.memory.spawn_list) home.memory.spawn_list = [];
+            let newName = 'DismantleControllerWalls-' + creep.memory.homeRoom + "-" + creep.memory.targetRoom;
+            home.memory.spawn_list.push(getBody([MOVE,WORK], home, 50), newName, {memory: {role: 'DismantleControllerWalls', homeRoom: creep.memory.homeRoom, targetRoom:creep.memory.targetRoom}});
+            console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);
+        }
     }
 
     let controller = creep.room.controller;
