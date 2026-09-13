@@ -366,9 +366,17 @@ function GoToClosestSpawn(creep, target, range) {
 
 
 
+/** Heap memo for GoToTheClosestSpawn — same one-per-room-per-tick scoping as matrixCache below. */
+const spawnMatrixCache: { [roomName: string]: { tick: number, costs: boolean | CostMatrix } } = {};
+
 const GoToTheClosestSpawn = (roomName: string): boolean | CostMatrix => {
+    const hit = spawnMatrixCache[roomName];
+    if (hit && hit.tick === Game.time) {
+        return hit.costs;
+    }
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
+        spawnMatrixCache[roomName] = { tick: Game.time, costs: false };
         return false;
     }
 
@@ -441,6 +449,7 @@ const GoToTheClosestSpawn = (roomName: string): boolean | CostMatrix => {
 
         }
     });
+    spawnMatrixCache[roomName] = { tick: Game.time, costs: costs };
     return costs;
 }
 
