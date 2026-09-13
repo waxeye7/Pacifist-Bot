@@ -91,7 +91,7 @@ declare global {
       commandsToExecute: any;
       delayConvoy: object;
       Operations: { clear_claimed_rooms: {} };
-      e: { mosquito: Array<{ n: string; ts: number; cp?: RoomPosition | null }> };
+      e: { mosquito: Array<{ n: string; ts: number; cp?: RoomPosition | null; at?: number }> };
       terrainDataInitialized: boolean;
       lastProcessedCoord: { x: number; y: number; };
       roomStatuses: any;
