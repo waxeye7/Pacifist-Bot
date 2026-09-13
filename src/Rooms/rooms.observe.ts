@@ -537,7 +537,12 @@ function observe(room) {
             if(Game.time % twoTimesInterval == 3) {
                 let adj = room.memory.observe.lastRoomObservedForPower;
 
-                if(areRoomsNormalToThisRoom(room.name, adj)) {
+                // `adj` is undefined until the first power sweep fires — and
+                // forever when listOfRoomsForPower came out EMPTY (a ±4 box
+                // around a sector-centre room like E15N15 holds no highway).
+                // findRoute(home, undefined) ran a whole-map BFS that could
+                // never match, every 128 ticks, for the life of such a room.
+                if(adj && areRoomsNormalToThisRoom(room.name, adj)) {
                     let seenRoom = Game.rooms[adj];
 
                     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
