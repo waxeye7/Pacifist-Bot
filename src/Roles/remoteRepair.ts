@@ -15,7 +15,11 @@ function findLockedRepair(creep) {
             }
         });
         let sources = creep.room.find(FIND_SOURCES);
-        let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_RAMPART});
+        // repair() is not ownership-gated: without the owner check a remote
+        // holding another player's buildings — or an invader core — has the
+        // repairer spending our hauled energy on their upkeep. Unowned
+        // structures (containers) keep working; theirs do not.
+        let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_RAMPART && (!building.owner || building.my)});
         _.forEach(nonRoadsInRoom, function(building) {
             // if(building.pos.lookFor(LOOK_CREEPS).length != 0) {
             if(building.structureType == STRUCTURE_CONTAINER) {
