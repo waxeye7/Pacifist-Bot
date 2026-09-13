@@ -11,7 +11,10 @@ const run = function (creep) {
 
             if(creep.body.length <= 3 || creep.body.length % 3 == 0) {
                 let rampartDefenders = creep.room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
-                if(rampartDefenders.length >= 0) {
+                // `>= 0` was always true — the wind-down else below could never
+                // run, so a lone defender never stood down. `> 0` is the intent:
+                // fight from the manned rampart line only while one exists.
+                if(rampartDefenders.length > 0) {
                     if(creep.pos.findInRange(enemyCreeps, 2).length > 1 && Game.time % 20 >10 && Game.time % 20 <=20) {
                         creep.rangedMassAttack();
                     }
