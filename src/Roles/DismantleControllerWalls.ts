@@ -23,7 +23,11 @@
         creep.suicide();
     }
 
-    let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTROLLER});
+    // No !s.my: the same find ran every tick while walking to the controller,
+    // so if the target room became ours (claimed after dispatch) the creep
+    // ate our own structures on the way in. Every sibling catch-all filter
+    // carries the ownership check.
+    let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTROLLER});
     let buildingsInRange = creep.pos.findInRange(buildings, 1);
     if(buildingsInRange.length > 0) {
         buildingsInRange.sort(function (a, b):any {
