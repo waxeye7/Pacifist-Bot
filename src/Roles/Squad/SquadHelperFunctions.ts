@@ -169,19 +169,36 @@ const buildQuadCostMatrix = function (roomName: string, opts: any): boolean | Co
 };
 
 
-const roomCallbackSquadA = (roomName: string): boolean | CostMatrix | undefined =>
-    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true});
+/**
+ * One matrix per (variant, room) per tick. The duo leader runs PathFinder.search
+ * EVERY tick in the target room and the quad's combat/get-ready pathers do the
+ * same — each search used to rebuild 2,401 terrain tiles plus full structure and
+ * creep scans. Nothing moves mid-tick, so every search in one tick sees the same
+ * answer. `undefined` (no vision) is cached too — it is a real answer, not a miss.
+ */
+const _matrixMemo: {[key: string]: {tick: number, costs: any}} = {};
+const memoizedMatrix = function (variant: string, opts: any) {
+    return function (roomName: string): boolean | CostMatrix | undefined {
+        const key = variant + ":" + roomName;
+        const hit = _matrixMemo[key];
+        if (hit && hit.tick === Game.time) {
+            return hit.costs;
+        }
+        const costs = buildQuadCostMatrix(roomName, opts);
+        _matrixMemo[key] = {tick: Game.time, costs};
+        return costs;
+    };
+};
 
-const roomCallbackSquadASwampCostSame = (roomName: string): boolean | CostMatrix | undefined =>
-    buildQuadCostMatrix(roomName, {swampCost: 1, edgeCost: 3, structuresFirst: true, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: false});
+const roomCallbackSquadA = memoizedMatrix("SquadA", {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true});
 
-const roomCallbackSquadGetReady = (roomName: string): boolean | CostMatrix | undefined =>
-    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 15, structuresFirst: true, skipContainers: false, myStructCost: 100, hostileStructCost: 100, controllerHits: false, creepCost: 255});
+const roomCallbackSquadASwampCostSame = memoizedMatrix("SquadASwamp", {swampCost: 1, edgeCost: 3, structuresFirst: true, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: false});
+
+const roomCallbackSquadGetReady = memoizedMatrix("SquadGetReady", {swampCost: 5, edgeCost: 15, structuresFirst: true, skipContainers: false, myStructCost: 100, hostileStructCost: 100, controllerHits: false, creepCost: 255});
 
 // single-tile footprint for the 2-creep duo (the healer chases, so the leader
 // paths like a lone creep but still prices hostile structures for kiting)
-const roomCallbackDuo = (roomName: string): boolean | CostMatrix | undefined =>
-    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true, footprint: "single"});
+const roomCallbackDuo = memoizedMatrix("Duo", {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true, footprint: "single"});
 
 // Game.getObjectById is null without vision; Game.creeps still has our creeps.
 const resolveMyCreep = function (id: string): any {
