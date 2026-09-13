@@ -442,7 +442,7 @@ function spawning(room: any) {
         // fired every tick in multi-spawn rooms, flooding the queue with
         // census-only rungs (Builder) while a pricey head starved.
         !room.memory.danger && room.memory.spawn_list.length >= 1 && Game.time % 500 == 0 ||
-        room.memory.danger && (Game.time - room.memory.lastTimeSpawnUsed) % 7 == 0 && room.memory.spawn_list.length == 0 ||
+        room.memory.danger && producerTick % 7 == 0 && room.memory.spawn_list.length == 0 ||
         // Danger used to require an empty queue, so a stuck head blocked every
         // RampartDefender/RRD for the siege. Re-run every 15 ticks. Gate on
         // absolute Game.time: a busy primary spawn writes lastTimeSpawnUsed =
