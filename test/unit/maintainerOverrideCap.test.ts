@@ -60,10 +60,13 @@ describe("the container maintainer override is capped empire-wide", () => {
   });
 
   it("routes the override through the cap rather than setting the flag directly", () => {
-    assert.match(CODE, /spawnMaintainer = containerOverrideAllowed\(room, worstFraction\);/);
+    // OR'd with the rampart demand set above — the cap may raise the flag,
+    // never cancel a critical rampart's demand with a container answer.
+    assert.match(CODE, /spawnMaintainer = spawnMaintainer \|\| containerOverrideAllowed\(room, worstFraction\);/);
     // The old unconditional assignment must be gone from the container rung.
     const rung = CODE.slice(CODE.indexOf("const worstBox ="), CODE.indexOf("const worstBox =") + 700);
     assert.notMatch(rung, /if\(worstBox\.length\) \{\s*spawnMaintainer = true;/);
+    assert.notMatch(rung, /[^|]spawnMaintainer = containerOverrideAllowed/);
   });
 
   it("depends on the maintainer recycling when its work is done", () => {

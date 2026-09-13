@@ -1853,7 +1853,10 @@ function add_creeps_to_spawn_list(room, spawn) {
                     const frac = box.hits / box.hitsMax;
                     if(frac < worstFraction) worstFraction = frac;
                 }
-                spawnMaintainer = containerOverrideAllowed(room, worstFraction);
+                // OR, not overwrite: a rampart already at <=10k hits set this
+                // flag above, and a container the cap refuses must not cancel
+                // a critical rampart's demand.
+                spawnMaintainer = spawnMaintainer || containerOverrideAllowed(room, worstFraction);
             }
             /*
              * ...AND THE ROOM STILL HAS TO BE ABLE TO PAY.
