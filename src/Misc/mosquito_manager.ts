@@ -1,9 +1,32 @@
 import { ownedRooms } from "War/reach";
 import { roomDistance } from "War/geo";
 
+/** Ticks a dispatch row may sit unspawned before it is declared dead. */
+const MOSQUITO_TTL = 5000;
+
 function mosquito_manager() {
-  if (Game.cpu.bucket < 1500) return;
   if (!Memory.e) Memory.e = { mosquito: [] };
+  if (!Memory.e.mosquito) Memory.e.mosquito = [];
+
+  // Rows only ever died by spawning. A target no RCL8 room can reach
+  // (findClosestRooms returns []) or a permanent boost drought leaves
+  // ts > 0 forever — and dispatch counts live rows against MAX_MOSQUITO (2),
+  // so two stuck rows killed the whole system for the rest of the global.
+  // Same rule as ExecuteCommandsInNTicks: keep waiting, never forever.
+  // Runs before the bucket gate so a long CPU drought still collects them.
+  const keep = [];
+  for (const u of Memory.e.mosquito) {
+    if (!u || u.ts <= 0) continue;
+    if (typeof u.at !== "number") u.at = Game.time;
+    if (Game.time - u.at >= MOSQUITO_TTL) {
+      console.log("[mosquito] dropping stale dispatch to", u.n, "- no spawn in", MOSQUITO_TTL, "ticks");
+      continue;
+    }
+    keep.push(u);
+  }
+  if (keep.length !== Memory.e.mosquito.length) Memory.e.mosquito = keep;
+
+  if (Game.cpu.bucket < 1500) return;
 
   for (let u of Memory.e.mosquito) {
     if (u.ts > 0) {
@@ -12,6 +35,7 @@ function mosquito_manager() {
         if (u.ts > 0) {
           if (global.spawn_mosquito(closestRoom.name, u.n)) {
             u.ts--;
+            u.at = Game.time; // progress resets the clock
             continue;
           }
         }
