@@ -2,6 +2,29 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+
+import { isHighway, roomStatus, roomsInRange } from "War/geo";
+
+/**
+ * Highway rooms within 3 of home that a deposit hunter may walk to.
+ *
+ * This list used to be built by slicing homeRoom's name at fixed character
+ * positions - "E12N34"-shaped names only. A home with a 3-digit coordinate
+ * ("E127N58", "E1N127") parsed to NaN bounds or a wrong axis letter, the
+ * loops produced an empty list, and the creep parked at home forever with
+ * no log saying why. War/geo parses names for every map size and wraps the
+ * getRoomStatus call so a name the map rejects reads as closed, not thrown.
+ */
+export function depositFallbackRooms(homeRoom: string): string[] {
+    const out: string[] = [];
+    for (const name of roomsInRange(homeRoom, 3)) {
+        if (name === homeRoom) continue;
+        if (!isHighway(name)) continue;
+        if (roomStatus(name) !== "normal") continue;
+        out.push(name);
+    }
+    return out;
+}
  const run = function (creep:any) {
     creep.memory.moving = false;
 
@@ -50,103 +73,7 @@
             }
         }
 
-        let listOfPossibleRooms = [];
-
-
-        if(creep.memory.homeRoom.length == 6) {
-            let EastOrWest = creep.memory.homeRoom[0];
-            let NorthOrSouth = creep.memory.homeRoom[3];
-            let homeRoomNameX = parseInt(creep.memory.homeRoom[1] + creep.memory.homeRoom[2]);
-            let homeRoomNameY = parseInt(creep.memory.homeRoom[4] + creep.memory.homeRoom[5]);
-            for(let i = homeRoomNameX-3; i<homeRoomNameX+4; i++) {
-                for(let o = homeRoomNameY-3; o<homeRoomNameY+4; o++) {
-                    if(i % 10 == 0 || o % 10 == 0) {
-                        let firstString = i.toString();
-                        let secondString = o.toString();
-                        let roomName = EastOrWest + firstString + NorthOrSouth + secondString
-                        if(Game.map.getRoomStatus(roomName).status == "normal" && creep.memory.homeRoom !== roomName) {
-                            listOfPossibleRooms.push(roomName);
-                        }
-                    }
-                }
-            }
-        }
-        else if(creep.memory.homeRoom.length !== 6) {
-            let EastOrWest = creep.memory.homeRoom[0];
-            let NorthOrSouth;
-            let homeRoomNameX;
-            let homeRoomNameY;
-            if(!isNaN(creep.memory.homeRoom[2])) {
-                NorthOrSouth = creep.memory.homeRoom[3];
-                homeRoomNameX = parseInt(creep.memory.homeRoom[1] + creep.memory.homeRoom[2]);
-                homeRoomNameY = parseInt(creep.memory.homeRoom[4]);
-            }
-            else {
-                NorthOrSouth = creep.memory.homeRoom[2];
-                homeRoomNameX = parseInt(creep.memory.homeRoom[1]);
-                if(creep.memory.homeRoom.length == 4) {
-                    homeRoomNameY = parseInt(creep.memory.homeRoom[3]);
-                }
-                else if(creep.memory.homeRoom.length == 5) {
-                    homeRoomNameY = parseInt(creep.memory.homeRoom[3] + creep.memory.homeRoom[4]);
-                }
-            }
-            for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
-                let EorW;
-                let x;
-                let switchX = false;
-                if(i < 0) {
-                    switchX = true;
-                }
-                if(switchX) {
-                    x = Math.abs(i);
-                    x -= 1;
-                    if(EastOrWest == "E") {
-                        EorW = "W"
-                    }
-                    else {
-                        EorW = "E";
-                    }
-                }
-                else {
-                    x = i;
-                    EorW = EastOrWest;
-                }
-                for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
-                    let NorS;
-                    let y;
-                    let switchY = false;
-                    if(o < 0) {
-                        switchY = true;
-                    }
-
-                    if(switchY) {
-                        y = Math.abs(o);
-                        y -= 1;
-                        if(NorthOrSouth == "N") {
-                            NorS = "S"
-                        }
-                        else {
-                            NorS = "N";
-                        }
-                    }
-                    else {
-                        y = o;
-                        NorS = NorthOrSouth;
-                    }
-                    if(x % 10 == 0 || y % 10 == 0) {
-
-                        let firstString = x.toString();
-                        let secondString = y.toString();
-                        let roomName = EorW + firstString + NorS + secondString;
-                        if(Game.map.getRoomStatus(roomName).status == "normal" && creep.memory.homeRoom !== roomName) {
-                            listOfPossibleRooms.push(roomName);
-                        }
-                    }
-                }
-            }
-        }
-
+        let listOfPossibleRooms = depositFallbackRooms(creep.memory.homeRoom);
 
         let lowest = [100, 100];
         for(let i=0; i<listOfPossibleRooms.length; i++) {
