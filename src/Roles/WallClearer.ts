@@ -24,13 +24,17 @@ const run = function (creep) {
     // starts at 1000), so the claim was never unwound. Destroy then
     // unclaim once this target is ours. Stay on RCL1 + targetRoom so a
     // transit through home/other owned rooms does not wipe them.
+    // destroy() only works on OUR structures — neutral walls left over
+    // from a dead owner kept buildings.length > 0 forever, so unclaim
+    // never fired and the creep spammed ERR_NOT_OWNER destroys per tick.
     if(controller && controller.my && controller.level == 1 && creep.room.name == creep.memory.targetRoom) {
-        if(buildings.length > 0) {
-            for(let building of buildings) {
+        let ownBuildings = buildings.filter(b => b.my);
+        if(ownBuildings.length > 0) {
+            for(let building of ownBuildings) {
                 building.destroy();
             }
         }
-        else if(buildings.length == 0) {
+        else {
             controller.unclaim();
             if(creep.room.name == creep.memory.targetRoom) {
                 if(creep.ticksToLive <= 100) {
