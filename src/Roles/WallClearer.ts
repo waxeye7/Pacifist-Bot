@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+
+import { isHighway } from "War/geo";
 const run = function (creep) {
     ;
     if(creep.memory.suicide) {
@@ -68,13 +70,11 @@ const run = function (creep) {
 
 
 
-            if(roomName.length == 6) {
-                if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                    return 4;
-                }
-                if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                    return 4;
-                }
+            // Highway discount: parse the name, do not slice it - a 3-digit
+            // coordinate (E120N5) sliced to the wrong digits and priced a
+            // free highway as an ordinary room.
+            if(isHighway(roomName)) {
+                return 4;
             }
 
             return 5;
