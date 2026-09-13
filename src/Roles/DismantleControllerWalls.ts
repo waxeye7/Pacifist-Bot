@@ -69,7 +69,10 @@ function GoToController(creep, target, range) {
         }
 
 
-        let pos = creep.memory.path[0];
+        // a failed search leaves memory.path = [] — path[0] is undefined and
+        // getDirectionTo(undefined) throws, every tick, until the wall drops
+        let pos = creep.memory.path && creep.memory.path[0];
+        if(!pos) return;
         let direction = creep.pos.getDirectionTo(pos);
         creep.move(direction);
         creep.memory.moving = true;
@@ -79,9 +82,17 @@ function GoToController(creep, target, range) {
 
 
 
+/** Heap memo: one matrix per room per tick — same scoping as Guard/Solomon. */
+const dcwMatrixCache: { [roomName: string]: { tick: number, costs: boolean | CostMatrix } } = {};
+
 const GoToTheController = (roomName: string): boolean | CostMatrix => {
+    const hit = dcwMatrixCache[roomName];
+    if (hit && hit.tick === Game.time) {
+        return hit.costs;
+    }
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
+        dcwMatrixCache[roomName] = { tick: Game.time, costs: false };
         return false;
     }
 
@@ -153,6 +164,7 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
 
         }
     });
+    dcwMatrixCache[roomName] = { tick: Game.time, costs };
     return costs;
 }
 
