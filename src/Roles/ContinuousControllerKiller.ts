@@ -66,12 +66,17 @@ const run = function (creep) {
         }
 
         if(creep.ticksToLive === 1 && creep.room.controller && !creep.room.controller.safeMode) {
-            const index = Game.rooms[creep.memory.homeRoom].memory.observe.RoomsToSee.indexOf(creep.memory.targetRoom);
-            if (index === 0) {
-                Game.rooms[creep.memory.homeRoom].memory.observe.lastObserved = Game.rooms[creep.memory.homeRoom].memory.observe.RoomsToSee.length - 1
-            }
-            else {
-                Game.rooms[creep.memory.homeRoom].memory.observe.lastObserved = index - 1;
+            const homeRoom:any = Game.rooms[creep.memory.homeRoom];
+            const observe = homeRoom && homeRoom.memory.observe;
+            const sweep = observe && observe.RoomsToSee;
+            if(sweep) {
+                const index = sweep.indexOf(creep.memory.targetRoom);
+                if(index === 0) {
+                    observe.lastObserved = sweep.length - 1
+                }
+                else if(index > 0) {
+                    observe.lastObserved = index - 1;
+                }
             }
         }
     }
