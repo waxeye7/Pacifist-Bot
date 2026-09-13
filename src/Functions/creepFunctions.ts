@@ -2850,7 +2850,10 @@ Creep.prototype.recycle = function recycle() {
         else {
             if(StructuresObject.storage || this.room.storage) {
                 let storage:any = Game.getObjectById(StructuresObject.storage) || this.room.storage;
-                if(storage) {
+                // y+1 is only a legal tile when the storage is off the bottom
+                // edge — a legacy/manual room CAN place storage at y=49, and
+                // RoomPosition throws out of 0..49, killing the recycle call.
+                if(storage && storage.pos.y < 49) {
                     let binPos = new RoomPosition(storage.pos.x, storage.pos.y+1, storage.room.name);
                     let lookForBin = binPos.lookFor(LOOK_STRUCTURES);
                     for(let s of lookForBin) {
