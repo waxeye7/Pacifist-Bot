@@ -150,7 +150,7 @@ export function recordTick(cpuUsed: number): void {
   if (cpuUsed > s.max) s.max = cpuUsed;
 
   /*
-   * Ring buffer of the last samples — and it is paid for AFTER the loop.
+   * Ring buffer of the last samples â€” and it is paid for AFTER the loop.
    *
    * This kept 60 entries. reportCpu() has only ever displayed
    * `b.recent.slice(-5)`, so 55 of them were never read by anything. Each

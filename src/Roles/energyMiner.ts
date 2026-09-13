@@ -620,14 +620,14 @@ const SEAT_BOX_EVERY = 25;
  * ...AND ONE IN 25 IS NOT ENOUGH TO SAVE A BOX THAT IS ALREADY NEARLY GONE.
  *
  * The arithmetic: a 5-WORK miner repairs 500 hits when it fires, so one fire
- * in 25 is 20 hits a tick against 10 a tick of decay — net +10. From 12% of
+ * in 25 is 20 hits a tick against 10 a tick of decay â€” net +10. From 12% of
  * 250,000 up to the 75% the rung stops at is 157,500 hits, which is 15,750
  * ticks, about fifteen real-time hours. A box at 12% has only 30,000 hits
  * left, i.e. 3,000 ticks, so the slow rung is fine for maintenance and much
  * too slow for rescue.
  *
  * Live shard3 2026-09-11, one tick after the slow rung had been running for
- * hours: E39N58 SRC 12% and 12% — and that room had ALREADY lost a third
+ * hours: E39N58 SRC 12% and 12% â€” and that room had ALREADY lost a third
  * container and was rebuilding it at 5,000 energy with a builder it also had
  * to buy. E37N59 read 17% and 37%.
  *

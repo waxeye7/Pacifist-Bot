@@ -731,15 +731,15 @@ function establishMemory(room) {
      * Everything that adds a room to wipeRooms, and everything that removes
      * it, lives inside the `not ours` branch below. So a room goes on the list
      * while it is foreign, we claim it, and from the next tick the whole block
-     * is skipped for it — there is no path that takes the name off again.
+     * is skipped for it â€” there is no path that takes the name off again.
      *
      * Live shard3 2026-09-11, read straight out of Memory.tasks:
      *   destroyStructures: [..., "E39N58", ...]   RCL7, ours, 2 spawns
      *   killCreeps:        [..., "E36N57", ...]   RCL6, ours
      * E39N58 was on a list of rooms to demolish.
      *
-     * Nothing reads these today — Roles/attacker's consumer and both
-     * rooms.spawning rungs are commented out — which is the only reason this
+     * Nothing reads these today â€” Roles/attacker's consumer and both
+     * rooms.spawning rungs are commented out â€” which is the only reason this
      * has been harmless. It is a loaded gun pointed at the empire's own
      * rooms, waiting for someone to uncomment a line, so the list is now
      * self-correcting: owning a room takes it off.

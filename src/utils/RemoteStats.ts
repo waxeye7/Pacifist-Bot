@@ -174,7 +174,7 @@ function remoteKeyFor(creep: Creep): string | null {
    * War/dispatch sends up to MAX_WAR_SCOUTS standing lookouts, named
    * `Scout-war-<home>-<target>` with warScout on their memory. They carry the
    * same role and the same home/target pair as a remote probe, so this
-   * function was keying them into the remote ledger — and because
+   * function was keying them into the remote ledger â€” and because
    * sampleRemoteStats marks every key it sees as `targeted`, the entry never
    * went stale and pruneRemoteStats could never drop it.
    *
