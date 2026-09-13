@@ -28,7 +28,6 @@ PowerCreep.prototype.fortifyRampartWithEnemyNextToIt = function() {
 
   // Get the rampart with the lowest hits from the sorted list
   const chosenRampart = sortedRamparts[0];
-  console.log(chosenRampart)
 
     if (chosenRampart && chosenRampart.effects && (!chosenRampart.effects.length || chosenRampart.effects[0].ticksRemaining === 1)) {
       // Move towards the chosen rampart using your custom MoveCostMatrixRoadPrio function

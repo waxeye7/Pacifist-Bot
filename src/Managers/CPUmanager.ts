@@ -53,7 +53,7 @@ function CPUmanager(tickTotal) {
 
 
     // was every 5 ticks — only when verbose
-    if(Game.time % 50 == 0) {
+    if(Memory.verbose && Game.time % 50 == 0) {
       console.log("my bucket:", Game.cpu.bucket, "limit:", Game.cpu.limit)
     }
 }

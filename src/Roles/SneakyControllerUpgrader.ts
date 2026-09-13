@@ -13,7 +13,6 @@ const run = function (creep) {
         creep.memory.full = true;
     }
 
-    console.log(creep.room.name);
     let targetRoom = creep.memory.targetRoom;
     if(creep.room.name !== targetRoom) {
         if(creep.memory.locked_away == 0) {
