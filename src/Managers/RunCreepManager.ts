@@ -603,7 +603,7 @@ function noteRoleCpu(role: string, used: number): void {
     roleTickN[role] = (roleTickN[role] || 0) + 1;
 }
 
-function inferRoleFromName(name: string): string | undefined {
+export function inferRoleFromName(name: string): string | undefined {
     const prefix = String(name || "").split("-")[0];
     if (!prefix) return undefined;
     if (global.ROLES[prefix]) return prefix;
