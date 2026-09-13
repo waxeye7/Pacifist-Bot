@@ -322,7 +322,21 @@ function rooms() {
         }
       } else {
         if (Game.time % 1000 == 0) {
-          Memory.CPU.reduce = false;
+          // reduce is an empire flag but was cleared per-room: the first safe
+          // room to hit %1000 unset it while a sister room was still past
+          // danger_timer 350, flickering it off for the rest of that tick and
+          // relaxing the market/boost gates mid-siege. Clear it only when no
+          // owned room is still in deep danger.
+          let stillInDanger = false;
+          for (const name in Game.rooms) {
+            const r: any = Game.rooms[name];
+            if (r && r.controller && r.controller.my && r.memory &&
+                r.memory.danger && r.memory.danger_timer > 350) {
+              stillInDanger = true;
+              break;
+            }
+          }
+          if (!stillInDanger) Memory.CPU.reduce = false;
         }
 
         /*
