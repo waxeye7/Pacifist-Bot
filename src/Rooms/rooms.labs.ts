@@ -1088,6 +1088,16 @@ function labs(room) {
 
 
     if(Game.cpu.bucket > 4500) {
+        // Tick every pause once per pass and drop the dead rows. The old
+        // decrement lived inside the per-lab loop, so it only fired for
+        // OUTPUT labs in a reactable state — a paused INPUT lab's timer
+        // never moved, a paused lab on cooldown stretched its pause, and
+        // expired rows sat in memory forever.
+        let pausedList = room.memory.labs.paused;
+        if(pausedList && pausedList.length) {
+            for(let p of pausedList) p.timer--;
+            room.memory.labs.paused = pausedList.filter((p:any) => p && p.timer > 0);
+        }
         // Lab stores are restricted: argless getFreeCapacity() is null, so
         // `!= 0` was always true and runReaction fired into a full output lab.
         let outputLabs = [outputLab1, outputLab2, outputLab3, outputLab4, outputLab5, outputLab6, outputLab7, outputLab8];
@@ -1108,13 +1118,10 @@ function labs(room) {
             if(slot && !(slot.use == 0 && (!slot.amount || slot.amount == 0))) {
                 continue;
             }
-            let paused = room.memory.labs.paused?.find((lab) => lab.id === outputLab.id && lab.timer > 0);
-            if(paused) {
-                paused.timer--;
+            if(room.memory.labs.paused && room.memory.labs.paused.some((lab) => lab.id === outputLab.id)) {
+                continue;
             }
-            else {
-                outputLab.runReaction(inputLab1, inputLab2);
-            }
+            outputLab.runReaction(inputLab1, inputLab2);
         }
     }
 
