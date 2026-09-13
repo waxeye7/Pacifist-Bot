@@ -302,7 +302,28 @@
 
 
 
-const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
+/**
+ * One matrix per (builder, room) per tick — a ram in the target room runs up
+ * to four PathFinder.search calls per tick, and each one used to rebuild the
+ * whole room matrix: terrain pass, FIND_STRUCTURES, FIND_CREEPS, and the
+ * 7x7 threat rings. Nothing moves mid-tick; every search sees the same room.
+ * `false` (no vision) is a real answer and is cached too.
+ */
+const _ramMatrixCache: {[key: string]: {tick: number, costs: boolean | CostMatrix}} = {};
+const memoRamMatrix = function (key: string, build: (roomName: string) => boolean | CostMatrix) {
+    return function (roomName: string): boolean | CostMatrix {
+        const k = key + ":" + roomName;
+        const hit = _ramMatrixCache[k];
+        if (hit && hit.tick === Game.time) {
+            return hit.costs;
+        }
+        const costs = build(roomName);
+        _ramMatrixCache[k] = {tick: Game.time, costs};
+        return costs;
+    };
+};
+
+const buildRoomCallbackRam = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
@@ -378,8 +399,12 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                 const centerX = creep.pos.x;
                 const centerY = creep.pos.y;
 
-                for (let x = centerX - range; x <= centerX + range; x++) {
-                    for (let y = centerY - range; y <= centerY + range; y++) {
+                // clamp to the room: an attacker within 3 of the border put
+                // out-of-range coordinates into CostMatrix.get/set, which
+                // throws — the ram crashed its whole run every tick it stood
+                // next to the biggest threat in the room.
+                for (let x = Math.max(0, centerX - range); x <= Math.min(49, centerX + range); x++) {
+                    for (let y = Math.max(0, centerY - range); y <= Math.min(49, centerY + range); y++) {
                         // Calculate the Manhattan distance from the creep's position
                         const distance = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
 
@@ -420,13 +445,15 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+const roomCallbackRam = memoRamMatrix("ram", buildRoomCallbackRam);
 
 
 
 
 
 
-const pathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
+
+const buildPathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
@@ -470,6 +497,8 @@ const pathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix 
 
 
 
+
+const pathAroundStructuresAndTerrain = memoRamMatrix("psat", buildPathAroundStructuresAndTerrain);
 
 const roleRam = {
     run,
