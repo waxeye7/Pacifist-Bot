@@ -97,7 +97,7 @@ function mosquito_attack() {
       centermostPosition = new RoomPosition(attack.cp.x, attack.cp.y, room.name);
     }
 
-    console.log(centermostPosition?.x, centermostPosition?.y, "is the centre position");
+    if (Memory.verbose) console.log(centermostPosition?.x, centermostPosition?.y, "is the centre position");
 
     for (let mosquito of mosquitos) {
       if (mosquito.ticksToLive === 200 && !safeMode && spawns.length) {
@@ -135,7 +135,7 @@ function mosquito_attack() {
       // part's own HP). Unboosted GO-line must not use the T3 constant.
       let myDamageWithstandPotential = myHealPotential + toughWithstand(mosquito);
 
-      console.log(
+      if (Memory.verbose) console.log(
         mosquito.name,
         "has",
         myDamageWithstandPotential,
@@ -290,11 +290,11 @@ function mosquito_attack() {
               if (potentialDamageAtNextPos < myDamageWithstandPotential * 1.25 && advance) {
                 mosquito.moveByPath(path);
                 moved = true;
-                console.log(mosquito.name, "is moving to", nextPos.x, nextPos.y, "because not too much damage");
+                if (Memory.verbose) console.log(mosquito.name, "is moving to", nextPos.x, nextPos.y, "because not too much damage");
               } else {
                 // hold: last move wins, so chase must not override this
                 moved = true;
-                console.log(
+                if (Memory.verbose) console.log(
                   mosquito.name,
                   "wants to stand still, because it would take too much damage at the next position"
                 );
@@ -302,7 +302,7 @@ function mosquito_attack() {
             } else {
               mosquito.moveByPath(path);
               moved = true;
-              console.log(mosquito.name, "is fleeing to", path[0].x, path[0].y);
+              if (Memory.verbose) console.log(mosquito.name, "is fleeing to", path[0].x, path[0].y);
             }
           } else if (flee) {
             moved = true;

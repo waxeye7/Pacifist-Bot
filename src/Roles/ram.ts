@@ -193,10 +193,6 @@
             }
 
 
-            console.log(move_location)
-
-
-
             if(move_location && creep.fatigue == 0 && (myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
                 let path = PathFinder.search(
                     creep.pos, {pos:move_location, range:range},
@@ -210,10 +206,6 @@
                 );
 
 
-                path.path.forEach(spot => {
-                    new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
-                });
-                console.log(path.incomplete)
                 if(path.path.length > 0) {
                     let pos = path.path[0];
                     let direction = creep.pos.getDirectionTo(pos);

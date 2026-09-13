@@ -162,7 +162,6 @@ const run = function (creep) {
                         // One withdraw intent per tick - without the break the
                         // LAST store key won, which was often not energy.
                         if(creep.withdraw(specialTarget, resource) == OK) {
-                            console.log(`[Withdraw From Special Target] - ${creep.name} withdrawing ${resource}.`);
                             break;
                         }
                 }
