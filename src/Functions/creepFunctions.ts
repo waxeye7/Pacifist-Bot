@@ -663,7 +663,12 @@ Creep.prototype.Boost = function Boost():any {
         let result = closestLab.boostCreep(this);
         if(result == 0) {
             dropThisLab();
-            return true;
+            // Same contract as the drop paths below: true only when the list
+            // is empty. An unconditional true let a multi-lab boost report
+            // "done" after the first compound — the creep ran off to work,
+            // then re-entered Boost() next tick and walked back. Ping-pong
+            // per remaining lab instead of finishing the whole list parked.
+            return this.memory.boostlabs.length == 0 ? true : false;
         }
         // ERR_NOT_FOUND / INVALID_TARGET: this compound will never apply.
         if(result == ERR_NOT_FOUND || result == ERR_INVALID_TARGET || waitedOut) {
