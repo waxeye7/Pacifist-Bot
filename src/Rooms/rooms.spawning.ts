@@ -3386,7 +3386,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SneakyControllerUpgraders < 1 && room.controller.level >= 5 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 180000 && Game.cpu.bucket > 7000) {
+    if(SneakyControllerUpgraders < 1 && !queuedWithPrefix(room, 'SneakyControllerUpgrader') && room.controller.level >= 5 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 180000 && Game.cpu.bucket > 7000) {
         for(let roomName of Memory.keepAfloat) {
             if(Game.map.getRoomLinearDistance(room.name, roomName) <= 4 && Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.my) {
                 if(Game.rooms[roomName].controller.level == 2 && Game.rooms[roomName].controller.ticksToDowngrade < 4000 ||
@@ -3539,7 +3539,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // This room is already the elected closest mother. A second
             // 10k+range-7 gate here meant AutoExpand armed a colonise that
             // never hatched (pack target 8 tiles out, or every storage < 10k).
-            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && room.controller.level >= 3 && Game.time % 800 <= 100 && room.energyCapacityAvailable >= 650 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
+            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && !queuedWithPrefix(room, 'Claimer') && room.controller.level >= 3 && Game.time % 800 <= 100 && room.energyCapacityAvailable >= 650 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
                 let newName = 'Claimer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'claimer', targetRoom: target_colonise, homeRoom:room.name}});
                 console.log('Adding Claimer to Spawn List: ' + newName);
