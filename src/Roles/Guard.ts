@@ -177,7 +177,10 @@ function routeIsHopeless(creep): boolean {
 
 function killCreepsInroom(creep, enemyCreeps) {
     let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
-    GoToController(creep, closestEnemyCreep.pos, 1)
+    // Pass the creep, not .pos: GoToController keys its cached path on
+    // target.id and target.pos.roomName, and a RoomPosition has neither —
+    // with .pos the guard re-searched PathFinder EVERY tick of the chase.
+    GoToController(creep, closestEnemyCreep, 1)
     return creep.attack(closestEnemyCreep)
 }
 
@@ -223,15 +226,20 @@ function GuardSay(creep, enemySpotted, friendlyChatter) {
 }
 
 function GoToController(creep, target, range) {
-    if(target && creep.fatigue == 0 && creep.pos.getRangeTo(target) > range) {
+    const dest = target && target.pos;
+    if(dest && creep.fatigue == 0 && creep.pos.getRangeTo(dest) > range) {
         if(creep.memory.path && creep.memory.path.length > 0 && (Math.abs(creep.pos.x - creep.memory.path[0].x) > 1 || Math.abs(creep.pos.y - creep.memory.path[0].y) > 1)) {
             creep.memory.path = false;
         }
-        if(!creep.memory.path || creep.memory.path.length == 0 || !creep.memory.MoveTargetId || creep.memory.MoveTargetId != target.id || target.roomName !== creep.room.name) {
+        // target is a live object: .id keys the cache, .pos.roomName is the
+        // room check. Both were read off a bare RoomPosition before — the id
+        // was always undefined and roomName never matched, so the chase
+        // re-searched PathFinder (plus a fresh 2500-tile matrix) EVERY tick.
+        if(!creep.memory.path || creep.memory.path.length == 0 || !creep.memory.MoveTargetId || creep.memory.MoveTargetId != target.id || dest.roomName !== creep.room.name) {
             let costMatrix = GoToTheController;
 
             let path = PathFinder.search(
-                creep.pos, {pos:target, range:range},
+                creep.pos, {pos:dest, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
@@ -243,7 +251,8 @@ function GoToController(creep, target, range) {
         }
 
 
-        let pos = creep.memory.path[0];
+        let pos = creep.memory.path && creep.memory.path[0];
+        if(!pos) return;
         let direction = creep.pos.getDirectionTo(pos);
         creep.move(direction);
         creep.memory.moving = true;
@@ -251,9 +260,17 @@ function GoToController(creep, target, range) {
     }
 }
 
+/** Heap memo: one matrix per room per tick — same scoping as Solomon. */
+const guardMatrixCache: { [roomName: string]: { tick: number, costs: boolean | CostMatrix } } = {};
+
 const GoToTheController = (roomName: string): boolean | CostMatrix => {
+    const hit = guardMatrixCache[roomName];
+    if (hit && hit.tick === Game.time) {
+        return hit.costs;
+    }
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
+        guardMatrixCache[roomName] = { tick: Game.time, costs: false };
         return false;
     }
 
@@ -327,6 +344,7 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
     for(let eCreep of EnemyCreeps) {
         costs.set(eCreep.pos.x, eCreep.pos.y, 255);
     }
+    guardMatrixCache[roomName] = { tick: Game.time, costs };
     return costs;
 }
 
