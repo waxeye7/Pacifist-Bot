@@ -36,6 +36,10 @@ const run = function (creep) {
 
     if(creep.memory.full && creep.room.name !== creep.memory.targetRoom) {
         if(creep.hits < creep.hitsMax / 1.5) {
+            // delayConvoy is only seeded by supportOtherRooms during the
+            // rooms phase; a convoy outliving every owned room has nothing
+            // to seed it and this write throws.
+            if(!Memory.delayConvoy) Memory.delayConvoy = {};
             Memory.delayConvoy[creep.memory.homeRoom] = 8000;
         }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
