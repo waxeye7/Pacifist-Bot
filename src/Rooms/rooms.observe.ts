@@ -1,6 +1,56 @@
 import { recordRoomIfStale } from "War/intel";
 import { isAlly, scoutQueue } from "War/score";
 import { logAlways } from "utils/Logger";
+import {
+    isEnterable,
+    roomKind,
+    roomNameToCoord,
+    roomsInRange,
+    ROOM_HIGHWAY,
+    ROOM_NORMAL,
+} from "War/geo";
+
+/**
+ * The intel sweep box: every NORMAL room within Chebyshev `radius` of home,
+ * minus home itself. This replaces two hand-rolled E/W/N/S loops that parsed
+ * room names by CHARACTER POSITION — for a name with a 3-digit coordinate
+ * ("E127N58", which is a real room at the map's edge) the parse produced NaN
+ * and the loop emitted NOTHING, so that room's observer silently idled
+ * forever. War/geo's regex parse handles any coordinate size and its W-side
+ * -1 offset makes the meridian wraparound ordinary arithmetic.
+ *
+ * The radius rule preserves the old quirk: rooms with two-digit coordinates
+ * on both axes (what "name.length == 6" actually meant) swept ±5, everything
+ * else swept ±4.
+ */
+export function intelSweepRooms(roomName: string): string[] {
+    const c = roomNameToCoord(roomName);
+    if (!c) return [];
+    const x = c.wx >= 0 ? c.wx : -c.wx - 1;
+    const y = c.wy >= 0 ? c.wy : -c.wy - 1;
+    const radius = x >= 10 && y >= 10 ? 5 : 4;
+    const out: string[] = [];
+    for (const n of roomsInRange(roomName, radius)) {
+        if (n === roomName || roomKind(n) !== ROOM_NORMAL) continue;
+        out.push(n);
+    }
+    return out;
+}
+
+/**
+ * The power/deposit sweep: every HIGHWAY room within 4 that is still
+ * enterable. The old loops applied the getRoomStatus check on only one of
+ * their two branches — a closed or novice highway room in the other branch
+ * cost an observeRoom call that could never pay. Both paths skip it now.
+ */
+export function powerSweepRooms(roomName: string): string[] {
+    const out: string[] = [];
+    for (const n of roomsInRange(roomName, 4)) {
+        if (n === roomName || roomKind(n) !== ROOM_HIGHWAY || !isEnterable(n)) continue;
+        out.push(n);
+    }
+    return out;
+}
 
 /** Throttle for the intel-capture error line — at most one per 100 ticks. */
 let lastIntelErrorTick = -1;
@@ -66,116 +116,7 @@ function observe(room) {
         }
 
         if(!room.memory.observe.RoomsToSee) {
-            let RoomsToSee = [];
-
-
-            if(room.name.length == 6) {
-                let EastOrWest = room.name[0];
-                let NorthOrSouth = room.name[3];
-
-                let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
-                let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
-                for(let i = homeRoomNameX-5; i<=homeRoomNameX+5; i++) {
-                    for(let o = homeRoomNameY-5; o<=homeRoomNameY+5; o++) {
-                        if(i % 10 !== 0 && o % 10 !== 0) {
-                            if(i % 10 >= 4 && i % 10 <= 6 && o % 10 >= 4 && o % 10 <= 6) {
-                                // do nothing
-                            }
-                            else {
-                                let firstString = i.toString();
-                                let secondString = o.toString();
-                                let roomName = EastOrWest + firstString + NorthOrSouth + secondString;
-                                if(room.name !== roomName) {
-                                    RoomsToSee.push(roomName);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            else if(room.name.length !== 6) {
-                let EastOrWest = room.name[0];
-                let NorthOrSouth;
-                let homeRoomNameX;
-                let homeRoomNameY;
-                if(!isNaN(room.name[2])) {
-                    NorthOrSouth = room.name[3];
-                    homeRoomNameX = parseInt(room.name[1] + room.name[2]);
-                    homeRoomNameY = parseInt(room.name[4]);
-                }
-                else {
-                    NorthOrSouth = room.name[2];
-                    homeRoomNameX = parseInt(room.name[1]);
-                    if(room.name.length == 4) {
-                        homeRoomNameY = parseInt(room.name[3]);
-                    }
-                    else if(room.name.length == 5) {
-                        homeRoomNameY = parseInt(room.name[3] + room.name[4]);
-                    }
-                }
-                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
-                    let EorW;
-                    let x;
-                    let switchX = false;
-                    if(i < 0) {
-                        switchX = true;
-                    }
-
-                    if(switchX) {
-                        x = Math.abs(i);
-                        x -= 1;
-                        if(EastOrWest == "E") {
-                            EorW = "W"
-                        }
-                        else {
-                            EorW = "E";
-                        }
-                    }
-                    else {
-                        x = i;
-                        EorW = EastOrWest;
-                    }
-                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
-                        let NorS;
-                        let y;
-                        let switchY = false;
-                        if(o < 0) {
-                            switchY = true;
-                        }
-
-                        if(switchY) {
-                            y = Math.abs(o);
-                            y -= 1;
-                            if(NorthOrSouth == "N") {
-                                NorS = "S"
-                            }
-                            else {
-                                NorS = "N";
-                            }
-                        }
-                        else {
-                            y = o;
-                            NorS = NorthOrSouth;
-                        }
-                        if(x % 10 !== 0 && y % 10 !== 0) {
-                            if(x % 10 >= 4 && x % 10 <= 6 && y % 10 >= 4 && y % 10 <= 6) {
-                                // do nothing
-                            }
-                            else {
-
-                                let firstString = x.toString();
-                                let secondString = y.toString();
-                                let roomName = EorW + firstString + NorS + secondString;
-                                if(room.name !== roomName) {
-                                    RoomsToSee.push(roomName);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            room.memory.observe.RoomsToSee = RoomsToSee;
+            room.memory.observe.RoomsToSee = intelSweepRooms(room.name);
         }
 
         let RoomsToSee = room.memory.observe.RoomsToSee
@@ -566,100 +507,7 @@ function observe(room) {
                 room.memory.observe.lastRoomObservedForPowerIndex = 0;
             }
 
-            let highWayRoomsToObserve = [];
-
-            if(room.name.length == 6) {
-                let EastOrWest = room.name[0];
-                let NorthOrSouth = room.name[3];
-                let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
-                let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
-                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
-                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
-                        if(i % 10 == 0 || o % 10 == 0) {
-                            let firstString = i.toString();
-                            let secondString = o.toString();
-                            highWayRoomsToObserve.push(EastOrWest + firstString + NorthOrSouth + secondString);
-                        }
-                    }
-                }
-                room.memory.observe.listOfRoomsForPower = highWayRoomsToObserve;
-            }
-            else if(room.name.length !== 6) {
-                let EastOrWest = room.name[0];
-                let NorthOrSouth;
-                let homeRoomNameX;
-                let homeRoomNameY;
-                if(!isNaN(room.name[2])) {
-                    NorthOrSouth = room.name[3];
-                    homeRoomNameX = parseInt(room.name[1] + room.name[2]);
-                    homeRoomNameY = parseInt(room.name[4]);
-                }
-                else {
-                    NorthOrSouth = room.name[2];
-                    homeRoomNameX = parseInt(room.name[1]);
-                    if(room.name.length == 4) {
-                        homeRoomNameY = parseInt(room.name[3]);
-                    }
-                    else if(room.name.length == 5) {
-                        homeRoomNameY = parseInt(room.name[3] + room.name[4]);
-                    }
-                }
-                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
-                    let EorW;
-                    let x;
-                    let switchX = false;
-                    if(i < 0) {
-                        switchX = true;
-                    }
-                    if(switchX) {
-                        x = Math.abs(i);
-                        x -= 1;
-                        if(EastOrWest == "E") {
-                            EorW = "W"
-                        }
-                        else {
-                            EorW = "E";
-                        }
-                    }
-                    else {
-                        x = i;
-                        EorW = EastOrWest;
-                    }
-                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
-                        let NorS;
-                        let y;
-                        let switchY = false;
-                        if(o < 0) {
-                            switchY = true;
-                        }
-
-                        if(switchY) {
-                            y = Math.abs(o);
-                            y -= 1;
-                            if(NorthOrSouth == "N") {
-                                NorS = "S"
-                            }
-                            else {
-                                NorS = "N";
-                            }
-                        }
-                        else {
-                            y = o;
-                            NorS = NorthOrSouth;
-                        }
-                        if(x % 10 == 0 || y % 10 == 0) {
-
-                            let firstString = x.toString();
-                            let secondString = y.toString();
-                            let roomName = EorW + firstString + NorS + secondString;
-                            if(Game.map.getRoomStatus(roomName).status == "normal" && room.name !== roomName) {
-                                highWayRoomsToObserve.push(roomName);
-                            }
-                        }
-                    }
-                }
-                room.memory.observe.listOfRoomsForPower = highWayRoomsToObserve;
-            }
+            room.memory.observe.listOfRoomsForPower = powerSweepRooms(room.name);
         }
 
         if(room.memory.observe.listOfRoomsForPower) {
