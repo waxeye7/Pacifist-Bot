@@ -191,6 +191,9 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
 
         if(creep.room.name != creep.memory.homeRoom) {
             if(creep.room.controller && !creep.room.controller.my && creep.room.controller.level > 4 && !_.includes(Memory.AvoidRooms, creep.room.name, 0)) {
+                // Seeded per owned room in rooms(); a squad creep that
+                // outlives every owned room would push on undefined.
+                if(!Memory.AvoidRooms) Memory.AvoidRooms = [];
                 Memory.AvoidRooms.push(creep.room.name);
             }
         }

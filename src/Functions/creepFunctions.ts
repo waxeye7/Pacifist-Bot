@@ -1598,6 +1598,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
     if (this.room.name !== this.memory.homeRoom) {
         if (this.room.controller && !this.room.controller.my && _hostileTowers(this.room).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
+            if (!Memory.AvoidRooms) Memory.AvoidRooms = [];
             Memory.AvoidRooms.push(this.room.name);
             // When we learned it, for whoever ages the list out. The map is
             // owned elsewhere and may not exist yet — never create it here.
