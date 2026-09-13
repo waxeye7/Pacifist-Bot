@@ -160,7 +160,11 @@ function findLockedBuild(creep) {
             }
             else if(target && target.hits == target.hitsMax) {
                 let index = creep.memory.allowed_repairs.indexOf(target.id);
-                creep.memory.allowed_repairs.splice(index,1);
+                // indexOf can return -1: the locked target predates this
+                // room's list, or the dead-object prune above already dropped
+                // it. splice(-1, 1) removes the LAST entry - a healthy target
+                // silently leaves the repair list.
+                if(index >= 0) creep.memory.allowed_repairs.splice(index,1);
                 creep.memory.locked_repair = null;
             }
         }
@@ -177,7 +181,11 @@ function findLockedBuild(creep) {
             }
             else if(target && target.hits == target.hitsMax) {
                 let index = creep.memory.allowed_repairs.indexOf(target.id);
-                creep.memory.allowed_repairs.splice(index,1);
+                // indexOf can return -1: the locked target predates this
+                // room's list, or the dead-object prune above already dropped
+                // it. splice(-1, 1) removes the LAST entry - a healthy target
+                // silently leaves the repair list.
+                if(index >= 0) creep.memory.allowed_repairs.splice(index,1);
                 creep.memory.locked_repair = null;
             }
         }
