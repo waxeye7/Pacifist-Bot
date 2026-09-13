@@ -282,7 +282,11 @@ export function recordRoom(room: Room): void {
     else delete rec.rv;
 
     rec.l = ctrl.level || 0;
+    // Same clear-on-falsy as every sibling field: a controller that topped
+    // back up used to keep its old dg forever, so the record claimed the
+    // room was still decaying long after the owner recovered it.
     if (ctrl.ticksToDowngrade) rec.dg = ctrl.ticksToDowngrade;
+    else delete rec.dg;
 
     if (ctrl.safeMode) rec.sa = 1;
     else delete rec.sa;
