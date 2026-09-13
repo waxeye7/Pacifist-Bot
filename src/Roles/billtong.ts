@@ -129,12 +129,15 @@ export function depositFallbackRooms(homeRoom: string): string[] {
             if(deposits.length > 0) {
                 creep.memory.deposit = deposits[0].id;
                 creep.memory.targetRoom = deposits[0].room.name;
+                // Seeded per owned room in rooms(); a billtong that outlives
+                // every owned room would read .includes on undefined.
+                if(!Memory.billtong_rooms) Memory.billtong_rooms = [];
                 if(!Memory.billtong_rooms.includes(creep.room.name)) {
                     Memory.billtong_rooms.push(creep.room.name);
                 }
             }
             else {
-                if(Memory.billtong_rooms.includes(creep.room.name)) {
+                if(Memory.billtong_rooms && Memory.billtong_rooms.includes(creep.room.name)) {
                     let indexOfUselessRoom = Memory.billtong_rooms.indexOf(creep.room.name);
                     Memory.billtong_rooms.splice(indexOfUselessRoom, 1);
                 }
