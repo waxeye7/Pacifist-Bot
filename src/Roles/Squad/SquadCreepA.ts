@@ -1,3 +1,4 @@
+import { isHighway } from "War/geo";
 import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, bindSquadSlot, shareSquadTargetPosition} from "./SquadHelperFunctions";
 import {splitQuadToDuos, degradeQuadToDuo} from "./SquadDuo";
 
@@ -207,37 +208,11 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                         return 25;
                     }
 
-                    if(roomName.length == 6) {
-                        if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                            return 2;
-                        }
-                        if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                            return 2;
-                        }
-                    }
-                    else if(roomName.length !== 6) {
-                        let homeRoomNameX;
-                        let homeRoomNameY;
-                        if(!isNaN(roomName[2])) {
-                            homeRoomNameX = parseInt(roomName[1] + roomName[2]);
-                            homeRoomNameY = parseInt(roomName[4]);
-                        }
-                        else {
-                            homeRoomNameX = parseInt(roomName[1]);
-                            if(roomName.length == 4) {
-                                homeRoomNameY = parseInt(roomName[3]);
-                            }
-                            else if(roomName.length == 5) {
-                                homeRoomNameY = parseInt(roomName[3] + roomName[4]);
-                            }
-                        }
-
-                        if(parseInt(homeRoomNameX) % 10 == 0) {
-                            return 2;
-                        }
-                        if(parseInt(homeRoomNameY) % 10 == 0) {
-                            return 2;
-                        }
+                    // Highway discount must parse the name, not slice it:
+                    // fixed positions misread any 3-digit coordinate, so a
+                    // real highway like E120N5 priced as an ordinary room.
+                    if(isHighway(roomName)) {
+                        return 2;
                     }
 
                     return 4;
