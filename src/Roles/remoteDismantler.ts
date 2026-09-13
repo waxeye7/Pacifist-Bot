@@ -21,8 +21,12 @@
         return closestHostileStructure.id;
     }
 
+    // Every sibling catch-all (SquadCreepA, SquadFollower, ram) carries
+    // !s.my. Without it this fallback also matches OUR structures — a
+    // persistent dismantler whose target room got claimed by us respawns
+    // forever eating our own buildings.
     let Structures = creep.room.find(FIND_STRUCTURES, {
-        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER});
+        filter: object => !object.my && object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER});
 
     if(Structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(Structures);
