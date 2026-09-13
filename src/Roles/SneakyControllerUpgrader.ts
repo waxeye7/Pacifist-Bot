@@ -31,7 +31,11 @@ const run = function (creep) {
                 }
             }
             creep.memory.in_danger = false;
-            creep.memory.exit = false;
+            // fleeRoom, not exit: moveToRoomAvoidEnemyRooms owns memory.exit
+            // as a RoomPosition tile cache — a room-name string there is
+            // overwritten with a position on the first flee tick, and the
+            // object is then fed back as targetRoom the next.
+            creep.memory.fleeRoom = false;
             return creep.moveToRoomAvoidEnemyRooms(targetRoom);
         }
         else if(creep.memory.locked_away > 0) {
@@ -67,7 +71,7 @@ const run = function (creep) {
                     }
                     let exit = pickSafeExit(creep.room.name, preferred);
                     if(exit) {
-                        creep.memory.exit = exit;
+                        creep.memory.fleeRoom = exit;
                         creep.memory.in_danger = true;
                         creep.memory.locked_away = 100;
                         creep.drop(RESOURCE_ENERGY);
@@ -80,7 +84,7 @@ const run = function (creep) {
             }
         }
         if(creep.memory.in_danger) {
-            creep.moveToRoomAvoidEnemyRooms(creep.memory.exit);
+            creep.moveToRoomAvoidEnemyRooms(creep.memory.fleeRoom);
             return;
         }
 
