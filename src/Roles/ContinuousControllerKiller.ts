@@ -54,6 +54,9 @@ const run = function (creep) {
                         if(typeof ttgh !== "number" || isNaN(ttgh)) ttgh = 0;
                         const respawnDelay = Math.max(1, 1015-(ttgh+creep.body.length*3 + 50));
 
+                        // Creeps run before the commands phase, so a first-tick
+                        // death can find the queue still unseeded.
+                        if(!Memory.commandsToExecute) Memory.commandsToExecute = [];
                         Memory.commandsToExecute.push({ delay: respawnDelay, bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
 
 

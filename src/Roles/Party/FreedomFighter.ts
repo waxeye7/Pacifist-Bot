@@ -158,6 +158,9 @@ const run = function (creep) {
           }
 
           if(creep.room.controller) {
+            // Creeps run before the commands phase — the queue can still be
+            // unseeded on the first tick of a fresh global.
+            if(!Memory.commandsToExecute) Memory.commandsToExecute = [];
             Memory.commandsToExecute.push({delay:360, bucketNeeded:5000, formation:"CCKparty", homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name,controllerFreePositions:creep.room.controller.pos.getOpenPositionsIgnoreCreeps().length})
           }
           return;
