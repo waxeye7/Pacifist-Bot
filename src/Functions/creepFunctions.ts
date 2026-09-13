@@ -4238,7 +4238,10 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
                     // unreachable by construction — searching them is waste
                     maxOps: 1000,
                     maxRooms: 1,
-                    roomCallback: (roomName) => roomCallbackRoadPrio(roomName)
+                    // swampPrio, not roadPrio — this call existed but was wired
+                    // to the road matrix, so "swamp" moves paid swamp=25/plains=5
+                    // and dodged swamps they were meant to cross at cost 2.
+                    roomCallback: (roomName) => roomCallbackSwampPrio(roomName)
                 }
                 );
 
@@ -4273,10 +4276,6 @@ const buildSwampPrio = (roomName: string): boolean | CostMatrix => {
 
 
 
-    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
-        costs.set(creep.pos.x, creep.pos.y, 255);
-    });
-
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 2);
@@ -4289,6 +4288,12 @@ const buildSwampPrio = (roomName: string): boolean | CostMatrix => {
                 costs.set(struct.pos.x, struct.pos.y, 255);
             }
         }
+    });
+
+    // after structures: a hostile stamped first used to be overwritten back to
+    // 2 when it stood on a road — same fix roomCallbackRoadPrio carries
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
