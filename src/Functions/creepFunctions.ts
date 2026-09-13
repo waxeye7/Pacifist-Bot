@@ -3878,7 +3878,10 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target, "safe")) {
-            let costMatrix = roomCallbackRoadPrio;
+            // safeToSource, not roadPrio: the point of this move is the +-7
+            // hostile cost band, which only exists in buildSafeToSource. The
+            // road matrix was wired in here and the real callback sat dead.
+            let costMatrix = roomCallbackSafeToSource;
 
             let targetPos = goalPos(this, target);
             if(!targetPos) {
@@ -3924,10 +3927,6 @@ const buildSafeToSource = (roomName: string): boolean | CostMatrix => {
 
     const hostiles = cachedHostileCreeps(room);
 
-    hostiles.forEach(function(creep) {
-        costs.set(creep.pos.x, creep.pos.y, 255);
-    });
-
     _.forEach(cachedStructures(room), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 2);
@@ -3941,6 +3940,12 @@ const buildSafeToSource = (roomName: string): boolean | CostMatrix => {
         else {
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
+    });
+
+    // after structures: a hostile stamped first used to be overwritten back to
+    // 2 when it stood on a road — same fix roomCallbackRoadPrio carries
+    hostiles.forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
