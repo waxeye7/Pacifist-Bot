@@ -54,4 +54,12 @@ describe("the spawn producer runs on a real cadence", () => {
     // sweep, and its comment explains the absolute clock is the fix, not a bug.
     assert.include(CODE, "room.memory.spawn_list.length >= 1 && Game.time % 500 == 0");
   });
+
+  it("moved the danger arm to the absolute clock too", () => {
+    // `danger` is exactly when `lastTimeSpawnUsed` is stamped every tick —
+    // (Game.time - lastTimeSpawnUsed) % 7 was 0 every tick and the producer
+    // ran every tick through the siege. This was the last relative-clock arm.
+    assert.notMatch(CODE, /\(Game\.time - room\.memory\.lastTimeSpawnUsed\) % \d+ == 0/);
+    assert.include(CODE, "room.memory.danger && producerTick % 7 == 0 && room.memory.spawn_list.length == 0");
+  });
 });
