@@ -64,6 +64,9 @@ function tapRoomEnergy(creep: Creep): boolean {
         const st = s.structureType;
         if (st !== STRUCTURE_EXTENSION && st !== STRUCTURE_CONTAINER &&
             st !== STRUCTURE_LINK && st !== STRUCTURE_TOWER) return false;
+        // withdraw() fails ERR_NOT_OWNER on enemy stores — a contested
+        // colonise target would wedge the creep next to their tower.
+        if ((s as any).owner && !(s as any).my) return false;
         const store = (s as AnyStoreStructure).store;
         return !!store && (store[RESOURCE_ENERGY] || 0) > 0;
     }});
@@ -424,7 +427,10 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
         else {
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.hits < object.hitsMax && object.structureType != STRUCTURE_WALL
+                // owner check: repair() cannot touch invader cores or enemy
+                // buildings, and the closest-first pick would wedge the creep
+                // on an unrepairable target forever.
+                filter: object => object.hits < object.hitsMax && object.structureType != STRUCTURE_WALL && (!object.owner || object.my)
             });
 
             buildingsToRepair.sort((a,b) => a.hits - b.hits);
