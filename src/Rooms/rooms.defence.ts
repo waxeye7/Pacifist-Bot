@@ -554,6 +554,13 @@ function roomDefence(room) {
                 room.memory.danger = false;
                 room.memory.rampartToMan = false;
                 clearCivilianFleeing(room);
+                // Release the distress latch here too — the zero-hostiles
+                // branch below never runs while one harmless creep keeps
+                // standing in the room, and a parked scout would otherwise
+                // hold reinforce_me forever after the raid it rode in on.
+                if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me == room.name) {
+                    delete Memory.DistressSignals.reinforce_me;
+                }
             }
 
             // Man-able shell = planned perimeter (min-cut), not "range <= 10 from storage"

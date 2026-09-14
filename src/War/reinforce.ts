@@ -20,6 +20,19 @@ function alreadyHelping(target: string): boolean {
 
 export function runReinforce(): void {
   // Home defence is towers. See file header.
+  //
+  // Bookkeeping only: the latch is raised and released inside the distressed
+  // room's own defence pass (rooms.defence). If that room is LOST while the
+  // latch is up, no defence pass ever runs for it again and reinforce_me
+  // stays set forever — warAtPeace then reads DistressSignals non-empty and
+  // holds the scout fleet on the wartime cadence for the rest of the global.
+  // A latch pointing at a room we do not own describes nothing we can act on.
+  const sig = Memory.DistressSignals as any;
+  if (!sig || !sig.reinforce_me) return;
+  const room = Game.rooms[sig.reinforce_me];
+  if (!room || !room.controller || !room.controller.my) {
+    delete sig.reinforce_me;
+  }
 }
 
 export function reinforceStatus(): string {
