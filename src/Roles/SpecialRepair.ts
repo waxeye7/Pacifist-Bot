@@ -61,7 +61,12 @@ const run = function (creep) {
 
     if(creep.memory.rampart_to_repair) {
         let target:any = Game.getObjectById(creep.memory.rampart_to_repair);
-        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+        // a stale lock can hold while the creep crosses a room boundary —
+        // room.storage resolves by vision, Structures only when seeded
+        let storage:any = creep.room.storage;
+        if(!storage && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
+            storage = Game.getObjectById(creep.room.memory.Structures.storage);
+        }
         let lookForCreepsAtTarget;
         if(target && creep.pos.getRangeTo(target) !== 0) {
             lookForCreepsAtTarget = target.pos.lookFor(LOOK_CREEPS);
