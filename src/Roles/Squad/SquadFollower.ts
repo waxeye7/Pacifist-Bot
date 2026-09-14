@@ -2,6 +2,17 @@ import {bindSquadSlot, resolveMyCreep, shareSquadTargetPosition} from "./SquadHe
 import {degradeQuadToDuo, travelToRoom} from "./SquadDuo";
 
 /**
+ * Formation slot target, clamped to the room. A leader standing on the right
+ * or bottom border puts the raw (x+dx, y+dy) at 50 — RoomPosition throws and
+ * the follower crashed every tick the leader idled on an exit row.
+ */
+const slotPos = function (a: any, dx: number, dy: number) {
+    const x = Math.max(0, Math.min(49, a.pos.x + dx));
+    const y = Math.max(0, Math.min(49, a.pos.y + dy));
+    return new RoomPosition(x, y, a.room.name);
+};
+
+/**
  * Shared follower logic for SquadCreepB/Y/Z. The three roles are identical
  * apart from their slot in the 2x2 formation relative to the leader (A):
  *   B = (+1, 0), Y = (0, +1), Z = (+1, +1)
@@ -23,7 +34,7 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
         if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
             let gatherA:any = resolveMyCreep(creep.memory.squad.a);
             if(gatherA) {
-                creep.moveTo(new RoomPosition(gatherA.pos.x + dx, gatherA.pos.y + dy, gatherA.room.name));
+                creep.moveTo(slotPos(gatherA, dx, dy));
             }
         }
 
@@ -285,7 +296,7 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
                     }
 
                     else if(a.memory.direction == "join") {
-                        creep.moveTo(new RoomPosition(a.pos.x + dx, a.pos.y + dy, a.room.name));
+                        creep.moveTo(slotPos(a, dx, dy));
                     }
             }
         }
