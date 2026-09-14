@@ -1291,6 +1291,24 @@ function asMoveTarget(target: any, dest: RoomPosition): any {
     return { pos: dest, id: "p" + dest.roomName + ":" + dest.x + "," + dest.y };
 }
 
+// First-hop exit direction from one room toward another, findRoute'd once per
+// ordered room-pair per tick. Lives on the heap: a memory copy would pay the
+// serialise cost and direction is re-derivable.
+let _exitDirTick = -1;
+let _exitDirCache: { [key: string]: number | null } = {};
+function exitDirToward(fromRoom: string, toRoom: string): number | null {
+    if (_exitDirTick !== Game.time) {
+        _exitDirTick = Game.time;
+        _exitDirCache = {};
+    }
+    const key = fromRoom + "|" + toRoom;
+    if (_exitDirCache[key] === undefined) {
+        const route: any = Game.map.findRoute(fromRoom, toRoom);
+        _exitDirCache[key] = (route && route !== -2 && route.length > 0) ? route[0].exit : null;
+    }
+    return _exitDirCache[key];
+}
+
 /**
  * Single movement API for Pacifist.
  * Same room → PathFinder + cached cost matrices.
@@ -1339,10 +1357,11 @@ Creep.prototype.goTo = function goTo(target: any, opts: GoToOpts = {}) {
         if (style === "avoidHostiles") {
             let exitDir: any = Game.map.findExit(this.pos.roomName, dest.roomName);
             if (!(typeof exitDir === "number" && exitDir > 0)) {
-                const route: any = Game.map.findRoute(this.pos.roomName, dest.roomName);
-                if (route && route !== -2 && route.length > 0) {
-                    exitDir = route[0].exit;
-                }
+                // goTo forces avoidHostiles on every creep in a room under
+                // attack, so several creeps can flee through here per tick —
+                // each paying a findRoute for the same ordered room-pair.
+                // The answer is stable within a tick; memoise it.
+                exitDir = exitDirToward(this.pos.roomName, dest.roomName);
             }
             if (typeof exitDir === "number" && exitDir > 0) {
                 const exit = this.pos.findClosestByRange(exitDir);
