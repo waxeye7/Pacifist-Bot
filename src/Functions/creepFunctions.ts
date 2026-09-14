@@ -1678,6 +1678,12 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
     }
 
     if (!this.memory.route || this.memory.route === -2 || this.memory.route && this.memory.route.length === 0 || (this.memory.route.length === 1 && this.memory.route[0].room === this.room.name) || (this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom)) {
+        // findRoute answers -2 for an unreachable target — and -2 satisfies
+        // the recompute condition above, so without a backoff every such
+        // creep paid a fresh findRoute EVERY tick and still never moved.
+        if (this.memory.route === -2 && Game.time - (this.memory._routeFailT || 0) < 50) {
+            return;
+        }
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             // arrow keeps `this` as the creep. A shorthand method binds `this`
             // to the options object, so the highway/SK weights never ran.
@@ -1738,6 +1744,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                 return 4;
             }
         });
+        if (this.memory.route === -2) {
+            this.memory._routeFailT = Game.time;
+        }
     }
         if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
         let exit;
