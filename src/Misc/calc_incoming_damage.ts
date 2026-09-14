@@ -13,9 +13,9 @@ function calc_incoming_damage(pos: RoomPosition, towers: Array<StructureTower>, 
     XUH2O: 4, // T3 boost for ATTACK
     XKHO2: 4, // T3 boost for RANGED_ATTACK
     UH2O: 3, // T2 boost for ATTACK
-    KHO2: 3, // T2 boost for RANGED_ATTACK
+    KH2O: 3, // T2 boost for RANGED_ATTACK — was "KHO2", a transposed name that never matched
     UH: 2, // T1 boost for ATTACK
-    KO: 2 // T1 boost for RANGED_ATTACK
+    KH: 2 // T1 boost for RANGED_ATTACK — was "KO" (keanium oxide), the ranged-heal family
   };
 
   let totalDamage = 0;
@@ -85,9 +85,9 @@ function calc_incoming_damage_potential_next_tick(
     XUH2O: 4, // T3 boost for ATTACK
     XKHO2: 4, // T3 boost for RANGED_ATTACK
     UH2O: 3, // T2 boost for ATTACK
-    KHO2: 3, // T2 boost for RANGED_ATTACK
+    KH2O: 3, // T2 boost for RANGED_ATTACK — was "KHO2", a transposed name that never matched
     UH: 2, // T1 boost for ATTACK
-    KO: 2 // T1 boost for RANGED_ATTACK
+    KH: 2 // T1 boost for RANGED_ATTACK — was "KO" (keanium oxide), the ranged-heal family
   };
 
   let totalDamage = 0;
@@ -171,9 +171,9 @@ function calc_incoming_damage_potential_next_tick_next_pos(
     XUH2O: 4, // T3 boost for ATTACK
     XKHO2: 4, // T3 boost for RANGED_ATTACK
     UH2O: 3, // T2 boost for ATTACK
-    KHO2: 3, // T2 boost for RANGED_ATTACK
+    KH2O: 3, // T2 boost for RANGED_ATTACK — was "KHO2", a transposed name that never matched
     UH: 2, // T1 boost for ATTACK
-    KO: 2 // T1 boost for RANGED_ATTACK
+    KH: 2 // T1 boost for RANGED_ATTACK — was "KO" (keanium oxide), the ranged-heal family
   };
 
   let totalDamage = 0;
