@@ -1,3 +1,5 @@
+import { directionToStep } from "Functions/roomFunctions";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -208,7 +210,9 @@
 
                 if(path.path.length > 0) {
                     let pos = path.path[0];
-                    let direction = creep.pos.getDirectionTo(pos);
+                    // maxRooms: 40 — the head can sit in the next room, where
+                    // getDirectionTo returns the opposite of the crossing move
+                    let direction = directionToStep(creep.pos, pos);
                     creep.move(direction);
                 }
             }

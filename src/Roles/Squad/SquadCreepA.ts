@@ -1,4 +1,5 @@
 import { isHighway } from "War/geo";
+import { directionToStep } from "Functions/roomFunctions";
 import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, bindSquadSlot, shareSquadTargetPosition} from "./SquadHelperFunctions";
 import {splitQuadToDuos, degradeQuadToDuo} from "./SquadDuo";
 
@@ -282,7 +283,9 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                     );
                     let pos = path.path[0];
                     if(pos) {
-                        let direction = creep.pos.getDirectionTo(pos);
+                        // maxRooms: 5 — the head can sit in the next room,
+                        // where getDirectionTo reads the border step backwards
+                        let direction = directionToStep(creep.pos, pos);
 
                         creep.move(direction);
                     }
