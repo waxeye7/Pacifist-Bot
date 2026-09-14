@@ -1110,6 +1110,13 @@ function labs(room) {
             if(!inputLab1 || !(inputLab1.store[lab1Input] >= 5) || !inputLab2 || !(inputLab2.store[lab2Input] >= 5)) {
                 continue;
             }
+            // runReaction needs the output inside range 2 of BOTH inputs. The
+            // degenerate-geometry fallback in assignDynamicLabs takes the
+            // best-reach pair it can get, which can still leave a lab out of
+            // range — without this it eats ERR_NOT_IN_RANGE every tick.
+            if(!outputLab.pos.inRangeTo(inputLab1, 2) || !outputLab.pos.inRangeTo(inputLab2, 2)) {
+                continue;
+            }
             // A missing slot is free. A present slot is free only with no live
             // claimant and nothing left to deliver. lab5 used to spell this
             // `!use` (so a slot with use undefined counted as free); every
