@@ -735,6 +735,13 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                         // }
                 }
 
+                // leader on the far edge with the squad still filing across:
+                // every join probe below reads a.pos + 1, which is tile 50 —
+                // it does not exist, so new RoomPosition throws a RangeError
+                else if(a.pos.x == 49 || a.pos.y == 49) {
+                    creep.memory.direction = false;
+                }
+
                 else {
 
                     let lookCreepsRight:any = true;
