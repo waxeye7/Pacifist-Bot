@@ -189,6 +189,9 @@ const run = function (creep) {
         // Annoyer at every reserved neighbour (level 0 < 3).
         if(creep.room.controller && creep.room.controller.owner && !creep.room.controller.my && creep.room.controller.level < 3 && !creep.room.controller.safeMode) {
             let newName = 'Annoyer-' + Math.floor(Math.random() * Game.time) + "-" + creep.memory.homeRoom;
+            // homeMem exists (guarded above) but spawn_list seeds in the home
+            // room's own spawn pass — same missing-list push claimer hit
+            if(!homeMem.spawn_list) homeMem.spawn_list = [];
             homeMem.spawn_list.push([ATTACK, MOVE], newName, {memory: {role: 'annoy', homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name}});
         }
         // Emptying `energy` here is the REJECTION SIGNAL, not a clobber:
