@@ -143,9 +143,13 @@ function rooms() {
 
       if (room.memory.danger) {
         if (room.memory.danger_timer % 50 === 0) console.log(room.name, "danger", room.memory.danger_timer);
-        room.memory.danger_timer++;
-        if (room.memory.danger_timer > 10000) {
-          room.memory.danger_timer = 0;
+        // Saturate, never wrap: every reader asks `danger_timer > N` (spawn
+        // effects >30, boosts >50, repair rungs >200/300, PWR_DISRUPT_SPAWN
+        // recovery >500). A reset to 0 mid-siege reads as a FRESH danger —
+        // every sustained rung flicked off together and re-armed over the
+        // next several hundred ticks. Invader sieges run past 10,000 ticks.
+        if (room.memory.danger_timer < 10000) {
+          room.memory.danger_timer++;
         }
       } else if (!room.memory.danger && room.memory.danger_timer !== 0) {
         if (room.memory.danger_timer > 5) {
