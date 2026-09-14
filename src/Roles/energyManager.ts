@@ -459,9 +459,13 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
                 outputLabs.push({n: 8, lab: outputLab8})
             }
 
-            let currentOutput = creep.room.memory.labs.status.currentOutput;
-            let lab1Input = creep.room.memory.labs.status.lab1Input;
-            let lab2Input = creep.room.memory.labs.status.lab2Input;
+            // labs{} exists before its status sub-object does — an aborted
+            // labs() pass leaves labs present with no status, and the bare
+            // .status.currentOutput read then threw every tick after
+            const labsStatus = creep.room.memory.labs.status || {};
+            let currentOutput = labsStatus.currentOutput;
+            let lab1Input = labsStatus.lab1Input;
+            let lab2Input = labsStatus.lab2Input;
 
             if(inputLab1 && inputLab1.mineralType != undefined && inputLab1.mineralType != lab1Input) {
                 if(creep.pos.isNearTo(inputLab1)) {
