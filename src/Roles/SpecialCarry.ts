@@ -29,7 +29,12 @@ const run = function (creep) {
 	}
 
 
-    let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+    // room.storage resolves by vision alone; the Structures id is only a
+    // fallback — reading it unguarded throws in rooms where it was never seeded
+    let storage:any = creep.room.storage;
+    if(!storage && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
+        storage = Game.getObjectById(creep.room.memory.Structures.storage);
+    }
 
 
 
