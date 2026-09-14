@@ -201,7 +201,12 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
         if(creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[0].room == creep.room.name) {
             creep.memory.route.shift();
         }
-        if(!creep.memory.route || creep.memory.route == -2 || creep.memory.route.length == 0 || creep.memory.route.length == 1 && creep.memory.route[0].room == creep.room.name || creep.memory.route.length > 0 && creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetPosition.roomName) {
+        // A -2 route is sticky in memory: without a retry backoff it recomputes
+        // every tick — one findRoute per squad member per tick against a target
+        // that cannot be reached (novice zone, respawn wall, AvoidRooms ring).
+        const routeFailed = creep.memory.route == -2;
+        const retryBlocked = routeFailed && creep.memory.routeRetryAt && Game.time < creep.memory.routeRetryAt;
+        if(!retryBlocked && (!creep.memory.route || creep.memory.route == -2 || creep.memory.route.length == 0 || creep.memory.route.length == 1 && creep.memory.route[0].room == creep.room.name || creep.memory.route.length > 0 && creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetPosition.roomName)) {
             creep.memory.route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
                 routeCallback(roomName:any, fromRoomName) {
                     if(Game.map.getRoomStatus(roomName).status !== "normal") {
@@ -220,6 +225,8 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
 
                     return 4;
             }});
+            if(creep.memory.route == -2) creep.memory.routeRetryAt = Game.time + 50;
+            else delete creep.memory.routeRetryAt;
         }
 
 
