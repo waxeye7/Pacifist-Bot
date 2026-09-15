@@ -712,7 +712,9 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                 creep.memory.swampyPathCount = 0;
             }
             let pos = path.path[0];
-            let direction = pos ? creep.pos.getDirectionTo(pos) : undefined;
+            // maxRooms: 5 — the head can sit in the next room, where
+            // getDirectionTo reads the border step backwards
+            let direction = pos ? directionToStep(creep.pos, pos) : undefined;
             // && a.room.name == y.room.name && a.room.name == z.room.name) || (a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) || (a.room.name == y.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(b))
             if(
                 fullQuad && pos &&
