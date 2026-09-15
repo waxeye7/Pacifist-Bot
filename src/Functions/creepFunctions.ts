@@ -2918,49 +2918,46 @@ Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(f
     return;
 }
 
+/**
+ * Flee matrices shared by fleeFromMelee and fleeFromRanged. A raid puts EVERY
+ * civilian creep in the room through a flee every tick, and each call used to
+ * build a fresh 2500-tile matrix plus a full structure scan — the heaviest
+ * matrix traffic in the codebase, at exactly the moment CPU is tightest.
+ * Terrain base is the forever-cached shared one; the finished matrix memoizes
+ * per room per (swamp, plain) variant per tick. Nothing moves mid-tick.
+ */
+const fleeCostMatrix = function (roomName: string, swampCost: number, plainsCost: number): CostMatrix | false {
+    return getCachedCostMatrix(roomName, "flee:" + swampCost + ":" + plainsCost, () => {
+        const room = Game.rooms[roomName];
+        if (!room) {
+            return false;
+        }
+        const costs = terrainBaseMatrix(roomName, 255, swampCost, plainsCost);
+        room.find(FIND_STRUCTURES).forEach((structure) => {
+            if(structure.structureType === STRUCTURE_RAMPART && structure.my && structure.pos.lookFor(LOOK_STRUCTURES).length === 1) {
+                costs.set(structure.pos.x, structure.pos.y, 2);
+            }
+            else if (structure.structureType !== STRUCTURE_ROAD && structure.structureType !== STRUCTURE_CONTAINER) {
+                // Set other structures' tiles to a higher cost to discourage the pathfinder from using them
+                costs.set(structure.pos.x, structure.pos.y, 255);
+            }
+            else if(structure.structureType === STRUCTURE_ROAD) {
+                costs.set(structure.pos.x, structure.pos.y, 1);
+            }
+        });
+        return costs;
+    });
+};
+
 Creep.prototype.fleeFromMelee = function(fleeTarget) {
     const room = this.room;
-    const terrain = new Room.Terrain(room.name);
     let swampCost = 5;
     let plainsCost = 1;
     if(this.memory.role === "carry" || this.memory.role === "filler") {
         swampCost = 1;
         plainsCost = 2;
     }
-    const costMatrix = new PathFinder.CostMatrix();
-
-    // Consider terrain walls (walls and border edges of the room) as impassable
-    for (let x = 0; x < 50; x++) {
-        for (let y = 0; y < 50; y++) {
-            let terrainHere = terrain.get(x, y)
-            if (terrainHere === TERRAIN_MASK_WALL) {
-                costMatrix.set(x, y, 255);
-            }
-            else if(terrainHere === TERRAIN_MASK_SWAMP) {
-                costMatrix.set(x, y, swampCost);
-            }
-            else {
-                costMatrix.set(x, y, plainsCost);
-            }
-        }
-    }
-
-    // Create a CostMatrix considering walls and terrain walls as impassable
-    room.find(FIND_STRUCTURES).forEach((structure) => {
-        if(structure.structureType === STRUCTURE_RAMPART && structure.my && structure.pos.lookFor(LOOK_STRUCTURES).length === 1) {
-            costMatrix.set(structure.pos.x, structure.pos.y, 2);
-        }
-
-        else if (structure.structureType !== STRUCTURE_ROAD && structure.structureType !== STRUCTURE_CONTAINER) {
-            // Set other structures' tiles to a higher cost to discourage the pathfinder from using them
-            costMatrix.set(structure.pos.x, structure.pos.y, 255);
-        }
-        else if(structure.structureType === STRUCTURE_ROAD) {
-            costMatrix.set(structure.pos.x, structure.pos.y, 1);
-        }
-    });
-
-
+    const costMatrix = fleeCostMatrix(room.name, swampCost, plainsCost);
 
     // this CostMatrix is only valid for this room; without maxRooms PathFinder
     // paints the same walls onto neighbouring rooms and near-exit flees die
@@ -2979,44 +2976,13 @@ Creep.prototype.fleeFromMelee = function(fleeTarget) {
 
 Creep.prototype.fleeFromRanged = function(fleeTarget) {
     const room = this.room;
-    const terrain = new Room.Terrain(room.name);
     let swampCost = 5;
     let plainsCost = 1;
     if(this.memory.role === "carry" || this.memory.role === "filler") {
         swampCost = 1;
         plainsCost = 2;
     }
-    const costMatrix = new PathFinder.CostMatrix();
-
-    // Consider terrain walls (walls and border edges of the room) as impassable
-    for (let x = 0; x < 50; x++) {
-        for (let y = 0; y < 50; y++) {
-            let terrainHere = terrain.get(x, y)
-            if (terrainHere === TERRAIN_MASK_WALL) {
-                costMatrix.set(x, y, 255);
-            }
-            else if(terrainHere === TERRAIN_MASK_SWAMP) {
-                costMatrix.set(x, y, swampCost);
-            }
-            else {
-                costMatrix.set(x, y, plainsCost);
-            }
-        }
-    }
-    // Create a CostMatrix considering walls and terrain walls as impassable
-    room.find(FIND_STRUCTURES).forEach((structure) => {
- if(structure.structureType === STRUCTURE_RAMPART && structure.my && structure.pos.lookFor(LOOK_STRUCTURES).length === 1) {
-            costMatrix.set(structure.pos.x, structure.pos.y, 2);
-        }
-
-        else if (structure.structureType !== STRUCTURE_ROAD && structure.structureType !== STRUCTURE_CONTAINER) {
-            // Set other structures' tiles to a higher cost to discourage the pathfinder from using them
-            costMatrix.set(structure.pos.x, structure.pos.y, 255);
-        }
-        else if(structure.structureType === STRUCTURE_ROAD) {
-            costMatrix.set(structure.pos.x, structure.pos.y, 1);
-        }
-    });
+    const costMatrix = fleeCostMatrix(room.name, swampCost, plainsCost);
 
 
 
