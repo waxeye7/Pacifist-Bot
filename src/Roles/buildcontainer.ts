@@ -1,5 +1,6 @@
 import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2";
 import { rampartIsBuried } from "utils/Interior";
+import { rampartHitsTarget } from "Rooms/rooms.defence";
 
 /**
  * Memory.target_colonise.spawn_pos, or null if it is not a usable tile IN THIS
@@ -429,8 +430,10 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
                 // owner check: repair() cannot touch invader cores or enemy
                 // buildings, and the closest-first pick would wedge the creep
-                // on an unrepairable target forever.
-                filter: object => object.hits < object.hitsMax && object.structureType != STRUCTURE_WALL && (!object.owner || object.my)
+                // on an unrepairable target forever. Ramparts past the room's
+                // hits policy are also out — otherwise this fallback nursed a
+                // 300M-max tile forever.
+                filter: object => object.hits < object.hitsMax && object.structureType != STRUCTURE_WALL && (!object.owner || object.my) && (object.structureType !== STRUCTURE_RAMPART || object.hits < rampartHitsTarget(creep.room))
             });
 
             buildingsToRepair.sort((a,b) => a.hits - b.hits);
