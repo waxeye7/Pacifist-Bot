@@ -67,7 +67,7 @@ const run = function (creep) {
         } else if (partyMember.room.name !== party[1].room.name || partyMember.pos.isNearTo(party[1])) {
           partyMember.moveTo(party[1]);
         }
-      } else if (partyMember.memory.line === 2 && !partyMember.memory.boostlabs.length) {
+      } else if (partyMember.memory.line === 2 && !(partyMember.memory.boostlabs && partyMember.memory.boostlabs.length)) {
         if (!party[2]) continue;
         if (partyMember.room.name === party[2].room.name && !partyMember.pos.isNearTo(party[2])) {
           allGood = false;
@@ -75,7 +75,7 @@ const run = function (creep) {
         } else if (partyMember.room.name !== party[2].room.name || partyMember.pos.isNearTo(party[2])) {
           partyMember.moveTo(party[2]);
         }
-      } else if (partyMember.memory.line === 1 && !partyMember.memory.boostlabs.length) {
+      } else if (partyMember.memory.line === 1 && !(partyMember.memory.boostlabs && partyMember.memory.boostlabs.length)) {
         if (allGood) {
           partyMember.moveToRoomAvoidEnemyRooms(partyMember.memory.targetRoom);
         }
