@@ -36,7 +36,7 @@ export interface RoomBasePlan {
   score: number;
 }
 
-const PLAN_VERSION = 7;
+const PLAN_VERSION = 8;
 
 /**
  * How far from the hub a planned extension still counts as "inside the base"
@@ -212,7 +212,12 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
           if (sc > localBest.score) localBest = { x, y, score: sc };
         }
       }
-      best = localBest;
+      // A spawn hard against the edge can leave the whole +-4 window below the
+      // margin or walled — every score stays -Infinity and localBest keeps its
+      // initial y = spawn.y - 2, which is -1 for a spawn on tile 1. Memory then
+      // carries hub.y = -1 and every basePlan.hub reader that builds a
+      // RoomPosition throws RangeError each tick. Keep the center pick instead.
+      if (localBest.score > -Infinity) best = localBest;
     }
   }
 
