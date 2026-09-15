@@ -29,7 +29,20 @@ function QuadSquadRunManager(QuadSquadNameList) {
             }
             const isLeader = creep.memory.role === "SquadCreepA" || creep.memory.role === "DuoCreepA";
             if((pass === 0) === isLeader && global.ROLES[creep.memory.role]) {
-              global.ROLES[creep.memory.role].run(creep);
+              // RunCreepManager catches per creep; a throw here used to escape
+              // into phase("creeps") and skip every squad creep after it.
+              try {
+                global.ROLES[creep.memory.role].run(creep);
+              } catch (error: any) {
+                const stack = error && error.stack ? String(error.stack).split("\n").slice(0, 4).join(" | ") : String(error);
+                logAlways(`Error running squad creep ${name}: ${stack}`);
+                // Same self-heal as RunCreepManager: a poisoned movement
+                // cache re-throws every tick until the creep dies.
+                if (/Invalid room name|Invalid arguments in RoomPosition/.test(String(error)) && Memory.creeps && Memory.creeps[name]) {
+                  delete (Memory.creeps[name] as any)._move;
+                  delete (Memory.creeps[name] as any)._trav;
+                }
+              }
             }
         }
       }

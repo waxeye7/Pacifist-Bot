@@ -40,7 +40,9 @@ describe("container upkeep", () => {
     // If this ever stops being true the maintainer fix is belt-and-braces
     // rather than the sole path — worth knowing either way.
     const r = SRC("Roles/repair.ts");
-    const rcl6 = r.indexOf("creep.room.controller.level >= 6");
+    // The RCL6+ branch now reads a hoisted `rcl` — controller can be
+    // undefined in SK/highway rooms, so the level is captured once.
+    const rcl6 = r.indexOf("if(rcl >= 6)");
     assert.isAbove(rcl6, 0);
     assert.include(r.slice(rcl6, rcl6 + 3000), "building.structureType !== STRUCTURE_CONTAINER");
   });
