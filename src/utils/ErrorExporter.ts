@@ -18,7 +18,17 @@ export default class ErrorExporter {
     public static getSegmentData(): ErrorData {
         const segment = RawMemory.segments[errorSegment]
         if (segment === undefined || segment.length === 0) return { errors: [] }
-        else return JSON.parse(RawMemory.segments[errorSegment])
+        // A corrupt segment is a dead archive: JSON.parse throws, the caller
+        // in ErrorMapper catches, and every later error is dropped until the
+        // segment is cleared by hand — the log fails silently at the exact
+        // moment it is needed. Anything stored here that is not {errors: []}
+        // shaped is already unrecoverable, so treat it as empty and let the
+        // next write self-heal the segment.
+        try {
+            const parsed = JSON.parse(segment)
+            if (parsed && Array.isArray(parsed.errors)) return parsed
+        } catch (e) {}
+        return { errors: [] }
     }
 
     public static setSegmentData(data: ErrorData): void {
