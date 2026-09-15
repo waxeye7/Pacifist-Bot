@@ -1027,7 +1027,13 @@ const run = function (creep) {
 
 
             if(creep.ticksToLive > 275 && creep.memory.myRampart && source && source.ticksToRegeneration * 10.5 > source.energy) {
-                let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                // myRampart survives from a loaded transit through home; the
+                // creep can be standing in a remote room here, where
+                // room.memory.Structures was never seeded
+                let storage:any = creep.room.storage;
+                if(!storage && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
+                    storage = Game.getObjectById(creep.room.memory.Structures.storage);
+                }
                 let rampart:any = Game.getObjectById(creep.memory.myRampart);
                 // adopted before the shell closed around it (replan / adopt /
                 // the wall finally going up) — drop it exactly like the
