@@ -63,26 +63,36 @@ const run = function (creep) {
 
 
 
-    let route:any = Game.map.findRoute(creep.room.name, creep.memory.targetRoom, {
-        routeCallback(roomName, fromRoomName) {
-            if(Game.map.getRoomStatus(roomName).status !== "normal") {
-                return Infinity;
-            }
-            if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetRoom) {
-                return 25;
-            }
+    // This ran a fresh findRoute EVERY tick of the journey — one per
+    // WallClearer in transit. Cache it like the other cross-room movers:
+    // shift the consumed hop on room change, recompute only when the stored
+    // route is missing, dead, empty, or no longer ends at the target.
+    if(creep.memory.route && creep.memory.route !== ERR_NO_PATH && creep.memory.route.length > 0 && creep.memory.route[0].room === creep.room.name) {
+        creep.memory.route.shift();
+    }
+    if(!creep.memory.route || creep.memory.route === ERR_NO_PATH || creep.memory.route.length === 0 || creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetRoom) {
+        creep.memory.route = Game.map.findRoute(creep.room.name, creep.memory.targetRoom, {
+            routeCallback(roomName, fromRoomName) {
+                if(Game.map.getRoomStatus(roomName).status !== "normal") {
+                    return Infinity;
+                }
+                if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetRoom) {
+                    return 25;
+                }
 
 
 
-            // Highway discount: parse the name, do not slice it - a 3-digit
-            // coordinate (E120N5) sliced to the wrong digits and priced a
-            // free highway as an ordinary room.
-            if(isHighway(roomName)) {
-                return 4;
-            }
+                // Highway discount: parse the name, do not slice it - a 3-digit
+                // coordinate (E120N5) sliced to the wrong digits and priced a
+                // free highway as an ordinary room.
+                if(isHighway(roomName)) {
+                    return 4;
+                }
 
-            return 5;
-    }});
+                return 5;
+        }});
+    }
+    const route:any = creep.memory.route;
 
     if(route == ERR_NO_PATH) {
         creep.suicide();
