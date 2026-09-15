@@ -135,7 +135,10 @@ const run = function (creep) {
                 if(creep.memory.targets) {
                     let targets = [];
                     for(let rampartid of creep.memory.targets) {
-                        targets.push(Game.getObjectById(rampartid));
+                        const rampart:any = Game.getObjectById(rampartid);
+                        // a rampart destroyed since the list was built resolves
+                        // null — sorting null.hits crashes the role mid-siege
+                        if(rampart) targets.push(rampart);
                     }
 
                     if(targets?.length > 0) {
