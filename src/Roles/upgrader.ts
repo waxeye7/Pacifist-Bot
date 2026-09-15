@@ -325,7 +325,7 @@ const run = function (creep) {
 	// exactly the room this delegation was written for.
 	const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
 		(!storage || storage.structureType !== STRUCTURE_STORAGE) && cachedMyCreeps(creep.room).length < 9;
-	const rcl2Bootstrap = creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
+	const rcl2Bootstrap = creep.room.controller && creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
 	if((skeletonCrewNoBank || rcl2Bootstrap) && cachedSites(creep.room).length > 0) {
 		const builder: any = (global as any).ROLES && (global as any).ROLES.builder;
 		if(builder) {

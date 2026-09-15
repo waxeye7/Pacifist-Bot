@@ -230,6 +230,11 @@ const takeReserveFill = (creep:any, id:string):void => {
  * with the same inputs write the same id, so skipping the second is invisible.
  */
 function _discoverControllerDepot(room:any):void {
+    // Structures is seeded only for owned rooms (rooms.ts) — and a depot is
+    // OURS by definition, so a foreign room has no answer to discover. Both
+    // callers gate on controller.my; the check belongs here regardless.
+    if (!room.controller || !room.controller.my) return;
+    if (!room.memory.Structures) room.memory.Structures = {};
     const key = "ctrlDepotScan:" + (room.memory.Structures.controllerLink || "0");
     cachedDerived(room, key, () => {
         // A LINK always wins from RCL5 up, whatever the level split below says.
@@ -311,20 +316,25 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     let reserve = !(opts && opts.reserve === false);
     let reserveFill = reserveFillIdsOfOthers(this);
 
+    // Every Structures-keyed rung below names OUR structures. In a foreign
+    // room the key is unseeded — `Structures.X` threw on a displaced creep —
+    // and the answer could only ever be junk, so they all sit behind myRoom.
+    const myRoom = !!(this.room.controller && this.room.controller.my);
+    const S:any = this.room.memory.Structures || {};
 
-    if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
+    if(this.memory.role == "ControllerLinkFiller" && myRoom && (!S.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
         _discoverControllerDepot(this.room);
     }
 
-    if(this.memory.role == "ControllerLinkFiller" && this.room.controller && this.room.memory.Structures.controllerLink) {
-        let controllerLink:any = Game.getObjectById(this.room.memory.Structures.controllerLink);
+    if(this.memory.role == "ControllerLinkFiller" && myRoom && S.controllerLink) {
+        let controllerLink:any = Game.getObjectById(S.controllerLink);
         if(controllerLink) {
             // same deadness + reservation as every other fill pick: skipping
             // them here blacklisted a live depot and then re-picked it forever
             if(!fillTargetIsDead(this.room, controllerLink.id) && !reserveFill.includes(controllerLink.id)) {
                 if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200) {
                     if(this.room.controller.level >= 7) {
-                        this.room.memory.Structures.controllerLink = false;
+                        S.controllerLink = false;
                     }
                     else {
                         if(reserve) {
@@ -344,7 +354,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
             }
         }
         else {
-            this.room.memory.Structures.controllerLink = false;
+            S.controllerLink = false;
         }
     }
     // spawn-first: labs used to outrank hungry spawn/extensions the moment
@@ -454,8 +464,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
 
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage() || this.room.storage;
-    if(this.room.memory.Structures.extraLinks) {
-        for(let linkID of this.room.memory.Structures.extraLinks) {
+    if(myRoom && S.extraLinks) {
+        for(let linkID of S.extraLinks) {
             let extraLink:any = Game.getObjectById(linkID);
             if(extraLink && extraLink.store[RESOURCE_ENERGY] < 800 && storage && storage.store[RESOURCE_ENERGY] > 100000 && !reserveFill.includes(extraLink.id)) {
                 if(reserve) {
@@ -468,8 +478,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
 
 
-    if(this.room.memory.Structures.powerSpawn) {
-        let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
+    if(myRoom && S.powerSpawn) {
+        let powerSpawn:any = Game.getObjectById(S.powerSpawn);
         if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 280000 && !reserveFill.includes(powerSpawn.id)) {
             if(reserve) {
                 takeReserveFill(this, powerSpawn.id);
@@ -482,20 +492,20 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
 
 
 
-    if(this.memory.role == "filler" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
+    if(this.memory.role == "filler" && myRoom && (!S.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
         // Same scan as the ControllerLinkFiller branch above — it used to be a
         // verbatim second copy, which meant a room with no depot paid for it
         // once per filler as well as once per ControllerLinkFiller.
         _discoverControllerDepot(this.room);
     }
 
-    if(this.memory.role == "filler" && this.room.energyAvailable == this.room.energyCapacityAvailable && this.room.controller && this.room.memory.Structures.controllerLink) {
-        let controllerLink:any = Game.getObjectById(this.room.memory.Structures.controllerLink);
+    if(this.memory.role == "filler" && myRoom && this.room.energyAvailable == this.room.energyCapacityAvailable && S.controllerLink) {
+        let controllerLink:any = Game.getObjectById(S.controllerLink);
         if(controllerLink) {
             if(!fillTargetIsDead(this.room, controllerLink.id) && !reserveFill.includes(controllerLink.id)) {
                 if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() > 1800) {
                     if(this.room.controller.level >= 7) {
-                        this.room.memory.Structures.controllerLink = false;
+                        S.controllerLink = false;
                     }
                     else {
                         if(reserve) {
@@ -526,7 +536,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
             }
         }
         else {
-            this.room.memory.Structures.controllerLink = false;
+            S.controllerLink = false;
         }
     }
     return false;

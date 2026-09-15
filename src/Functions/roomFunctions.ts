@@ -446,6 +446,10 @@ Room.prototype.findBin = function(storage): object | void {
             const binPositionStructures = binPosition.lookFor(LOOK_STRUCTURES);
             for (const building of binPositionStructures) {
                 if (building.structureType == STRUCTURE_CONTAINER) {
+                    // findBin runs on whatever room the creep stands in (see
+                    // managerErrand/hubWorkPending) — Structures is unseeded
+                    // outside owned rooms, so seed before the write.
+                    if(!this.memory.Structures) this.memory.Structures = {};
                     this.memory.Structures.bin = building.id;
                     return building;
                 }
