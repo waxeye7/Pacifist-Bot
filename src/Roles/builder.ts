@@ -169,7 +169,10 @@ function tapStillGood(creep): any {
 
 	if(buildingsToBuild.length > 0) {
 		let buildings;
-		if(creep.room.controller.level == 2 && mySpawns.length > 0) {
+		// controller is undefined in SK/highway rooms — our remote-road sites
+		// can put a builder on buildingsToBuild there, where the bare .level
+		// read used to throw every tick.
+		if(creep.room.controller && creep.room.controller.level == 2 && mySpawns.length > 0) {
 			let spawn = mySpawns;
 			// E37N57: spawn.y-2 is the hub container. Preferring it before
 			// slam-5 left 5 ext at 0/3k. Skip the hub tile until 5 ext stand.
