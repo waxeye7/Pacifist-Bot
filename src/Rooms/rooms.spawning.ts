@@ -2585,7 +2585,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 // The ring-shaped E41N58 exclusion that used to be ANDed in here
                 // was a per-room hack in the shared brain for a room we no
                 // longer own.
-                // Unchanged number (rampartHitsTarget returns 15,255,000 at
+                // Unchanged number (rampartHitsTarget returns 12,500,000 at
                 // RCL8) — routed through the shared helper so the RCL6/7/8
                 // shell targets live in one place. See rooms.defence.
                 let rampartsBelowTarget8 = rampartsInRoom.filter(function(s) {return s.hits < rampartHitsTarget(room);});
@@ -3539,7 +3539,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // This room is already the elected closest mother. A second
             // 10k+range-7 gate here meant AutoExpand armed a colonise that
             // never hatched (pack target 8 tiles out, or every storage < 10k).
-            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && !queuedWithPrefix(room, 'Claimer') && room.controller.level >= 3 && Game.time % 800 <= 100 && room.energyCapacityAvailable >= 650 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
+            if(target_colonise && Memory.CanClaimRemote >= 1 && claimers < 1 && !queuedWithPrefix(room, 'Claimer') && room.controller.level >= 3 && Game.time % 800 <= 100 && room.energyCapacityAvailable >= 650 && ((Game.rooms[target_colonise] && Game.rooms[target_colonise].controller && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined)) {
                 let newName = 'Claimer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'claimer', targetRoom: target_colonise, homeRoom:room.name}});
                 console.log('Adding Claimer to Spawn List: ' + newName);
@@ -3553,7 +3553,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             //     }
             // });
 
-            if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 180000 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 3) && Game.rooms[target_colonise].controller.level >= 1 && (Game.rooms[target_colonise].controller.my || !Game.rooms[target_colonise].controller.my && !Game.rooms[target_colonise].find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER}).length)  && Game.time - Memory.target_colonise.lastSpawnRanger > 1500 && !Game.rooms[target_colonise].controller.safeMode) {
+            if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 180000 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && Game.rooms[target_colonise].controller && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 3) && Game.rooms[target_colonise].controller.level >= 1 && (Game.rooms[target_colonise].controller.my || !Game.rooms[target_colonise].controller.my && !Game.rooms[target_colonise].find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER}).length)  && Game.time - Memory.target_colonise.lastSpawnRanger > 1500 && !Game.rooms[target_colonise].controller.safeMode) {
                 // `room.memory.labs &&`: the boosted arm reads
                 // room.memory.labs.outputLab4; the unboosted else covers the rest.
                 // boostStock (storage+terminal), and charge BEFORE committing to
@@ -5445,11 +5445,13 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
     if(storage != undefined && values.pathLength == null) {
         pathFromHomeToSource = storage.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
-        values.pathLength = pathFromHomeToSource.length - 1;
+        // an unreachable source returns [] — length-1 stored -1 as the
+        // "distance" remote scoring then read as closer than real.
+        values.pathLength = Math.max(0, pathFromHomeToSource.length - 1);
     }
     else if (spawn != undefined && values.pathLength == null) {
         pathFromHomeToSource = spawn.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
-        values.pathLength = pathFromHomeToSource.length - 1;
+        values.pathLength = Math.max(0, pathFromHomeToSource.length - 1);
     }
 
     if(carriersInRoom.length == 0 && !storage) {
