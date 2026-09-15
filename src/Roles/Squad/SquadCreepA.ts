@@ -681,10 +681,13 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
 
 
 
-            path.path.forEach(spot => {
-                new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
-            });
             if(Memory.verbose) {
+                // Path paint was unconditional: ~1 visual op per step per
+                // squad member per tick, serialised into room.visuals every
+                // tick of every journey. Debug output belongs on the flag.
+                path.path.forEach(spot => {
+                    new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
+                });
                 console.log(path.incomplete)
             }
             if(path.incomplete && creep.room.name != creep.memory.targetPosition.roomName) {
