@@ -577,7 +577,12 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                                 flee: true,
                                 }
                             );
-                            move_location = fleeTowerPath.path[fleeTowerPath.path.length - 1];
+                            // An empty/incomplete flee search hands back [] —
+                            // path[-1] is undefined and move_location.roomName
+                            // throws next, taking the whole squad tick down
+                            // mid-siege. Trapped in the corner is still better
+                            // than crashed: hold the tile.
+                            move_location = fleeTowerPath.path.length ? fleeTowerPath.path[fleeTowerPath.path.length - 1] : creep.pos;
                         }
                         else if(enemyCreepInRangeThree.length && enemyCreepInRangeThree.filter(ecreep => ecreep.getActiveBodyparts(ATTACK) > 24 && ecreep.pos.findPathTo(creep, { ignoreCreeps: false, ignoreRoads: true, swampCost: 1 }).length === 3).length) {
                             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreepInRangeThree);
