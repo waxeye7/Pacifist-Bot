@@ -143,6 +143,32 @@ function isControllerDepotLink(room: Room, link: Structure): boolean {
     return link.pos.findInRange(FIND_SOURCES, 1).length === 0;
 }
 
+/**
+ * Direction to the next step of a path that may cross a room border.
+ *
+ * getDirectionTo() ignores roomName entirely. When a PathFinder path spans
+ * rooms and the head sits in the NEXT room — (49,y) -> (0,y) crossing east —
+ * it reads as a step across the whole current room and returns LEFT, the
+ * exact opposite of the move that actually crosses. Map the foreign border
+ * tile to the exit that produces it: arriving at x=0 means leaving through
+ * the east edge (RIGHT), x=49 west (LEFT), y=0 south (BOTTOM), y=49 north
+ * (TOP); corner entries are diagonal crossings.
+ */
+export function directionToStep(fromPos: RoomPosition, step: any): any {
+    if (step && step.roomName && step.roomName !== fromPos.roomName) {
+        const e = step.x === 0, w = step.x === 49, s = step.y === 0, n = step.y === 49;
+        if (e && s) return BOTTOM_RIGHT;
+        if (e && n) return TOP_RIGHT;
+        if (w && s) return BOTTOM_LEFT;
+        if (w && n) return TOP_LEFT;
+        if (e) return RIGHT;
+        if (w) return LEFT;
+        if (s) return BOTTOM;
+        if (n) return TOP;
+    }
+    return fromPos.getDirectionTo(step);
+}
+
 export function invalidateStaleStorageLink(room: any): void {
     if (!room || !room.memory || !room.memory.Structures || !room.storage) return;
     const rcl = room.controller ? room.controller.level : 0;

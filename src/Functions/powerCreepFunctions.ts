@@ -1,9 +1,15 @@
-interface PowerCreep {
-    SwapPositionWithCreep:any;
-    MoveCostMatrixRoadPrio:any;
-    evacuate:any;
-    moveToRoom:any;
-    fortifyRampartWithEnemyNextToIt:any;
+import { directionToStep } from "Functions/roomFunctions";
+
+// declare global is required now that this file has an import (it became a
+// module, so a bare `interface PowerCreep` stopped merging with the global type).
+declare global {
+    interface PowerCreep {
+        SwapPositionWithCreep:any;
+        MoveCostMatrixRoadPrio:any;
+        evacuate:any;
+        moveToRoom:any;
+        fortifyRampartWithEnemyNextToIt:any;
+    }
 }
 
 PowerCreep.prototype.fortifyRampartWithEnemyNextToIt = function() {
@@ -311,7 +317,7 @@ PowerCreep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(ta
             }
 
             let pos = path.path[0];
-            let direction = this.pos.getDirectionTo(pos);
+            let direction = directionToStep(this.pos, pos);
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
@@ -321,7 +327,8 @@ PowerCreep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(ta
 
 
         let pos = this.memory.path[0];
-        let direction = this.pos.getDirectionTo(pos);
+        // maxRooms: 3 — a foreign path head reads backwards off getDirectionTo
+        let direction = directionToStep(this.pos, pos);
 
         this.move(direction);
         this.memory.moving = true;

@@ -2,7 +2,7 @@ import { logAlways } from "utils/Logger";
 import { timedSearch } from "utils/PathStats";
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
 import { markRemoteHot } from "Rooms/rooms.remotes";
-import { invalidateStaleStorageLink } from "Functions/roomFunctions";
+import { invalidateStaleStorageLink, directionToStep } from "Functions/roomFunctions";
 import { plannedLinkTile } from "utils/PlanV2";
 import { siteFreezeBank } from "Rooms/spawnSafety";
 import {
@@ -3532,7 +3532,9 @@ const stepCachedPath = (creep:any):void => {
         return;
     }
     const pos = path[0];
-    const direction = creep.pos.getDirectionTo(pos);
+    // a multi-room path head sits in the NEXT room — getDirectionTo ignores
+    // roomName and returns the opposite of the crossing move at every border
+    const direction = directionToStep(creep.pos, pos);
     /*
      * The shove used to fire only at path-COMPUTATION time, so a creep
      * walking a CACHED path into an idle squatter burned move intents the

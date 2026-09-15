@@ -36,7 +36,7 @@ describe("self-tile path head", () => {
         assert.include(b, "path.shift();");
         // it must run BEFORE the direction is taken, or the fix is inert
         const drop = b.indexOf("path[0].x === creep.pos.x");
-        const dir = b.indexOf("creep.pos.getDirectionTo(pos)");
+        const dir = b.indexOf("directionToStep(creep.pos, pos)");
         assert.isAbove(dir, drop, "the stale head is dropped before the direction");
     });
 
@@ -51,7 +51,7 @@ describe("self-tile path head", () => {
         const drop = b.indexOf("path.shift();");
         const guard = b.indexOf("if(path.length == 0)", drop);
         assert.isAbove(guard, drop, "re-checked after the drop");
-        const dir = b.indexOf("creep.pos.getDirectionTo(pos)");
+        const dir = b.indexOf("directionToStep(creep.pos, pos)");
         assert.isBelow(guard, dir, "and before the direction is taken");
     });
 
