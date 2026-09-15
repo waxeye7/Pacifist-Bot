@@ -114,12 +114,21 @@ const hostileStructures = function (creep: any) {
 
 // shared travel: findRoute toward the target room, one hop at a time (a duo fits
 // through any exit, so none of the quad's midpoint funneling is needed)
+const DUO_ROUTE_RETRY_TICKS = 50;
+
 const travelToRoom = function (creep: any, targetRoomName: string) {
     if (creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[0].room === creep.room.name) {
         creep.memory.route.shift();
     }
-    if (!creep.memory.route || creep.memory.route === -2 || creep.memory.route.length === 0 ||
-        creep.memory.route[creep.memory.route.length - 1].room !== targetRoomName) {
+    // A -2 route is sticky in memory: without a retry backoff it recomputes
+    // every tick — a findRoute per duo per tick against a target that cannot
+    // be reached (novice zone, respawn wall, AvoidRooms ring). Same class as
+    // the moveToRoomAvoidEnemyRooms backoff.
+    const failed = creep.memory.route === -2;
+    const retryBlocked = failed && creep.memory.routeRetryAt && Game.time < creep.memory.routeRetryAt;
+    if (!retryBlocked &&
+        (!creep.memory.route || creep.memory.route === -2 || creep.memory.route.length === 0 ||
+        creep.memory.route[creep.memory.route.length - 1].room !== targetRoomName)) {
         creep.memory.route = Game.map.findRoute(creep.room.name, targetRoomName, {
             routeCallback: function (roomName: string) {
                 if (Game.map.getRoomStatus(roomName).status !== "normal") {
@@ -131,6 +140,8 @@ const travelToRoom = function (creep: any, targetRoomName: string) {
                 return 1;
             }
         });
+        if (creep.memory.route === -2) creep.memory.routeRetryAt = Game.time + DUO_ROUTE_RETRY_TICKS;
+        else delete creep.memory.routeRetryAt;
     }
     if (creep.memory.route && creep.memory.route !== -2 && creep.memory.route.length > 0) {
         creep.moveTo(new RoomPosition(25, 25, creep.memory.route[0].room), {range: 20, reusePath: 20});
