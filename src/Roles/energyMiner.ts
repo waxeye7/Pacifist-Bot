@@ -1,6 +1,7 @@
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { isSanctionedRampart } from "utils/PlanV2";
 import { rampartIsBuried } from "utils/Interior";
+import { rampartHitsTarget } from "Rooms/rooms.defence";
 import { findLiveSeat, unpackXY } from "utils/minerSeat";
 import { cachedDerived, cachedDropped, cachedMyCreeps, cachedMyStructures, cachedSites, cachedStructures } from "utils/RoomCache";
 
@@ -1002,7 +1003,7 @@ const run = function (creep) {
                     if(found) {
                         break;
                     }
-                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 50050000) {
+                    if(building.structureType == STRUCTURE_RAMPART && building.hits < rampartHitsTarget(creep.room)) {
                         let buildingsHereLookFor = building.pos.lookFor(LOOK_STRUCTURES);
                         for(let buildingHere of buildingsHereLookFor) {
                             if(buildingHere.structureType == STRUCTURE_LINK) {
@@ -1041,17 +1042,11 @@ const run = function (creep) {
                 if(rampart && rampartIsBuried(creep.room, rampart.pos)) {
                     creep.memory.myRampart = false;
                 }
-                else if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
-
-                    if(rampart && rampart.hits < 100050000) {
-                        creep.repair(rampart);
-                        return;
-                    }
-                    else {
-                        creep.memory.myRampart = false;
-                    }
-                }
-                else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 50050000) {
+                else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < rampartHitsTarget(rampart.room)) {
+                    // the pump ceiling is the room's rampart hits policy
+                    // (12.5M at RCL8), not the old 50M/100M tiers — use the
+                    // rampart's own room, since this creep can be standing in
+                    // a remote whose controller level says nothing about it
                     creep.repair(rampart);
                     return;
                 }

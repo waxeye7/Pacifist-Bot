@@ -4,6 +4,7 @@
  **/
 import { interiorMove, filterOutposts, outpostDeferred, rampartIsBuried } from "utils/Interior";
 import { sanctionedRampartKeys, isSanctionedRampart } from "utils/PlanV2";
+import { rampartHitsTarget } from "Rooms/rooms.defence";
 
 const run = function (creep) {
     creep.memory.moving = false;
@@ -37,10 +38,14 @@ const run = function (creep) {
         // attacker who has not already breached the room, so a boosted 36-WORK
         // siege repairer aimed at it is the most expensive way in the bot to
         // heat empty space (utils/Interior rampartIsBuried).
+        // ...and never one already at the room's hits policy (12.5M at RCL8):
+        // a tile at the ceiling does not need the siege repairer standing on
+        // it, and pumping it further is exactly the over-spend the cap is for
         const sanctioned = sanctionedRampartKeys(creep.room);
         let Ramparts: StructureRampart[] = creep.room.find(FIND_MY_STRUCTURES, {
             filter: (s) =>
                 s.structureType === STRUCTURE_RAMPART &&
+                s.hits < rampartHitsTarget(creep.room) &&
                 (!sanctioned || sanctioned.has(`${s.pos.x},${s.pos.y}`)) &&
                 !rampartIsBuried(creep.room, s.pos),
         }) as StructureRampart[];
@@ -88,6 +93,14 @@ const run = function (creep) {
             return;
         }
 
+        // a tile that reached the room's hits policy needs no more pumping —
+        // release so the pick re-lands on the weakest sub-cap tile
+        if(target && target.hits >= rampartHitsTarget(creep.room)) {
+            creep.memory.rampart_to_repair = false;
+            creep.memory.targets = false;
+            return;
+        }
+
         if(target) {
 
             if(creep.pos.getRangeTo(target) > 3) {
@@ -121,7 +134,7 @@ const run = function (creep) {
                     // same sanction rule as the target pick above: standing next
                     // to an off-plan (or buried) rampart must not turn into
                     // topping it up
-                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && isSanctionedRampart(creep.room, s.pos) && !rampartIsBuried(creep.room, s.pos)}), 3);
+                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < rampartHitsTarget(creep.room) && isSanctionedRampart(creep.room, s.pos) && !rampartIsBuried(creep.room, s.pos)}), 3);
                     if(storage) {
                         rampartsInRange = rampartsInRange.filter(function(building) {return building.pos.getRangeTo(storage) > 4;});
                     }
@@ -137,8 +150,10 @@ const run = function (creep) {
                     for(let rampartid of creep.memory.targets) {
                         const rampart:any = Game.getObjectById(rampartid);
                         // a rampart destroyed since the list was built resolves
-                        // null — sorting null.hits crashes the role mid-siege
-                        if(rampart) targets.push(rampart);
+                        // null — sorting null.hits crashes the role mid-siege.
+                        // re-check the hits policy too: the list caches for ~44
+                        // ticks, long enough for a tile to reach the ceiling
+                        if(rampart && rampart.hits < rampartHitsTarget(creep.room)) targets.push(rampart);
                     }
 
                     if(targets?.length > 0) {

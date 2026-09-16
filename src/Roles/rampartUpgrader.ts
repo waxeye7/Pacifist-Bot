@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 import { rampartIsBuried } from "utils/Interior";
+import { rampartHitsTarget } from "Rooms/rooms.defence";
 
  const run = function (creep) {
     creep.memory.moving = false;
@@ -28,15 +29,21 @@ import { rampartIsBuried } from "utils/Interior";
             // behind the final wall is out of ranged reach from anywhere an
             // enemy can stand and every hit put into it is wasted (utils/Interior
             // rampartIsBuried; fail-open false without usable shell geometry).
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && !rampartIsBuried(creep.room, s.pos)});
+            // ...and never one already at the room's hits policy (12.5M at
+            // RCL8). Without a ceiling this role's whole job — pumping the
+            // weakest rampart — ran until hitsMax (300M at RCL8).
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < rampartHitsTarget(creep.room) && !rampartIsBuried(creep.room, s.pos)});
             if(rampartsInRoom.length > 0) {
                 rampartsInRoom.sort((a,b) => a.hits - b.hits);
                 creep.memory.locked = rampartsInRoom[0].id
             }
         }
         if(creep.memory.locked) {
-            let target = Game.getObjectById(creep.memory.locked);
-            if(target) {
+            let target:any = Game.getObjectById(creep.memory.locked);
+            // re-checked at use: the lock survives across ticks, so a rampart
+            // that reached the policy ceiling must be released, not pumped
+            // past it
+            if(target && target.hits < rampartHitsTarget(creep.room)) {
                 if(creep.pos.getRangeTo(target) <= 3) {
                     creep.repair(target);
                 }

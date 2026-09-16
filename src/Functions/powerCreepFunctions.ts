@@ -1,4 +1,5 @@
 import { directionToStep } from "Functions/roomFunctions";
+import { rampartHitsTarget } from "Rooms/rooms.defence";
 
 // declare global is required now that this file has an import (it became a
 // module, so a bare `interface PowerCreep` stopped merging with the global type).
@@ -18,9 +19,10 @@ PowerCreep.prototype.fortifyRampartWithEnemyNextToIt = function() {
       return;
     }
 
-  // Find all ramparts in the room
+  // Find all ramparts in the room below the hits policy (12.5M at RCL8) —
+  // fortify past the ceiling is the same over-spend the cap is for
   const ramparts = this.room.find(FIND_MY_STRUCTURES, {
-    filter: (structure) => structure.structureType === STRUCTURE_RAMPART && structure.hits <= 65000000
+    filter: (structure) => structure.structureType === STRUCTURE_RAMPART && structure.hits < rampartHitsTarget(this.room)
   });
 
   // Filter the ramparts that have an enemy creep with ATTACK or WORK parts next to them

@@ -161,7 +161,7 @@ describe("SPEND side: the repair roles", () => {
 
     it("rampartUpgrader.ts never locks a buried rampart", () => {
         assert.match(RAMPART_UPGRADER, /import \{ rampartIsBuried \} from "utils\/Interior";/);
-        assert.match(RAMPART_UPGRADER, /let rampartsInRoom = creep\.room\.find\(FIND_MY_STRUCTURES, \{filter: s => s\.structureType == STRUCTURE_RAMPART && !rampartIsBuried\(creep\.room, s\.pos\)\}\);/);
+        assert.match(RAMPART_UPGRADER, /let rampartsInRoom = creep\.room\.find\(FIND_MY_STRUCTURES, \{filter: s => s\.structureType == STRUCTURE_RAMPART && s\.hits < rampartHitsTarget\(creep\.room\) && !rampartIsBuried\(creep\.room, s\.pos\)\}\);/);
     });
 
     it("SpecialRepair.ts filters the pick, the lock re-check and the stand-here top-up", () => {
