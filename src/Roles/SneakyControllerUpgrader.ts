@@ -15,7 +15,10 @@ const run = function (creep) {
 
     let targetRoom = creep.memory.targetRoom;
     if(creep.room.name !== targetRoom) {
-        if(creep.memory.locked_away == 0) {
+        // spawn seeds locked_away to 0, but a hand-rolled or role-changed
+        // creep arrives with undefined: `== 0` and `> 0` both fail, and the
+        // creep stood outside targetRoom doing nothing forever
+        if((creep.memory.locked_away || 0) == 0) {
             if(!creep.memory.full && creep.room.name === creep.memory.homeRoom) {
                 let storage = creep.room.storage;
                 if(storage) {

@@ -96,7 +96,10 @@ const run = function (creep) {
             creep.recycle();
         }
     }
-    else if(!creep.room.memory.Structures || !creep.room.memory.Structures.storage) {
+    // this was `else if(!Structures || !Structures.storage)` — an empty
+    // convoy in a room that is neither homeRoom nor targetRoom but DID have
+    // a seeded storage id fell through every branch and idled forever
+    else {
         let spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS);
         if(spawn) {
             if(creep.pos.isNearTo(spawn)) {
