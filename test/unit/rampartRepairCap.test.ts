@@ -27,6 +27,7 @@ const ENERGY_MINER = SRC("Roles/energyMiner.ts");
 const SPECIAL_REPAIR = SRC("Roles/SpecialRepair.ts");
 const BUILDCONTAINER = SRC("Roles/buildcontainer.ts");
 const POWER_CREEPS = SRC("Functions/powerCreepFunctions.ts");
+const SPAWNING = SRC("Rooms/rooms.spawning.ts");
 
 function room(lvl: number, bank: number, danger = false): any {
     return {
@@ -78,5 +79,13 @@ describe("rampart repair cap — 12.5M is the ceiling", () => {
     it("power creep FORTIFY caps at the policy, not 65M", () => {
         assert.notInclude(POWER_CREEPS, "65000000");
         assert.include(POWER_CREEPS, "structure.hits < rampartHitsTarget(this.room)");
+    });
+
+    it("the wartime SpecialRepair sieve in rooms.spawning reads the ladder, not a hardcoded 12M", () => {
+        // rampartsInRoomBelowPolicy feeds the danger-time "in danger of dying"
+        // rung. A literal < 12,000,000 there stranded the 12M–12.5M band —
+        // over-policy to every consumer but invisible to wartime demand.
+        assert.notInclude(SPAWNING, "12000000");
+        assert.include(SPAWNING, "s.hits < rampartHitsTarget(room)");
     });
 });
