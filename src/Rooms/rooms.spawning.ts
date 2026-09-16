@@ -1790,7 +1790,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     let spawnMaintainer = false;
     let rampartsInRoom;
     let rampartsInRoomBelowFiftyK;
-    let rampartsInRoomBelowTwelveMil;
+    let rampartsInRoomBelowPolicy;
     if(room.controller.level >= 3) {
         if(storage) {
             /*
@@ -1810,7 +1810,11 @@ function add_creeps_to_spawn_list(room, spawn) {
              */
             rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && !rampartIsBuried(room, s.pos)});
             rampartsInRoomBelowFiftyK = rampartsInRoom.filter(function(s) {return s.hits < 50000;})
-            rampartsInRoomBelowTwelveMil = rampartsInRoom.filter(function(s) {return s.hits < 12000000;})
+            // Was a hardcoded < 12,000,000, which stranded the 12M–12.5M band:
+            // rampartHitsTarget() is 12.5M at RCL8, so a rampart there counted
+            // as "above policy" everywhere except this sieve and never flagged
+            // wartime repair demand. Read the ladder like every other rung.
+            rampartsInRoomBelowPolicy = rampartsInRoom.filter(function(s) {return s.hits < rampartHitsTarget(room);})
             for(let rampart of rampartsInRoom) {
                 if(rampart.hits <= 10000) {
                     spawnMaintainer = true;
@@ -3028,15 +3032,15 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(SpecialRepairers < 4 && storage && storage.store[RESOURCE_ENERGY] > 25000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
         let rampartsInDangerOfDying = false;
         let rampartsInDangerOfDying4Mil = false;
-        if(rampartsInRoomBelowTwelveMil && rampartsInRoomBelowTwelveMil.length > 0 && storage) {
-            rampartsInRoomBelowTwelveMil = rampartsInRoomBelowTwelveMil.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
-            let rampartsInRoomBelow6Mil = rampartsInRoomBelowTwelveMil.filter(function(r) {return r.hits <= 8050000;})
+        if(rampartsInRoomBelowPolicy && rampartsInRoomBelowPolicy.length > 0 && storage) {
+            rampartsInRoomBelowPolicy = rampartsInRoomBelowPolicy.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
+            let rampartsInRoomBelow6Mil = rampartsInRoomBelowPolicy.filter(function(r) {return r.hits <= 8050000;})
             let rampartsInRoomBelow4Mil = rampartsInRoomBelow6Mil.filter(function(r) {return r.hits <= 7050000;})
             if(rampartsInRoomBelow4Mil.length > 0) {
                 rampartsInDangerOfDying4Mil = true;
             }
             else {
-                if(room.controller.level == 8 && rampartsInRoomBelowTwelveMil.length > 0) {
+                if(room.controller.level == 8 && rampartsInRoomBelowPolicy.length > 0) {
                     rampartsInDangerOfDying = true;
                 }
                 else if(room.controller.level == 7 && rampartsInRoomBelow6Mil.length > 0) {
