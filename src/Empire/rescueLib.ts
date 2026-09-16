@@ -75,7 +75,15 @@ export function roomLooksSpawnlessOwned(name: string): boolean {
     )) return false;
     const mem: any = Memory.rooms && Memory.rooms[name];
     if (!mem) return false;
-    if (mem.Structures && mem.Structures.spawns && mem.Structures.spawns.length) return false;
+    // The last-seen-spawn veto. Structures.spawn (singular — the plural key
+    // this used was never written anywhere, so the veto was dead and any
+    // invisible room with a spawn PLAN read as spawnless: a healthy room that
+    // merely lost its last creep declared an empire-wide _spawnEmergency and
+    // stripped every other room's queue, potentially forever, since clearing
+    // the pin needs regained vision). The key persists from the last visible
+    // pass — it is deleted by rooms.spawning only while the room is seen to
+    // have NO idle spawn — so present means "had a spawn when last seen".
+    if (mem.Structures && mem.Structures.spawn) return false;
     // Last thing we saw was somebody else's spawn standing in it. Only vision
     // clears this (above), so it cannot become a permanent trap.
     if (mem.foreignSpawn) return false;
@@ -283,9 +291,15 @@ export function revertSpawnEmergency(precomputedHits?: string[]): number {
         const c = Game.creeps[name];
         if (!c.memory || c.memory.role !== "buildcontainer") continue;
         const tgt = c.memory.targetRoom && Game.rooms[c.memory.targetRoom];
-        if (tgt && tgt.find(FIND_MY_SPAWNS).length) {
+        // `!tgt` = the target went invisible (mid-walk when the emergency
+        // ended). Leaving the role on it strands it commuting to a room it
+        // can no longer see — convert it too; it builds where it stands.
+        if (!tgt || tgt.find(FIND_MY_SPAWNS).length) {
             c.memory.role = "builder";
             delete (c.memory as any).fill;
+            // targetRoom is stale either way — builder ignores it, but the
+            // census and builderStationRoom attribute the creep by it.
+            delete (c.memory as any).targetRoom;
             changed++;
         }
     }

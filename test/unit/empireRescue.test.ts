@@ -4,6 +4,7 @@
  * These drive the real functions against a small fake empire.
  */
 import { assert } from "chai";
+import * as fs from "fs";
 import { computeRescueJob } from "../../src/Empire/rescue";
 import { runEmpire, empire, rescueJob, postureOf, resetEmpireForTest } from "../../src/Empire/empire";
 import {
@@ -196,6 +197,66 @@ describe("empire rescue job", () => {
         assert.isUndefined(g.Memory._spawnEmergency);
         assert.deepEqual(g.Memory.target_colonise, {});
         assert.equal(creeps.cb.memory.role, "builder");
+    });
+
+    it("an INVISIBLE spawnless room is a rescue, not an optional colony — thin banks still yield a mother", () => {
+        // W2N2 is not in Game.rooms at all — zero creeps, zero vision. All we
+        // have is the last visit's memory: a planned spawn tile and NO
+        // Structures.spawn (deleted when the last visible pass found it gone).
+        const home = room("W1N1", { level: 5, storage: 500, energy: 800, cap: 1800 });
+        world({ W1N1: home });
+        g.Memory.rooms.W2N2 = { planV2: { t: { spawn: [20 + 20 * 50] } } };
+        const job = computeRescueJob()!;
+        assert.isNotNull(job, "a 0-vision room with a spawn plan is still a finishable need");
+        assert.equal(job.need, "W2N2");
+        // The bug this pins: `rescue` used to be `!!(vis && ...)` which is
+        // FALSE with no vision — the spawnless room was then run through the
+        // optional-colony gates (mother needs bank > 10k; the spawn site also
+        // demanded bank > 10k + bucket > 7750). Post-wipe no bank is over 10k,
+        // so nobody could ever hatch the rescue.
+        assert.isTrue(job.rescue, "no vision + spawnless = rescue (the W3N3 contract)");
+        assert.equal(job.mother, "W1N1", "rescue mothers run below 10k via the purse floor, unlike colonies");
+    });
+
+    it("an invisible room that last showed a live spawn is NOT spawnless — the singular Structures.spawn veto", () => {
+        const home = room("W1N1", { level: 5, storage: 30000 });
+        world({ W1N1: home });
+        // Last visit saw a live spawn: rooms.spawning seeds Structures.spawn
+        // and only deletes it while it can SEE the room has none. The stale
+        // plural key (Structures.spawns) was never written anywhere, so this
+        // veto was dead and every dark room with a plan read as spawnless —
+        // an empire-wide phantom _spawnEmergency.
+        g.Memory.rooms.W2N2 = { planV2: { t: { spawn: [20 + 20 * 50] } }, Structures: { spawn: "spawn-id-last-seen" } };
+        assert.isFalse(roomLooksSpawnlessOwned("W2N2"));
+        assert.isNull(computeRescueJob());
+        assert.isUndefined(g.Memory.spawnRescue);
+        assert.isUndefined(g.Memory._spawnEmergency);
+    });
+
+    it("a finished rescue converts ContainerBuilders whose target went invisible and clears the stale targetRoom", () => {
+        const home = room("W1N1", { level: 5, storage: 30000 });
+        // The CB's target is not in Game.rooms: it went dark mid-walk. The old
+        // `tgt && tgt.find(...)` skipped it, leaving a buildcontainer commuting
+        // to a room it cannot see, still attributed to that target.
+        const creeps = {
+            walker: creep("walker", { role: "buildcontainer", home: "W1N1", here: "W1N1", target: "W8N8" }),
+        };
+        world({ W1N1: home }, creeps);
+        g.Memory.spawnRescue = "W9N9";   // no Memory.rooms.W9N9 -> not a live need
+        g.Memory._spawnEmergency = true;
+        assert.isNull(computeRescueJob(), "no spawnless candidates -> job is null after the revert");
+        assert.isUndefined(g.Memory.spawnRescue);
+        assert.isUndefined(g.Memory._spawnEmergency);
+        assert.equal(creeps.walker.memory.role, "builder", "invisible-target CB converts like a finished one");
+        assert.isUndefined((creeps.walker.memory as any).fill);
+        assert.isUndefined((creeps.walker.memory as any).targetRoom, "the census attributes builders by targetRoom");
+    });
+
+    it("rooms.market guards memory.Structures before reading the target room's spawn id", () => {
+        const src = fs.readFileSync("src/Rooms/rooms.market.ts", "utf8");
+        // A freshly-owned targetRampRoom may have memory but no Structures
+        // cache yet — the send gate used to read .Structures.spawn bare.
+        assert.include(src, "memory.Structures && Game.rooms[targetRampRoom].memory.Structures.spawn");
     });
 
     it("runEmpire publishes the job and postures for this tick only", () => {
