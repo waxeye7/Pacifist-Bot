@@ -58,14 +58,17 @@ const run = function (creep:any) {
         global.SMDP(creep.memory.homeRoom, creep.memory.targetRoom);
     }
 
-    // Stay near planned shell (hub), not magic range-from-storage square
+    // Stay near planned shell (hub), not magic range-from-storage square.
+    // A hub written before the edge-spawn fix can carry y = -1 (or any
+    // out-of-range value from a stale/corrupt plan) — RoomPosition would
+    // throw here every tick the role runs, so fall back to storage.
+    const hub = creep.room.memory.basePlan && creep.room.memory.basePlan.hub;
+    const hubOk =
+        hub && typeof hub.x === "number" && typeof hub.y === "number" &&
+        hub.x >= 0 && hub.x <= 49 && hub.y >= 0 && hub.y <= 49;
     const hubPos =
-        creep.room.memory.basePlan && creep.room.memory.basePlan.hub
-            ? new RoomPosition(
-                  creep.room.memory.basePlan.hub.x,
-                  creep.room.memory.basePlan.hub.y,
-                  creep.room.name,
-              )
+        hubOk
+            ? new RoomPosition(hub.x, hub.y, creep.room.name)
             : creep.room.storage
               ? creep.room.storage.pos
               : null;

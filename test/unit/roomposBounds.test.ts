@@ -64,3 +64,17 @@ describe("construction(): hub-relative RoomPosition sites are bounds-safe", () =
         assert.include(SRC, "if (spawn && (room.controller.level == 2 || room.controller.level == 3)");
     });
 });
+
+describe("basePlan.hub readers distrust persisted coordinates", () => {
+    const DEFENDER = fs.readFileSync(
+        path.join(__dirname, "../../src/Roles/RampartDefender.ts"), "utf8"
+    ).replace(/\r\n/g, "\n");
+
+    it("RampartDefender bounds-checks the hub before constructing", () => {
+        // A hub written before the edge-spawn fix can persist y = -1; the
+        // constructor would throw every tick this role runs.
+        assert.include(DEFENDER, "hub.x >= 0 && hub.x <= 49 && hub.y >= 0 && hub.y <= 49");
+        // ...and falls back to the storage leash rather than crashing
+        assert.include(DEFENDER, "creep.room.storage.pos");
+    });
+});
