@@ -25,15 +25,24 @@ describe("FakeFiller: findLocked hands back what it locked", () => {
     const at = FF.indexOf("function findLocked(creep) {");
     const body = FF.slice(at, FF.indexOf("\n}", at));
 
-    it("the room-is-full branch returns the bank, not undefined", () => {
+    it("the room-is-full branch locks and returns a bank that can accept", () => {
         assert.isAbove(at, -1);
-        assert.include(body, "creep.memory.locked = bank ? bank.id : false;");
+        assert.include(body, "creep.memory.locked = bank.id;");
         assert.include(body, "return bank;");
         assert.notInclude(
             body,
             "creep.memory.locked = creep.room.memory.Structures.storage;",
             "storing the raw id and returning nothing is the defect"
         );
+    });
+
+    it("...but never locks a bank with no free space", () => {
+        // a 100%-full bank used to be returned unconditionally: run() then
+        // transfer()ed into ERR_FULL every tick while the creep still held
+        // energy, `full` never cleared, and the drop-next-to-storage fallback
+        // was unreachable — parked, loaded, forever
+        assert.include(body, "bank.store.getFreeCapacity(RESOURCE_ENERGY) !== 0");
+        assert.include(body, "creep.memory.locked = false;");
     });
 
     it("...and resolves it, so a stale Structures.storage cannot lock to nothing", () => {
