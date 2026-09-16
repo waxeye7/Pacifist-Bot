@@ -194,6 +194,14 @@ C.RESOURCE_UTRIUM_LEMERGITE = "UL";
   ["RESOURCE_CATALYZED_ZYNTHIUM_ACID", "XZH2O"], ["RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE", "XZHO2"],
   ["RESOURCE_CATALYZED_GHODIUM_ACID", "XGH2O"], ["RESOURCE_CATALYZED_GHODIUM_ALKALIDE", "XGHO2"],
 ].forEach(function (p) { C[p[0]] = p[1]; });
+[
+  ["RESOURCE_UTRIUM_BAR", "utrium_bar"], ["RESOURCE_LEMERGIUM_BAR", "lemergium_bar"],
+  ["RESOURCE_ZYNTHIUM_BAR", "zynthium_bar"], ["RESOURCE_KEANIUM_BAR", "keanium_bar"],
+  ["RESOURCE_GHODIUM_MELT", "ghodium_melt"], ["RESOURCE_OXIDANT", "oxidant"],
+  ["RESOURCE_REDUCTANT", "reductant"], ["RESOURCE_PURIFIER", "purifier"],
+  ["RESOURCE_BATTERY", "battery"], ["RESOURCE_COMPOSITE", "composite"],
+  ["RESOURCE_CRYSTAL", "crystal"], ["RESOURCE_LIQUID", "liquid"],
+].forEach(function (p) { C[p[0]] = p[1]; });
 
 // --- misc -----------------------------------------------------------------
 C.SUBSCRIPTION_TOKEN = "token";
