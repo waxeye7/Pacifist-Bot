@@ -39,7 +39,10 @@ const run = function (creep) {
             let closestRoom = [creep.memory.dropRoom, Game.map.getRoomLinearDistance(creep.room.name, creep.memory.dropRoom)];
 
             _.forEach(Game.rooms, function(AllRooms) {
-                if (AllRooms && AllRooms.controller && AllRooms.controller.my && AllRooms.controller.level >= 4) {
+                // findStorage() only resolves STRUCTURE_STORAGE for this role
+                // (NO_CONTAINER_STANDIN), so a dropRoom without one left a full
+                // goblin issuing no intent until the TTL suicide
+                if (AllRooms && AllRooms.controller && AllRooms.controller.my && AllRooms.controller.level >= 4 && AllRooms.storage) {
                     let distance = Game.map.getRoomLinearDistance(creep.room.name, AllRooms.name);
                     if(distance < closestRoom[1]) {
                         creep.memory.dropRoom = AllRooms.name;
@@ -60,7 +63,7 @@ const run = function (creep) {
         }
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        if(storage && creep.store.getFreeCapacity() < MaxStorage) {
+        if(storage && storage.store.getFreeCapacity() > 0 && creep.store.getFreeCapacity() < MaxStorage) {
             if(creep.pos.isNearTo(storage)) {
                 for(let resourceType in creep.store) {
                     creep.transfer(storage, resourceType);
@@ -69,6 +72,11 @@ const run = function (creep) {
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
             }
+        }
+        else if(creep.store.getUsedCapacity() > 0) {
+            // no usable sink in dropRoom (no storage, or completely full) —
+            // recycle() dumps the cargo at a sink before the kill
+            creep.memory.suicide = true;
         }
     }
 

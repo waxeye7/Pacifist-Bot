@@ -48,10 +48,14 @@ const run = function (creep) {
                 return;
             }
 
+            // no terminal in the room used to make every moveTo(terminal)
+            // here a wasted intent
+            let fallbackAnchor:any = creep.room.terminal || creep.room.storage;
+
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.rangedMassAttack();
-                if(rampart && creep.pos.isNearTo(rampart) || Game.time % 5 ==0) {
-                    creep.moveTo(creep.room.terminal);
+                if((rampart && creep.pos.isNearTo(rampart) || Game.time % 5 ==0) && fallbackAnchor) {
+                    creep.moveTo(fallbackAnchor);
                 }
                 return;
             }
@@ -64,9 +68,16 @@ const run = function (creep) {
                 else if(creep.pos && creep.pos != rampart.pos && rampart.pos.lookFor(LOOK_CREEPS).length == 1 && enemyCreeps.length == 2 && creep.pos.getRangeTo(closestEnemyCreep) < rampart.pos.getRangeTo(closestEnemyCreep)) {
                     creep.moveTo(closestEnemyCreep);
                 }
-                else {
-                    creep.moveTo(creep.room.terminal);
+                else if(fallbackAnchor) {
+                    creep.moveTo(fallbackAnchor);
                 }
+            }
+            else {
+                // no manned rampart to stand on — bodies that skipped the
+                // rampart branch above used to fall through and issue no
+                // intent at all while hostiles were in the room
+                creep.rangedAttack(closestEnemyCreep);
+                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 3);
             }
 
         }

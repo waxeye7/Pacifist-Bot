@@ -18,11 +18,13 @@ import { interiorMove } from "utils/Interior";
 
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
-        // keep the repair lock through the refill trip while the rampart is still
-        // fragile — dropping it here abandoned 1-hit newborns to decay away
+        // keep the repair lock through the refill trip until the rampart hits
+        // the done-cap — the tile was already popped off rampartLocations, so
+        // dropping the lock on a live rampart orphans it: nothing requeues the
+        // coord and no other role covers 30k-500k shell fragments
         let fresh:any = creep.memory.locked_repair ? Game.getObjectById(creep.memory.locked_repair) : null;
-        if(fresh && fresh.hits < 30000) {
-            // still fragile: keep locked_repair AND locked so the refilled creep
+        if(fresh && fresh.hits < 500000) {
+            // unfinished: keep locked_repair AND locked so the refilled creep
             // resumes exactly where it left off
         }
         else {

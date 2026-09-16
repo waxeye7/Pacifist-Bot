@@ -40,9 +40,16 @@ function findLocked(creep) {
          * network topped up. It recovered on the next tick purely because the
          * memory write had landed, which is why it never showed up as a wedge.
          */
+        // a bank with no free space used to be returned here unconditionally:
+        // run() then transfer()ed into it for ERR_FULL every tick while the
+        // creep still held energy, so `full` never cleared and the drop-next-
+        // to-storage fallback below was unreachable — parked, loaded, forever
         const bank: any = Game.getObjectById(creep.room.memory.Structures.storage) || creep.findStorage();
-        creep.memory.locked = bank ? bank.id : false;
-        return bank;
+        if(bank && bank.store.getFreeCapacity(RESOURCE_ENERGY) !== 0) {
+            creep.memory.locked = bank.id;
+            return bank;
+        }
+        creep.memory.locked = false;
     }
     else {
         let possibleDropOffLocations = [];

@@ -86,6 +86,14 @@ export function depositFallbackRooms(homeRoom: string): string[] {
                 lowest = [i, current];
             }
         }
+        if(lowest[0] >= listOfPossibleRooms.length) {
+            // every candidate is already in searchedRooms (or there are none):
+            // lowest kept its [100,100] sentinel, so assigning here wrote
+            // targetRoom = undefined and the creep re-scanned this same dead
+            // list every tick for the rest of its life
+            creep.memory.suicide = true;
+            return;
+        }
         creep.memory.targetRoom = listOfPossibleRooms[lowest[0]];
     }
 
@@ -97,7 +105,9 @@ export function depositFallbackRooms(homeRoom: string): string[] {
 
         let terminal = creep.room.terminal;
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        if(terminal && creep.store.getFreeCapacity() < MaxStorage) {
+        // a terminal that cannot accept used to shadow the storage fallback
+        // forever — transfer ERR_FULL every tick, `full` never cleared
+        if(terminal && terminal.store.getFreeCapacity() > 0 && creep.store.getFreeCapacity() < MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
                 for(let resourceType in creep.carry) {
                     creep.transfer(terminal, resourceType);
