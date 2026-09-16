@@ -218,6 +218,9 @@ export function invalidateStaleStorageLink(room: any): void {
 
 Room.prototype.findStorageLink = function(): object | void {
     invalidateStaleStorageLink(this);
+    // Reachable through creep.findClosestLinkToStorage on wherever the creep
+    // stands — Structures is unseeded outside owned rooms; seed like findBin.
+    if (!this.memory.Structures) this.memory.Structures = {};
     const plannedHub = standingLinkAt(this, plannedLinkTile(this, 0));
     if (plannedHub && !isControllerDepotLink(this, plannedHub)) {
         this.memory.Structures.StorageLink = plannedHub.id;
@@ -339,6 +342,9 @@ Room.prototype.findStorageContainer = function(): object | void {
         if(storagePositionStructures.length > 0) {
             for(let building of storagePositionStructures) {
                 if(building.structureType == STRUCTURE_CONTAINER) {
+                    // creep-side callers run this on wherever the creep
+                    // stands — Structures is unseeded outside owned rooms.
+                    if(!this.memory.Structures) this.memory.Structures = {};
                     this.memory.Structures.storage = building.id;
                     return building;
                 }
@@ -446,6 +452,10 @@ Room.prototype.findBin = function(storage): object | void {
             const binPositionStructures = binPosition.lookFor(LOOK_STRUCTURES);
             for (const building of binPositionStructures) {
                 if (building.structureType == STRUCTURE_CONTAINER) {
+                    // findBin runs on whatever room the creep stands in (see
+                    // managerErrand/hubWorkPending) — Structures is unseeded
+                    // outside owned rooms, so seed before the write.
+                    if(!this.memory.Structures) this.memory.Structures = {};
                     this.memory.Structures.bin = building.id;
                     return building;
                 }

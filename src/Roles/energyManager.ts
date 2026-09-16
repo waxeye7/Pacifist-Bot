@@ -338,6 +338,11 @@ export function roomNeedsManager(room: any, fillers: number): boolean {
 
 export function managerErrand(creep: any, MaxStorage: number): boolean {
     let acted = false;
+    // Structures is seeded only for owned rooms; a displaced creep reads
+    // creep.room.memory on wherever it stands, so alias-or-empty once and
+    // read the keys below through it. The `|| findX()` fallbacks re-derive
+    // on a seeded room and simply answer undefined on a foreign one.
+    const S: any = creep.room.memory.Structures || {};
 
     if(creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.target = false
@@ -394,7 +399,7 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         if(!storage || storage.structureType !== STRUCTURE_STORAGE) return acted;
         let terminal = creep.room.terminal;
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
-        let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+        let bin = Game.getObjectById(S.bin) || creep.room.findBin(storage);
 
         // Partial cargo dumps to storage before any new withdraw. Full-only
         // used to skip this and pick a lab/factory/nuker with leftover G.
@@ -819,7 +824,9 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         // stocked, and the 30k stop is the spike-sell reserve (Market/budget
         // sellCaps) - past that the mineral is better off in storage.
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
-        let MineralType = Mineral.mineralType;
+        // highway/keeper rooms have no mineral — a drifted manager read
+        // .mineralType off undefined and died on this line every tick
+        let MineralType = Mineral && Mineral.mineralType;
         if(storage && storage.store[MineralType] > 3000 && terminal && terminal.store[MineralType] < 30000 && terminal.store.getFreeCapacity() > 10000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, MineralType);
@@ -938,7 +945,7 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
             // }
 
 
-        let nuker = Game.getObjectById(creep.room.memory.Structures.nuker) || creep.room.findNuker();
+        let nuker = Game.getObjectById(S.nuker) || creep.room.findNuker();
         if(storage && nuker) {
             if(storage.store[RESOURCE_GHODIUM] >= 3000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
                 if(creep.pos.isNearTo(storage)) {
@@ -967,7 +974,7 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
         }
 
 
-        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
+        let powerSpawn:any = Game.getObjectById(S.powerSpawn);
         if(storage && powerSpawn && storage.store[RESOURCE_POWER] >= 1 && powerSpawn.store[RESOURCE_POWER] == 0) {
             if(creep.pos.isNearTo(storage)) {
                 if(storage.store[RESOURCE_POWER] >= 100) {
@@ -1024,19 +1031,21 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {
-            if(creep.room.controller.level == 6) {
+            // a displaced manager can stand in a controller-less room — level 0
+            const rcl = creep.room.controller ? creep.room.controller.level : 0;
+            if(rcl == 6) {
                 creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
             }
-            else if(creep.room.controller.level == 7) {
+            else if(rcl == 7) {
                 creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
             }
-            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket < 9000 && creep.room.terminal && creep.room.terminal.store[RESOURCE_BATTERY] > 1000) {
+            else if(rcl == 8 && !creep.room.memory.danger && Game.cpu.bucket < 9000 && creep.room.terminal && creep.room.terminal.store[RESOURCE_BATTERY] > 1000) {
                 creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
             }
-            else if(creep.room.controller.level == 8 && !creep.room.memory.danger && Game.cpu.bucket >= 5000) {
+            else if(rcl == 8 && !creep.room.memory.danger && Game.cpu.bucket >= 5000) {
                 creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
             }
-            else if(creep.room.controller.level == 8 && (creep.room.memory.danger || Game.cpu.bucket < 5000)) {
+            else if(rcl == 8 && (creep.room.memory.danger || Game.cpu.bucket < 5000)) {
                 creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
             }
         }

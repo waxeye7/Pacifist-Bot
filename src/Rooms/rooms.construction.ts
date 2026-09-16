@@ -2886,8 +2886,11 @@ function buildRemote(room, targetRoomName: string, data: any, ctx: RemoteRoadCtx
  *        wants from the console.
  */
 function Build_Remote_Roads(room, onlyRemote?: string) {
-    // Early RCL / no remotes: do not lay road sites to room edges
-    if (!room || !room.controller || room.controller.level < 4) return;
+    // Early RCL / no remotes: do not lay road sites to room edges.
+    // `global.buildRemoteRoads(name)` accepts ANY visible room from the
+    // console — a hostile RCL4+ room passed the level check below and then
+    // threw on `room.memory.Structures.storage` (seeded only for owned rooms).
+    if (!room || !room.controller || !room.controller.my || room.controller.level < 4) return;
     if(room.memory.danger) {
         return;
     }

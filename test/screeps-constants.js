@@ -195,6 +195,25 @@ C.RESOURCE_UTRIUM_LEMERGITE = "UL";
   ["RESOURCE_CATALYZED_GHODIUM_ACID", "XGH2O"], ["RESOURCE_CATALYZED_GHODIUM_ALKALIDE", "XGHO2"],
 ].forEach(function (p) { C[p[0]] = p[1]; });
 
+// --- deposit commodities, bars, and misc trade goods ----------------------
+[
+  ["RESOURCE_UTRIUM_BAR", "utrium_bar"], ["RESOURCE_LEMERGIUM_BAR", "lemergium_bar"],
+  ["RESOURCE_ZYNTHIUM_BAR", "zynthium_bar"], ["RESOURCE_KEANIUM_BAR", "keanium_bar"],
+  ["RESOURCE_GHODIUM_MELT", "ghodium_melt"], ["RESOURCE_OXIDANT", "oxidant"],
+  ["RESOURCE_REDUCTANT", "reductant"], ["RESOURCE_PURIFIER", "purifier"],
+  ["RESOURCE_BATTERY", "battery"],
+  ["RESOURCE_COMPOSITE", "composite"], ["RESOURCE_CRYSTAL", "crystal"], ["RESOURCE_LIQUID", "liquid"],
+  ["RESOURCE_ALLOY", "alloy"], ["RESOURCE_TUBE", "tube"], ["RESOURCE_FIXTURES", "fixtures"],
+  ["RESOURCE_FRAME", "frame"], ["RESOURCE_HYDRAULICS", "hydraulics"], ["RESOURCE_MACHINE", "machine"],
+  ["RESOURCE_CELL", "cell"], ["RESOURCE_PHLEGM", "phlegm"], ["RESOURCE_TISSUE", "tissue"],
+  ["RESOURCE_MUSCLE", "muscle"], ["RESOURCE_ORGANOID", "organoid"], ["RESOURCE_ORGANISM", "organism"],
+  ["RESOURCE_WIRE", "wire"], ["RESOURCE_SWITCH", "switch"], ["RESOURCE_TRANSISTOR", "transistor"],
+  ["RESOURCE_MICROCHIP", "microchip"], ["RESOURCE_CIRCUIT", "circuit"], ["RESOURCE_DEVICE", "device"],
+  ["RESOURCE_CONDENSATE", "condensate"], ["RESOURCE_CONCENTRATE", "concentrate"],
+  ["RESOURCE_EXTRACT", "extract"], ["RESOURCE_SPIRIT", "spirit"],
+  ["RESOURCE_EMANATION", "emanation"], ["RESOURCE_ESSENCE", "essence"],
+].forEach(function (p) { C[p[0]] = p[1]; });
+
 // --- misc -----------------------------------------------------------------
 C.SUBSCRIPTION_TOKEN = "token";
 C.PIXEL = "pixel";

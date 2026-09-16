@@ -40,6 +40,11 @@ function ExecuteCommandsInNTicks() {
                 continue;
             }
             if(command.bucketNeeded <= Game.cpu.bucket) {
+                // Splice BEFORE dispatch: a formation that throws used to stay
+                // queued and re-throw every tick — the entry never reached the
+                // splice below, so it starved every command behind it forever.
+                commands.splice(index, 1);
+                try {
                 if(command.formation == "Singleton") {
                     global.SS(command.homeRoom,command.targetRoom);
                 }
@@ -64,7 +69,14 @@ function ExecuteCommandsInNTicks() {
                 else if(command.formation == "CCKparty") {
                     global.spawn_hunting_party(command.homeRoom, command.targetRoom, command.controllerFreePositions);
                 }
-                commands.splice(index, 1);
+                else {
+                    // unknown formation would drop silently — name it
+                    console.log("dropped command with unknown formation: " + JSON.stringify(command));
+                }
+                } catch (error: any) {
+                    const stack = error && error.stack ? String(error.stack).split("\n").slice(0, 3).join(" | ") : String(error);
+                    console.log("dropped command after dispatch error: " + JSON.stringify(command) + " - " + stack);
+                }
                 continue;
             }
 

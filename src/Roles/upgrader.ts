@@ -325,7 +325,7 @@ const run = function (creep) {
 	// exactly the room this delegation was written for.
 	const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
 		(!storage || storage.structureType !== STRUCTURE_STORAGE) && cachedMyCreeps(creep.room).length < 9;
-	const rcl2Bootstrap = creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
+	const rcl2Bootstrap = creep.room.controller && creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
 	if((skeletonCrewNoBank || rcl2Bootstrap) && cachedSites(creep.room).length > 0) {
 		const builder: any = (global as any).ROLES && (global as any).ROLES.builder;
 		if(builder) {
@@ -403,7 +403,9 @@ const run = function (creep) {
 				creep.MoveCostMatrixRoadPrio(park, 0);
 			}
 		}
-		else if(outOfRange && creep.room.memory.Structures.controllerLink && creep.pos.getRangeTo(creep.room.controller) == 4) {
+		else if(outOfRange && creep.room.memory.Structures && creep.room.memory.Structures.controllerLink && creep.pos.getRangeTo(creep.room.controller) == 4) {
+			// Structures is unseeded in a foreign room — a drifted upgrader read
+			// .controllerLink off undefined here every tick.
 			creep.roomCallbackRoadPrioUpgraderInPosition(creep.room.controller, 3);
 		}
 		else if(outOfRange) {

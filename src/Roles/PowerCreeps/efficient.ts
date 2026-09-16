@@ -12,7 +12,9 @@ const run = function (creep) {
         return;
     }
     if(creep.ticksToLive < 120) {
-        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
+        // Structures is seeded only for owned rooms — a PC displaced into a
+        // controller-less room has no powerSpawn to renew from anyway.
+        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures && creep.room.memory.Structures.powerSpawn);
         if(powerSpawn) {
             if(creep.pos.isNearTo(powerSpawn)) {
                 creep.renew(powerSpawn);
