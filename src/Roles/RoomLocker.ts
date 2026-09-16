@@ -13,7 +13,9 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     // room.storage is null before RCL4; findStorage falls back to the hub container
     let storage = creep.room.storage || creep.room.findStorage();
     if(storage) {
-      let result = creep.withdraw(storage, RESOURCE_ENERGY);
+      // withdrawStorage owns the floor: hauling the bank out to a remote claim
+      // is discretionary spend, so the reserve applies.
+      let result = creep.withdrawStorage(storage);
       if(result === ERR_NOT_IN_RANGE) {
         creep.MoveCostMatrixIgnoreRoads(storage, 1);
       }

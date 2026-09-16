@@ -22,13 +22,24 @@ const run = function (creep) {
             if(!creep.memory.full && creep.room.name === creep.memory.homeRoom) {
                 let storage = creep.room.storage;
                 if(storage) {
-                    let result = creep.withdraw(storage, RESOURCE_ENERGY);
-                    if(result == ERR_NOT_IN_RANGE) {
+                    if(!creep.pos.isNearTo(storage)) {
                         creep.MoveCostMatrixRoadPrio(storage,1);
                         return;
                     }
-                    else if(result === 0) {
+                    // withdrawStorage owns the reserve floor — a bare withdraw
+                    // would spend the emergency bank on a remote upgrade. It
+                    // never returns ERR_NOT_IN_RANGE (it walks itself), so the
+                    // adjacency check above owns the approach: without it the
+                    // fall-through to moveToRoomAvoidEnemyRooms fought its
+                    // internal move every tick and the creep left unfilled.
+                    let result = creep.withdrawStorage(storage);
+                    if(result === 0) {
                         creep.memory.full = true;
+                    }
+                    else if(result === undefined) {
+                        // Floor-declined: the ladder sent it scavenging instead.
+                        // Hold here rather than walking out to the remote empty.
+                        return;
                     }
                 }
             }

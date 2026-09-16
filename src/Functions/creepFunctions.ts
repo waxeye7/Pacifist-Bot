@@ -507,7 +507,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
                     if(this.room.controller.level >= 7) {
                         S.controllerLink = false;
                     }
-                    else {
+                    // Same reserve as the link rung below: the depot is filled
+                    // from the bank, so below it this is spending the reserve
+                    // on upgrading. Downgrade-urgent overrides inside.
+                    else if(!_bankBelowReserve(this.room)) {
                         if(reserve) {
                             takeReserveFill(this, controllerLink.id);
                         }
@@ -988,18 +991,25 @@ Creep.prototype.findClosestLinkToStorage = function():any {
  *
  * So the floor becomes a priority ladder rather than a wall:
  *
- *     filler                     0     absolute priority, unchanged
- *     builder / buildcontainer   300   only while the room HAS sites + income
- *     upgrader / CtrlLinkFiller  1000  only while the room has income
- *     everything else            2000  unchanged
+ *     filler                     0      absolute priority, unchanged
+ *     builder / buildcontainer   300    only while the room HAS sites + income
+ *     upgrader / CtrlLinkFiller  1000   only while the room has income
+ *     everything else            10000  the emergency bank; 2000 under attack
  *
  * Both lowered rungs are gated on the room still having an energy income (a
  * live miner, or a remote hauler feeding it). With no income the room is not
  * recovering, it is dying, and the right answer there is the old behaviour:
  * hand everything to the fillers so a miner gets spawned first.
+ *
+ * The default rung is 10,000 — the same "not poor" floor the park bands use —
+ * so repairers, erectors and every other discretionary worker stop drawing the
+ * bank down while it is the only reserve the room has. A room under attack is
+ * the exception: `danger`/`danger_timer` means the repairs ARE the emergency,
+ * so the wartime floor stays at the old 2000.
  * ---------------------------------------------------------------------------
  */
 const STORAGE_FLOOR_DEFAULT = 2000;
+const STORAGE_FLOOR_RESERVE = 10000;
 const STORAGE_FLOOR_BUILD = 300;
 const STORAGE_FLOOR_UPGRADE = 1000;
 /** Smallest slice above a lowered floor that is worth walking to the bank for. */
@@ -1063,8 +1073,15 @@ function _roomFeedsController(room: any): boolean {
  * The rung this guards moves energy OUT OF STORAGE into the controller link,
  * so leaving it ungated would drain the very reserve the miner-side change
  * exists to build.
+ *
+ * The reserve equals the 10k "not poor" floor the park bands (upgradeParkBand,
+ * MAINT_BANK_FLOOR, UPGRADE_FLOOR) already use: below it the bank is the
+ * emergency reserve, and spending it on the controller link just feeds parked
+ * upgraders out of savings. Live E38N56: storage 6.9k -> 2.4k in ~4k ticks
+ * while the upgrader stayed parked — the filler rung kept topping the
+ * controller link up out of the bank the whole way down.
  */
-const _CONTROLLER_FEED_RESERVE = 2000;
+const _CONTROLLER_FEED_RESERVE = 10000;
 const _DOWNGRADE_URGENT = 15000;
 
 function _bankBelowReserve(room: any): boolean {
@@ -1136,6 +1153,17 @@ function _roomHasCriticalBuildSite(room: any): boolean {
     return false;
 }
 
+/**
+ * The peacetime floor for roles with no rung of their own. 10k so a thin bank
+ * is treated as the emergency reserve it is; a room under attack keeps the old
+ * 2000 because during a siege the repairs are what the reserve exists to buy.
+ */
+function _defaultFloor(room: any): number {
+    const mem = room && room.memory;
+    if (mem && (mem.danger || (mem.danger_timer || 0) > 0)) return STORAGE_FLOOR_DEFAULT;
+    return STORAGE_FLOOR_RESERVE;
+}
+
 /** The storage floor this creep must respect, by role and room state. */
 function _storageFloorFor(creep: any): number {
     const role = creep.memory && creep.memory.role;
@@ -1159,13 +1187,13 @@ function _storageFloorFor(creep: any): number {
             }
             return STORAGE_FLOOR_BUILD;
         }
-        return STORAGE_FLOOR_DEFAULT;
+        return _defaultFloor(room);
     }
     if (STORAGE_UPGRADE_ROLES[role]) {
         if (_roomHasEnergyIncome(room)) return STORAGE_FLOOR_UPGRADE;
-        return STORAGE_FLOOR_DEFAULT;
+        return _defaultFloor(room);
     }
-    return STORAGE_FLOOR_DEFAULT;
+    return _defaultFloor(room);
 }
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {

@@ -20,7 +20,11 @@ const run = function (creep) {
         let storage = (creep.room.memory.Structures && Game.getObjectById(creep.room.memory.Structures.storage)) || creep.room.storage;
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
-                if(creep.withdraw(storage, RESOURCE_ENERGY) == 0) {
+                // withdrawStorage owns the reserve floor — shipping the bank
+                // to another room while home sits under 10k spends the
+                // emergency reserve. (OfferEmergencyFeed's own 2k gate is the
+                // rescue path; it is unchanged.)
+                if(creep.withdrawStorage(storage) == 0) {
                     creep.memory.full = true;
                 }
             }
