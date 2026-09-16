@@ -987,7 +987,7 @@ const run = function (creep) {
              * and the pump below keeps its existing `myRampart = false` drops
              * plus one more for a tile that became buried after adoption.
              */
-            if(creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
+            if(creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
                 let myRamparts = _.filter(cachedMyStructures(creep.room), (s: any) => s.structureType == STRUCTURE_RAMPART);
                 // buried test AFTER the range narrow — 1-3 candidates, not every
                 // rampart in the room
@@ -1189,7 +1189,10 @@ const run = function (creep) {
 
 
 
-        if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
+        // homeRoom == targetRoom alone does not make this an owned room — a
+        // drifted home miner keeps both keys while standing somewhere
+        // Structures was never seeded, and every link read below threw.
+        if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom && creep.room.memory.Structures) {
 
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
 

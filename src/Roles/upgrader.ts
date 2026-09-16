@@ -403,7 +403,9 @@ const run = function (creep) {
 				creep.MoveCostMatrixRoadPrio(park, 0);
 			}
 		}
-		else if(outOfRange && creep.room.memory.Structures.controllerLink && creep.pos.getRangeTo(creep.room.controller) == 4) {
+		else if(outOfRange && creep.room.memory.Structures && creep.room.memory.Structures.controllerLink && creep.pos.getRangeTo(creep.room.controller) == 4) {
+			// Structures is unseeded in a foreign room — a drifted upgrader read
+			// .controllerLink off undefined here every tick.
 			creep.roomCallbackRoadPrioUpgraderInPosition(creep.room.controller, 3);
 		}
 		else if(outOfRange) {

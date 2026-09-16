@@ -102,6 +102,19 @@ describe("Structures sweep — drifted-creep sites", () => {
         const head = rc.slice(start, start + 700);
         assert.include(head, "!room.controller.my", "hostile/console room not filtered before the Structures read");
     });
+
+    it("energyMiner gates the home link network on a seeded room", () => {
+        // homeRoom == targetRoom is not proof of ownership — a drifted home
+        // miner keeps both keys in a foreign room where Structures is
+        // unseeded, and the link/storage reads below the gate all threw.
+        const em = SRC("Roles/energyMiner.ts");
+        assert.include(em, "creep.memory.homeRoom == creep.memory.targetRoom && creep.room.memory.Structures");
+    });
+
+    it("upgrader reads Structures.controllerLink through an existence check", () => {
+        const up = SRC("Roles/upgrader.ts");
+        assert.include(up, "creep.room.memory.Structures && creep.room.memory.Structures.controllerLink");
+    });
 });
 
 /**
@@ -118,6 +131,13 @@ describe("adjacent controller derefs on drift paths", () => {
     it("energyMiner guards controller.my on the TTL-700 storage scan", () => {
         const em = SRC("Roles/energyMiner.ts");
         assert.include(em, "!storages.length && creep.room.controller && creep.room.controller.my");
+    });
+
+    it("energyMiner gates the rampart adoption rung on an existing controller", () => {
+        // a remote miner drifted into a highway/SK room reaches this block —
+        // controller is undefined there and .level threw every tick.
+        const em = SRC("Roles/energyMiner.ts");
+        assert.include(em, "creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.myRampart");
     });
 
     it("energyManager respawn chain reads a hoisted level, not controller.level", () => {
