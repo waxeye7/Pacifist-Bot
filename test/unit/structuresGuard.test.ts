@@ -115,6 +115,31 @@ describe("Structures sweep — drifted-creep sites", () => {
         const up = SRC("Roles/upgrader.ts");
         assert.include(up, "creep.room.memory.Structures && creep.room.memory.Structures.controllerLink");
     });
+
+    it("findStorageLink seeds Structures before writing the hub link id", () => {
+        // creep.findClosestLinkToStorage() routes here on wherever the creep
+        // stands — a foreign room with a link on the planned tile wrote
+        // Structures.StorageLink off undefined.
+        const rf = SRC("Functions/roomFunctions.ts");
+        const start = rf.indexOf("Room.prototype.findStorageLink");
+        const body = rf.slice(start, start + 1200);
+        const seed = body.indexOf("if (!this.memory.Structures) this.memory.Structures = {};");
+        const write = body.indexOf("this.memory.Structures.StorageLink = plannedHub.id");
+        assert.isAbove(seed, -1, "no seed in findStorageLink");
+        assert.isAbove(write, -1);
+        assert.isBelow(seed, write, "seed must precede the StorageLink write");
+    });
+
+    it("findStorageContainer seeds Structures before pinning the hub container", () => {
+        const rf = SRC("Functions/roomFunctions.ts");
+        const start = rf.indexOf("Room.prototype.findStorageContainer");
+        const body = rf.slice(start, start + 1800);
+        const write = body.indexOf("this.memory.Structures.storage = building.id");
+        assert.isAbove(write, -1);
+        const seed = body.indexOf("if(!this.memory.Structures) this.memory.Structures = {};");
+        assert.isAbove(seed, -1, "no seed in findStorageContainer");
+        assert.isBelow(seed, write);
+    });
 });
 
 /**
