@@ -309,7 +309,7 @@ const run = function (creep) {
         // an empty list is truthy: a maintainer that first ran this while no
         // rampart qualified cached [] and never rebuilt, so ramparts raised
         // during its 1500-tick life were never added. Rescan on a cadence.
-        if(!creep.memory.rampartsToRepair || Game.time % 100 == 0) {
+        if(!creep.memory.rampartsToRepair || (Game.time + nameOffset(creep.name, 100)) % 100 == 0) {
             let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000 && (!creep.room.storage || creep.room.storage.pos.getRangeTo(s) >= 9) && isSanctionedRampart(creep.room, s.pos) && !rampartIsBuried(creep.room, s.pos)});
             let idsOfRamparts = [];
             for(let rampart of rampartsInRoom) {

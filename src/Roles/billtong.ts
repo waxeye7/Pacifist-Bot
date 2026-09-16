@@ -29,13 +29,12 @@ export function depositFallbackRooms(homeRoom: string): string[] {
     creep.memory.moving = false;
 
     if(creep.memory.suicide) {
-        if(creep.store.getUsedCapacity() > 0) {
-            creep.memory.full = true;
-        }
-        else {
-            creep.recycle();
-            return;
-        }
+        // recycle() walks home and dumps carried cargo into a sink for up to
+        // RECYCLE_DUMP_TICKS, then kills. The manual full->home-dump this
+        // replaced could never finish when both home sinks were full: the
+        // creep parked loaded forever and the suicide flag never landed.
+        creep.recycle();
+        return;
     }
 
     if(!creep.memory.MaxStorage) {

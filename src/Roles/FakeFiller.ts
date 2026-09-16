@@ -49,7 +49,12 @@ function findLocked(creep) {
             creep.memory.locked = bank.id;
             return bank;
         }
+        // clear the same state isUndeliverable clears, so a stale lock on the
+        // full bank resolves to the drop-path next tick, not one idle tick
+        // after another
         creep.memory.locked = false;
+        creep.memory.path = false;
+        delete creep.memory.MoveTargetId;
     }
     else {
         let possibleDropOffLocations = [];

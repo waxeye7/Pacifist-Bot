@@ -94,8 +94,8 @@ describe("defender: no rampart still fights", () => {
 });
 
 describe("maintainer: rampart list and siege survival", () => {
-    it("rebuilds rampartsToRepair on a cadence — a truthy [] used to freeze forever", () => {
-        assert.include(MAINTAINER, "if(!creep.memory.rampartsToRepair || Game.time % 100 == 0)");
+    it("rebuilds rampartsToRepair on a name-staggered cadence — a truthy [] used to freeze forever", () => {
+        assert.include(MAINTAINER, "if(!creep.memory.rampartsToRepair || (Game.time + nameOffset(creep.name, 100)) % 100 == 0)");
     });
 
     it("danger alone holds the sit-tight branch — no mid-siege suicide without interiorReady", () => {
