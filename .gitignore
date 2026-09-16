@@ -28,6 +28,10 @@ screeps.json
 # Generated speedrun film (rebuilt by tools/server/race-dash.mjs)
 /docs/speedrun-ledger/dashboard/
 
+# Session-scratch monitoring/poll scripts (read screeps.json at runtime,
+# machine-specific diagnostics — not part of the shipped tooling)
+tools/server/_*
+
 # Numerous always-ignore extensions
 *.diff
 *.err
