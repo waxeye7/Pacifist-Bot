@@ -22,7 +22,9 @@ const run = function (creep) {
             if(!creep.memory.full && creep.room.name === creep.memory.homeRoom) {
                 let storage = creep.room.storage;
                 if(storage) {
-                    let result = creep.withdraw(storage, RESOURCE_ENERGY);
+                    // withdrawStorage owns the reserve floor — a bare withdraw
+                    // would spend the emergency bank on a remote upgrade.
+                    let result = creep.withdrawStorage(storage);
                     if(result == ERR_NOT_IN_RANGE) {
                         creep.MoveCostMatrixRoadPrio(storage,1);
                         return;

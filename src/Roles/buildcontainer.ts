@@ -131,7 +131,10 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         if(creep.store.getFreeCapacity() !== 0) {
             let storage = creep.room.storage;
             if(storage && (storage.store[RESOURCE_ENERGY] || 0) > 0) {
-                let result = creep.withdraw(storage, RESOURCE_ENERGY);
+                // withdrawStorage, not bare: this fills at the CURRENT room's
+                // bank for work in targetRoom — discretionary spend, so the
+                // build rung floor (300 with sites+income) applies.
+                let result = creep.withdrawStorage(storage);
                 if(result == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(storage,1);
                     return;
@@ -450,7 +453,9 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         if (tapRoomEnergy(creep)) return;
         if(creep.room.storage) {
             if(creep.room.storage.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity()) {
-                if(creep.withdraw(creep.room.storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                // Same floor ownership as the fill leg — the build rung, not
+                // a bare drain.
+                if(creep.withdrawStorage(creep.room.storage) == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(creep.room.storage, 1);
                 }
                 return;

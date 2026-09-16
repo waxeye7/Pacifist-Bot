@@ -42,7 +42,10 @@ const run = function (creep) {
         if(storage) {
 
             if(creep.pos.isNearTo(storage)) {
-                if(creep.withdraw(storage, RESOURCE_ENERGY) === 0)
+                // withdrawStorage owns the reserve floor — this feeds the
+                // SpecialRepair siege line, which the danger override keeps
+                // supplied, but a peacetime room holds its 10k.
+                if(creep.withdrawStorage(storage) === 0)
                     creep.memory.full = true;
             }
             else {

@@ -19,6 +19,10 @@ const CREEP_FNS = fs.readFileSync(
   path.join(__dirname, "../../src/Functions/creepFunctions.ts"),
   "utf8",
 );
+const ENERGY_MINER = fs.readFileSync(
+  path.join(__dirname, "../../src/Roles/energyMiner.ts"),
+  "utf8",
+);
 
 function room(opts: { bank?: number | null; terminal?: number; downgrade?: number }): any {
   const bank = opts.bank;
@@ -30,20 +34,22 @@ function room(opts: { bank?: number | null; terminal?: number; downgrade?: numbe
 }
 
 describe("energyMiner: bankBelowReserve", () => {
-  it("is true for an established room with an empty bank", () => {
+  it("is true for an established room under the 10k emergency reserve", () => {
     // VPS W2N1 / W1N2: one-source RCL7 rooms pinned at storage 0 while their
-    // controller links cycled 0 -> 450 -> 0 indefinitely.
+    // controller links cycled 0 -> 450 -> 0 indefinitely. Reserve is 10k —
+    // the same "not poor" floor the park bands use — so a bank the creep roles
+    // treat as parked is also too thin to spend on the controller.
     assert.isTrue(bankBelowReserve(room({ bank: 0 })));
-    assert.isTrue(bankBelowReserve(room({ bank: 1999 })));
+    assert.isTrue(bankBelowReserve(room({ bank: 9999 })));
   });
 
   it("is false once the reserve exists, handing priority back to the controller", () => {
-    assert.isFalse(bankBelowReserve(room({ bank: 2000 })));
+    assert.isFalse(bankBelowReserve(room({ bank: 10000 })));
     assert.isFalse(bankBelowReserve(room({ bank: 50000 })));
   });
 
   it("counts the terminal toward the reserve", () => {
-    assert.isFalse(bankBelowReserve(room({ bank: 1000, terminal: 1500 })));
+    assert.isFalse(bankBelowReserve(room({ bank: 9000, terminal: 1500 })));
     assert.isTrue(bankBelowReserve(room({ bank: 500, terminal: 500 })));
   });
 
@@ -74,8 +80,10 @@ describe("creepFunctions: the mirrored reserve rule", () => {
   });
 
   it("uses the same two constants as energyMiner", () => {
-    assert.include(CREEP_FNS, "_CONTROLLER_FEED_RESERVE = 2000");
+    assert.include(CREEP_FNS, "_CONTROLLER_FEED_RESERVE = 10000");
+    assert.include(ENERGY_MINER, "CONTROLLER_FEED_RESERVE = 10000");
     assert.include(CREEP_FNS, "_DOWNGRADE_URGENT = 15000");
+    assert.include(ENERGY_MINER, "DOWNGRADE_URGENT = 15000");
   });
 
   it("gates the storage-to-controller-link filler rung on it", () => {

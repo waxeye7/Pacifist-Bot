@@ -57,8 +57,12 @@ import { interiorMove } from "utils/Interior";
             if(boxes.length) storage = creep.pos.findClosestByRange(boxes);
         }
         if(storage) {
+            // withdrawStorage, not a bare withdraw: the erector used to drain
+            // the bank to zero because nothing here owned a floor. The ladder
+            // gives it the reserve rung (10k, 2k under danger) and the
+            // container fallback keeps the pre-storage path working.
             if(creep.pos.isNearTo(storage)) {
-                creep.withdraw(storage, RESOURCE_ENERGY);
+                creep.withdrawStorage(storage);
             }
             else {
                 if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)

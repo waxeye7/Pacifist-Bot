@@ -148,7 +148,12 @@ export function roomFeedsController(room:any):boolean {
  * costs far more than the reserve is worth.
  * ---------------------------------------------------------------------------
  */
-const CONTROLLER_FEED_RESERVE = 2000;
+// The bank a room must hold before it spends on the controller. Same floor the
+// upgrader/CLF/maintainer park bands and UPGRADE_FLOOR all mean by "not poor":
+// below it the bank is the emergency reserve, and bank -> controller-link
+// traffic (this file's link pushes AND the mirrored filler rung in
+// creepFunctions) stands down so income builds the reserve back.
+const CONTROLLER_FEED_RESERVE = 10000;
 /** Downgrade timer under which the controller outranks the reserve. */
 const DOWNGRADE_URGENT = 15000;
 
