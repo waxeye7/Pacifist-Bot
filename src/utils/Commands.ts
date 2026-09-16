@@ -687,7 +687,7 @@ global.lock_room = function (homeRoom, targetRoom) {
 
 
     }
-    else if(room && room.controller.level <= 7 && room.controller.level >= 4 && room.energyCapacityAvailable >= 1200) {
+    else if(room && room.controller && room.controller.level <= 7 && room.controller.level >= 4 && room.energyCapacityAvailable >= 1200) {
         let newName2 = 'RoomLocker' + Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push([MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,WORK,CARRY,MOVE], newName2, {memory: {role: 'RoomLocker', targetRoom: targetRoom, homeRoom:room.name}});
         console.log('Adding RoomLocker to Spawn List: ' + newName2);
@@ -1265,7 +1265,7 @@ global.SQR = function (roomName, targetRoomName, boost = false): any {
     let CreepB = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepB"; }).length;
     let CreepY = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepY"; }).length;
     let CreepZ = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepZ"; }).length;
-    if (room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
+    if (room.controller && room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if (fillers < 3) {
             let newName = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1529,7 +1529,7 @@ global.SQM = function (roomName, targetRoomName, boost = false): any {
     let CreepB = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepB"; }).length;
     let CreepY = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepY"; }).length;
     let CreepZ = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepZ"; }).length;
-    if (room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
+    if (room.controller && room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if (fillers < 3) {
             let newName = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1718,7 +1718,7 @@ global.SQD = function (roomName, targetRoomName, boost = false): any {
     let CreepB = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepB"; }).length;
     let CreepY = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepY"; }).length;
     let CreepZ = creepsInRoom.filter(function (creep) { return creep.memory.role == "SquadCreepZ"; }).length;
-    if (room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
+    if (room.controller && room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if (fillers < 3) {
             let newName = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;

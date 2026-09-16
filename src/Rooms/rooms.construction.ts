@@ -3080,6 +3080,9 @@ function Situational_Building(room) {
     // planV2 rooms own the hub via placeFromPlanV2. This two-tick
     // spawn.y-2 smash dual-stamps storage and throws when y<2 or no spawn.
     if(room.memory.planV2) return;
+    // Exported function: refuse controller-less rooms outright instead of
+    // relying on today's only caller being the owned-room pass.
+    if(!room.controller || !room.controller.my) return;
     if(room.controller.level == 4 && room.memory.data && room.memory.data.DOBug && (room.memory.data.DOBug == 3 || room.memory.data.DOBug == 4)) {
         if(room.memory.data.DOBug == 3) {
             let spawns = room.find(FIND_MY_SPAWNS);

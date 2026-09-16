@@ -202,9 +202,14 @@ function findLocked(creep, storage) {
         creep.room.memory.NukeRepair = false;
     }
 
+    // A Memory.creeps wipe strips homeRoom, which removes the room gate in
+    // run() — a stranded repairer can reach this in an SK/highway room,
+    // where controller is undefined. rcl 0 falls to the generic branch.
+    const rcl = creep.room.controller ? creep.room.controller.level : 0;
+
     let buildingsToRepair300mil;
 
-    if(creep.room.controller.level >= 6) {
+    if(rcl >= 6) {
         // if(creep.room.memory.danger) {
         //     buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
         // }
@@ -224,7 +229,7 @@ function findLocked(creep, storage) {
 
         // }
     }
-    else if(creep.room.controller.level > 2) {
+    else if(rcl > 2) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => wantsRepair(creep.room, building) && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
     }
     else {
@@ -233,7 +238,7 @@ function findLocked(creep, storage) {
 
 
     if(nukeBOOL) {
-        if(creep.room.controller.level >= 6) {
+        if(rcl >= 6) {
 
             let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL || s.structureType == STRUCTURE_FACTORY || s.structureType == STRUCTURE_LAB || s.structureType === STRUCTURE_NUKER || s.structureType === STRUCTURE_POWER_SPAWN});
 
