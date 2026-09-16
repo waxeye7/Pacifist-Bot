@@ -62,6 +62,10 @@ describe("ram: target selection", () => {
         assert.include(RAM, "portals.length > 0");
         assert.notInclude(RAM, "portals.length > 1");
     });
+
+    it("...but the portal is not a grind target — hits is undefined and it cannot die", () => {
+        assert.include(RAM, "s.structureType !== STRUCTURE_PORTAL");
+    });
 });
 
 describe("SneakyControllerUpgrader: undefined locked_away", () => {
@@ -77,8 +81,13 @@ describe("ContinuousControllerKiller: approach-attack filter", () => {
 });
 
 describe("Convoy: an empty convoy never falls through", () => {
-    it("the leftover-room branch is unconditional", () => {
+    it("the leftover-room branch is unconditional and uses the real recycle API", () => {
         assert.notInclude(CONVOY, "else if(!creep.room.memory.Structures || !creep.room.memory.Structures.storage)");
+        // the guarded body was dead code for the same reason it was broken:
+        // `spawn.recycle` is not a function — the API is recycleCreep, and a
+        // room with no seeded storage has no spawn to reach anyway
+        assert.notInclude(CONVOY, "spawn.recycle(creep)");
+        assert.include(CONVOY, "creep.recycle();");
     });
 });
 

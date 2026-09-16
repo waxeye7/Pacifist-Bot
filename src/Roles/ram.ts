@@ -150,7 +150,9 @@ import { directionToStep } from "Functions/roomFunctions";
         }
 
 
-        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
+        // portals excluded too: hits is undefined (NaN sort) and attack()
+        // on an invulnerable portal is a wasted intent every tick
+        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_PORTAL});
         if(creep.room.controller && creep.room.controller.my && buildingsInRoom.length > 0) {
             buildingsInRoom = buildingsInRoom.filter(function(building) {return building.owner !== undefined});
         }

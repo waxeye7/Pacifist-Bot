@@ -98,20 +98,15 @@ const run = function (creep) {
     }
     // this was `else if(!Structures || !Structures.storage)` — an empty
     // convoy in a room that is neither homeRoom nor targetRoom but DID have
-    // a seeded storage id fell through every branch and idled forever
+    // a seeded storage id fell through every branch and idled forever.
+    // The spawn-recycle body inside was dead code for the same reason (a
+    // room with no seeded storage has no spawn to reach) — and broken dead
+    // code: `spawn.recycle` is not a function, `recycleCreep` is. Going
+    // unconditional made it live, so the whole body is replaced by the
+    // standard role-death path: recycle() walks home, dumps any cargo into
+    // a sink for up to RECYCLE_DUMP_TICKS, then kills.
     else {
-        let spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS);
-        if(spawn) {
-            if(creep.pos.isNearTo(spawn)) {
-                spawn.recycle(creep);
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(spawn, 1);
-            }
-        }
-        else {
-            creep.suicide();
-        }
+        creep.recycle();
     }
 }
 
