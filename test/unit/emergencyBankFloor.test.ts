@@ -69,6 +69,19 @@ describe("bare storage withdraws route through the floor ladder", () => {
       /\.withdraw\(creep\.room\.storage,\s*RESOURCE_ENERGY\)/,
     );
   });
+
+  it("SneakyControllerUpgrader owns its approach — withdrawStorage never returns ERR_NOT_IN_RANGE", () => {
+    // It moves internally and returns undefined when far; a caller that waits
+    // on ERR_NOT_IN_RANGE falls through to the room-travel move and the two
+    // intents fight every tick (creep walks out unfilled). The adjacency check
+    // must own the approach BEFORE the call.
+    const body = src("Roles/SneakyControllerUpgrader.ts");
+    const near = body.indexOf("isNearTo(storage)");
+    const draw = body.indexOf("withdrawStorage(storage)");
+    assert.isAbove(near, -1, "needs an explicit isNearTo approach guard");
+    assert.isAbove(draw, -1);
+    assert.isBelow(near, draw, "the adjacency check must precede the withdraw");
+  });
 });
 
 describe("RampartErector spawn gate", () => {
