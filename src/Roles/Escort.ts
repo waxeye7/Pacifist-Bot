@@ -15,19 +15,27 @@ const run = function (creep) {
   if (creep.ticksToLive === 1499) {
     let room = creep.room;
     let newName = "Claimer-" + Math.floor(Math.random() * Game.time) + "-" + room.name;
-    room.memory.spawn_list.push([TOUGH, MOVE, MOVE, MOVE, MOVE, CLAIM, HEAL, HEAL], newName, {
-      memory: {
-        role: "claimer",
-        targetRoom: creep.memory.targetRoom,
-        homeRoom: room.name,
-        boostlabs: ((room.memory.labs && [room.memory.labs.outputLab5, room.memory.labs.outputLab7]) || []).filter(function (id) { return !!id; }),
-        line: 2
-      }
-    });
-    console.log("Adding Claimer to Spawn List: " + newName);
+    // spawn_list is seeded only for owned rooms — a 1-tick-old creep is
+    // always in its spawn room, but if that room's owned pass died before
+    // seeding the push throws on undefined. The log and lab charges must
+    // stay inside the guard: a skipped push with live charges leaves a
+    // phantom boost owner the EnergyManager fills for a claimer that does
+    // not exist.
+    if(room.memory.spawn_list) {
+      room.memory.spawn_list.push([TOUGH, MOVE, MOVE, MOVE, MOVE, CLAIM, HEAL, HEAL], newName, {
+        memory: {
+          role: "claimer",
+          targetRoom: creep.memory.targetRoom,
+          homeRoom: room.name,
+          boostlabs: ((room.memory.labs && [room.memory.labs.outputLab5, room.memory.labs.outputLab7]) || []).filter(function (id) { return !!id; }),
+          line: 2
+        }
+      });
+      console.log("Adding Claimer to Spawn List: " + newName);
 
-    if(room.memory.labs && room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 60, newName);
-    if(room.memory.labs && room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName);
+      if(room.memory.labs && room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 60, newName);
+      if(room.memory.labs && room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName);
+    }
 
   }
   if (creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {

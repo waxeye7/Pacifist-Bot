@@ -1024,9 +1024,17 @@ export function managerErrand(creep: any, MaxStorage: number): boolean {
     // true on exactly one tick of a creep's life, so the two room-wide finds
     // behind it are paid once, not every tick.
     if(creep.ticksToLive == creep.body.length  * 3 &&
+        creep.room.controller && creep.room.controller.my &&
         creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1 &&
         roomNeedsManager(creep.room, creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length)) {
         let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
+        // The replacement queues into the room the creep stands in — a
+        // displaced manager in an enemy/lost room finds no spawn_list
+        // (seeded only for owned rooms) and its queue is never consumed
+        // there anyway. Owned-only above; seed anyway because a throw in
+        // the room pass before the seed line leaves an owned room with a
+        // live creep and no list.
+        if(!creep.room.memory.spawn_list) creep.room.memory.spawn_list = [];
         if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
