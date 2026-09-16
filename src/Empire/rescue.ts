@@ -75,7 +75,15 @@ export function computeRescueJob(): RescueJob | null {
     // still say those creeps are builders/upgraders. Recount only when needed.
     if (changed) invalidateCensus();
     const vis = Game.rooms[need];
-    const rescue = !!(vis && vis.find(FIND_MY_SPAWNS).length === 0);
+    // colonyNeedIsRescue, not an inline spawn count: with no vision `vis` is
+    // undefined and the inline form answered false, so an invisible spawnless
+    // room — the worst case, CBs still walking — was classed as an OPTIONAL
+    // colony: the strict `bank <= 10k -> skip` mother veto applied with no
+    // rescue floor escape, and the spawn-side gates demanded bank > 10k +
+    // bucket > 7750. Post-wipe every bank is <= 10k by definition, so nobody
+    // was ever allowed to hatch the rescue. (The legacy path at
+    // rooms.spawning maybeSpawnColonyBuilder already calls this helper.)
+    const rescue = colonyNeedIsRescue(need, vis);
     return {
         need,
         rescue,
