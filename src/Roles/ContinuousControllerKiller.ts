@@ -26,7 +26,9 @@ const run = function (creep) {
         let controller = creep.room.controller;
         if(!creep.pos.isNearTo(controller)) {
             creep.MoveCostMatrixRoadPrio(controller, 1);
-            let structuresInRangeOne = creep.pos.findInRange(FIND_STRUCTURES, 1);
+            // the !s.my filter every sibling carries: attacking own structures
+            // is a wasted intent and neutral/ally structures take real damage
+            let structuresInRangeOne = creep.pos.findInRange(FIND_STRUCTURES, 1).filter(s => !s.my);
             if(structuresInRangeOne.length > 0) {
                 structuresInRangeOne.sort((a,b) => a.hits - b.hits);
                 creep.attack(structuresInRangeOne[0]);

@@ -84,7 +84,12 @@ const run = function (creep) {
                 storage &&
                 creep.store[RESOURCE_ENERGY] <= (creep.pos.getRangeTo(storage) + 2) * 35 * 2
               ) {
-                creep.drop(RESOURCE_ENERGY, creep.store[RESOURCE_ENERGY] - target.store.getFreeCapacity());
+                // when the target could hold the whole load this amount was
+                // negative — drop() -> ERR_INVALID_ARGS every tick
+                const excess = creep.store[RESOURCE_ENERGY] - target.store.getFreeCapacity();
+                if (excess > 0) {
+                  creep.drop(RESOURCE_ENERGY, excess);
+                }
               }
             }
           }

@@ -92,7 +92,10 @@ import { directionToStep } from "Functions/roomFunctions";
                           const activeAttackPartsA = a.getActiveBodyparts(ATTACK);
                           const activeAttackPartsB = b.getActiveBodyparts(ATTACK);
 
-                          return activeRangedAttackPartsB - activeRangedAttackPartsA - activeAttackPartsB - activeAttackPartsA; // Sort by active attack parts in descending order
+                          // the old single-subtraction form made ATTACK parts
+                          // sort ASCENDING on a ranged tie — preferring the
+                          // less armed of two same-range hostiles
+                          return (activeRangedAttackPartsB - activeRangedAttackPartsA) || (activeAttackPartsB - activeAttackPartsA); // Sort by active attack parts in descending order
                         }
                       });
 
@@ -107,7 +110,9 @@ import { directionToStep } from "Functions/roomFunctions";
         }
 
 
-        if(!creep.memory.powerCreep && creep.room.name === creep.memory.targetRoom) {
+        // "not found" is truthy: it latched the rescan shut forever, so a PC
+        // that entered the room after the first scan was never seen again
+        if((!creep.memory.powerCreep || (creep.memory.powerCreep === "not found" && Game.time % 25 == 0)) && creep.room.name === creep.memory.targetRoom) {
             let powerCreeps = creep.room.find(FIND_HOSTILE_POWER_CREEPS);
             if(powerCreeps.length) {
                 let closestPowerCreep = creep.pos.findClosestByRange(powerCreeps);
@@ -137,10 +142,17 @@ import { directionToStep } from "Functions/roomFunctions";
                     creep.attack(powerCreep);
                     return;
                 }
+            else if(!powerCreep) {
+                // died or left the room — a dead id is truthy and used to keep
+                // the rescan gate shut for the rest of the creep's life
+                delete creep.memory.powerCreep;
+            }
         }
 
 
-        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
+        // portals excluded too: hits is undefined (NaN sort) and attack()
+        // on an invulnerable portal is a wasted intent every tick
+        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_PORTAL});
         if(creep.room.controller && creep.room.controller.my && buildingsInRoom.length > 0) {
             buildingsInRoom = buildingsInRoom.filter(function(building) {return building.owner !== undefined});
         }
@@ -169,7 +181,7 @@ import { directionToStep } from "Functions/roomFunctions";
                     range = 0
                     move_location = closestHostile.pos;
                 }
-                else if(portals.length > 1) {
+                else if(portals.length > 0) {
                     let closestPortal = creep.pos.findClosestByRange(portals);
                     range = 1;
                     move_location = closestPortal.pos;

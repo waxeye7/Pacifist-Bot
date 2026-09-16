@@ -45,7 +45,10 @@
     else {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-        if(storage && storage.store[deposit.mineralType] < 19500) {
+        // store[type] is undefined for a mineral the structure has never
+        // held — undefined < N is false, which used to skip both cap checks
+        // whenever the bank sat at zero of the deposit type
+        if(storage && (storage.store[deposit.mineralType] || 0) < 19500) {
             if(creep.pos.isNearTo(storage)) {
                 creep.transfer(storage, deposit.mineralType);
             }
@@ -58,7 +61,7 @@
 
         let terminal = creep.room.terminal;
 
-        if(terminal && terminal.store[deposit.mineralType] < 5000) {
+        if(terminal && (terminal.store[deposit.mineralType] || 0) < 5000) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.transfer(terminal, deposit.mineralType);
             }
