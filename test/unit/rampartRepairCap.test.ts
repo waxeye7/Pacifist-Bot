@@ -77,6 +77,6 @@ describe("rampart repair cap — 12.5M is the ceiling", () => {
 
     it("power creep FORTIFY caps at the policy, not 65M", () => {
         assert.notInclude(POWER_CREEPS, "65000000");
-        assert.include(POWER_CREEPS, "structure.hits <= rampartHitsTarget(this.room)");
+        assert.include(POWER_CREEPS, "structure.hits < rampartHitsTarget(this.room)");
     });
 });

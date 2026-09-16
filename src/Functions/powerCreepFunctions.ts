@@ -22,7 +22,7 @@ PowerCreep.prototype.fortifyRampartWithEnemyNextToIt = function() {
   // Find all ramparts in the room below the hits policy (12.5M at RCL8) —
   // fortify past the ceiling is the same over-spend the cap is for
   const ramparts = this.room.find(FIND_MY_STRUCTURES, {
-    filter: (structure) => structure.structureType === STRUCTURE_RAMPART && structure.hits <= rampartHitsTarget(this.room)
+    filter: (structure) => structure.structureType === STRUCTURE_RAMPART && structure.hits < rampartHitsTarget(this.room)
   });
 
   // Filter the ramparts that have an enemy creep with ATTACK or WORK parts next to them
