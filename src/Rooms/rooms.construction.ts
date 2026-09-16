@@ -1181,17 +1181,17 @@ function construction(room) {
         // carriers then shuttle between them across untraded tiles, which is the
         // clump the owner is seeing at the spawn. Skip entirely once any
         // container already serves the spawn area.
-        const hubContainers = room.find(FIND_STRUCTURES, {
+        const hubContainers = spawn ? room.find(FIND_STRUCTURES, {
             filter: (s: any) =>
                 s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(spawn) <= 4
-        });
+        }) : [];
         // placeFromBasePlan's hub site is invisible to FIND_STRUCTURES; count
         // it or we drop a second sink next to spawn.
-        const hubContainerSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
+        const hubContainerSites = spawn ? room.find(FIND_MY_CONSTRUCTION_SITES, {
             filter: (s: any) =>
                 s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(spawn) <= 4
-        });
-        if ((room.controller.level == 2 || room.controller.level == 3) && hubContainers.length == 0 && hubContainerSites.length == 0) {
+        }) : [];
+        if (spawn && (room.controller.level == 2 || room.controller.level == 3) && hubContainers.length == 0 && hubContainerSites.length == 0) {
             // Preferred hub container is spawn.y-2 (legacy layout). If that tile is blocked
             // (controller, wall, other structure), try nearby offsets instead of stalling forever.
             const containerOffsets = [
@@ -1238,8 +1238,9 @@ function construction(room) {
         }
         if (spawn) siteLegacyControllerDepot(room, spawn);
         // spawn.y-2 is the legacy storage seat. legacySpawnTile allows y>=1,
-        // so y-2 can be -1 and RoomPosition throws.
-        let storageLocation = safePos(spawn.pos.x, spawn.pos.y -2, room.name);
+        // so y-2 can be -1 and RoomPosition throws. Structures.spawn can also
+        // hold a dead id while no spawn stands — spawn.pos would TypeError.
+        let storageLocation = spawn && safePos(spawn.pos.x, spawn.pos.y -2, room.name);
         if(storageLocation) {
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
             // placeFromBasePlan already queued storage at the hub; a second
@@ -1396,26 +1397,32 @@ function construction(room) {
 
 
                     if(mySpawns.length < 2 && storage) {
-                        let secondSpawnPosition = new RoomPosition(storage.pos.x, storage.pos.y - 2, room.name);
+                        // storage.y-2 is -1 when the hub sits on y=1.
+                        let secondSpawnPosition = safePos(storage.pos.x, storage.pos.y - 2, room.name);
+                        if(secondSpawnPosition) {
                         vizCircle(room.name, secondSpawnPosition.x, secondSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
                         let listOfSpawnPositions = [];
                         listOfSpawnPositions.push(secondSpawnPosition);
 
 
                         DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
+                        }
                     }
 
 
                 }
 
                 if(room.controller.level == 8 && mySpawns.length == 2) {
-                    let thirdSpawnPosition = new RoomPosition(storage.pos.x + 2, storage.pos.y, room.name);
+                    // storage.x+2 is 50 when the hub sits on x=48.
+                    let thirdSpawnPosition = safePos(storage.pos.x + 2, storage.pos.y, room.name);
+                    if(thirdSpawnPosition) {
                     vizCircle(room.name, thirdSpawnPosition.x, thirdSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
                     let listOfSpawnPositions = [];
                     listOfSpawnPositions.push(thirdSpawnPosition);
 
 
                     DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
+                    }
                 }
 
                 if(room.controller.level == 8 && myConstructionSites == 0) {
@@ -1423,14 +1430,22 @@ function construction(room) {
                     const rcl8Floor = 150000;
                     let observers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_OBSERVER});
                     if(observers.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_OBSERVER, rcl8Floor)) {
-                        let listOfObserverPosition = [new RoomPosition(storage.pos.x - 2, storage.pos.y + 1, room.name)]
+                        // storage.x-2 is -1 when the hub sits on x=1.
+                        let observerPosition = safePos(storage.pos.x - 2, storage.pos.y + 1, room.name);
+                        if(observerPosition) {
+                        let listOfObserverPosition = [observerPosition]
                         DestroyAndBuild(room, listOfObserverPosition, STRUCTURE_OBSERVER);
+                        }
                     }
 
                     let nukers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_NUKER});
                     if(nukers.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_NUKER, rcl8Floor)) {
-                        let listOfNukerPositions = [new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name)]
+                        // storage.x+4 is 50+ when the hub sits on x>=46.
+                        let nukerPosition = safePos(storage.pos.x + 4, storage.pos.y, room.name);
+                        if(nukerPosition) {
+                        let listOfNukerPositions = [nukerPosition]
                         DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_NUKER);
+                        }
                     }
                     // else if(nukers.length == 1) {
                     //     let NukerPosition = new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name);
@@ -1441,8 +1456,12 @@ function construction(room) {
                     // }
                     let powerSpawns = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_POWER_SPAWN});
                     if(powerSpawns.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_POWER_SPAWN, rcl8Floor)) {
-                        let listOfPowerSpawnPositions = [new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name)]
+                        // storage.x+3 is 50 at x=47, storage.y+2 is 50 at y=48.
+                        let powerSpawnPosition = safePos(storage.pos.x + 3, storage.pos.y + 2, room.name);
+                        if(powerSpawnPosition) {
+                        let listOfPowerSpawnPositions = [powerSpawnPosition]
                         DestroyAndBuild(room, listOfPowerSpawnPositions, STRUCTURE_POWER_SPAWN);
+                        }
                     }
                     // else if(powerSpawns.length == 1) {
                     //     let PowerSpawnPosition = new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name);
@@ -1591,8 +1610,11 @@ function construction(room) {
                     }
 
                     let pathFromStorageToMineral = PathFinder.search(storage.pos, {pos:mineral.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                    let RampartLocationMineral = pathFromStorageToMineral.path[pathFromStorageToMineral.path.length - 1]
-                    if(storage.pos.getRangeTo(RampartLocationMineral) >= 8) {
+                    // storage already within 1 of the mineral leaves the path
+                    // empty → getRangeTo(undefined) throws. Same shape as the
+                    // controller-path fix above.
+                    let RampartLocationMineral = pathFromStorageToMineral.path.length > 0 ? pathFromStorageToMineral.path[pathFromStorageToMineral.path.length - 1] : undefined;
+                    if(RampartLocationMineral && storage.pos.getRangeTo(RampartLocationMineral) >= 8) {
                         RampartLocationMineral.createConstructionSite(STRUCTURE_RAMPART);
                     }
 
@@ -1632,27 +1654,31 @@ function construction(room) {
             if(room.controller.level >= 4) {
                 pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room, false);
 
+                // A hub on a border tile (manual/legacy rooms can place storage
+                // at y=49) pushes the +-1 ring out of 0..49 — RoomPosition
+                // throws on the first illegal corner and kills construction().
                 let aroundStorageList = [
-                    new RoomPosition(storage.pos.x + 1, storage.pos.y + 1, room.name),
-                    new RoomPosition(storage.pos.x + 1, storage.pos.y - 1, room.name),
-                    new RoomPosition(storage.pos.x -1, storage.pos.y + 1, room.name),
-                    new RoomPosition(storage.pos.x -1, storage.pos.y - 1, room.name),
-                    new RoomPosition(storage.pos.x + 1, storage.pos.y, room.name),
-                    new RoomPosition(storage.pos.x - 1, storage.pos.y, room.name),
-                    new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name),
-                    new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
-                ]
+                    safePos(storage.pos.x + 1, storage.pos.y + 1, room.name),
+                    safePos(storage.pos.x + 1, storage.pos.y - 1, room.name),
+                    safePos(storage.pos.x -1, storage.pos.y + 1, room.name),
+                    safePos(storage.pos.x -1, storage.pos.y - 1, room.name),
+                    safePos(storage.pos.x + 1, storage.pos.y, room.name),
+                    safePos(storage.pos.x - 1, storage.pos.y, room.name),
+                    safePos(storage.pos.x, storage.pos.y + 1, room.name),
+                    safePos(storage.pos.x, storage.pos.y - 1, room.name),
+                ].filter(Boolean)
 
                 pathBuilder(aroundStorageList, STRUCTURE_ROAD, room, false);
             }
 
             if(room.terminal && room.controller.level >= 6) {
+                // Same border-tile class as the storage ring above.
                 let aroundTerminalList = [
-                    new RoomPosition(room.terminal.pos.x + 1, room.terminal.pos.y, room.name),
-                    // new RoomPosition(room.terminal.pos.x - 1, room.terminal.pos.y, room.name),
-                    new RoomPosition(room.terminal.pos.x, room.terminal.pos.y + 1, room.name),
-                    new RoomPosition(room.terminal.pos.x, room.terminal.pos.y - 1, room.name),
-                ]
+                    safePos(room.terminal.pos.x + 1, room.terminal.pos.y, room.name),
+                    // safePos(room.terminal.pos.x - 1, room.terminal.pos.y, room.name),
+                    safePos(room.terminal.pos.x, room.terminal.pos.y + 1, room.name),
+                    safePos(room.terminal.pos.x, room.terminal.pos.y - 1, room.name),
+                ].filter(Boolean)
                 pathBuilder(aroundTerminalList, STRUCTURE_ROAD, room, false);
 
                 let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
@@ -1765,12 +1791,16 @@ function construction(room) {
                 }
 
                 if(!room.terminal) {
-                    let terminalPosition = new RoomPosition(storage.pos.x - 1, storage.pos.y + 2, room.name);
+                    // storage.y+2 is 50+ when the hub sits on y>=48 — and the
+                    // throw prevented the terminal siting that clears this gate.
+                    let terminalPosition = safePos(storage.pos.x - 1, storage.pos.y + 2, room.name);
+                    if(terminalPosition) {
                     let positionsList = [];
                     positionsList.push(terminalPosition);
                     vizCircle(room.name, terminalPosition.x, terminalPosition.y, {fill: 'transparent', radius: .75, stroke: 'green'});
 
                     DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
+                    }
                 }
             }
         }
