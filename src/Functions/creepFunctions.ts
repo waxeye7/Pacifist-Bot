@@ -507,7 +507,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
                     if(this.room.controller.level >= 7) {
                         S.controllerLink = false;
                     }
-                    else {
+                    // Same reserve as the link rung below: the depot is filled
+                    // from the bank, so below it this is spending the reserve
+                    // on upgrading. Downgrade-urgent overrides inside.
+                    else if(!_bankBelowReserve(this.room)) {
                         if(reserve) {
                             takeReserveFill(this, controllerLink.id);
                         }
