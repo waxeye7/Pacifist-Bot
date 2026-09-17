@@ -201,9 +201,6 @@ function resFor(homeRoomName: string): any {
  * self-healing across losing a room, a global reset, or a manual edit.
  * ------------------------------------------------------------------ */
 
-/** How long a room stands off a remote another commune holds. */
-const OWNED_RETRY = 1500;
-
 function remoteOwners(): { [remote: string]: { home: string; t: number } } {
     const m: any = Memory as any;
     if (!m.remoteOwner) m.remoteOwner = {};
@@ -341,7 +338,8 @@ export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
             // things that do carry ATTACK/RANGED/HEAL.
             const combat = rr.find(FIND_HOSTILE_CREEPS, {filter: (c: any) =>
                 c.body && c.body.some((p: any) =>
-                    p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL)});
+                    p.hits > 0 &&
+                    (p.type === ATTACK || p.type === RANGED_ATTACK || p.type === HEAL || p.type === WORK))});
             if (combat.length > 0) {
                 return true; // still hot; scanRemoteThreats will push the timer out
             }
@@ -573,7 +571,10 @@ export function manageRemotes(room: any): void {
     const hardCap = room.controller.level >= 6 ? HARD_CAP_MATURE
         : room.controller.level <= 3 ? 1
         : HARD_CAP;
-    const cap = Math.max(1, Math.min(hardCap, policy.maxRemotes));
+    // No floor of 1: when CpuPolicy budgets zero remotes (allowRemotes can
+    // still be true on hysteresis), honouring that is the whole point of the
+    // policy. The empire budget below is the real backstop.
+    const cap = Math.min(hardCap, Math.max(0, policy.maxRemotes));
 
     const res = room.memory.resources;
     if (!res) return;
@@ -586,6 +587,11 @@ export function manageRemotes(room: any): void {
 
     for (const name of adjacent) {
         if (name === room.name) continue;
+        const look = Game.rooms[name];
+        // An adjacent room we OWN is a commune, not a remote. Seeding its entry
+        // here made every manage pass re-create what remotes() deletes, and the
+        // owner branch below stamped scout retryAts into our own bases.
+        if (look && look.controller && look.controller.my) continue;
         if (!res[name]) res[name] = {};
         const e = res[name];
 
@@ -593,7 +599,6 @@ export function manageRemotes(room: any): void {
             e.active = false;
             continue;
         }
-        const look = Game.rooms[name];
         const cored = remoteHasInvaderCore(look);
         const towered = remoteHasHostileTower(look);
         if (cored) {
@@ -611,9 +616,11 @@ export function manageRemotes(room: any): void {
                 e.active = false;
             }
             markRemoteHot(room.name, name, "invader core");
-            if (e.energy) {
-                e.retryAt = Game.time + rescoutDelay(room.name, name);
-            }
+            // An unsurveyed entry (no e.energy) used to seal itself here: the
+            // retryAt stamp was gated on e.energy, so a core seen before any
+            // survey was never queued for a re-look — even after it died.
+            if (!e.energy) e.energy = {};
+            e.retryAt = Game.time + rescoutDelay(room.name, name);
             continue;
         }
         if (towered) {
@@ -625,9 +632,10 @@ export function manageRemotes(room: any): void {
             if (!Memory.AvoidRooms) Memory.AvoidRooms = [];
             if (Memory.AvoidRooms.indexOf(name) < 0) Memory.AvoidRooms.push(name);
             if ((Memory as any).AvoidRoomsAt) (Memory as any).AvoidRoomsAt[name] = Game.time;
-            if (e.energy) {
-                e.retryAt = Game.time + rescoutDelay(room.name, name);
-            }
+            // Same self-seal as the cored branch: stamp a re-look deadline so
+            // a tower seen pre-survey gets re-checked after it falls.
+            if (!e.energy) e.energy = {};
+            e.retryAt = Game.time + rescoutDelay(room.name, name);
             continue;
         }
         if (Memory.AvoidRooms && Memory.AvoidRooms.indexOf(name) >= 0) {
@@ -746,7 +754,9 @@ export function manageRemotes(room: any): void {
                 e.closedAt = Game.time;   // starts remoteRecalled's debounce
                 console.log(`[remotes] ${room.name} close ${name} (owned by ${heldBy})`);
             }
-            e.retryAt = Game.time + OWNED_RETRY;
+            // No retryAt here — the consumer at the top only reads it on
+            // empty-energy rejects, and a held remote keeps its energy, so the
+            // write was dead. remoteHeldByOther itself is the debounce.
             clearRemoteVisionFlags(e);
             continue;
         }

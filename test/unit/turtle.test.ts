@@ -45,7 +45,8 @@ describe("defence: solo-breach safe mode", () => {
     assert.include(src, "const wave = enemyCreepsInRoom.length >= 2 && room.memory.danger_timer >= 50;");
     assert.include(src, "const solo = enemyCreepsInRoom.length >= 1 && shellBreachedSinceDanger(room);");
     assert.include(src, 'c.owner.username !== "Invader" && hostileIsThreat(c)');
-    assert.include(src, "if(!room.memory.danger) room.memory.shellMinAtDanger = perimeterMinHits(room);");
+    assert.include(src, "if(!room.memory.danger) {");
+    assert.include(src, "room.memory.shellMinAtDanger = perimeterMinHits(room);");
   });
 
   it("the defender rung no longer needs two fillers, a 10k bank or range 14", () => {
