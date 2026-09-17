@@ -311,8 +311,18 @@ export function getCpuPolicy(): CpuPolicyState {
      * 1000, remotes closed, income fell, CPU did not — the bot lived at the
      * bottom of that cycle for days. A remote is ~1 CPU (miner 0.25, carriers
      * 0.5, pathing); the rung is what the average can actually pay for.
+     *
+     * "The average" is the BILLED one. avg100 misses the post-loop Memory
+     * write (~1.35 CPU live — see billedAvg), so `limit - avg` overstated
+     * headroom by more than one remote: live read headroom 3.7 (rung 2)
+     * while billed headroom was 0.7 (rung 1). Remote HOLDS are cap-gated,
+     * not budget-gated, so an overgranted cap sustains over-budget remotes
+     * until the bucket drains through the stay bar — the oscillation this
+     * rung exists to prevent. empireRemoteBudget and the war guard ladder
+     * already read billedAvg for exactly this reason.
      */
-    const headroom = avg > 0 ? limit - avg : limit;
+    const billed = billedAvg();
+    const headroom = billed > 0 ? limit - billed : limit;
     const headRungs = (h: number) =>
       !lowCpu ? 99 : h >= 4 ? 3 : h >= 2.5 ? 2 : 1;
 
