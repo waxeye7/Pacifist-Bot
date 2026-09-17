@@ -235,18 +235,47 @@ export const MAX_TRAVEL_HOPS = 7;
 const ROUTE_TTL = 1500;
 const routeCache: { [key: string]: { n: number; t: number } } = Object.create(null);
 
-/** The creep router's own weights — kept in step with moveToRoomAvoidEnemyRooms. */
+/**
+ * The creep router's own weights — kept in step with moveToRoomAvoidEnemyRooms
+ * (creepFunctions.ts). Three places this had drifted from it:
+ *
+ *  - the router prices Memory.AvoidRooms against the TARGET room too (the
+ *    `&& roomName !== targetRoom` binds only to the AvoidRoomsTemp half of
+ *    the condition); exempting the target here meant a permanently avoided
+ *    room still read as a 4-cost destination.
+ *  - the router pays 24 for Memory.rooms[r].roomData.has_hostile_structures
+ *    on any non-target room we don't own; it was not modelled at all.
+ *  - the router's `wx,ny in [4,6]` band catches sector CENTRES (5,5) as well
+ *    as keepers — roomKind() names a centre ROOM_CENTER before ROOM_KEEPER,
+ *    so the old `kind !== ROOM_NORMAL -> 2` priced a centre at 2 against the
+ *    real 24.
+ *
+ * Every mismatch made travelHops underestimate, i.e. withinTravelBudget
+ * approved errands the creep's actual router prices higher.
+ */
 function hopCost(roomName: string, targetRoom: string): number {
   if (!isEnterable(roomName)) return Infinity;
   const M: any = Memory as any;
-  if (roomName !== targetRoom &&
-      ((M.AvoidRooms && M.AvoidRooms.indexOf(roomName) >= 0) ||
-       (M.AvoidRoomsTemp && M.AvoidRoomsTemp[roomName]))) {
+  if ((M.AvoidRooms && M.AvoidRooms.indexOf(roomName) >= 0) ||
+      (M.AvoidRoomsTemp && M.AvoidRoomsTemp[roomName] && roomName !== targetRoom)) {
     return 24;
   }
-  const kind = roomKind(roomName);
-  if (kind === ROOM_KEEPER) return 24;
-  if (kind !== ROOM_NORMAL) return 2;
+  if (roomName !== targetRoom) {
+    const seen: any = Game.rooms[roomName];
+    if (!seen || !seen.controller || !seen.controller.my) {
+      const intel: any = Memory.rooms && (Memory.rooms as any)[roomName];
+      if (intel && intel.roomData && intel.roomData.has_hostile_structures) {
+        return 24;
+      }
+    }
+  }
+  const parsed = roomName.match(/^[WE](\d+)[NS](\d+)$/);
+  if (parsed) {
+    const wx = parseInt(parsed[1], 10) % 10;
+    const ny = parseInt(parsed[2], 10) % 10;
+    if (wx === 0 || ny === 0) return 2;
+    if (wx >= 4 && wx <= 6 && ny >= 4 && ny <= 6) return 24;
+  }
   return 4;
 }
 

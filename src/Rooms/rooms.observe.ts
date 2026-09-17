@@ -496,7 +496,13 @@ function observe(room) {
     }
 
     // find power banks
-    if(observer && (Game.time % twoTimesInterval == 2 || Game.time % twoTimesInterval == 3) && Game.cpu.bucket > 7000) {
+    // The sweep fires on `powerResidue` of the 128-tick period and reads the
+    // result the next tick. Residue 2 is unreachable when interval divides 2
+    // (observeEvery = 2): every fire tick was also a main-sweep tick, so the
+    // `Game.time % interval !== 0` guard below was never true and the power
+    // sweep never ran. An odd residue can never be a multiple of 2.
+    const powerResidue = interval === 2 ? 3 : 2;
+    if(observer && (Game.time % twoTimesInterval == powerResidue || Game.time % twoTimesInterval == powerResidue + 1) && Game.cpu.bucket > 7000) {
 
         if(!room.memory.observe)
             room.memory.observe = {};
@@ -516,7 +522,7 @@ function observe(room) {
 
             // never fire two observeRoom intents in the same tick when a custom
             // Memory.observeEvery lines the two sweeps up
-            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2 && Game.time % interval !== 0) {
+            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == powerResidue && Game.time % interval !== 0) {
                 if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
                     room.memory.observe.lastRoomObservedForPowerIndex = 0
                 }
@@ -534,7 +540,7 @@ function observe(room) {
 
             }
 
-            if(Game.time % twoTimesInterval == 3) {
+            if(Game.time % twoTimesInterval == powerResidue + 1) {
                 let adj = room.memory.observe.lastRoomObservedForPower;
 
                 // `adj` is undefined until the first power sweep fires — and
