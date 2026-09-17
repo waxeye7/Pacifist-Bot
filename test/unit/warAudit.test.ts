@@ -43,8 +43,10 @@ describe("war audit fixes", () => {
         const body = KIT.slice(at, KIT.indexOf("\n}\n", at));
         assert.include(body, "withinTravelBudget(c.name, target)");
         assert.include(body, "candidates.sort");
-        // mosquito keeps its memory-side exemption
-        assert.include(KIT, 'pickHome(target, 8, KIT_COST.mosquito, false)');
+        // mosquito lost its memory-side exemption — its creeps walk the same
+        // router, so the pick checks the walk like every other kit
+        assert.include(KIT, 'pickHome(target, 8, KIT_COST.mosquito)');
+        assert.notInclude(KIT, 'KIT_COST.mosquito, false');
     });
 
     it("a remote WE reserved is never a harassment target", () => {

@@ -509,8 +509,16 @@ const run = function (creep) {
 			// and that shared floor is the point: these two creeps used to park
 			// each other into a deadlock, because the CLF is what stocks the
 			// depot this branch's alternative waits at. See upgradeParkBand.
-			else if(storage.structureType === STRUCTURE_STORAGE
-				&& creep.room.controller.ticksToDowngrade > 10000) {
+			// The band only guards a REAL storage while the controller is
+			// safe. Two states used to fall through the whole chain to
+			// nothing at all — a truthy non-STORAGE `storage` (findStorage()
+			// hands back the hub container below RCL5, the exact no-bank
+			// rooms this leg exists for) and a real storage while
+			// ticksToDowngrade <= 10000, i.e. the one emergency where
+			// shuttling matters most. Both now withdraw.
+			else if(storage) {
+				if(storage.structureType === STRUCTURE_STORAGE
+					&& creep.room.controller.ticksToDowngrade > 10000) {
 				const band = upgradeParkBand(creep.room);
 				if (creep.memory.bankParked
 					? storage.store[RESOURCE_ENERGY] < band.resume
@@ -529,6 +537,17 @@ const run = function (creep) {
 					}
 				}
 				else {
+					if(creep.memory.bankParked) delete creep.memory.bankParked;
+					let result = creep.withdrawStorage(storage);
+					if(result == 0) {
+						creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
+					}
+				}
+				}
+				else {
+					// Hub container, or a real storage inside the downgrade
+					// window — urgency overrides the bank band, and
+					// withdrawStorage already handles containers.
 					if(creep.memory.bankParked) delete creep.memory.bankParked;
 					let result = creep.withdrawStorage(storage);
 					if(result == 0) {

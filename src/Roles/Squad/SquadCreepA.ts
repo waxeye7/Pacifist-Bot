@@ -164,6 +164,16 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
  const run = function (creep:any) {
     creep.memory.moving = false;
 
+    // Memory.creeps wipes restore only `role` from the name prefix
+    // (RunCreepManager); a leader with no targetPosition then threw on every
+    // dereference below for its whole TTL — and while it lived,
+    // expensiveInFlight() blocked every quad issue empire-wide. Same
+    // fallback the promotion path uses: home centre, where bindSquadSlot can
+    // rematch it.
+    if(!creep.memory.targetPosition || typeof creep.memory.targetPosition.roomName !== "string") {
+        creep.memory.targetPosition = new RoomPosition(25, 25, creep.memory.homeRoom || creep.room.name);
+    }
+
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {
@@ -668,7 +678,7 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                 );
             }
             else {
-                if(creep.memory.move_here_for_now && creep.memory.move_here_for_now.timer > 0) {
+                if(creep.memory.move_here_for_now && creep.memory.move_here_for_now.pos && creep.memory.move_here_for_now.timer > 0) {
                     move_location = creep.memory.move_here_for_now.pos
                     creep.memory.move_here_for_now.timer -= 1
                 }

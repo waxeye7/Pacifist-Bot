@@ -933,18 +933,24 @@ const run = function (creep) {
 
         if(creep.ticksToLive <= 2) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
-            if(creep.pos.isNearTo(closestLink)) {
-                creep.transfer(closestLink, RESOURCE_ENERGY);
-            }
-            else if(seatState === "none") {
-                creep.MoveCostMatrixRoadPrio(closestLink, 1);
+            // findClosestLink() is undefined in a room with zero links, and a
+            // stale closestLink id resolves to null — isNearTo(null) throws.
+            if(closestLink) {
+                if(creep.pos.isNearTo(closestLink)) {
+                    creep.transfer(closestLink, RESOURCE_ENERGY);
+                }
+                else if(seatState === "none") {
+                    creep.MoveCostMatrixRoadPrio(closestLink, 1);
+                }
             }
         }
 
 
         if(creep.store.getFreeCapacity() < creep.memory.potential) {
+            // A dangling sourceId (dropRoomNow re-home, memory wipe, hand
+            // edit) resolves to null; isNearTo(null) throws every tick.
             let source:any = Game.getObjectById(creep.memory.sourceId);
-            if(creep.pos.isNearTo(source)) {
+            if(source && creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
                     creep.memory.NearbyExtensions = [];
                     let mystructures = cachedMyStructures(creep.room);
@@ -1132,7 +1138,7 @@ const run = function (creep) {
         }
 
         let storedSource:any = Game.getObjectById(creep.memory.sourceId)
-        if(!creep.memory.checkAmIOnRampart && creep.pos.isNearTo(storedSource) && creep.memory.homeRoom == creep.memory.targetRoom) {
+        if(!creep.memory.checkAmIOnRampart && storedSource && creep.pos.isNearTo(storedSource) && creep.memory.homeRoom == creep.memory.targetRoom) {
             let lookForRampart = creep.pos.lookFor(LOOK_STRUCTURES);
             if(lookForRampart.length > 0) {
                 for(let building of lookForRampart) {

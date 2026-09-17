@@ -217,10 +217,11 @@ function issue(k: Kit): boolean {
    * score and every kit above — is straight-line room distance. The walk is
    * not. See reach.travelHops for the live E38N55 errand this closes: a target
    * two rooms from the empire, fourteen hops of real route, and a body bought
-   * to die around hop eight. Mosquitoes are Memory-side ops with no creep to
-   * strand, so they are exempt.
+   * to die around hop eight. Mosquitoes were exempt as "memory-side ops", but
+   * their creeps walk the same router — the exemption bought bodies that spent
+   * most of their TTL in transit.
    */
-  if (k.kind !== "mosquito" && k.home && !withinTravelBudget(k.home, k.target)) {
+  if (k.home && !withinTravelBudget(k.home, k.target)) {
     return false;
   }
   const g = global as any;

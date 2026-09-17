@@ -13,8 +13,13 @@ import mosquito_manager from "../../src/Misc/mosquito_manager";
  *
  * The fix is the same rule ExecuteCommandsInNTicks already runs: keep
  * waiting, never forever. Rows carry `at` (stamped on first sight, refreshed
- * on every successful spawn) and expire after MOSQUITO_TTL without progress;
- * finished rows (ts <= 0) are compacted out of the list.
+ * on every successful spawn) and expire after MOSQUITO_TTL without progress.
+ *
+ * A row that HAS spawned (ts <= 0) is not finished — mosquito_attack keys
+ * all in-room combat off it, so deleting it stranded the live wave in the
+ * target room for its whole TTL. The %1000 janitor in mosquito_attack owns
+ * ts<=0 cleanup (drops the row once no live creep targets it); the manager
+ * keeps the row.
  */
 
 const g: any = global;
@@ -53,12 +58,15 @@ describe("mosquito dispatch rows expire instead of living forever", () => {
         });
     });
 
-    it("drops finished rows (ts <= 0) instead of scanning them forever", () => {
+    it("keeps spawned-out rows (ts <= 0) — they still drive the live wave", () => {
+        // The row is the creeps' combat driver in mosquito_attack; dropping
+        // it here idled every dispatched wave until death. The %1000 janitor
+        // in mosquito_attack reaps it once no live creep targets the room.
         const memory: any = { e: { mosquito: [{ n: "E9N9", ts: 0, at: 1 }, { n: "E8N8", ts: 2, at: 16000 }] } };
         withGame({}, memory, 16001, 9000, () => {
             mosquito_manager();
-            assert.strictEqual(memory.e.mosquito.length, 1);
-            assert.strictEqual(memory.e.mosquito[0].n, "E8N8");
+            assert.strictEqual(memory.e.mosquito.length, 2);
+            assert.strictEqual(memory.e.mosquito[0].n, "E9N9");
         });
     });
 
