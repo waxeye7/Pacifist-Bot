@@ -268,7 +268,13 @@ const bindSquadSlot = function (creep: any, slot: string, role: string): any {
     }
     if (creep.memory.squad[slot]) {
         const live = resolveMyCreep(creep.memory.squad[slot]);
-        if (live) {
+        // live === creep is legitimate only as the self-bind in the creep's
+        // OWN role slot. Under any other role it is a stale pre-promotion
+        // binding (a B promoted to A still holds squad.b = its own id), and
+        // returning it double-counts the leader in liveNow — which is how a
+        // sole survivor ended up degradeQuadToDuo'd into a self-partnered
+        // DuoCreepB that stands still forever. Treat it as a dead slot.
+        if (live && (live !== creep || creep.memory.role === role)) {
             shareSquadTargetPosition([creep, live]);
             return live;
         }

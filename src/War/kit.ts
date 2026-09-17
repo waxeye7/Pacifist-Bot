@@ -289,9 +289,11 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
       return kit("guard-prey", home, target, remote ? "remote-prey" : "open-prey");
     }
     if (remote) {
-      // Mosquito dispatch is memory-side — issue() exempts it from the travel
-      // budget, so the home pick ignores it too.
-      const home = pickHome(target, 8, KIT_COST.mosquito, false);
+      // The dispatch ROW is memory-side, but the spawned creeps still walk
+      // moveToRoomAvoidEnemyRooms — the same router withinTravelBudget
+      // prices. An unreachable home pick bought a 1500-tick body that spent
+      // most of its life in transit (the E38N55 route, reach.ts).
+      const home = pickHome(target, 8, KIT_COST.mosquito);
       if (home && bucket >= 3000) {
         return kit("mosquito", home, target, "harass-remote");
       }

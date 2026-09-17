@@ -108,6 +108,9 @@ function mosquito_attack() {
     for (let mosquito of mosquitos) {
       if (mosquito.ticksToLive === 200 && !safeMode && spawns.length) {
         attack.ts++;
+        // The manager TTL's unspawned rows on `at`; a revived row carries a
+        // stamp from the original dispatch and would be reaped on sight.
+        attack.at = Game.time;
       }
 
       let mosquitosNearby = mosquitos.filter(c => c.pos.getRangeTo(mosquito.pos) <= 2 && c.id !== mosquito.id).length;

@@ -489,8 +489,15 @@ function depotSink(creep: any): any {
 
     if(creep.memory.full) {
 
-        if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-            return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        // emergencyFeed flips the contract: homeRoom is the DONOR that
+        // hatched this creep and targetRoom the wrecked room being fed.
+        // The collect leg above is emergencyFeed-aware; this leg was not,
+        // so a full feeder standing in dest walked home and deliverIfNear
+        // deposited the rescue load into the donor's own storage — an
+        // energy round-trip that fed the wrecked room nothing, forever.
+        const deliverRoom = creep.memory.emergencyFeed || creep.memory.homeRoom;
+        if(deliverRoom && deliverRoom !== creep.room.name) {
+            return creep.moveToRoomAvoidEnemyRooms(deliverRoom);
         }
 
         // Surplus goes to the controller BEFORE the load is parked in storage
@@ -535,12 +542,12 @@ function depotSink(creep: any): any {
                 bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
             }
 
-            if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
+            if(deliverRoom && deliverRoom !== creep.room.name) {
                 if(Game.getObjectById(creep.memory.storage)) {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
+                    return creep.moveToRoomAvoidEnemyRooms(deliverRoom, storage.pos.x, storage.pos.y, false, 5, 2);
                 }
                 else {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+                    return creep.moveToRoomAvoidEnemyRooms(deliverRoom);
                 }
             }
 

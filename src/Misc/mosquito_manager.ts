@@ -1,4 +1,4 @@
-import { ownedRooms } from "War/reach";
+import { ownedRooms, withinTravelBudget } from "War/reach";
 import { roomDistance } from "War/geo";
 
 /** Ticks a dispatch row may sit unspawned before it is declared dead. */
@@ -16,11 +16,18 @@ function mosquito_manager() {
   // Runs before the bucket gate so a long CPU drought still collects them.
   const keep = [];
   for (const u of Memory.e.mosquito) {
-    if (!u || u.ts <= 0) continue;
-    if (typeof u.at !== "number") u.at = Game.time;
-    if (Game.time - u.at >= MOSQUITO_TTL) {
-      console.log("[mosquito] dropping stale dispatch to", u.n, "- no spawn in", MOSQUITO_TTL, "ticks");
-      continue;
+    if (!u) continue;
+    // A row outlives its spawn count: mosquito_attack keys all in-room
+    // combat off the row, so deleting at ts<=0 left the spawned wave to
+    // stand at 25,25 for its whole TTL. The %1000 janitor in
+    // mosquito_attack owns ts<=0 cleanup (drops once no live creep targets
+    // u.n); the TTL here is only for rows that never manage to spawn.
+    if (u.ts > 0) {
+      if (typeof u.at !== "number") u.at = Game.time;
+      if (Game.time - u.at >= MOSQUITO_TTL) {
+        console.log("[mosquito] dropping stale dispatch to", u.n, "- no spawn in", MOSQUITO_TTL, "ticks");
+        continue;
+      }
     }
     keep.push(u);
   }
@@ -52,6 +59,11 @@ function findClosestRooms(roomName: string): Room[] {
   for (let i = 0; i < names.length; i++) {
     const myRoomName = names[i];
     if (roomDistance(roomName, myRoomName) > range) continue;
+    // Straight-line distance is not the walk: a near room behind an
+    // SK/avoided-room detour strands the wave in transit for most of its
+    // TTL. travelHops is memoised, so this costs a findRoute at most once
+    // per (home,target) per 1500 ticks.
+    if (!withinTravelBudget(myRoomName, roomName)) continue;
     const room = Game.rooms[myRoomName];
     const storage = room && room.storage;
     const terminal = room && room.terminal;

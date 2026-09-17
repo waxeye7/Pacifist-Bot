@@ -130,8 +130,13 @@ describe("war measures the walk, not the map", () => {
         assert.isBelow(gate, switchAt);
     });
 
-    it("a mosquito is exempt — there is no creep to strand", () => {
-        assert.include(DISPATCH, 'k.kind !== "mosquito"');
+    it("a mosquito is NOT exempt — the row is memory-side but its creeps walk", () => {
+        // The exemption was the bug: spawn_mosquito bodies still travel
+        // moveToRoomAvoidEnemyRooms, so an unreachable pick burned most of
+        // the wave's 1,500-tick TTL in transit.
+        const at = DISPATCH.indexOf("function issue(k: Kit): boolean {");
+        const head = DISPATCH.slice(at, DISPATCH.indexOf("switch (k.kind) {", at));
+        assert.notInclude(head, 'k.kind !== "mosquito"');
     });
 
     it("the budget is measured with the creep router's own weights", () => {

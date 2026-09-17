@@ -175,7 +175,10 @@ const run = function (creep) {
         }
         creep.memory._noSink = 0;
         if(target) {
-            if(target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+            // A stale or hand-edited memory.t can resolve to a store-less
+            // structure (wall/rampart/road) — .store is undefined there and
+            // getFreeCapacity threw every tick, with nothing clearing t.
+            if(!target.store || target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
                 target = creep.findFillerTarget();
                 // findFillerTarget only writes memory.t when it FOUND something,
                 // so a null here would otherwise leave the creep re-resolving the
