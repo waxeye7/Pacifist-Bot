@@ -3,6 +3,8 @@
  * Prefer room.memory.basePlan.perimeter (min-cut tiles). Fallbacks for legacy rooms.
  */
 
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed } from "Rooms/spawnSafety";
+
 export interface PerimeterTile {
   x: number;
   y: number;
@@ -164,12 +166,18 @@ export function syncPerimeterToConstructionMemory(room: Room): void {
   //
   // rampartLocations is the RampartErector spawn trigger (rooms.spawning:
   // "rampartLocations && rampartLocations.length > 0") AND the list that role
-  // turns into construction sites. Publishing it below SHELL_MIN_RCL makes a
-  // pre-storage room spend its whole builder budget on a wall it cannot
-  // maintain, so keep it empty until the room can actually hold the shell.
+  // turns into construction sites. The shell policy gates it: RCL8 always,
+  // RCL6-7 only under the no-safe-mode shell emergency — publishing it below
+  // that makes a room spend its whole builder budget on a wall it is not
+  // meant to maintain.
   const rcl = room.controller ? room.controller.level : 0;
-  room.memory.construction.rampartLocations =
-    rcl >= SHELL_MIN_RCL ? tiles.map((t) => [t.x, t.y]) : [];
+  const allowed = rampartSitesAllowed(
+    rcl,
+    emergencyShellActive(rcl, canSafeModeNow(room.controller, Game.time)),
+  );
+  room.memory.construction.rampartLocations = allowed
+    ? tiles.map((t) => [t.x, t.y])
+    : [];
   room.memory.defence = room.memory.defence || {};
   room.memory.defence.perimeter = tiles;
   room.memory.defence.perimeterCount = tiles.length;

@@ -1339,15 +1339,15 @@ global.SQR = function (roomName, targetRoomName, boost = false): any {
 
         if (room.controller.level == 6) {
             let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
             console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
             let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB' } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name } });
             console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
             let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY' } });
+            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name } });
             console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
             let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;
@@ -1600,15 +1600,15 @@ global.SQM = function (roomName, targetRoomName, boost = false): any {
 
         if (room.controller.level == 6) {
             let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
             console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
             let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB' } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name } });
             console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
             let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY' } });
+            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name } });
             console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
             let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;
@@ -1791,15 +1791,15 @@ global.SQD = function (roomName, targetRoomName, boost = false): any {
 
         if (room.controller.level == 6) {
             let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
             console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
             let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB' } });
+            room.memory.spawn_list.push(bodyLevel6Back, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name } });
             console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
             let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY' } });
+            room.memory.spawn_list.push(bodyLevel6Front, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name } });
             console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
             let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;

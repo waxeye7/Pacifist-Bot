@@ -8,6 +8,7 @@
 import { logAlways } from "utils/Logger";
 import { getCutTiles, rectAround } from "utils/MinCut";
 import { syncPerimeterToConstructionMemory } from "utils/Perimeter";
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed } from "Rooms/spawnSafety";
 import { extensionTake } from "utils/PlanV2";
 
 export interface BasePlanPos {
@@ -671,12 +672,12 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     // No RCL2 roads (c17 SEND BACK). RCL3 haul after slam-5 only.
     if (st === STRUCTURE_ROAD && rcl < 3) continue;
     if (st === STRUCTURE_ROAD && rcl === 3 && !slam5) continue;
-    // Ramparts from RCL4, matching the v2 planner's own wall gate
-    // (utils/PlanV2 wantsAtRcl: `if (type === "rampart") return lvl >= 4`).
-    // At RCL3 a shell is pure waste: no storage to pay for it, safe mode is
-    // available, and RAMPART_DECAY (300 hits / 100 ticks) outruns anything a
-    // pre-storage room can repair — the room builds a wall and watches it rot.
-    if (st === STRUCTURE_RAMPART && rcl < 4) continue;
+    // Ramparts follow the shell policy (Rooms/spawnSafety): RCL8 always,
+    // RCL6-7 only under the no-safe-mode shell emergency. A storage-less
+    // RCL6-7 room lands here (young = !hasStorage) and the emergency arm is
+    // exactly its case — a wall that outlives the siege is worth the sites.
+    if (st === STRUCTURE_RAMPART &&
+        !rampartSitesAllowed(rcl, emergencyShellActive(rcl, canSafeModeNow(room.controller, Game.time)))) continue;
 
     let maxAllowed =
       st === STRUCTURE_RAMPART ? 2500 : maxStructuresAtRcl(st, rcl);

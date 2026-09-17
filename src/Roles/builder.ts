@@ -425,9 +425,8 @@ function tapStillGood(creep): any {
 			}
 		} else if(storage.structureType !== STRUCTURE_STORAGE &&
 				(storage.store[RESOURCE_ENERGY] || 0) <
-				((creep.room.controller && creep.room.controller.level >= 8) ? 150000
-					: (creep.room.controller && creep.room.controller.level >= 7) ? 80000
-					: (creep.room.controller && creep.room.controller.level >= 6) ? 30000
+				((creep.room.controller && creep.room.controller.level >= 6)
+					? siteFreezeBank(creep.room.controller.level)
 					: 500) &&
 				creep.room.energyAvailable >= Math.min(550, creep.room.energyCapacityAvailable || 550) &&
 				creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0) {

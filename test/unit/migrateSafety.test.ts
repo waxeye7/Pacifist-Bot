@@ -245,7 +245,7 @@ describe("PlanV2 migration safety", () => {
       // the strip delegates to the ONE keep-set both sides read
       assert.match(
         SRC,
-        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,700}?brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell\)/,
+        /if \(brokeBank && brokeBankStripFires\(budget, nakedShell, coreIncomplete\)\) \{[\s\S]{0,700}?brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell, shellEmergency\)/,
       );
       assert.include(SRC, "if (type === STRUCTURE_LINK || type === STRUCTURE_CONTAINER) return true;");
     });
@@ -265,7 +265,7 @@ describe("PlanV2 migration safety", () => {
       // brokeBank already requires my storage. bankE<1000 cannot free a
       // storage slot; it only reset the 2-slot wall rebuild.
       assert.notInclude(SRC, "brokeBank && bankE < 1000");
-      assert.include(SRC, "if (type === STRUCTURE_RAMPART) return !!nakedShell;");
+      assert.include(SRC, "if (type === STRUCTURE_RAMPART) return !!nakedShell || !!shellEmergency;");
       const strip = SRC.slice(
         SRC.indexOf("if (brokeBank && brokeBankStripFires(budget, nakedShell, coreIncomplete))"),
         SRC.indexOf("existing structures + sites by type"),

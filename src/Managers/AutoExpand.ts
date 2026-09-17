@@ -392,8 +392,11 @@ function adoptPacked(room: Room, payload: any, from: string): void {
   room.memory.planV2 = packPlanPayload(payload);
   armNewPlanMigration(room, from);
   const planned = payloadSpawnPos(payload);
+  // hub is armed for YOUNG rooms only (armNewPlanMigration) — logging
+  // "ALIGN+HUB" for an established room claimed a demolition it never ran.
+  const arm = (room.memory as any).planMigration;
   logAlways(
-    `autoExpand: ${room.name} armed ALIGN+HUB toward the pack` +
+    `autoExpand: ${room.name} armed ALIGN${arm && arm.hub ? "+HUB" : ""} toward the pack` +
       (planned ? ` spawn ${planned.x},${planned.y}` : ""),
   );
   const t = (room.memory.planV2 as any).t;

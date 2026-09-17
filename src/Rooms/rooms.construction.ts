@@ -3,6 +3,7 @@ import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimete
 import { placeFromPlanV2, extensionTake, clearPlanSpawnTile, plannedSpawnTile, labBank, furnitureBankNeeded } from "utils/PlanV2";
 import { getFeatures, minCutWallsEnabled } from "utils/Features";
 import { isExteriorPos } from "utils/Interior";
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed, siteFreezeBank } from "Rooms/spawnSafety";
 import { logAlways } from "utils/Logger";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
@@ -865,6 +866,16 @@ function construction(room) {
         return;
     }
 
+    // Shell policy (Rooms/spawnSafety): no new rampart SITES below RCL8 —
+    // safe mode + towers carry the room, and a shell it cannot repair is a
+    // wall that dies anyway. The no-safe-mode shell emergency at RCL6-7 is
+    // the only exception. The nuke ring further down stays exempt: an
+    // incoming nuke is its own emergency.
+    const shellRampartsAllowed = rampartSitesAllowed(
+        room.controller.level,
+        emergencyShellActive(room.controller.level, canSafeModeNow(room.controller, Game.time)),
+    );
+
     let myConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length
 
 
@@ -998,7 +1009,7 @@ function construction(room) {
             // (maintainer/SpecialRepair pick the lowest-hits rampart), so a
             // young room poured its repair budget into a single 1M-hit tile
             // while every wall tile decayed at 300/100t.
-            if(spawn && room.controller.level >= SHELL_MIN_RCL) {
+            if(spawn && shellRampartsAllowed) {
                 let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
                 if(spawnlocationlook.length == 1) {
                     spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
@@ -1122,13 +1133,13 @@ function construction(room) {
 
                 }
 
-                if(room.controller.level >= 6 && labBank(room) >= furnitureBankNeeded(STRUCTURE_LAB, room.controller.level >= 8 ? 150000 : room.controller.level >= 7 ? 80000 : 30000) && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
+                if(room.controller.level >= 6 && labBank(room) >= furnitureBankNeeded(STRUCTURE_LAB, siteFreezeBank(room.controller.level)) && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
 
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
                 }
                 let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
-                if(labsInRoom.length > 0) {
+                if(labsInRoom.length > 0 && shellRampartsAllowed) {
                     for(let lab of labsInRoom) {
                         if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
                             lab.pos.createConstructionSite(STRUCTURE_RAMPART);
@@ -1297,7 +1308,7 @@ function construction(room) {
                     // if(room.controller.level >= 6) {
                     //     pathFromStorageToSource1.path.pop();
                     // }
-                    if(container1 && storage.pos.getRangeTo(container1) > 7 && room.controller.level >= 6) {
+                    if(container1 && storage.pos.getRangeTo(container1) > 7 && room.controller.level >= 6 && shellRampartsAllowed) {
                         container1.createConstructionSite(STRUCTURE_RAMPART);
                     }
                 }
@@ -1319,7 +1330,7 @@ function construction(room) {
                     // if(room.controller.level >= 6) {
                     //     pathFromStorageToSource2.path.pop();
                     // }
-                    if(container2 && storage.pos.getRangeTo(container2) > 7 && room.controller.level >= 6) {
+                    if(container2 && storage.pos.getRangeTo(container2) > 7 && room.controller.level >= 6 && shellRampartsAllowed) {
                         container2.createConstructionSite(STRUCTURE_RAMPART);
                     }
                 }
@@ -1427,7 +1438,7 @@ function construction(room) {
 
                 if(room.controller.level == 8 && myConstructionSites == 0) {
                     const luxuryBank = labBank(room);
-                    const rcl8Floor = 150000;
+                    const rcl8Floor = siteFreezeBank(8);
                     let observers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_OBSERVER});
                     if(observers.length == 0 && luxuryBank >= furnitureBankNeeded(STRUCTURE_OBSERVER, rcl8Floor)) {
                         // storage.x-2 is -1 when the hub sits on x=1.
@@ -1614,7 +1625,7 @@ function construction(room) {
                     // empty → getRangeTo(undefined) throws. Same shape as the
                     // controller-path fix above.
                     let RampartLocationMineral = pathFromStorageToMineral.path.length > 0 ? pathFromStorageToMineral.path[pathFromStorageToMineral.path.length - 1] : undefined;
-                    if(RampartLocationMineral && storage.pos.getRangeTo(RampartLocationMineral) >= 8) {
+                    if(RampartLocationMineral && storage.pos.getRangeTo(RampartLocationMineral) >= 8 && shellRampartsAllowed) {
                         RampartLocationMineral.createConstructionSite(STRUCTURE_RAMPART);
                     }
 
@@ -1682,7 +1693,7 @@ function construction(room) {
                 pathBuilder(aroundTerminalList, STRUCTURE_ROAD, room, false);
 
                 let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
-                if(lookterminallocation.length == 1) {
+                if(lookterminallocation.length == 1 && shellRampartsAllowed) {
                     room.terminal.pos.createConstructionSite(STRUCTURE_RAMPART);
                 }
             }
@@ -1761,7 +1772,7 @@ function construction(room) {
                     findTwoOpenSpotsForLink(open, storage, room, source);
                 }
                 for(let link of sourceLinks) {
-                    if(storage.pos.getRangeTo(link) > 7) {
+                    if(storage.pos.getRangeTo(link) > 7 && shellRampartsAllowed) {
                         link.pos.createConstructionSite(STRUCTURE_RAMPART);
                     }
                 }
@@ -1987,7 +1998,7 @@ function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, ori
 
                 let firstSpotOnPath = new RoomPosition(firstLocation.x, firstLocation.y, room.name);
 
-                if(firstSpotOnPath.getRangeTo(storage) >= 8) {
+                if(firstSpotOnPath.getRangeTo(storage) >= 8 && rampartSitesAllowed(room.controller.level, emergencyShellActive(room.controller.level, canSafeModeNow(room.controller, Game.time)))) {
                     let lookForBuildingsOnFirstSpotOnPath = firstSpotOnPath.lookFor(LOOK_STRUCTURES);
                     if(lookForBuildingsOnFirstSpotOnPath.length == 0 || lookForBuildingsOnFirstSpotOnPath.length == 1 && lookForBuildingsOnFirstSpotOnPath[0].structureType == STRUCTURE_ROAD) {
                         firstSpotOnPath.createConstructionSite(STRUCTURE_RAMPART);

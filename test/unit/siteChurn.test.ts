@@ -56,9 +56,9 @@ describe("broke-boundary site churn", () => {
 describe("a broke room may only place what the strip keeps", () => {
     it("one keep-set, read by BOTH the placer and the strip", () => {
         assert.match(SRC, /export function brokeKeepsSite\(/);
-        assert.match(SRC, /if \(brokeBank && !brokeKeepsSite\(type, bankE, brokeFloor, nakedShell\)\) continue;/,
+        assert.match(SRC, /if \(brokeBank && !brokeKeepsSite\(type, bankE, brokeFloor, nakedShell, shellEmergency\)\) continue;/,
             "the placement loop must refuse any type the strip would remove");
-        assert.match(SRC, /if \(brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell\)\) \{/,
+        assert.match(SRC, /if \(brokeKeepsSite\(s\.structureType, bankE, brokeFloor, nakedShell, shellEmergency\)\) \{/,
             "the strip must decide from the same predicate");
     });
 
@@ -72,7 +72,7 @@ describe("a broke room may only place what the strip keeps", () => {
     it("default-deny: nuker/observer cannot become churn while broke", () => {
         const at = SRC.indexOf("export function brokeKeepsSite(");
         const body = SRC.slice(at, at + 1300);
-        assert.include(body, "if (type === STRUCTURE_RAMPART) return !!nakedShell;");
+        assert.include(body, "if (type === STRUCTURE_RAMPART) return !!nakedShell || !!shellEmergency;");
         assert.match(body, /return false;\s*\n\}/,
             "a new PLACE_ORDER type must not silently become churn");
     });
@@ -85,7 +85,7 @@ describe("a broke room may only place what the strip keeps", () => {
         assert.match(SRC, /if \(coreBuildoutIncomplete\(lvl, structs\)\) return 2;/,
             "the 2-slot core grant still exists and is still untyped...");
         const grant = SRC.indexOf("if (coreBuildoutIncomplete(lvl, structs)) return 2;");
-        const guard = SRC.indexOf("if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;");
+        const guard = SRC.indexOf("if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell, shellEmergency)) continue;");
         assert.isAbove(guard, grant, "...so the keep-set guard is what fences it");
         assert.match(SRC, /if \(brokeBank && coreIncomplete && type === "terminal"\) continue;/,
             "PLACE_ORDER puts terminal before link; the 2 slots must not walk to a 50k terminal");

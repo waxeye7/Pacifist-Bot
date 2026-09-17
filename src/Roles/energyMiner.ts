@@ -1,5 +1,6 @@
 import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 import { isSanctionedRampart } from "utils/PlanV2";
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed } from "Rooms/spawnSafety";
 import { rampartIsBuried } from "utils/Interior";
 import { rampartHitsTarget } from "Rooms/rooms.defence";
 import { findLiveSeat, unpackXY } from "utils/minerSeat";
@@ -1209,6 +1210,8 @@ const run = function (creep) {
                 // that put the link rampart on W1N1 there in the first place,
                 // so it gets the same buried veto placePlanSites has.
                 if(!found && storage && closestLink.pos.getRangeTo(storage) > 7 &&
+                    rampartSitesAllowed(creep.room.controller.level,
+                        emergencyShellActive(creep.room.controller.level, canSafeModeNow(creep.room.controller, Game.time))) &&
                     isSanctionedRampart(creep.room, closestLink.pos) &&
                     !rampartIsBuried(creep.room, closestLink.pos)) {
                     closestLink.pos.createConstructionSite(STRUCTURE_RAMPART);

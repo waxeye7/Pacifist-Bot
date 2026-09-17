@@ -24,9 +24,11 @@ describe("Empire/funnel", () => {
   });
 
   it("a donor keeps its reserve and ships only what is above it", () => {
-    assert.strictEqual(donorSurplus(46000, 6), 46000 - donorReserve(6));
+    // The reserve IS siteFreezeBank (raised 2026-09-17: 50k/120k/250k) — a
+    // donor never ships energy its own broke clamp would call broke.
+    assert.strictEqual(donorSurplus(90000, 6), 90000 - donorReserve(6));
     assert.strictEqual(donorSurplus(20000, 6), 0);
-    assert.strictEqual(donorSurplus(120000, 8), 20000);
+    assert.strictEqual(donorSurplus(300000, 8), 50000);
   });
 
   it("one send is bounded by the surplus, the cap, the mother's room and the fee", () => {

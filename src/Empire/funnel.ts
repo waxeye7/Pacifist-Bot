@@ -23,19 +23,23 @@
  * exactly the surplus it is about to send (funnelDonorTerminalTarget).
  */
 
-import { bankEnergy } from "Rooms/spawnSafety";
+import { bankEnergy, canSafeModeNow, emergencyShellActive, siteFreezeBank } from "Rooms/spawnSafety";
 
 export const FUNNEL_EVERY = 20;
 /** Below this a send is fee-dominated noise. */
 export const FUNNEL_MIN_SEND = 2000;
 /** One send at most this big — spreads the fee and keeps the donor liquid. */
 export const FUNNEL_MAX_SEND = 10000;
-/** Energy a donor must keep after a send (defence salvo, spawn float, repair). */
+/**
+ * Energy a donor must keep after a send (defence salvo, spawn float, repair).
+ * The same ladder the room's own broke clamp uses: a room does not ship
+ * energy it would itself call broke.
+ */
 export function donorReserve(level: number): number {
-  if (level >= 8) return 100000;
-  if (level >= 7) return 50000;
-  return 30000;
+  return siteFreezeBank(level);
 }
+/** An emergency-shell room stops requesting once it can fund the wall itself. */
+export const EMERGENCY_FUNNEL_TARGET = 200000;
 
 export interface MotherCandidate {
   name: string;
@@ -79,6 +83,30 @@ export function sendAmount(surplus: number, terminalEnergy: number, feeRate: num
 export function funnelMother(): string | null {
   const m: any = (Memory as any).funnel;
   return m && m.mother ? m.mother : null;
+}
+
+export interface EmergencyCandidate {
+  name: string;
+  level: number;
+  bank: number;
+  canSafeMode: boolean;
+  hasTerminal: boolean;
+}
+
+/**
+ * Pure: which room gets the emergency pass — the thinnest RCL6-7 room that
+ * cannot safe-mode and still cannot fund its own shell. The emergency is
+ * declared by PlanV2 (shellEmergency) — the funnel only ships to it.
+ */
+export function pickEmergencyTarget(rooms: EmergencyCandidate[]): string | null {
+  let best: EmergencyCandidate | null = null;
+  for (const r of rooms) {
+    if (!r.hasTerminal) continue;
+    if (!emergencyShellActive(r.level, r.canSafeMode)) continue;
+    if (r.bank >= EMERGENCY_FUNNEL_TARGET) continue;
+    if (!best || r.bank < best.bank) best = r;
+  }
+  return best ? best.name : null;
 }
 
 /** The floor every OTHER subsystem calls "not poor" (rooms.spawning UPGRADE_FLOOR). */
@@ -148,6 +176,7 @@ export function runFunnel(): void {
   if (Game.time % FUNNEL_EVERY !== 7) return;
   const M: any = Memory as any;
   const cands: MotherCandidate[] = [];
+  const emergencyCands: EmergencyCandidate[] = [];
   for (const name in Game.rooms) {
     const room = Game.rooms[name];
     if (!room.controller || !room.controller.my) continue;
@@ -158,9 +187,66 @@ export function runFunnel(): void {
       hasStorage: !!(room.storage && room.storage.my),
       hasSpawn: room.find(FIND_MY_SPAWNS).length > 0,
     });
+    emergencyCands.push({
+      name,
+      level: room.controller.level,
+      bank: bankEnergy(room),
+      canSafeMode: canSafeModeNow(room.controller, Game.time),
+      hasTerminal: !!(room.terminal && room.terminal.my),
+    });
   }
+
+  /*
+   * SHELL EMERGENCY outranks the mother. An RCL6-7 room that cannot safe-mode
+   * is one raid from losing its controller, and a shell is ~50k of build the
+   * room cannot fund off its own broke bank — so EVERY donor ships its
+   * surplus to the thinnest such room this pass (the one-send-per-pass drip
+   * is too slow to wall up under fire). Donor rules are unchanged: keep the
+   * reserve, keep the fee cover, skip danger rooms — and a room that cannot
+   * safe-mode itself never gives its bank away.
+   */
+  const emergencyTarget = pickEmergencyTarget(emergencyCands);
+  if (emergencyTarget) {
+    const target = Game.rooms[emergencyTarget];
+    let targetFree = target && target.terminal && target.terminal.my
+      ? target.terminal.store.getFreeCapacity(RESOURCE_ENERGY) - 5000
+      : 0;
+    let emergencySent = 0;
+    if (targetFree >= FUNNEL_MIN_SEND) {
+      for (const name in Game.rooms) {
+        if (name === emergencyTarget) continue;
+        const room = Game.rooms[name];
+        if (!room.controller || !room.controller.my) continue;
+        if (!room.terminal || !room.terminal.my || !room.storage || !room.storage.my) continue;
+        if (room.terminal.cooldown > 0) continue;
+        if (room.memory && room.memory.danger) continue;
+        if (emergencyShellActive(room.controller.level, canSafeModeNow(room.controller, Game.time))) continue;
+        const surplus = donorSurplus(bankEnergy(room), room.controller.level);
+        if (surplus < FUNNEL_MIN_SEND) continue;
+        const feeRate = 1 - Math.exp(-Game.map.getRoomLinearDistance(name, emergencyTarget, true) / 30);
+        const amount = sendAmount(surplus, room.terminal.store[RESOURCE_ENERGY] || 0, feeRate, targetFree);
+        if (!amount) continue;
+        if (room.terminal.send(RESOURCE_ENERGY, amount, emergencyTarget, "funnel-emergency") === OK) {
+          emergencySent += amount;
+          targetFree -= amount;
+          console.log("[funnel] EMERGENCY", name, "->", emergencyTarget, amount, "energy (no safe mode, surplus", surplus + ")");
+          if (targetFree < FUNNEL_MIN_SEND) break;
+        }
+      }
+    }
+    if (emergencySent > 0) {
+      // Keep the last-elected mother in memory — rooms.spawning reads
+      // funnelMother() for the upgrader CPU-clamp exemption, and a null
+      // would flicker that off every emergency pass.
+      M.funnel = { mother: (M.funnel && M.funnel.mother) || null, emergency: emergencyTarget, t: Game.time, sent: ((M.funnel && M.funnel.sent) || 0) + emergencySent };
+      return;
+    }
+    // Nobody could send this pass — fall through to the normal mother flow.
+    // The emergency flag still publishes so funnelStatus shows it is active.
+  }
+
   const mother = pickMother(cands);
-  M.funnel = { mother, t: Game.time, sent: (M.funnel && M.funnel.sent) || 0 };
+  M.funnel = { mother, emergency: emergencyTarget || undefined, t: Game.time, sent: (M.funnel && M.funnel.sent) || 0 };
   if (!mother) return;
   const target = Game.rooms[mother];
   if (!target || !target.terminal || !target.terminal.my) return;
@@ -192,7 +278,7 @@ export function funnelStatus(): string {
   const M: any = Memory as any;
   const f = M.funnel;
   if (!f) return "funnel: not run yet";
-  const rows = [`funnel: mother=${f.mother || "-"} sent=${f.sent || 0} t=${f.t}`];
+  const rows = [`funnel: mother=${f.mother || "-"} emergency=${f.emergency || "-"} sent=${f.sent || 0} t=${f.t}`];
   for (const name in Game.rooms) {
     const room = Game.rooms[name];
     if (!room.controller || !room.controller.my) continue;
