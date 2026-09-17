@@ -7445,6 +7445,11 @@ function stripNonRescueQueue(room: any): void {
         if (stripKeepsRescueRole(role, !!(room.memory && room.memory.danger))) {
             next.push(body, name, opts);
         }
+        else {
+            // Dropped entries may own lab boost reservations (charged at push
+            // time); without the refund they leaked until the labs janitor ran.
+            refundBoostOwner(room, name);
+        }
         return true;
     });
     if (next.length !== q.length) room.memory.spawn_list = next;

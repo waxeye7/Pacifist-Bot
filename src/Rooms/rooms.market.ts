@@ -681,6 +681,14 @@ function market(room):any {
                             RESOURCE_CATALYZED_ZYNTHIUM_ACID,
                             RESOURCE_CATALYZED_KEANIUM_ACID];
 
+        // A stale or hand-edited Memory.resource_requests missing a key used to
+        // throw here every pass and kill this room's whole market run.
+        for(let boost of boostsToNeed) {
+            if(!Array.isArray(Memory.resource_requests[boost])) {
+                Memory.resource_requests[boost] = [];
+            }
+        }
+
         for(let boost of boostsToNeed) {
             if(storage && storage.store[boost] < 10000 && room.terminal.store[boost] < 3000) {
                 if(!Memory.resource_requests[boost].includes(room.name)) {
