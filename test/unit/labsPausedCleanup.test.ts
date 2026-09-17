@@ -15,7 +15,10 @@ import fs from "fs";
 const SRC = fs.readFileSync("src/Rooms/rooms.labs.ts", "utf8");
 const CODE = SRC.replace(/[/][*][^]*?[*][/]/g, "").replace(/[/][/].*/g, "");
 
-const BLOCK = CODE.slice(CODE.indexOf("Game.cpu.bucket > 4500"), CODE.indexOf("export default labs"));
+// The bucket gate that once wrapped this block is gone (it froze pause
+// timers exactly when CPU was scarce); the block now runs unconditionally.
+// Anchor on the pause-list read, which precedes the per-lab loop either way.
+const BLOCK = CODE.slice(CODE.indexOf("let pausedList = room.memory.labs.paused"), CODE.indexOf("export default labs"));
 
 describe("labs.paused lifecycle", () => {
   it("ticks and prunes every entry once per pass, before the lab loop", () => {

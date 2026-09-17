@@ -1087,7 +1087,11 @@ function labs(room) {
     // }
 
 
-    if(Game.cpu.bucket > 4500) {
+    // This used to be `bucket > 4500` — a decorative gate: every expensive
+    // find/resolve above already ran, so it saved nothing, and it froze the
+    // pause timers exactly when CPU was scarce (pauses stretching is the
+    // opposite of what a pause is for). Run unconditionally.
+    {
         // Tick every pause once per pass and drop the dead rows. The old
         // decrement lived inside the per-lab loop, so it only fired for
         // OUTPUT labs in a reactable state — a paused INPUT lab's timer

@@ -11,6 +11,12 @@ function mosquito_attack() {
   if(!Memory.e) {
     Memory.e = {mosquito: []};
   }
+  // Memory.e can exist without .mosquito (hand-edited/partial memory); the
+  // for..of below then threw and killed phase("mosquito") before
+  // mosquito_manager — which re-seeds this key — could run.
+  if(!Memory.e.mosquito) {
+    Memory.e.mosquito = [];
+  }
   for (let attack of Memory.e.mosquito) {
     let room = Game.rooms[attack.n];
 
