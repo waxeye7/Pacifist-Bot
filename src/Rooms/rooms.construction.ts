@@ -18,7 +18,11 @@ function safePos(x, y, roomName) {
     return new RoomPosition(x, y, roomName);
 }
 
-let checkerboard =
+// Default extension delta-set. construction() shadows this with a per-room
+// `let checkerboard` — the storage-gated block below picks one of two other
+// variants by first_location_good, and a spawn-only room must not inherit
+// whichever variant the LAST room with a storage happened to choose.
+const CHECKERBOARD_BASE =
 [[-2,-2], [2,-2], [2,0],
 [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3], [3,3],
 [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
@@ -739,6 +743,12 @@ function construction(room) {
         return;
     }
 
+    // Per-room, not module-level: the storage-gated lab block below swaps in
+    // one of two variants by first_location_good, and the spawn-only
+    // extension placer consumed whichever variant the LAST storage room
+    // picked — a room without storage never got the default pattern.
+    let checkerboard = CHECKERBOARD_BASE;
+
     relocateStrayTowers(room);
 
     // Leftover sites from a stripped/mismatched bunker (E37N59 x=47 roads).
@@ -886,7 +896,10 @@ function construction(room) {
 
     if(room.controller.level >= 5) {
         let nukes = room.find(FIND_NUKES);
-        if(nukes.length > 4) {
+        // `storage` is the ring's anchor and can be dead — destroyed under the
+        // very siege this defends. getRangeTo(undefined) throws, and guarded()
+        // then killed the whole room pass on every cadence tick.
+        if(nukes.length > 4 && storage) {
             for(let nuke of nukes) {
                 if(nuke.pos.getRangeTo(storage) > 7 && nuke.pos.getRangeTo(storage) < 13 && nuke.pos.x <= 44 && nuke.pos.y <= 44 && nuke.pos.x >= 5 && nuke.pos.y >= 5) {
                     let perimeter = [

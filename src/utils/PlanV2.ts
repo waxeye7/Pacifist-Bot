@@ -3056,21 +3056,23 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[],
 
   const roadTiles: { [packed: number]: boolean } = {};
   for (const p of plan.t.road || []) roadTiles[p] = true;
+  // Ramparts first: the road keep test below needs every covered tile known
+  // BEFORE the road pass, not just the ones seen so far.
   const ramparted: { [packed: number]: boolean } = {};
+  for (const s of structures) {
+    if (s.structureType === STRUCTURE_RAMPART) ramparted[s.pos.x + s.pos.y * 50] = true;
+  }
   const keep: string[] = [];
   for (const s of structures) {
     const packed = s.pos.x + s.pos.y * 50;
     if (s.structureType === STRUCTURE_ROAD) {
-      // On-plan OR exterior: the remote road builder enrolls its shell->exit
-      // connector ids into this list, then this sync used to overwrite it
-      // with plan tiles only every 100 ticks — so connectors (E36N57's
-      // 40,27->48,20 diagonal) sat unmaintained between enrollments. Exterior
-      // tiles are outside the shell by definition and only ever get roads
-      // from the remote system, so keeping them is the same decision the
-      // migration destroy-exemption makes.
-      if (roadTiles[packed] || isExteriorTile(room, s.pos.x, s.pos.y)) keep.push(s.id);
-    } else if (s.structureType === STRUCTURE_RAMPART) {
-      ramparted[packed] = true;
+      // On-plan OR ramparted OR exterior — the paver enrolls built-road ids on
+      // exactly those three home tile classes (construction.ts: onPlan ||
+      // onMyRampart || isExteriorPos), and this sync used to rebuild the list
+      // with only the first and third, so a road under a shell rampart — the
+      // wall-crossing connector — was dropped every 100 ticks and sat
+      // unmaintained until the next remote pass re-enrolled it.
+      if (roadTiles[packed] || ramparted[packed] || isExteriorTile(room, s.pos.x, s.pos.y)) keep.push(s.id);
     }
   }
   room.memory.keepTheseRoads = keep;
