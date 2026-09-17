@@ -1,4 +1,5 @@
 import { roomTickOffset } from "./rooms.remotes";
+import { bankEnergy } from "./spawnSafety";
 import { cachedDerived, cachedMyStructures } from "utils/RoomCache";
 import { logVerbose } from "utils/Logger";
 import { book, energyValue, fair, getOrdersCached, invalidateOrderCache } from "Market/pricing";
@@ -71,6 +72,20 @@ const ENERGY_BOOTSTRAP_BELOW = 300;
 
 /** Hard per-unit cap for the low-value order crawler. */
 const CRAWLER_MAX_PRICE = 3;
+
+/**
+ * Transaction fees are paid in ENERGY out of this room's terminal, and every
+ * deal initiator here is discretionary (credit revenue or bargain buys). None
+ * of them may spend the emergency bank: a sell wave on a sub-floor room keeps
+ * pulling fee energy out of storage via the terminal refill and digs the hole
+ * deeper (live E35N58: 12.8k -> 6.6k through a sell pass while every spending
+ * path was correctly floored). Fees are capped at bank minus this floor, so a
+ * cheap close-by deal still clears near the floor and a far one simply waits.
+ * Exempt on purpose: the energy-bootstrap buy (it REFILLS the terminal -
+ * gating it deadlocks a room with no energy to pay a fee) and the panic dump
+ * (corrective: a stuffed terminal blocks every other terminal path).
+ */
+const SELL_FEE_BANK_FLOOR = 10000;
 
 /**
  * Deposit / factory commodity sell floors, unchanged from the hardcoded ladder
@@ -209,6 +224,7 @@ function spikeSell(room:any, res:ResourceConstant):boolean {
     if(want < 100) return false;
 
     const termEnergy = term.store[RESOURCE_ENERGY] || 0;
+    const bankHeadroom = bankEnergy(room) - SELL_FEE_BANK_FLOOR;
     const eValue = energyValue();
     const orders = getOrdersCached(ORDER_BUY, res);
     let candidates:any[] = [];
@@ -216,7 +232,7 @@ function spikeSell(room:any, res:ResourceConstant):boolean {
         if(!dealable(o) || o.price < floor) continue;
         const amount = Math.min(want, o.amount);
         const feeEnergy = Game.market.calcTransactionCost(amount, room.name, o.roomName);
-        if(feeEnergy > termEnergy) continue;
+        if(feeEnergy > termEnergy || feeEnergy > bankHeadroom) continue;
         // Fee is energy, revenue is credits - compare them in credits.
         if(feeEnergy * eValue > SELL_FEE_SHARE * amount * o.price) continue;
         candidates.push({order: o, amount: amount, feeEnergy: feeEnergy, net: amount * o.price - feeEnergy * eValue});
@@ -610,7 +626,7 @@ function market(room):any {
             // flat amount*8 budget happily picked deals the terminal could not
             // pay for - they came back as a bare console.log(result) and the
             // resource never moved.
-            let OrderMaxEnergy = Math.min(OrderAmount * 8, room.terminal.store[RESOURCE_ENERGY]);
+            let OrderMaxEnergy = Math.min(OrderAmount * 8, room.terminal.store[RESOURCE_ENERGY], bankEnergy(room) - SELL_FEE_BANK_FLOOR);
             let orders = getOrdersCached(ORDER_BUY, resource);
             orders = _.filter(orders, (order) => dealable(order) && order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
             if(orders.length > 0) {
@@ -858,7 +874,7 @@ function market(room):any {
             // lot could cost ~48 energy of fee from the far side of the map on top
             // of the credits. Require the fee to stay under half of what we
             // receive, and never above what the terminal actually holds.
-            let OrderMaxEnergy = Math.min(Math.ceil(OrderAmount / 2), room.terminal.store[RESOURCE_ENERGY]);
+            let OrderMaxEnergy = Math.min(Math.ceil(OrderAmount / 2), room.terminal.store[RESOURCE_ENERGY], bankEnergy(room) - SELL_FEE_BANK_FLOOR);
             let orders = getOrdersCached(ORDER_SELL, resource);
             orders = _.filter(orders, (order) => dealable(order) && order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
             if(orders.length > 0) {
