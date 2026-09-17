@@ -13,10 +13,10 @@
  *   owned, towers gone/dry    → CCK to lock safe mode. Hot towers: no CCK.
  */
 
-import { RoomIntel } from "./intel";
+import { RoomIntel, STALE_TICKS } from "./intel";
 import { TOWER_FLOOR } from "Roles/filler";
 import { TargetScore, TIER_NONE } from "./score";
-import { ownedRooms, myUsername } from "./reach";
+import { ownedRooms, myUsername, withinTravelBudget } from "./reach";
 import { roomDistance } from "./geo";
 import {
   guardInFlight,
@@ -170,19 +170,30 @@ export function canFund(room: Room, cost: number): boolean {
  * Quad totals are the sum of all four bodies (RCL6 SQR: 2100+2100+1400+1400).
  */
 export const KIT_COST = {
-  guardPrey: 650, // GUARD_PREY exactly
-  guardRaid: 3170, // GUARD_RAID exactly
-  duo: 4000,
-  quad: 7000,
-  quadBoost: 12000,
-  cck: 9100,
+  guardPrey: 650, // GUARD_PREY exactly (5 ATTACK + 5 MOVE)
+  guardRaid: 3300, // GUARD_RAID exactly: 25 ATTACK + 25 MOVE = 3250
+  duo: 11000, // ~6960 at RCL7, ~10750 at RCL8
+  quad: 25000, // ~18000 at RCL7, ~25000 at RCL8 — 7000 was the unreachable RCL6 sum
+  quadBoost: 26000,
+  cck: 9900, // ~9880
   mosquito: 9000,
 };
 
-function pickHome(target: string, minRcl: number, cost: number): string {
+/**
+ * Closest solvent home by straight-line distance that the creep can actually
+ * WALK to. pickHome used to stop at roomDistance and let issue()'s
+ * withinTravelBudget reject afterwards — with no second choice, a target
+ * whose nearest funder routes around an SK wall (2 rooms straight-line, 14
+ * real hops) was re-picked and refused every pass forever. Now the walk is
+ * part of the pick: candidates are tried nearest-first and the first one the
+ * router can reach inside MAX_TRAVEL_HOPS wins.
+ *
+ * `walks` is false only for kits with no creep to strand (mosquito — the
+ * dispatch row is memory-side; issue() exempts it for the same reason).
+ */
+function pickHome(target: string, minRcl: number, cost: number, walks: boolean = true): string {
   const owned = ownedRooms();
-  let best = "";
-  let bestD = Infinity;
+  const candidates: { name: string; d: number }[] = [];
   for (let i = 0; i < owned.length; i++) {
     const room = Game.rooms[owned[i]];
     if (!room || !room.controller || !room.controller.my) continue;
@@ -191,11 +202,15 @@ function pickHome(target: string, minRcl: number, cost: number): string {
     if (!room.find(FIND_MY_SPAWNS).length) continue;
     if (!canFund(room, cost)) continue;
     const d = roomDistance(owned[i], target);
-    if (d > RANGE || d >= bestD) continue;
-    best = owned[i];
-    bestD = d;
+    if (d > RANGE) continue;
+    candidates.push({ name: owned[i], d });
   }
-  return best;
+  candidates.sort((a, b) => a.d - b.d || (a.name < b.name ? -1 : 1));
+  for (const c of candidates) {
+    if (walks && !withinTravelBudget(c.name, target)) continue;
+    return c.name;
+  }
+  return "";
 }
 
 function canBoostQuad(home: string): boolean {
@@ -242,7 +257,7 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
 
   const live = !!Game.rooms[target];
   const age = Game.time - rec.t;
-  if (!live && age > 500) return kit("none", "", target, "intel-stale");
+  if (!live && age > STALE_TICKS) return kit("none", "", target, "intel-stale");
 
   const bucket = Game.cpu.bucket;
   const towers = rec.tw || 0;
@@ -251,7 +266,10 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
   const prey = rec.he || 0;
   const hostiles = rec.hc || 0;
   const owned = !!rec.o;
-  const remote = !owned && !!rec.rv;
+  // A remote WE reserved is not a harassment target. scoreRoom already gives
+  // self-remotes 0, but a floor-0 tune or a direct pickKit call reached the
+  // mosquito branch on our own reservation — exclude it here.
+  const remote = !owned && !!rec.rv && rec.rv !== myUsername();
   const blocked = !!(rec.ub && rec.ub > Game.time);
   // Unknown tower energy is HOT. Only te === 0 is dry.
   const towersDry = towers > 0 && rec.te === 0;
@@ -271,7 +289,9 @@ export function pickKit(target: string, rec: RoomIntel, scored: TargetScore | nu
       return kit("guard-prey", home, target, remote ? "remote-prey" : "open-prey");
     }
     if (remote) {
-      const home = pickHome(target, 8, KIT_COST.mosquito);
+      // Mosquito dispatch is memory-side — issue() exempts it from the travel
+      // budget, so the home pick ignores it too.
+      const home = pickHome(target, 8, KIT_COST.mosquito, false);
       if (home && bucket >= 3000) {
         return kit("mosquito", home, target, "harass-remote");
       }

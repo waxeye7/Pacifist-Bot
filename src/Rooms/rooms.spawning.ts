@@ -136,7 +136,10 @@ const NON_RECOVERY_ROLES: { [role: string]: boolean } = {
     RangedAttacker: true, healer: true, Dismantler: true, RemoteDismantler: true,
     DismantleControllerWalls: true, ram: true, DrainTower: true, annoy: true,
     CreepKiller: true, Solomon: true, Priest: true, goblin: true, mosquito: true,
-    Signifer: true, Sign: true, RoomLocker: true, Escort: true, claimer: true,
+    // SD assigns role 'signifer' lowercase — the capitalised key never matched,
+    // so duo healers escaped broke-room triage. Both stay: the capital one is
+    // harmless and covers any legacy memory that carries it.
+    Signifer: true, signifer: true, Sign: true, RoomLocker: true, Escort: true, claimer: true,
     SneakyControllerUpgrader: true, Convoy: true, clearer: true, billtong: true,
     SpecialRepair: true, SpecialCarry: true, RemoteRepair: true,
     // Live E37N59: 0 bank, 550/1950, stall 58 on Maintainer. Roads can wait.

@@ -13,7 +13,7 @@
 import { getIntel, patchIntel, STALE_TICKS } from "./intel";
 import { targets, scoreRoom, scoutQueue } from "./score";
 import { pickKit, Kit, KitKind, GUARD_PREY, GUARD_RAID } from "./kit";
-import { countLive, expensiveInFlight, homeHasSquad, guardOnPlayerRoom, ROLES, cckInFlight } from "./flight";
+import { countLive, countQueued, expensiveInFlight, homeHasSquad, guardOnPlayerRoom, ROLES, cckInFlight } from "./flight";
 import { ownedRooms, travelHops, withinTravelBudget, MAX_TRAVEL_HOPS } from "./reach";
 import { roomDistance } from "./geo";
 import { logAlways } from "utils/Logger";
@@ -228,12 +228,14 @@ function issue(k: Kit): boolean {
 
   switch (k.kind) {
     case "guard-prey":
-      if (countLive(ROLES.GUARD) >= guardCap()) return false;
+      // Live + QUEUED: a guard sitting in a 1500-tick spawn_list counts toward
+      // the cap, or back-to-back passes enqueue guards past it.
+      if (countLive(ROLES.GUARD) + countQueued(ROLES.GUARD) >= guardCap()) return false;
       ok = g.SGD(k.home, k.target, GUARD_PREY) === "Success!";
       if (ok && k.followCck) queueCck(k.home, k.target, 200);
       break;
     case "guard-raid":
-      if (countLive(ROLES.GUARD) >= guardCap()) return false;
+      if (countLive(ROLES.GUARD) + countQueued(ROLES.GUARD) >= guardCap()) return false;
       ok = g.SGD(k.home, k.target, GUARD_RAID) === "Success!";
       if (ok && k.followCck) queueCck(k.home, k.target, 1000);
       break;
@@ -280,13 +282,16 @@ function issue(k: Kit): boolean {
       break;
     }
     case "mosquito": {
-      if (!Memory.e) Memory.e = { mosquito: [] };
+      // Memory.e can exist without .mosquito (hand-edited or partial memory) —
+      // the old `Memory.e.mosquito.length` threw on exactly that shape.
+      const me: any = (Memory as any).e || ((Memory as any).e = {});
+      const rows: any[] = me.mosquito || (me.mosquito = []);
       let live = 0;
-      for (let i = 0; i < Memory.e.mosquito.length; i++) {
-        if (Memory.e.mosquito[i] && Memory.e.mosquito[i].ts > 0) live++;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i] && rows[i].ts > 0) live++;
       }
       if (live >= MAX_MOSQUITO) return false;
-      Memory.e.mosquito.push({ n: k.target, ts: 2 });
+      rows.push({ n: k.target, ts: 2 });
       ok = true;
       break;
     }
