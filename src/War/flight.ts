@@ -16,11 +16,25 @@ const SOLOMON = ["Solomon"];
 const MOSQUITO = ["mosquito"];
 const EXPENSIVE = QUAD.concat(SOLOMON).concat(["FreedomFighter"]);
 
+/**
+ * What a creep/queue entry aims at. Squad creeps carry NO targetRoom — SQR /
+ * SQM / SQD stamp `targetPosition` (a RoomPosition) on SquadCreepA only, so a
+ * marching quad used to be invisible to every per-target in-flight check for
+ * its whole ~1500-tick walk. The leader's targetPosition.roomName answers for
+ * the whole squad.
+ */
+function aimsAt(memory: any, target: string): boolean {
+  if (!memory) return false;
+  if (memory.targetRoom === target) return true;
+  const tp = memory.targetPosition;
+  return !!(tp && tp.roomName === target);
+}
+
 function liveOn(target: string, roles: string[]): number {
   let n = 0;
   for (const name in Game.creeps) {
     const c = Game.creeps[name];
-    if (!c || !c.memory || c.memory.targetRoom !== target) continue;
+    if (!c || !c.memory || !aimsAt(c.memory, target)) continue;
     const role = c.memory.role;
     if (role && roles.indexOf(role) >= 0) n++;
     else if (role && role.indexOf("SquadCreep") === 0 && roles === QUAD) n++;
@@ -36,8 +50,23 @@ function queuedOn(target: string, roles: string[]): number {
     const list = r.memory.spawn_list;
     for (let i = 0; i + 2 < list.length; i += 3) {
       const mem = list[i + 2] && (list[i + 2] as any).memory;
-      if (!mem || mem.targetRoom !== target) continue;
+      if (!aimsAt(mem, target)) continue;
       if (mem.role && roles.indexOf(mem.role) >= 0) n++;
+    }
+  }
+  return n;
+}
+
+/** Empire-wide count of a role sitting in spawn queues (liveOn's queue half). */
+export function countQueued(roles: string[]): number {
+  let n = 0;
+  for (const rName in Game.rooms) {
+    const r = Game.rooms[rName];
+    if (!r || !r.controller || !r.controller.my || !r.memory.spawn_list) continue;
+    const list = r.memory.spawn_list;
+    for (let i = 0; i + 2 < list.length; i += 3) {
+      const mem = list[i + 2] && (list[i + 2] as any).memory;
+      if (mem && mem.role && roles.indexOf(mem.role) >= 0) n++;
     }
   }
   return n;

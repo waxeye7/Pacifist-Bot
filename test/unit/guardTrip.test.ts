@@ -135,17 +135,25 @@ describe("war measures the walk, not the map", () => {
     });
 
     it("the budget is measured with the creep router's own weights", () => {
-        // moveToRoomAvoidEnemyRooms prices SK and avoided rooms at 24, highway
-        // at 2, normal at 4. A gate that disagreed would clear routes the fleet
-        // will never be given, which is the whole failure it exists to stop.
+        // moveToRoomAvoidEnemyRooms prices SK/centre/avoided/hostile rooms at
+        // 24, highway at 2, normal at 4. A gate that disagreed would clear
+        // routes the fleet will never be given, which is the whole failure it
+        // exists to stop. hopCost mirrors it term for term:
         assert.include(REACH, "function hopCost(roomName: string, targetRoom: string): number {");
-        assert.include(REACH, "if (kind === ROOM_KEEPER) return 24;");
-        assert.include(REACH, "return 24;");
-        assert.include(REACH, "if (kind !== ROOM_NORMAL) return 2;");
-        assert.include(REACH, "return 4;");
         assert.include(REACH, "if (!isEnterable(roomName)) return Infinity;");
-        // the destination itself is never refused for being avoided
-        assert.include(REACH, "if (roomName !== targetRoom &&");
+        // the router's [4,6]x[4,6] band prices sector CENTRES at 24 too —
+        // roomKind() cannot express that (it names 5,5 CENTER, not KEEPER)
+        assert.include(REACH, "if (wx >= 4 && wx <= 6 && ny >= 4 && ny <= 6) return 24;");
+        assert.include(REACH, "if (wx === 0 || ny === 0) return 2;");
+        assert.include(REACH, "return 4;");
+        // hostile-structure intel costs a hop like an avoided room
+        assert.include(REACH, "intel.roomData.has_hostile_structures");
+        // AvoidRoomsTemp exempts the target; the permanent AvoidRooms does
+        // not (in the router the `&&` binds only to the temp clause)
+        assert.include(REACH, "M.AvoidRoomsTemp[roomName] && roomName !== targetRoom");
+        const at = REACH.indexOf("function hopCost");
+        const body = REACH.slice(at, REACH.indexOf("const parsed"));
+        assert.notInclude(body, "M.AvoidRooms.indexOf(roomName) >= 0 && roomName !== targetRoom");
     });
 
     it("no route at all is out of budget, not in it", () => {

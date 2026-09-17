@@ -480,7 +480,11 @@ export function runIntelIngest(): void {
  * Such records have no other source and must survive age-eviction.
  */
 function hasHistory(rec: RoomIntel): boolean {
-  return !!(rec.atk || rec.nk || rec.nkn || rec.ub);
+  // rec.ub does NOT belong here: it is an OBSERVED enemy-controller state
+  // (absolute expiry tick), not our own operational history — and because it
+  // is only ever deleted on re-observation, including it made every room we
+  // ever saw upgradeBlocked permanently immune to age-eviction.
+  return !!(rec.atk || rec.nk || rec.nkn);
 }
 
 /**
