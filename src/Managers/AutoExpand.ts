@@ -766,7 +766,7 @@ export function runAutoExpand(): void {
   const room = Game.rooms[st.room];
   return (
     `${head} · ${st.room} phase ${st.phase} for ${Game.time - st.since}t (run ${Game.time - st.started}t) ` +
-    `· spawnPos ${st.spawnPos.x},${st.spawnPos.y} · seg ${st.seg} ` +
+    `· spawnPos ${st.spawnPos ? `${st.spawnPos.x},${st.spawnPos.y}` : "?"} · seg ${st.seg} ` +
     `· vision ${room ? "yes" : "no"} · mine ${!!(room && room.controller && room.controller.my)} ` +
     `· spawns ${room ? room.find(FIND_MY_SPAWNS).length : "?"} ` +
     `· target_colonise ${m.target_colonise && m.target_colonise.room}`

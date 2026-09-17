@@ -57,7 +57,9 @@ function ensure(): SpeedrunState {
 }
 
 function ensureRoomClock(room: Room): RoomSpeedrunClock {
-  if (!room.memory.speedrun) room.memory.speedrun = {};
+  // A hand-written primitive (e.g. `= true`) truthy-passes `!x` and then
+  // threw on the property writes below, every tick.
+  if (!room.memory.speedrun || typeof room.memory.speedrun !== "object") room.memory.speedrun = {};
   const rs = room.memory.speedrun;
   if (!rs.rclTimes) rs.rclTimes = {};
   if (rs.lastRcl == null) rs.lastRcl = 0;
@@ -338,7 +340,7 @@ export function applySpeedrunSpawnHints(room: Room): void {
   if (rcl >= 5) return; // hand back to full bot later
 
   // mark mode on room for other systems
-  if (!room.memory.speedrun) room.memory.speedrun = {};
+  if (!room.memory.speedrun || typeof room.memory.speedrun !== "object") room.memory.speedrun = {};
   room.memory.speedrun.active = true;
   room.memory.speedrun.rcl = rcl;
 }

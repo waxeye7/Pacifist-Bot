@@ -382,10 +382,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   // RCL tick scoreboard (game ticks, not wall-clock)
   if (getFeatures().speedrun) {
-    for (const name in Game.rooms) {
-      const room = Game.rooms[name];
-      if (room.controller && room.controller.my) trackRoomRcl(room);
-    }
+    phase("speedrun", () => {
+      for (const name in Game.rooms) {
+        const room = Game.rooms[name];
+        if (room.controller && room.controller.my) trackRoomRcl(room);
+      }
+    });
   }
 
   phase("creeps", () => RunAllCreepsManager());
@@ -473,7 +475,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const endUsed = Game.cpu.getUsed();
   const tickCpu = endUsed - startTotal;
   // Logic delta only — parse is constant across A/B variants. See Bench.ts.
-  recordTick(tickCpu);
+  // phase()-contained: a hand-pruned Memory.bench.samples key threw here and
+  // skipped CPUmanager + the heartbeat every tick.
+  phase("bench", () => recordTick(tickCpu));
 
   const billed = billedTickCpu(endUsed, startTotal);
   let tickTotal = billed.toFixed(2);

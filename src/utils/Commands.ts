@@ -452,6 +452,7 @@ global.spawn_mosquito = function (homeRoom: string, roomName: string): boolean {
   if (Game.cpu.bucket < 1500) return false;
   if (homeRoom) {
     let room = Game.rooms[homeRoom];
+    if (!room) return false;
     let spawns = room.find(FIND_MY_SPAWNS);
     let nonSpawningSpawn = _.filter(spawns, (s) => !s.spawning);
     if (nonSpawningSpawn.length === 0) return false;
@@ -912,6 +913,9 @@ global.spawnConvoy = function (roomName, targetRoomName) {
         else {
             body = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY,CARRY, MOVE]
         }
+        // supportOtherRooms calls this BEFORE rooms.spawning seeds the list —
+        // a cleared spawn_list threw here every tick and froze data.DOB.
+        if(!room.memory.spawn_list) room.memory.spawn_list = [];
         room.memory.spawn_list.push(body,
         newName, { memory: { role: 'Convoy', homeRoom: roomName, targetRoom: targetRoomName } });
         console.log('Adding Convoy to Spawn List: ' + newName);
@@ -927,6 +931,7 @@ global.spawnSafeModer = function (roomName, targetRoomName) {
     if (room) {
         let newName = 'SafeModer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
         let body = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE];
+        if(!room.memory.spawn_list) room.memory.spawn_list = [];
         room.memory.spawn_list.push(body,
             newName, { memory: { role: 'SafeModer', homeRoom: targetRoomName, targetRoom: targetRoomName } });
         console.log('Adding SafeModer to Spawn List: ' + newName);
@@ -2147,7 +2152,8 @@ global.SGD = function (homeRoom, targetRoomName, body) {
 
 global.SPK = function (homeRoom, targetRoomName) {
 
-    if (Game.rooms[homeRoom] && !Game.rooms[homeRoom].memory.danger) {
+    if (Game.rooms[homeRoom] && Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my
+        && Game.rooms[targetRoomName] && !Game.rooms[homeRoom].memory.danger) {
         let meleeBody = [
             TOUGH, MOVE,
             MOVE, MOVE,
@@ -2174,6 +2180,7 @@ global.SPK = function (homeRoom, targetRoomName) {
         if (PowerMelees <= 1) {
             if (Game.rooms[homeRoom].energyAvailable < 9750) {
                 let newName = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + Game.rooms[homeRoom].name;
+                if(!Game.rooms[homeRoom].memory.spawn_list) Game.rooms[homeRoom].memory.spawn_list = [];
                 Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], newName, { memory: { role: 'filler' } });
                 console.log('Adding filler to Spawn List: ' + newName);
             }
@@ -2197,7 +2204,7 @@ global.SPK = function (homeRoom, targetRoomName) {
 
 global.SDM = function (homeRoom, targetRoomName) {
     let room = Game.rooms[homeRoom];
-    if (room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit + 2 && Game.cpu.bucket > 9500) {
+    if (room && !room.memory.danger && Memory.CPU && Memory.CPU.fiveHundredTickAvg && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit + 2 && Game.cpu.bucket > 9500) {
 
         let billtongs = 0;
         _.forEach(Game.creeps, function (creep) {

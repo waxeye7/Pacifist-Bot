@@ -67,6 +67,10 @@ function ensureBench() {
       baseline: { n: 0, sum: 0, max: 0 },
     };
   }
+  // Per-key heal: a deleted samples.optimized/baseline used to throw in
+  // recordTick every tick.
+  if (!Memory.bench.samples.optimized) Memory.bench.samples.optimized = { n: 0, sum: 0, max: 0 };
+  if (!Memory.bench.samples.baseline) Memory.bench.samples.baseline = { n: 0, sum: 0, max: 0 };
   if (Memory.bench.v == null) Memory.bench.v = BENCH_VERSION;
   return Memory.bench;
 }
