@@ -1,6 +1,6 @@
 import { assert } from "chai";
 import fs from "fs";
-import { billedAvg } from "../../src/utils/CpuPolicy";
+import { billedAvg, getCpuPolicy } from "../../src/utils/CpuPolicy";
 
 /**
  * THREE SUBSYSTEMS SPEND CPU HEADROOM AND ONE OF THEM STILL MEASURED IT WRONG.
@@ -79,6 +79,37 @@ describe("billedAvg is the one CPU meter the spenders read", () => {
     );
     assert.include(fn, "const billed = billedAvg();");
     assert.notMatch(fn, /hundredTickAvg/, "the inlined fallback must be gone");
+  });
+
+  it("the remote headroom rung reads it too", () => {
+    /*
+     * getCpuPolicy's headroom rung prices "what the average can actually
+     * pay for" — the same class of decision — but computed headroom from
+     * avg100. Live shard3: avg100 16.3 read 3.7 of headroom (rung 2) while
+     * billed 19.3 had 0.7 (rung 1). Remote HOLDS are cap-gated, so the
+     * overgranted cap sustained over-budget remotes until the bucket
+     * drained through the stay bar — the documented oscillation.
+     */
+    const code = strip(CP);
+    assert.include(code, "const headroom = billed > 0 ? limit - billed : limit;");
+    assert.notInclude(code, "const headroom = avg > 0 ? limit - avg : limit;");
+  });
+
+  it("maxRemotes prices a saturated shard by the billed number", () => {
+    const prevGame = g.Game;
+    const prevMemory = g.Memory;
+    g.Game = { cpu: { limit: 20, bucket: 9000 } };
+    try {
+      // avg100 says 3.7 headroom (rung 2); billed says 0.7 (rung 1).
+      g.Memory = { CPU: { trueAvg: 19.3, hundredTickAvg: { avg: 16.3 } } };
+      assert.strictEqual(getCpuPolicy().maxRemotes, 1, "billed headroom 0.7 buys one remote, not two");
+      // Billed headroom 2.6 clears the 2.5 rung — avg100 alone cannot tell these apart.
+      g.Memory = { CPU: { trueAvg: 17.4, hundredTickAvg: { avg: 16.3 } } };
+      assert.strictEqual(getCpuPolicy().maxRemotes, 2, "billed headroom 2.6 buys two remotes");
+    } finally {
+      g.Game = prevGame;
+      g.Memory = prevMemory;
+    }
   });
 
   it("the war gates read it, and no longer read avg100 directly", () => {
