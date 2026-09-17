@@ -82,12 +82,54 @@ export function isLastHatchery(room: any): boolean {
     return true;
 }
 
-/** Site-placement freeze by RCL. Builders must not loot containers below this. */
+/**
+ * Site-placement freeze by RCL. Builders must not loot containers below this.
+ *
+ * THE bank floor ladder — PlanV2's broke clamp (site strip + budget) and the
+ * funnel's donor reserve both read this, so the placer, the strip, the
+ * builder withdraw floor and the donor ship floor cannot disagree. Raised
+ * 2026-09-17 (was 150k/80k/30k): the live audit found every room broke-latched
+ * at 5-9k with nothing funding recovery, so each rung now holds back more.
+ */
 export function siteFreezeBank(lvl: number): number {
-    if (lvl >= 8) return 150000;
-    if (lvl >= 7) return 80000;
-    if (lvl >= 6) return 30000;
+    if (lvl >= 8) return 250000;
+    if (lvl >= 7) return 120000;
+    if (lvl >= 6) return 50000;
     return 0;
+}
+
+/**
+ * Can this controller fire safe mode RIGHT NOW — a charge banked AND the
+ * cooldown over. `safeModeCooldown` is an end tick, not a boolean: comparing
+ * it to truthy reads "still cooling" for ~50k ticks AFTER expiry, which is how
+ * the RampartErector spawn gate stayed URGENT forever once a room safe-moded.
+ */
+export function canSafeModeNow(controller: any, now: number): boolean {
+    if (!controller || !controller.my) return false;
+    if (!(controller.safeModeAvailable > 0)) return false;
+    return !(controller.safeModeCooldown > now);
+}
+
+/**
+ * The one exception to "no ramparts below RCL8": an RCL6-7 room that cannot
+ * safe-mode has no other defence against the next raid — safe mode is the
+ * wall this policy retired. It sites the shell NOW and Empire/funnel feeds
+ * it. RCL4-5 stay out: too small to hold a shell, and an enemy that can
+ * outwait the cooldown outlasts the room's whole economy anyway.
+ */
+export function emergencyShellActive(lvl: number, canSafeMode: boolean): boolean {
+    return (lvl === 6 || lvl === 7) && !canSafeMode;
+}
+
+/**
+ * Rampart SITE policy. Below RCL8 the room defends with safe mode + towers,
+ * not a 50-tile shell it cannot afford to repair — the live shells already
+ * standing are maintained by the repair economy, but nothing NEW is sited.
+ * The shell emergency is the exception (see emergencyShellActive).
+ */
+export function rampartSitesAllowed(lvl: number, shellEmergency: boolean): boolean {
+    if (lvl >= 8) return true;
+    return shellEmergency && (lvl === 6 || lvl === 7);
 }
 
 /** Labs/nuker/terminal/observer — furniture, not the energy network. */

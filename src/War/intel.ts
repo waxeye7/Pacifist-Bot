@@ -292,7 +292,11 @@ export function recordRoom(room: Room): void {
     else delete rec.sa;
     if (ctrl.safeModeAvailable) rec.sm = ctrl.safeModeAvailable;
     else delete rec.sm;
-    if (ctrl.safeModeCooldown) rec.sc = Game.time + ctrl.safeModeCooldown;
+    // safeModeCooldown is an absolute end tick, not a duration — adding
+    // Game.time stored ~2*now, a cooldown that never expires. (Unlike
+    // upgradeBlocked below, which IS a remaining-tick count and does need
+    // the conversion.)
+    if (ctrl.safeModeCooldown) rec.sc = ctrl.safeModeCooldown;
     else delete rec.sc;
 
     // upgradeBlocked is the tier-3 payload: while it holds they cannot

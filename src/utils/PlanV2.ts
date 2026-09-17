@@ -23,7 +23,8 @@
 import { logAlways } from "utils/Logger";
 import { isUnreachableTile } from "utils/Reachability";
 import { isExteriorTile, interiorReady, rampartIsBuried } from "utils/Interior";
-import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
+import { getPerimeterTiles } from "utils/Perimeter";
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed, siteFreezeBank } from "Rooms/spawnSafety";
 import { requestSegments } from "utils/Segments";
 import { incomeRampartAdds, shellExposure } from "utils/minerSeat";
 import { trimControllerRoads } from "utils/roadTrim";
@@ -73,6 +74,7 @@ export function brokeKeepsSite(
   bankE: number,
   brokeFloor: number,
   nakedShell: boolean,
+  shellEmergency?: boolean,
 ): boolean {
   void bankE;
   void brokeFloor;
@@ -82,7 +84,11 @@ export function brokeKeepsSite(
   if (type === STRUCTURE_TERMINAL || type === STRUCTURE_EXTRACTOR) return true;
   if (type === STRUCTURE_LAB) return false;
   if (type === STRUCTURE_ROAD) return true;
-  if (type === STRUCTURE_RAMPART) return !!nakedShell;
+  // A broke room holds rampart sites only while the wall needs them: the
+  // naked-shell exception, or the no-safe-mode shell emergency. Below RCL8
+  // nothing new is sited anyway (rampartSitesAllowed), so the keep only
+  // protects sites already standing.
+  if (type === STRUCTURE_RAMPART) return !!nakedShell || !!shellEmergency;
   return false;
 }
 
@@ -312,9 +318,13 @@ function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number
   // Shell-naked (0 my ramparts or 0 interior roads): 2 slots so the wall can restart.
   if (lvl >= 6 && room && room.storage && room.storage.my) {
     const e = room.storage.store[RESOURCE_ENERGY] || 0;
-    const floor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+    const floor = siteFreezeBank(lvl);
     if (bankIsBroke(room, e, floor)) {
       if (!room.find(FIND_MY_SPAWNS).length) return 1;
+      // Shell emergency (RCL6-7, safe mode cannot fire): the wall is the
+      // survival budget, not furniture spend. Full slots — the funnel is
+      // shipping the bank that pays for them.
+      if (emergencyShellActive(lvl, canSafeModeNow(room.controller, Game.time))) return 8;
       const structs = structures || room.find(FIND_STRUCTURES);
       if (isShellNaked(room, structs)) return 2;
       // Behind on spawns/extensions/towers: the clamp is aimed at a room
@@ -416,6 +426,8 @@ export type PackedPlan = {
   h?: string;
   /** last tick syncPlanV2Memory ran */
   s?: number;
+  /** shellEmergency value at that sync — a flip force-syncs immediately */
+  se?: boolean;
   // packed coords: x + y * 50, in placement priority order
   // (also carries the non-buildable keys `shellCut` and `labInput`)
   t: { [structureType: string]: number[] };
@@ -1858,7 +1870,17 @@ const RCL2_ORDER = PLACE_ORDER.slice();
 RCL2_ORDER.splice(RCL2_ORDER.indexOf("extension"), 1);
 RCL2_ORDER.splice(RCL2_ORDER.indexOf("container"), 0, "extension");
 
-function placeOrderFor(lvl: number): string[] {
+/**
+ * SHELL EMERGENCY order: while an RCL6-7 room cannot safe-mode, the wall
+ * outranks everything except spawn/storage/tower — a rampart at index 7
+ * would sit behind 60 extensions for the whole emergency.
+ */
+const EMERGENCY_ORDER = PLACE_ORDER.slice();
+EMERGENCY_ORDER.splice(EMERGENCY_ORDER.indexOf("rampart"), 1);
+EMERGENCY_ORDER.splice(EMERGENCY_ORDER.indexOf("tower") + 1, 0, "rampart");
+
+export function placeOrderFor(lvl: number, shellEmergency?: boolean): string[] {
+  if (shellEmergency) return EMERGENCY_ORDER;
   return lvl === 2 ? RCL2_ORDER : PLACE_ORDER;
 }
 
@@ -2928,9 +2950,12 @@ function runMigration(
  *                       RampartDefender once it is empty, i.e. shell done)
  * - keepTheseRoads      ids of BUILT roads on plan road tiles → maintainers
  */
-function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[]): void {
-  if (plan.s && Game.time - plan.s < SYNC_EVERY) return;
+function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[], shellEmergency?: boolean): void {
+  // The 100-tick throttle must not hold the erector list hostage on an
+  // emergency flip — sync NOW when the state changed since the last write.
+  if (plan.s && Game.time - plan.s < SYNC_EVERY && !!plan.se === !!shellEmergency) return;
   plan.s = Game.time;
+  plan.se = !!shellEmergency;
 
   // INCOME RAMPARTS. The SOURCE LINK and the miner seat in front of it usually
   // stand outside the shell, naked, and older planner builds never bubbled
@@ -3000,6 +3025,20 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
   const hub = packedStorage === undefined ? null : unpack(packedStorage);
 
   const bp = room.memory.basePlan || {};
+  // The mirror is v2 + hub + perimeter + leash ONLY. A pre-adoption v1 plan
+  // leaves version/structures/ramps/perimeterMode riding along forever —
+  // every reachable reader on a planV2 room takes the planV2 branch first,
+  // so the stale fields were pure dead weight that made the mirror lie about
+  // which plan version the room runs.
+  delete bp.version;
+  delete bp.roomName;
+  delete bp.structures;
+  delete bp.spawn;
+  delete bp.perimeterMode;
+  delete bp.arterialN;
+  delete bp.scoredAt;
+  delete bp.score;
+  delete bp.ramps;
   bp.v2 = true;
   if (hub) bp.hub = hub;
   if (perimeter.length) {
@@ -3022,7 +3061,14 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
   for (const s of structures) {
     const packed = s.pos.x + s.pos.y * 50;
     if (s.structureType === STRUCTURE_ROAD) {
-      if (roadTiles[packed]) keep.push(s.id);
+      // On-plan OR exterior: the remote road builder enrolls its shell->exit
+      // connector ids into this list, then this sync used to overwrite it
+      // with plan tiles only every 100 ticks — so connectors (E36N57's
+      // 40,27->48,20 diagonal) sat unmaintained between enrollments. Exterior
+      // tiles are outside the shell by definition and only ever get roads
+      // from the remote system, so keeping them is the same decision the
+      // migration destroy-exemption makes.
+      if (roadTiles[packed] || isExteriorTile(room, s.pos.x, s.pos.y)) keep.push(s.id);
     } else if (s.structureType === STRUCTURE_RAMPART) {
       ramparted[packed] = true;
     }
@@ -3038,20 +3084,14 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
     // publishes the whole ring instead and is a no-op on planV2 rooms for
     // exactly that reason.
     //
-    // rampartLocations is GATED AT RCL4, matching the rampart gate in
-    // typeAllowedAtRcl / BasePlan.placeFromBasePlan / Perimeter.SHELL_MIN_RCL.
-    //
-    // This mirror had no gate at all, while every PLACER does. That was
-    // survivable while planV2 was only ever adopted by hand into a grown
-    // room, and stopped being survivable the moment a freshly claimed RCL1-3
-    // room adopts its plan automatically (see Managers/AutoExpand
-    // runPackAdoption): rampartLocations is the RampartErector's spawn
-    // trigger AND its site list (rooms.spawning keys off
-    // "rampartLocations.length > 0"), so an adopted RCL3 room would erect a
-    // 50-tile shell it has no storage, no towers and no builder budget to
-    // maintain — while the placement layer, correctly, refuses to site a
-    // single rampart. Publish the empty list below RCL4 so the trigger reads
-    // false; the very next sync after the RCL4 tick fills it in.
+    // rampartLocations is GATED on the shell policy (rampartSitesAllowed):
+    // RCL8 always, RCL6-7 only under the no-safe-mode shell emergency. Below
+    // that the list publishes EMPTY — it is the RampartErector's spawn trigger
+    // AND its site list (rooms.spawning keys off "rampartLocations.length >
+    // 0"), so an un-gated list makes an adopted room erect a 50-tile shell it
+    // has no bank to maintain while the placement layer, correctly, refuses
+    // to site a single rampart. The empty publish also suicides a live
+    // erector on the tick the policy lapses.
     //
     // defence.perimeter is NOT gated: it is geometry, not a build order, and
     // the interior/leash/RampartDefender logic wants to know where the wall
@@ -3059,7 +3099,7 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
     // ---------------------------------------------------------------------
     const lvl = room.controller ? room.controller.level : 0;
     const todo: number[][] = [];
-    if (lvl >= SHELL_MIN_RCL) {
+    if (rampartSitesAllowed(lvl, emergencyShellActive(lvl, canSafeModeNow(room.controller, Game.time)))) {
       for (const p of shell) {
         if (ramparted[p]) continue;
         const u = unpack(p);
@@ -3082,6 +3122,23 @@ export function placeFromPlanV2(room: Room): void {
   // layout; migrateSpawns/migrateHub retire the old bunker.
   const lvl = room.controller.level;
 
+  // SHELL EMERGENCY: an RCL6-7 room that cannot safe-mode has no defence
+  // left, so it builds the shell now (see rampartSitesAllowed /
+  // emergencyShellActive in Rooms/spawnSafety) and the funnel feeds it.
+  // Stamped on room.memory so spawning, the funnel and the console can all
+  // see the same bit without re-deriving it.
+  const canSafe = canSafeModeNow(room.controller, Game.time);
+  const shellEmergency = emergencyShellActive(lvl, canSafe);
+  if (shellEmergency !== !!(room.memory as any).shellEmergency) {
+    logAlways(
+      `planV2 ${room.name}: SHELL EMERGENCY ${shellEmergency ? "ON" : "off"} — ` +
+        `RCL${lvl}, safeMode ${canSafe ? "ready" : "unavailable"}` +
+        `${shellEmergency ? " — rampart sites unlock, funnel will feed this room" : ""}`,
+    );
+    if (shellEmergency) (room.memory as any).shellEmergency = 1;
+    else delete (room.memory as any).shellEmergency;
+  }
+
   // SPAWN FIRST (see spawnFirstLockdown). Runs before anything else in this
   // function so the slots the stray sites were holding are handed straight back
   // to the spawn on this same pass.
@@ -3102,7 +3159,7 @@ export function placeFromPlanV2(room: Room): void {
 
   // legacy memory mirror first — it must run even when the site budget is
   // full, otherwise a room that is always building never gets a perimeter
-  syncPlanV2Memory(room, plan, structures);
+  syncPlanV2Memory(room, plan, structures, shellEmergency);
 
   // Defensive road-prefix warning. Sits here, above the site-budget gate, for
   // the same reason the memory mirror does: a room that is always building
@@ -3149,7 +3206,7 @@ export function placeFromPlanV2(room: Room): void {
       extra--;
     }
   }
-  const brokeFloor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+  const brokeFloor = siteFreezeBank(lvl);
   const bankE = room.storage && room.storage.my ? (room.storage.store[RESOURCE_ENERGY] || 0) : 0;
   const lb = labBank(room);
   // Same LATCHED answer maxSitesFor's clamp uses (see bankIsBroke) — a
@@ -3180,7 +3237,7 @@ export function placeFromPlanV2(room: Room): void {
       // ONE decision, shared with the placement loop below (brokeKeepsSite):
       // a broke room can only hold sites the strip keeps, so place-and-strip
       // cannot churn. Labs are false in the keep-set (50k furniture).
-      if (brokeKeepsSite(s.structureType, bankE, brokeFloor, nakedShell)) {
+      if (brokeKeepsSite(s.structureType, bankE, brokeFloor, nakedShell, shellEmergency)) {
         if (s.structureType !== STRUCTURE_ROAD) continue;
         // Exterior connector road sites belong to the REMOTE system
         // (placeClippedRemoteRoads' shell->exit legs), and a road site ON the
@@ -3381,7 +3438,7 @@ export function placeFromPlanV2(room: Room): void {
   // only true blockers are refused.
   const cutSet = new Set<number>(plan.t.shellCut || []);
 
-  for (const type of placeOrderFor(lvl)) {
+  for (const type of placeOrderFor(lvl, shellEmergency)) {
     if (budget <= 0) break;
     // The broke-clamp exception slot is TYPED (see _exceptionSlotFor): it
     // exists to site exactly one missing terminal/extractor, and letting
@@ -3401,7 +3458,7 @@ export function placeFromPlanV2(room: Room): void {
     // untyped coreBuildoutIncomplete grant never had: PLACE_ORDER walked its
     // 2 slots down to rampart/lab and the strip ate them 15 ticks later
     // (VPS W5N3, a 500-progress lab, forever).
-    if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell)) continue;
+    if (brokeBank && !brokeKeepsSite(type, bankE, brokeFloor, nakedShell, shellEmergency)) continue;
     // Core-incomplete's 2 slots are untyped. PLACE_ORDER puts terminal
     // before link, so a broke RCL6 with spawn/ext/tower at cap and no
     // source income spent those slots on a 50k terminal — bypassing the
@@ -3419,6 +3476,12 @@ export function placeFromPlanV2(room: Room): void {
         : plannedTilesFor(plan, type, lvl, room);
     if (!planned || !planned.length) continue;
     if (!typeAllowedAtRcl(type, lvl)) continue;
+    // Shell policy: no NEW rampart sites below RCL8 — safe mode + towers
+    // carry the room until then. The no-safe-mode shell emergency at RCL6-7
+    // is the only exception (it also jumps rampart to index 4 via
+    // EMERGENCY_ORDER). Already-built ramparts keep being repaired; this
+    // only stops the sites.
+    if (type === "rampart" && !rampartSitesAllowed(lvl, shellEmergency)) continue;
     const cap =
       type === "road"
         ? planned.length

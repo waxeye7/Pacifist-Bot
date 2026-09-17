@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { canSafeModeNow, emergencyShellActive, rampartSitesAllowed } from "Rooms/spawnSafety";
+
 const run = function (creep) {
     creep.memory.moving = false;
 
@@ -61,9 +63,19 @@ const run = function (creep) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
+    // rampartLocations empty used to mean only "shell built". The shell
+    // policy (Rooms/spawnSafety) now also publishes it empty while ramparts
+    // are DEFERRED below RCL8 — and a RampartDefender with no rampart to man
+    // cannot attack at all (its strike needs a rampart under it). So convert
+    // only when the program ran (policy allows sites) or the shell physically
+    // stands; otherwise this body stays a free-attack Guard.
     if(creep.room.controller && creep.room.controller.my && creep.room.controller.level >= 4 && creep.room.storage && creep.room.memory.construction && creep.room.memory.construction.rampartLocations && !creep.room.memory.construction.rampartLocations.length) {
-        creep.memory.role = "RampartDefender";
-        return;
+        const lvl = creep.room.controller.level;
+        const shellStands = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType === STRUCTURE_RAMPART}).length > 0;
+        if(shellStands || rampartSitesAllowed(lvl, emergencyShellActive(lvl, canSafeModeNow(creep.room.controller, Game.time)))) {
+            creep.memory.role = "RampartDefender";
+            return;
+        }
     }
 
     if(creep.memory.again && !creep.memory.ttgh) {

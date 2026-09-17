@@ -1070,9 +1070,13 @@ describe("stripKeepsRescueRole", () => {
 
 describe("site freeze vs expensive furniture", () => {
     it("RCL6/7/8 freeze matches PlanV2 broke floors", () => {
-        assert.equal(siteFreezeBank(6), 30000);
-        assert.equal(siteFreezeBank(7), 80000);
-        assert.equal(siteFreezeBank(8), 150000);
+        // Raised 2026-09-17 (was 30k/80k/150k): the live audit found every
+        // room broke-latched at 5-9k with nothing funding recovery. One
+        // ladder, shared by the placer, the strip, this freeze and the
+        // funnel's donor reserve — they cannot disagree.
+        assert.equal(siteFreezeBank(6), 50000);
+        assert.equal(siteFreezeBank(7), 120000);
+        assert.equal(siteFreezeBank(8), 250000);
         assert.equal(siteFreezeBank(5), 0);
     });
 

@@ -8,7 +8,7 @@ import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.lab
 import { rampartHitsTarget } from "./rooms.defence";
 import { rampartIsBuried } from "utils/Interior";
 import { logAlways } from "utils/Logger";
-import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture, fillerBody, fillerName, homeMinerBody, builderPartCap } from "./spawnSafety";
+import { homeEconomyStarved, roomIsBroke, cullSurplusBuildersOnce, liveBuilderKeep, headBlocksInterleave, destCheapRewritesHead, leftoverUpgradeShouldQueue, minerReplacementShouldQueue, minerBackupShouldQueue, remoteHaulInsertIndex, rescueCbShouldLead, coloniseVetoesNoVisionSpawnless, colonyNeedIsRescue, spawnRescuePinHolds, spawnRescueValue, rememberOwnedRoomStats, retaskKeepsHatcheryRole, stripKeepsRescueRole, resourceNamesHomeLast, promoteHomeSlamFiveHol, isHomeSlamMinerBody, idleQueueShouldWipe, spawnPayable, siteFreezeBank, isExpensiveFurniture, fillerBody, fillerName, homeMinerBody, builderPartCap, canSafeModeNow } from "./spawnSafety";
 import { runSpawnLadder } from "./spawnLadder";
 import { optionalRosterOpen, lowCpuShard } from "utils/CpuPolicy";
 import { funnelMother } from "Empire/funnel";
@@ -2943,7 +2943,10 @@ function add_creeps_to_spawn_list(room, spawn) {
     // fill its carry parts, so the gate and the floor must agree or the room
     // pays a body for a parked creep.
     if(RampartErectors < 1 && !queuedWithPrefix(room, 'RampartErector') && room.controller.level >= 3 && (!storage || storage.store[RESOURCE_ENERGY] > 10000) && room.memory.construction && room.memory.construction.rampartLocations && room.memory.construction.rampartLocations.length > 0) {
-        let safeModeReady = room.controller.safeModeAvailable > 0 && !room.controller.safeModeCooldown;
+        // safeModeCooldown is an END TICK, not a boolean — "!cooldown" read
+        // "still cooling" for ~50k ticks after it expired, so every erector
+        // spawned URGENT forever once a room used safe mode.
+        let safeModeReady = canSafeModeNow(room.controller, Game.time);
         let newName = 'RampartErector-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
         let erectorBody = getBody([WORK,CARRY,MOVE], room, 50);
         let erectorOpts = {memory: {role: 'RampartErector', rampartLocations:room.memory.construction.rampartLocations}};
