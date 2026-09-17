@@ -392,7 +392,15 @@ function ownedStuffIsBeingHurt(room: any, threats: any[]): boolean {
             hits[thing.id] = thing.hits;
             // Adjacent + armed is a hit landing next tick even if none has yet.
             if (pos.getRangeTo(thing) <= 1) hurt = true;
-            if (fresh && prev.hits[thing.id] !== undefined && thing.hits < prev.hits[thing.id]) hurt = true;
+            if (fresh && prev.hits[thing.id] !== undefined && thing.hits < prev.hits[thing.id]) {
+                const drop = prev.hits[thing.id] - thing.hits;
+                // Scheduled decay lands a fixed quantum per decay tick and was
+                // firing "hurt" at parked drain squads — the battery-burn this
+                // check exists to deny. A real attack drops more than that.
+                const decay = thing.structureType === STRUCTURE_RAMPART ? RAMPART_DECAY_AMOUNT
+                    : thing.structureType === STRUCTURE_CONTAINER ? CONTAINER_DECAY : 0;
+                if (drop > decay) hurt = true;
+            }
         }
     }
     lastWatchedHits[room.name] = { tick: Game.time, hits: hits };
@@ -540,7 +548,15 @@ function roomDefence(room) {
         let HostileCreeps = cachedHostileCreeps(room);
         if(HostileCreeps.length > 0) {
             if(hostileThreatCount(HostileCreeps) > 0) {
-                if(!room.memory.danger) room.memory.shellMinAtDanger = perimeterMinHits(room);
+                if(!room.memory.danger) {
+                    room.memory.shellMinAtDanger = perimeterMinHits(room);
+                    // shellPeakHits is a per-raid high-water mark. Without this
+                    // reset, a shell that peaked in an old raid then decayed to
+                    // floor made the NEXT raid's breach bar read healthy tiles
+                    // as damaged — the safemode arm could spend a charge on a
+                    // camp that broke nothing.
+                    delete room.memory.shellPeakHits;
+                }
                 room.memory.danger = true;
                 // Retaliation ledger (doctrine §4.6): every player whose creep
                 // threatens an owned room is promoted in War/score.
@@ -638,6 +654,7 @@ function roomDefence(room) {
                 }
                 if(!Memory.DistressSignals.reinforce_me) {
                     Memory.DistressSignals.reinforce_me = room.name;
+                    (Memory.DistressSignals as any).sent = Game.time;
                 }
             }
 
@@ -671,7 +688,10 @@ function roomDefence(room) {
                 delete Memory.DistressSignals.reinforce_me;
             }
         }
-        if(HostileCreeps.length > 0) {
+        // Match `danger`'s bar: a MOVE-only scout is not a blown fuse, but the
+        // spawning-side reader treats blown_fuse as "wrecked" for cross-room
+        // emergency feeding — a parked harmless scout used to pin it forever.
+        if(hostileThreatCount(HostileCreeps) > 0) {
             room.memory.blown_fuse = true;
         }
         else {
@@ -1134,7 +1154,20 @@ export default roomDefence;
 
 
 
+// The civilian-flee roomCallback rebuilt a 2500-tile matrix plus a full
+// FIND_STRUCTURES per threatened civilian per tick during RCL≤5 raids.
+// Structures cannot change inside a tick, so one build per room per tick.
+const fleeCostCache: { [roomName: string]: { t: number; m: boolean | CostMatrix } } = {};
+
 const pathAroundMyRampartsAndStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
+    const hit = fleeCostCache[roomName];
+    if (hit && hit.t === Game.time) return hit.m;
+    const m = buildFleeCostMatrix(roomName);
+    fleeCostCache[roomName] = { t: Game.time, m: m };
+    return m;
+};
+
+const buildFleeCostMatrix = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
