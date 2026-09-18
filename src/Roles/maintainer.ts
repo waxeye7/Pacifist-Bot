@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
-import { isSanctionedRampart, isPlannedContainer } from "utils/PlanV2";
+import { isSanctionedRampart, isPlannedContainer, deadControllerDepotTile } from "utils/PlanV2";
 import { cachedDerived, cachedStructures } from "utils/RoomCache";
 
 /**
@@ -288,8 +288,31 @@ const run = function (creep) {
             return all.filter((s:any) => s.id === bin || isPlannedContainer(creep.room, s.pos));
         });
 
+        /*
+         * THE DEAD CONTROLLER DEPOT. The pre-link box next to the controller
+         * is obsoleted by the link itself: nothing fills it (e0 on every
+         * live room), and PlanV2 drops its tile from the container schedule
+         * once a controller link stands, so repairing it is upkeep on a
+         * corpse that will never be re-sited anyway. PlanV2 is the single
+         * authority on WHICH box is dead — this only checks the standing
+         * container on that tile — and it is skipped only while EMPTY (a
+         * stocked one may be serving as somebody's buffer). It decays out
+         * and stays dead.
+         */
+        const deadDepot = cachedDerived(creep.room, "maintainerDeadDepot", () => {
+            const tile = deadControllerDepotTile(creep.room);
+            if (!tile) return 0;
+            for (const s of cachedStructures(creep.room)) {
+                if (s.structureType !== STRUCTURE_CONTAINER) continue;
+                if (s.pos.x !== tile.x || s.pos.y !== tile.y) continue;
+                return (s.store && s.store[RESOURCE_ENERGY]) ? 0 : s.id;
+            }
+            return 0;
+        });
+
         if(containers.length > 0) {
             for(let container of containers) {
+                if(container.id === deadDepot) continue;
                 if(container.hits <= container.hitsMax - 500) {
                     buildingsToRepair.push(container);
                 }

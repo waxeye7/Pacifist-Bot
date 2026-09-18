@@ -1664,6 +1664,92 @@ function containerStageOrder(plan: PackedPlan): { order: number[]; early: number
 }
 
 /**
+ * A real controller link standing within 3 of the controller. That is the
+ * upgrade depot's obituary: the link carries the energy now.
+ */
+function hasControllerLink(room: Room): boolean {
+  const ctrl = room.controller;
+  if (!ctrl) return false;
+  return (
+    room.find(FIND_STRUCTURES, {
+      filter: (s: any) =>
+        s.structureType === STRUCTURE_LINK && s.pos.getRangeTo(ctrl.pos) <= 3,
+    }).length > 0
+  );
+}
+
+/**
+ * THE PRE-LINK CONTROLLER DEPOT — the index of the planned container the
+ * planner parks next to the controller so upgraders have a box before the
+ * link exists. Once a real controller link stands (and a storage covers the
+ * fallback), nothing fills that box again: live shard3 held every one at e0
+ * and ~10% hits while the maintainer paid trips and energy to keep the
+ * corpse warm, and if it ever died the placer re-sited a 5,000-energy
+ * rebuild of a box nobody uses.
+ *
+ * Identified structurally like the mineral seat: the planned container
+ * nearest the controller (within 4), never a source seat and never the
+ * deferred mineral index — E8S3's controller sits 3 tiles from its mineral,
+ * so both boxes can be controller-adjacent there.
+ */
+function controllerDepotIndex(
+  plan: PackedPlan,
+  room: Room,
+  excludeIdx: number,
+): number {
+  const ctrl = room.controller;
+  if (!ctrl) return -1;
+  const planned = plan.t[STRUCTURE_CONTAINER] || [];
+  const sources = room.find(FIND_SOURCES);
+  let best = -1;
+  let bestD = 5;
+  for (let i = 0; i < planned.length; i++) {
+    if (i === excludeIdx) continue;
+    const c = unpack(planned[i]);
+    if (
+      sources.some(
+        (s: any) =>
+          Math.abs(c.x - s.pos.x) <= 1 && Math.abs(c.y - s.pos.y) <= 1,
+      )
+    ) {
+      continue;
+    }
+    const d = Math.max(Math.abs(c.x - ctrl.pos.x), Math.abs(c.y - ctrl.pos.y));
+    if (d < bestD) {
+      bestD = d;
+      best = i;
+    }
+  }
+  return best;
+}
+
+/**
+ * The depot tile the link obsoleted, or null while the room still needs its
+ * box: no plan, no controller, no owned storage (the depot is then the only
+ * upgrader fallback), or no standing controller link. This is the single
+ * authority on WHICH box is dead — plannedTilesFor drops it from the staging
+ * order and Roles/maintainer stops repairing the standing container on this
+ * tile, so the two can never pick different boxes. Lose the link and the
+ * answer becomes null again: the depot returns to the schedule.
+ */
+export function deadControllerDepotTile(
+  room: Room,
+): { x: number; y: number } | null {
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  const planned = plan && plan.t ? plan.t[STRUCTURE_CONTAINER] : undefined;
+  const stor = room.storage;
+  if (!planned || !planned.length || !stor || !stor.my) return null;
+  if (!hasControllerLink(room)) return null;
+  const staged = containerStageOrder(plan);
+  const deferredIdx =
+    staged.early < staged.order.length
+      ? staged.order[staged.order.length - 1]
+      : -1;
+  const depotIdx = controllerDepotIndex(plan, room, deferredIdx);
+  return depotIdx >= 0 ? unpack(planned[depotIdx]) : null;
+}
+
+/**
  * Speedrun extension schedule (also used by the legacy placer — race rooms
  * often have no planV2, and used to ignore this and site all 10 at RCL3):
  *   RCL2 — all 5 instantly (300→550; 4W/parked bodies need this).
@@ -1683,7 +1769,8 @@ export function extensionTake(lvl: number, engineCap: number, room?: Room): numb
   return engineCap;
 }
 
-function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Room): number[] {
+// Exported for tests (dead-depot staging, RCL2 sprawl prefix).
+export function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Room): number[] {
   const planned = plan.t[type] || [];
   if (type === STRUCTURE_EXTENSION) {
     const caps = (CONTROLLER_STRUCTURES as any)[type];
@@ -1695,6 +1782,29 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Roo
   const staged = containerStageOrder(plan);
   const caps = (CONTROLLER_STRUCTURES as any)[type];
   const cap = caps ? caps[lvl] || 0 : planned.length;
+  let order = staged.order;
+  let early = staged.early;
+  /*
+   * THE DEAD DEPOT LEAVES THE SCHEDULE, NOT THE PLAN.
+   *
+   * Once a controller link stands and a storage covers the fallback, the
+   * pre-link controller depot is dead weight: nothing fills it and the
+   * maintainer's upkeep is pure waste. Dropping its index from the staging
+   * order means it is never re-sited after it decays out — and because
+   * migrateClass reads on-plan from the FULL plan.t array, the standing box
+   * is never a squatter either. It just dies of neglect and stays dead. The
+   * link being destroyed returns the tile to the schedule, so a room that
+   * loses its link earns its depot back.
+   */
+  const deadTile = room ? deadControllerDepotTile(room) : null;
+  if (deadTile) {
+    const depotIdx = planned.indexOf(deadTile.x + deadTile.y * 50);
+    if (depotIdx >= 0) {
+      order = staged.order.filter((i: number) => i !== depotIdx);
+      early =
+        staged.early < staged.order.length ? order.length - 1 : order.length;
+    }
+  }
   // RCL2: first source container only (plan-order prefix of the early set).
   // Second source + controller stay on the same order at RCL3; mineral at RCL6.
   // Nested prefixes: 1 ⊂ early ⊂ all. Never reorder — migrate is FREE_REPLACE.
@@ -1708,18 +1818,18 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Roo
   // controller is far from the hub, stage the WHOLE early set at RCL2: two
   // boxes (~10k energy) beat five thousand ticks of commute. The prefix stays
   // nested (early ⊂ all), so migration order is untouched.
-  let rcl2Early = Math.min(1, staged.early);
+  let rcl2Early = Math.min(1, early);
   if (lvl === 2 && room && room.controller) {
     const sp = room.find(FIND_MY_SPAWNS)[0];
-    if (sp && sp.pos.getRangeTo(room.controller) > 10) rcl2Early = staged.early;
+    if (sp && sp.pos.getRangeTo(room.controller) > 10) rcl2Early = early;
   }
-  const beforeExtractor = lvl < 3 ? rcl2Early : staged.early;
-  const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? staged.order.length : beforeExtractor);
+  const beforeExtractor = lvl < 3 ? rcl2Early : early;
+  const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? order.length : beforeExtractor);
   // the whole order — return the plan's own array, unallocated and unchanged
   if (take >= planned.length) return planned;
   if (take <= 0) return [];
   const keep: { [i: number]: boolean } = {};
-  for (let i = 0; i < take; i++) keep[staged.order[i]] = true;
+  for (let i = 0; i < take; i++) keep[order[i]] = true;
   const out: number[] = [];
   for (let i = 0; i < planned.length; i++) if (keep[i]) out.push(planned[i]);
   return out;
