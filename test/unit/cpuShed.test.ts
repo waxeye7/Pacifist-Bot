@@ -112,7 +112,7 @@ describe("RCL2 container staging: the sprawl exception (PlanV2)", () => {
     const body = fnBody(PLAN, "plannedTilesFor");
 
     it("compact rooms still take exactly one box at RCL2", () => {
-        assert.match(body, /let rcl2Early = Math\.min\(1, staged\.early\);/,
+        assert.match(body, /let rcl2Early = Math\.min\(1, early\);/,
             "the one-box default is the whole point of the staging");
     });
 
@@ -120,13 +120,13 @@ describe("RCL2 container staging: the sprawl exception (PlanV2)", () => {
         assert.match(body, /lvl === 2 && room && room\.controller/,
             "the exception is RCL2-only and needs the live room object");
         const guard = oneLine(body, /getRangeTo\(room\.controller\) > 10/);
-        assert.include(guard, "rcl2Early = staged.early",
+        assert.include(guard, "rcl2Early = early",
             "the widening must live on the SAME statement as the range guard — a bare " +
-            "`rcl2Early = staged.early` gives every bench room two boxes at RCL2");
+            "`rcl2Early = early` gives every bench room two boxes at RCL2");
     });
 
     it("the prefix stays nested: RCL<3 takes rcl2Early, RCL3+ takes the early set", () => {
-        assert.match(body, /const beforeExtractor = lvl < 3 \? rcl2Early : staged\.early;/,
+        assert.match(body, /const beforeExtractor = lvl < 3 \? rcl2Early : early;/,
             "1 SUBSET early SUBSET all — migration order is FREE_REPLACE and must never reorder");
     });
 });
