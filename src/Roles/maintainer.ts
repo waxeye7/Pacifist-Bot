@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, dangerNow, interiorReady, rampartIsBuried } from "utils/Interior";
-import { isSanctionedRampart, isPlannedContainer, deadControllerDepotTile } from "utils/PlanV2";
+import { isSanctionedRampart, isPlannedContainer, deadContainerTiles } from "utils/PlanV2";
 import { cachedDerived, cachedStructures } from "utils/RoomCache";
 
 /**
@@ -289,30 +289,34 @@ const run = function (creep) {
         });
 
         /*
-         * THE DEAD CONTROLLER DEPOT. The pre-link box next to the controller
-         * is obsoleted by the link itself: nothing fills it (e0 on every
-         * live room), and PlanV2 drops its tile from the container schedule
-         * once a controller link stands, so repairing it is upkeep on a
-         * corpse that will never be re-sited anyway. PlanV2 is the single
-         * authority on WHICH box is dead — this only checks the standing
-         * container on that tile — and it is skipped only while EMPTY (a
-         * stocked one may be serving as somebody's buffer). It decays out
-         * and stays dead.
+         * THE DEAD BOXES. The pre-link controller depot is obsoleted by the
+         * link itself, and the mineral seat is dead under every condition —
+         * the miner hauls straight to storage and nothing ever stocks the
+         * box (every live room: e0). PlanV2 drops both tiles from the
+         * container schedule, so repairing them is upkeep on corpses that
+         * will never be re-sited anyway. PlanV2 is the single authority on
+         * WHICH tiles are dead — this only checks the standing containers
+         * on them — and a box is skipped only while EMPTY of EVERYTHING (a
+         * stocked one may be serving as somebody's buffer — a sweeper's
+         * generic energy fallback can land in any box). They decay out and
+         * stay dead.
          */
-        const deadDepot = cachedDerived(creep.room, "maintainerDeadDepot", () => {
-            const tile = deadControllerDepotTile(creep.room);
-            if (!tile) return 0;
+        const deadIds = cachedDerived(creep.room, "maintainerDeadContainers", () => {
+            const tiles = deadContainerTiles(creep.room);
+            const ids = [];
+            if (!tiles.length) return ids;
             for (const s of cachedStructures(creep.room)) {
                 if (s.structureType !== STRUCTURE_CONTAINER) continue;
-                if (s.pos.x !== tile.x || s.pos.y !== tile.y) continue;
-                return (s.store && s.store[RESOURCE_ENERGY]) ? 0 : s.id;
+                if (tiles.indexOf(s.pos.x + s.pos.y * 50) < 0) continue;
+                if (s.store && s.store.getUsedCapacity() > 0) continue;
+                ids.push(s.id);
             }
-            return 0;
+            return ids;
         });
 
         if(containers.length > 0) {
             for(let container of containers) {
-                if(container.id === deadDepot) continue;
+                if(deadIds.indexOf(container.id) >= 0) continue;
                 if(container.hits <= container.hitsMax - 500) {
                     buildingsToRepair.push(container);
                 }

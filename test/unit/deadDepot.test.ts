@@ -1,23 +1,33 @@
 /**
- * THE DEAD CONTROLLER DEPOT (owner report, live shard3).
+ * THE DEAD BOXES (owner report, live shard3).
  *
  * The planner emits containers as [source, source, controller-depot, mineral].
- * The depot exists so pre-link upgraders have a box to park at — but once a
- * real controller link stands, nothing ever fills it again: every RCL7 room
- * on live held the box at e0 and ~10% hits while the maintainer paid trips
- * and energy to defend the corpse forever, and had it died the placer would
- * have re-sited a 5,000e rebuild of a box nobody uses.
+ * Two of those four are corpses that creep upkeep defends forever:
  *
- * The fix drops the depot index from the container SCHEDULE only:
- *   - never re-sited after it decays out,
+ *  1. THE CONTROLLER DEPOT — exists so pre-link upgraders have a box. Once a
+ *     real controller link stands, nothing fills it again: every RCL7 room
+ *     on live held the box at e0 and ~10% hits while the maintainer paid
+ *     trips and energy to keep the corpse warm, and had it died the placer
+ *     would have re-sited a 5,000e rebuild of a box nobody uses.
+ *
+ *  2. THE MINERAL SEAT — dead under EVERY condition. Roles/mineralMiner
+ *     harvests into its own store and hauls straight to storage/terminal;
+ *     nothing ever puts minerals in a container (the E39N58 fix made that
+ *     a bug, not a feature). Live shard3: every mineral box at e0 — even
+ *     the rich RCL8 VPS rooms with standing extractors.
+ *
+ * The fix drops dead tiles from the container SCHEDULE only:
+ *   - never re-sited after they decay out,
  *   - still in plan.t, so migrateClass's full-array planTile never reads the
  *     standing box as a squatter (no FREE_REPLACE demolition),
- *   - gates on a live controller link AND a storage (without storage the box
- *     is the room's only upgrader fallback),
- *   - reversible: lose the link and the tile returns to the schedule.
+ *   - the depot's gate needs a live controller link AND a storage (without
+ *     storage the box is the room's only upgrader fallback) — reversible,
+ *   - the mineral seat's gate is unconditional — nothing fills it ever.
  *
- * Roles/maintainer carries the matching skip: the same depot, while empty,
- * is left to decay instead of repaired.
+ * Roles/maintainer carries the matching skip: the standing box on a dead
+ * tile is left to decay, but only while EMPTY of everything — a stocked
+ * one may be serving as somebody's buffer (a sweeper's generic energy
+ * fallback can land in any container).
  */
 import { assert } from "chai";
 import * as fs from "fs";
@@ -70,7 +80,7 @@ function room(
   };
 }
 
-describe("PlanV2 dead controller depot — the link retires the box", () => {
+describe("PlanV2 dead boxes — the link retires the depot, design retires the mineral seat", () => {
   it("keeps every planned container when no room context exists", () => {
     assert.strictEqual(
       plannedTilesFor(plan(), STRUCTURE_CONTAINER, 8).length,
@@ -79,10 +89,11 @@ describe("PlanV2 dead controller depot — the link retires the box", () => {
     );
   });
 
-  it("keeps the depot when no controller link stands", () => {
+  it("keeps the depot when no controller link stands — but not the mineral seat", () => {
     const tiles = plannedTilesFor(plan(), STRUCTURE_CONTAINER, 7, room(plan(), {}));
-    assert.strictEqual(tiles.length, 4);
+    assert.strictEqual(tiles.length, 3);
     assert.include(tiles, pack(38, 27), "no link — the depot is still wanted");
+    assert.notInclude(tiles, pack(46, 17), "the mineral seat is dead anyway");
   });
 
   it("keeps the depot when there is no storage — it is the only fallback", () => {
@@ -93,6 +104,7 @@ describe("PlanV2 dead controller depot — the link retires the box", () => {
       room(plan(), { link: true, storage: false }),
     );
     assert.include(tiles, pack(38, 27));
+    assert.notInclude(tiles, pack(46, 17), "the mineral seat is dead anyway");
   });
 
   it("drops the depot index once the link stands — the box is never re-sited", () => {
@@ -102,11 +114,23 @@ describe("PlanV2 dead controller depot — the link retires the box", () => {
       7,
       room(plan(), { link: true }),
     );
-    assert.strictEqual(tiles.length, 3, "one tile retired");
-    assert.notInclude(tiles, pack(38, 27), "the depot tile is the one dropped");
+    assert.strictEqual(tiles.length, 2, "both dead tiles retired");
+    assert.notInclude(tiles, pack(38, 27), "the depot tile is dropped");
+    assert.notInclude(tiles, pack(46, 17), "the mineral seat is dropped");
     assert.include(tiles, pack(9, 6), "source seats stay");
     assert.include(tiles, pack(6, 43), "source seats stay");
-    assert.include(tiles, pack(46, 17), "the mineral seat stays");
+  });
+
+  it("the mineral seat is dead under every condition — no gate at all", () => {
+    // No link, no storage, RCL6 — the box still leaves the schedule:
+    // nothing can ever fill it, so there is no state that revives it.
+    const tiles = plannedTilesFor(
+      plan(),
+      STRUCTURE_CONTAINER,
+      6,
+      room(plan(), { storage: false, link: false }),
+    );
+    assert.notInclude(tiles, pack(46, 17));
   });
 
   it("never mistakes the extractor-adjacent mineral seat for the depot", () => {
@@ -133,31 +157,34 @@ describe("PlanV2 dead controller depot — the link retires the box", () => {
       },
     } as any);
     // depot = 24,26 (nearest non-source, non-deferred); mineral 23,26 is the
-    // LAST extractor-adjacent index and must survive.
-    assert.strictEqual(tiles.length, 3);
+    // LAST extractor-adjacent index — both dead, only the seats survive.
+    assert.strictEqual(tiles.length, 2);
     assert.notInclude(tiles, pack(24, 26), "the controller depot dropped");
-    assert.include(tiles, pack(23, 26), "the mineral seat is never the depot");
+    assert.notInclude(tiles, pack(23, 26), "the mineral seat dropped too");
+    assert.include(tiles, pack(9, 6));
+    assert.include(tiles, pack(6, 43));
   });
 
   it("the drop composes with the RCL prefix — a linked room's early set shrinks too", () => {
     const tiles = plannedTilesFor(plan(), STRUCTURE_CONTAINER, 3, room(plan(), { link: true }));
     assert.notInclude(tiles, pack(38, 27));
+    assert.notInclude(tiles, pack(46, 17));
   });
 });
 
-describe("Roles/maintainer — the standing corpse is left to decay", () => {
-  it("computes the dead depot once per room per tick and skips it", () => {
-    assert.include(MAINTAINER, "maintainerDeadDepot");
-    assert.include(MAINTAINER, "container.id === deadDepot");
+describe("Roles/maintainer — the standing corpses are left to decay", () => {
+  it("computes the dead boxes once per room per tick and skips them", () => {
+    assert.include(MAINTAINER, "maintainerDeadContainers");
+    assert.include(MAINTAINER, "deadIds.indexOf(container.id)");
   });
 
-  it("lets PlanV2 pick WHICH box is dead — it only checks the tile", () => {
-    assert.include(MAINTAINER, "deadControllerDepotTile(creep.room)");
+  it("lets PlanV2 pick WHICH tiles are dead — it only checks standing boxes", () => {
+    assert.include(MAINTAINER, "deadContainerTiles(creep.room)");
   });
 
-  it("only skips while the box is EMPTY — a stocked container may be a buffer", () => {
-    const i = MAINTAINER.indexOf("maintainerDeadDepot");
+  it("only skips while the box is EMPTY of everything — a stocked one may be a buffer", () => {
+    const i = MAINTAINER.indexOf("maintainerDeadContainers");
     const block = MAINTAINER.slice(i, i + 900);
-    assert.include(block, "s.store[RESOURCE_ENERGY]");
+    assert.include(block, "getUsedCapacity");
   });
 });
