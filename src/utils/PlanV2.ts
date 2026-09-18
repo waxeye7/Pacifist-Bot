@@ -1724,29 +1724,46 @@ function controllerDepotIndex(
 }
 
 /**
- * The depot tile the link obsoleted, or null while the room still needs its
- * box: no plan, no controller, no owned storage (the depot is then the only
- * upgrader fallback), or no standing controller link. This is the single
- * authority on WHICH box is dead — plannedTilesFor drops it from the staging
- * order and Roles/maintainer stops repairing the standing container on this
- * tile, so the two can never pick different boxes. Lose the link and the
- * answer becomes null again: the depot returns to the schedule.
+ * THE DEAD BOXES — the planned container tiles that nothing fills, returned
+ * packed. This is the single authority on WHICH boxes are dead:
+ * plannedTilesFor drops them from the staging ORDER (the tiles stay in
+ * plan.t, so migrateClass's full-array planTile never reads the standing
+ * box as a squatter — it dies of neglect and is never re-sited), and
+ * Roles/maintainer stops repairing the standing box on each tile while it
+ * is empty, so the two can never pick different boxes.
+ *
+ *   1. THE PRE-LINK CONTROLLER DEPOT — obsoleted once a real controller
+ *      link stands and a storage covers the fallback. Without storage the
+ *      box is the room's only upgrader fallback and stays live; lose the
+ *      link and it returns to the schedule.
+ *
+ *   2. THE MINERAL SEAT — unconditionally. The planner still emits a box on
+ *      the mineral tile for a drop-mine flow that no longer exists:
+ *      Roles/mineralMiner harvests into its own store and hauls straight to
+ *      storage/terminal, and the E39N58 fix made "minerals in a container"
+ *      a bug, not a feature. Live shard3 held every one at e0 — even the
+ *      rich RCL8 VPS rooms with standing extractors — while the maintainer
+ *      paid the decay floor forever and the placer queued a 5,000e rebuild
+ *      of a box nothing uses. The only thing that can ever stock it is a
+ *      sweeper's generic energy fallback — the maintainer skip keys on
+ *      empty, so a stocked one keeps its accidental keep.
  */
-export function deadControllerDepotTile(
-  room: Room,
-): { x: number; y: number } | null {
+export function deadContainerTiles(room: Room): number[] {
   const plan = room.memory.planV2 as PackedPlan | undefined;
   const planned = plan && plan.t ? plan.t[STRUCTURE_CONTAINER] : undefined;
-  const stor = room.storage;
-  if (!planned || !planned.length || !stor || !stor.my) return null;
-  if (!hasControllerLink(room)) return null;
+  if (!planned || !planned.length) return [];
   const staged = containerStageOrder(plan);
   const deferredIdx =
     staged.early < staged.order.length
       ? staged.order[staged.order.length - 1]
       : -1;
-  const depotIdx = controllerDepotIndex(plan, room, deferredIdx);
-  return depotIdx >= 0 ? unpack(planned[depotIdx]) : null;
+  const dead: number[] = [];
+  if (room.storage && room.storage.my && hasControllerLink(room)) {
+    const depotIdx = controllerDepotIndex(plan, room, deferredIdx);
+    if (depotIdx >= 0) dead.push(planned[depotIdx]);
+  }
+  if (deferredIdx >= 0) dead.push(planned[deferredIdx]);
+  return dead;
 }
 
 /**
@@ -1785,25 +1802,28 @@ export function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, roo
   let order = staged.order;
   let early = staged.early;
   /*
-   * THE DEAD DEPOT LEAVES THE SCHEDULE, NOT THE PLAN.
+   * THE DEAD BOXES LEAVE THE SCHEDULE, NOT THE PLAN.
    *
-   * Once a controller link stands and a storage covers the fallback, the
-   * pre-link controller depot is dead weight: nothing fills it and the
-   * maintainer's upkeep is pure waste. Dropping its index from the staging
-   * order means it is never re-sited after it decays out — and because
-   * migrateClass reads on-plan from the FULL plan.t array, the standing box
-   * is never a squatter either. It just dies of neglect and stays dead. The
-   * link being destroyed returns the tile to the schedule, so a room that
-   * loses its link earns its depot back.
+   * deadContainerTiles names every planned box nothing fills — the pre-link
+   * controller depot while a link+storage stand, and the mineral seat under
+   * every condition (the miner hauls direct; nothing ever stocks it).
+   * Dropping their indices from the staging order means they are never
+   * re-sited after they decay out — and because migrateClass reads on-plan
+   * from the FULL plan.t array, the standing box is never a squatter either.
+   * It just dies of neglect and stays dead. The depot's gate is reversible:
+   * lose the link and its tile returns to the schedule.
    */
-  const deadTile = room ? deadControllerDepotTile(room) : null;
-  if (deadTile) {
-    const depotIdx = planned.indexOf(deadTile.x + deadTile.y * 50);
-    if (depotIdx >= 0) {
-      order = staged.order.filter((i: number) => i !== depotIdx);
-      early =
-        staged.early < staged.order.length ? order.length - 1 : order.length;
+  const deadTiles = room ? deadContainerTiles(room) : [];
+  if (deadTiles.length) {
+    const deadIdx: { [i: number]: boolean } = {};
+    for (const t of deadTiles) {
+      const i = planned.indexOf(t);
+      if (i >= 0) deadIdx[i] = true;
     }
+    order = staged.order.filter((i: number) => !deadIdx[i]);
+    // the staging tail only ever held the mineral seat — it is dead, so the
+    // early set is now the whole surviving order
+    early = order.length;
   }
   // RCL2: first source container only (plan-order prefix of the early set).
   // Second source + controller stay on the same order at RCL3; mineral at RCL6.
