@@ -1074,8 +1074,10 @@ describe("site freeze vs expensive furniture", () => {
         // room broke-latched at 5-9k with nothing funding recovery. One
         // ladder, shared by the placer, the strip, this freeze and the
         // funnel's donor reserve — they cannot disagree.
-        assert.equal(siteFreezeBank(6), 50000);
-        assert.equal(siteFreezeBank(7), 120000);
+        // Raised again (was 50k/120k/250k): bank deep enough to finish the
+        // build — labs especially — before the freeze releases.
+        assert.equal(siteFreezeBank(6), 150000);
+        assert.equal(siteFreezeBank(7), 200000);
         assert.equal(siteFreezeBank(8), 250000);
         assert.equal(siteFreezeBank(5), 0);
     });

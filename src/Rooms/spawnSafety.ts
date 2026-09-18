@@ -90,11 +90,16 @@ export function isLastHatchery(room: any): boolean {
  * builder withdraw floor and the donor ship floor cannot disagree. Raised
  * 2026-09-17 (was 150k/80k/30k): the live audit found every room broke-latched
  * at 5-9k with nothing funding recovery, so each rung now holds back more.
+ * Raised again (was 50k/120k/250k): the owner wants a room banked deep enough
+ * to finish a build — labs especially — before the freeze releases, not to
+ * trickle-build at 50k and starve. Emergencies are unaffected: nothing on
+ * this ladder gates danger, spawn-safety or the emergency funnel, which all
+ * read their own thresholds.
  */
 export function siteFreezeBank(lvl: number): number {
     if (lvl >= 8) return 250000;
-    if (lvl >= 7) return 120000;
-    if (lvl >= 6) return 50000;
+    if (lvl >= 7) return 200000;
+    if (lvl >= 6) return 150000;
     return 0;
 }
 
