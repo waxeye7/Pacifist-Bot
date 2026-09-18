@@ -21,15 +21,15 @@ import {
  *   - Exception: an RCL6-7 room that cannot fire safe mode (no charge, or
  *     still on cooldown) builds its shell as an emergency, and the funnel
  *     feeds it the energy to do it.
- *   - The bank floor ladder is raised at every RCL (50k / 120k / 250k) and
+ *   - The bank floor ladder is raised at every RCL (150k / 200k / 250k) and
  *     is now ONE ladder (siteFreezeBank) shared by the placer, the strip,
  *     the builder withdraw floor and the donor reserve.
  */
 describe("siteFreezeBank — the shared per-RCL bank ladder", () => {
   it("holds the raised floors", () => {
     assert.strictEqual(siteFreezeBank(8), 250000);
-    assert.strictEqual(siteFreezeBank(7), 120000);
-    assert.strictEqual(siteFreezeBank(6), 50000);
+    assert.strictEqual(siteFreezeBank(7), 200000);
+    assert.strictEqual(siteFreezeBank(6), 150000);
     assert.strictEqual(siteFreezeBank(5), 0);
     assert.strictEqual(siteFreezeBank(1), 0);
   });
